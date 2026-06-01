@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KFit — Train Smart. Eat Right.</title>
+<meta name="description" content="KFit by Karan K.M. Malani — AI-powered nutrition tracking and fitness coaching.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{
+    --sage:#4a8050;
+    --gold:#c8922a;
+    --dark:#0f0f0d;
+    --cream:#faf8f3;
+    --txt:#ffffff;
+    --txt2:#c8c8c0;
+  }
+  html,body{height:100%;background:#141412;}
+
+  /* ── INSTAGRAM BANNER ── */
+  #igBanner{
+    display:none;
+    position:fixed;inset:0;z-index:9999;
+    background:rgba(10,10,8,.92);
+    backdrop-filter:blur(8px);
+    align-items:center;justify-content:center;
+    padding:24px;
+  }
+  #igBanner.show{display:flex;}
+  .ig-card{
+    background:#fff;border-radius:20px;
+    padding:32px 24px 28px;
+    max-width:360px;width:100%;
+    text-align:center;
+    box-shadow:0 32px 80px rgba(0,0,0,.35);
+  }
+  .ig-logo{font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:900;color:var(--txt);margin-bottom:6px;}
+  .ig-logo span{color:var(--sage);}
+  .ig-title{font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:700;color:var(--txt);margin-bottom:8px;}
+  .ig-sub{font-family:'DM Sans',sans-serif;font-size:.82rem;color:var(--txt2);line-height:1.6;margin-bottom:24px;}
+  .ig-step{
+    display:flex;align-items:flex-start;gap:12px;
+    background:#f7f7f5;border-radius:12px;padding:14px;
+    margin-bottom:10px;text-align:left;
+  }
+  .ig-num{
+    background:var(--sage);color:#fff;border-radius:50%;
+    width:24px;height:24px;min-width:24px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:700;
+  }
+  .ig-step-text{font-family:'DM Sans',sans-serif;font-size:.8rem;color:var(--txt);line-height:1.5;}
+  .ig-step-text b{color:var(--sage);}
+  .ig-btn{
+    width:100%;margin-top:18px;padding:14px;
+    background:var(--sage);color:#fff;border:none;border-radius:12px;
+    font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:700;
+    cursor:pointer;letter-spacing:.02em;
+  }
+  .ig-btn-ghost{
+    width:100%;margin-top:10px;padding:10px;
+    background:transparent;color:var(--txt2);border:1px solid #e0e0d8;border-radius:12px;
+    font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:500;cursor:pointer;
+  }
+
+  /* ── MAIN PAGE ── */
+  .page{min-height:100vh;display:flex;flex-direction:column;}
+
+  header{
+    padding:20px 24px 0;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .logo{font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:900;color:#fff;}
+  .logo span{color:var(--sage);}
+  .tagline-small{font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:500;color:#aaa;letter-spacing:.08em;text-transform:uppercase;}
+
+  .hero{
+    flex:1;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    padding:40px 24px 20px;text-align:center;
+  }
+  .hero-eyebrow{
+    font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:700;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--sage);
+    margin-bottom:14px;
+  }
+  .hero-title{
+    font-family:'Playfair Display',serif;font-size:2.6rem;font-weight:900;
+    color:#fff;line-height:1.1;margin-bottom:16px;
+  }
+  .hero-title em{color:var(--sage);font-style:italic;}
+  .hero-sub{
+    font-family:'DM Sans',sans-serif;font-size:.9rem;color:var(--txt2);
+    line-height:1.65;max-width:300px;margin:0 auto 36px;
+  }
+
+  .cta-group{display:flex;flex-direction:column;gap:10px;width:100%;max-width:320px;}
+  .cta-primary{
+    padding:16px 24px;background:var(--sage);color:#fff;border:none;border-radius:14px;
+    font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;
+    text-decoration:none;display:block;text-align:center;letter-spacing:.02em;
+    box-shadow:0 4px 20px rgba(74,128,80,.3);
+    transition:transform .15s,box-shadow .15s;
+  }
+  .cta-primary:active{transform:scale(.97);}
+  .cta-secondary{
+    padding:14px 24px;background:transparent;color:var(--txt);
+    border:1.5px solid #d8d5cc;border-radius:14px;
+    font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:600;cursor:pointer;
+    text-decoration:none;display:block;text-align:center;
+    transition:border-color .15s;
+  }
+
+  .features{
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;
+    padding:0 24px 32px;max-width:500px;margin:0 auto;width:100%;
+  }
+  .feat{
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:14px;
+    padding:16px 14px;
+  }
+  .feat-icon{font-size:1.4rem;margin-bottom:8px;}
+  .feat-title{font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:700;color:#fff;margin-bottom:3px;}
+  .feat-desc{font-family:'DM Sans',sans-serif;font-size:.7rem;color:#aaa;line-height:1.5;}
+
+  footer{
+    padding:16px 24px 32px;text-align:center;
+    font-family:'DM Sans',sans-serif;font-size:.72rem;color:#888;
+  }
+  footer a{color:var(--sage);text-decoration:none;}
+
+  /* install modal */
+  #installModal{
+    display:none;position:fixed;inset:0;z-index:999;
+    background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center;
+  }
+  #installModal.show{display:flex;}
+  .install-card{
+    background:#1e1e1c;border-radius:20px 20px 0 0;
+    padding:28px 24px 44px;width:100%;max-width:480px;
+  }
+  .install-card h3{font-family:'Playfair Display',serif;font-size:1.2rem;color:#fff;margin-bottom:6px;}
+  .install-card p{font-family:'DM Sans',sans-serif;font-size:.82rem;color:#aaa;margin-bottom:20px;}
+  .install-step{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;}
+  .install-num{background:var(--sage);color:#fff;border-radius:50%;width:26px;height:26px;min-width:26px;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:700;}
+  .install-text{font-family:'DM Sans',sans-serif;font-size:.82rem;color:#ddd;line-height:1.55;}
+  .install-text b{color:var(--sage);}
+  .install-close{width:100%;margin-top:20px;padding:14px;background:var(--sage);color:#fff;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<!-- Instagram in-app browser detection overlay -->
+<div id="igBanner">
+  <div class="ig-card">
+    <div class="ig-logo"><span>K</span>Fit</div>
+    <div style="font-family:'DM Sans',sans-serif;font-size:.7rem;color:#aaa;margin-bottom:20px;letter-spacing:.06em;text-transform:uppercase;">by Karan K.M. Malani</div>
+    <div class="ig-title">Open in Chrome for the full experience</div>
+    <div class="ig-sub">You're viewing KFit inside Instagram. To install the app and use all features, open it in your phone's browser.</div>
+    <div class="ig-step">
+      <div class="ig-num">1</div>
+      <div class="ig-step-text">Tap the <b>⋮ menu</b> (top right of this screen)</div>
+    </div>
+    <div class="ig-step">
+      <div class="ig-num">2</div>
+      <div class="ig-step-text">Tap <b>"Open in Chrome"</b> (or your default browser)</div>
+    </div>
+    <div class="ig-step">
+      <div class="ig-num">3</div>
+      <div class="ig-step-text">Once in Chrome, tap <b>"Add to Home Screen"</b> inside the KFit app</div>
+    </div>
+    <button class="ig-btn" onclick="document.getElementById('igBanner').classList.remove('show')">Continue anyway</button>
+  </div>
+</div>
+
+<!-- Install modal -->
+<div id="installModal">
+  <div class="install-card">
+    <h3>📲 Add to Home Screen</h3>
+    <p id="installSub"></p>
+    <div id="installSteps"></div>
+    <button class="install-close" onclick="document.getElementById('installModal').classList.remove('show')">Got it</button>
+  </div>
+</div>
+
+<div class="page">
+  <header>
+    <div>
+      <div class="logo"><span>K</span>Fit</div>
+      <div class="tagline-small">by Karan K.M. Malani</div>
+    </div>
+    <button onclick="showInstall()" style="background:transparent;border:1.5px solid rgba(255,255,255,.25);border-radius:10px;padding:8px 14px;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:700;color:#fff;cursor:pointer;">📲 Install App</button>
+  </header>
+
+  <div class="hero">
+    <div class="hero-eyebrow">Science-Based Fitness & Nutrition</div>
+    <h1 class="hero-title">Train Smart.<br><em>Eat Right.</em></h1>
+    <p class="hero-sub">Photo-based macro tracking, personalised workout logging, and science-backed analysis — all in one place.</p>
+
+    <div class="cta-group">
+      <a href="https://kfit.pages.dev/km-nutrition-tracker" class="cta-primary">🥗 Open Nutrition Tracker</a>
+      <a href="https://kfit.pages.dev/km-fitness-tracker" class="cta-secondary" style="color:#fff;border-color:rgba(255,255,255,.25);">💪 Open Fitness Tracker</a>
+    </div>
+  </div>
+
+  <div class="features">
+    <div class="feat">
+      <div class="feat-icon">📸</div>
+      <div class="feat-title">Photo Macros</div>
+      <div class="feat-desc">AI analyses your meal and breaks down calories, protein, carbs & fat instantly.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">📊</div>
+      <div class="feat-title">Full History</div>
+      <div class="feat-desc">Daily, weekly & monthly macro trends so you can track your progress over time.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">🏋️</div>
+      <div class="feat-title">Workout Log</div>
+      <div class="feat-desc">Log sets, reps & weight. See your last session for every exercise automatically.</div>
+    </div>
+    <div class="feat">
+      <div class="feat-icon">👤</div>
+      <div class="feat-title">Your Coach</div>
+      <div class="feat-desc">Personalised plans set by Karan. Your data, your progress, your results.</div>
+    </div>
+  </div>
+
+  <footer>
+    Built by <a href="https://instagram.com/karankmmalani">@karankmmalani</a> · KFit © 2026
+  </footer>
+</div>
+
+<script>
+// Detect Instagram in-app browser
+var isIG=/instagram/i.test(navigator.userAgent)||/FBAN|FBAV/i.test(navigator.userAgent);
+if(isIG){
+  document.getElementById('igBanner').classList.add('show');
+}
+
+// Install prompt
+var deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',function(e){
+  e.preventDefault();
+  deferredPrompt=e;
+});
+
+function showInstall(){
+  if(deferredPrompt){
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(function(){deferredPrompt=null;});
+    return;
+  }
+  var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  var sub=document.getElementById('installSub');
+  var steps=document.getElementById('installSteps');
+  if(isIOS){
+    sub.textContent='Install KFit on your iPhone:';
+    steps.innerHTML='<div class="install-step"><div class="install-num">1</div><div class="install-text">Tap the <b>Share button ⎦↑</b> at the bottom of Safari</div></div>'
+      +'<div class="install-step"><div class="install-num">2</div><div class="install-text">Scroll down and tap <b>"Add to Home Screen"</b> → <b>Add</b></div></div>';
+  } else {
+    sub.textContent='Install KFit on your Android:';
+    steps.innerHTML='<div class="install-step"><div class="install-num">1</div><div class="install-text">Tap the <b>⋮ menu</b> (top right of Chrome)</div></div>'
+      +'<div class="install-step"><div class="install-num">2</div><div class="install-text">Tap <b>"Add to Home screen"</b> → <b>Add</b></div></div>';
+  }
+  document.getElementById('installModal').classList.add('show');
+}
+</script>
+</body>
+</html>
