@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KFit Voice — Speak Your Workout</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0a0a08;
+  --surf:#141412;
+  --surf2:#1e1e1c;
+  --border:#2a2a25;
+  --sage:#4a8050;
+  --sage-l:#6ab870;
+  --gold:#c8922a;
+  --terra:#c4694a;
+  --txt:#ffffff;
+  --txt2:#c8c8c0;
+  --txt3:#888880;
+}
+html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;color:var(--txt);overflow-x:hidden;}
+
+/* ── HEADER ── */
+.header{padding:20px 20px 0;display:flex;justify-content:space-between;align-items:center;}
+.logo{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:900;}
+.logo .k{color:var(--sage);}
+.logo .fit{color:var(--terra);}
+.logo-sub{font-size:.65rem;color:var(--txt3);letter-spacing:.08em;text-transform:uppercase;margin-top:2px;}
+
+/* ── LOGIN ── */
+#loginScreen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;padding:24px;}
+.login-card{background:var(--surf);border:1px solid var(--border);border-radius:20px;padding:28px 24px;width:100%;max-width:360px;}
+.login-title{font-size:1.1rem;font-weight:800;color:var(--txt);margin-bottom:4px;}
+.login-sub{font-size:.75rem;color:var(--txt3);margin-bottom:20px;}
+.field-label{font-size:.7rem;font-weight:700;color:var(--txt2);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;}
+.field-inp{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:.9rem;margin-bottom:16px;outline:none;}
+.field-inp:focus{border-color:var(--sage);}
+.login-btn{width:100%;padding:14px;background:var(--sage);border:none;border-radius:12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;}
+.login-err{font-size:.72rem;color:var(--terra);margin-top:8px;text-align:center;}
+
+/* ── MAIN ── */
+#mainScreen{display:none;padding:0 0 100px;}
+.user-bar{padding:16px 20px 0;display:flex;justify-content:space-between;align-items:center;}
+.user-name{font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:900;color:var(--txt);}
+.logout-btn{background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:.68rem;font-weight:600;color:var(--txt3);cursor:pointer;font-family:'DM Sans',sans-serif;}
+
+/* ── GUIDE ── */
+.guide-toggle{margin:0 20px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;padding:12px 14px;background:var(--surf);border:1px solid var(--border);border-radius:12px;}
+.guide-toggle-label{font-size:.78rem;font-weight:700;color:var(--txt2);flex:1;}
+.guide-toggle-icon{font-size:.9rem;color:var(--txt3);transition:transform .2s;}
+.guide-toggle-icon.open{transform:rotate(180deg);}
+#guideSection{display:none;margin:0 20px 16px;}
+.guide-card{background:var(--surf);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:10px;}
+.guide-section-title{padding:12px 16px;font-size:.65rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;display:flex;align-items:center;gap:8px;}
+.guide-section-title.green{color:var(--sage-l);background:rgba(74,128,80,.08);}
+.guide-section-title.gold{color:var(--gold);background:rgba(200,146,42,.08);}
+.guide-section-title.red{color:var(--terra);background:rgba(196,105,74,.08);}
+.guide-section-title.blue{color:#6a9ec8;background:rgba(106,158,200,.08);}
+.guide-items{padding:10px 16px 14px;}
+.guide-item{display:flex;align-items:flex-start;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);}
+.guide-item:last-child{border-bottom:none;}
+.guide-item-icon{font-size:.9rem;flex-shrink:0;margin-top:1px;}
+.guide-item-text{font-size:.78rem;color:var(--txt2);line-height:1.5;}
+.guide-item-text b{color:var(--txt);font-weight:700;}
+.guide-example{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--txt3);background:var(--surf2);border-radius:6px;padding:4px 8px;margin-top:4px;display:block;}
+.mic-section{padding:28px 20px 20px;text-align:center;}
+.mic-label{font-size:.68rem;font-weight:700;color:var(--txt3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:16px;}
+.mic-btn{width:100px;height:100px;border-radius:50%;background:var(--surf);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:2.2rem;cursor:pointer;margin:0 auto 16px;transition:all .2s;position:relative;}
+.mic-btn:active{transform:scale(.95);}
+.mic-btn.listening{background:var(--sage);border-color:var(--sage);box-shadow:0 0 0 12px rgba(74,128,80,.15),0 0 0 24px rgba(74,128,80,.07);}
+.mic-btn.processing{background:var(--gold);border-color:var(--gold);animation:pulse .8s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(200,146,42,.4);}50%{box-shadow:0 0 0 16px rgba(200,146,42,0);}}
+.mic-status{font-size:.78rem;color:var(--txt3);min-height:20px;}
+.mic-status.active{color:var(--sage-l);}
+.mic-status.processing{color:var(--gold);}
+
+/* ── TRANSCRIPT ── */
+.transcript-box{background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin:0 20px 16px;min-height:60px;font-family:'DM Mono',monospace;font-size:.82rem;color:var(--txt2);line-height:1.6;}
+.transcript-box.empty{color:var(--txt3);font-style:italic;font-family:'DM Sans',sans-serif;}
+
+/* ── PARSED PREVIEW ── */
+#parsedSection{display:none;padding:0 20px;}
+.parsed-title{font-size:.68rem;font-weight:800;color:var(--gold);letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px;}
+.parsed-card{background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px;}
+.parsed-ex-name{font-size:1rem;font-weight:800;color:var(--txt);margin-bottom:4px;}
+.parsed-bp{font-size:.68rem;color:var(--sage-l);font-weight:600;margin-bottom:10px;}
+.parsed-sets{display:grid;grid-template-columns:28px 1fr 1fr;gap:6px;align-items:center;}
+.parsed-hdr{font-size:.6rem;color:var(--txt3);text-align:center;letter-spacing:.07em;font-weight:600;margin-bottom:3px;}
+.parsed-snum{font-size:.72rem;color:var(--gold);text-align:center;font-weight:800;}
+.parsed-val{background:var(--surf2);border:1px solid var(--border);border-radius:8px;height:40px;display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;color:var(--txt);}
+.parsed-val.empty{color:var(--border);}
+.action-row{display:flex;gap:8px;margin-top:16px;}
+.btn-save{flex:1;padding:14px;background:var(--sage);border:none;border-radius:12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;}
+.btn-discard{padding:14px 18px;background:transparent;border:1px solid var(--border);border-radius:12px;color:var(--txt3);font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:600;cursor:pointer;}
+.btn-re{padding:14px 18px;background:transparent;border:1px solid var(--gold);border-radius:12px;color:var(--gold);font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;}
+
+/* ── HISTORY ── */
+.history-section{padding:20px 20px 0;}
+.hist-title{font-size:.68rem;font-weight:800;color:var(--txt3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px;}
+.hist-card{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:8px;}
+.hist-card-date{font-size:.7rem;color:var(--gold);font-weight:700;margin-bottom:4px;}
+.hist-card-ex{font-size:.82rem;color:var(--txt);font-weight:600;margin-bottom:2px;}
+.hist-card-sets{font-size:.7rem;color:var(--txt3);}
+.hist-empty{font-size:.78rem;color:var(--txt3);text-align:center;padding:20px 0;}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--sage);color:#fff;padding:10px 20px;border-radius:20px;font-size:.82rem;font-weight:700;opacity:0;transition:all .3s;pointer-events:none;z-index:999;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.error{background:var(--terra);}
+
+/* ── HINT PILLS ── */
+.hints{display:flex;flex-wrap:wrap;gap:6px;padding:0 20px 16px;}
+.hint{background:var(--surf2);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:.65rem;color:var(--txt3);font-family:'DM Mono',monospace;}
+
+.date-row{padding:0 20px 8px;display:flex;align-items:center;gap:10px;}
+.date-label{font-size:.68rem;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.08em;}
+.date-inp{background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:.82rem;outline:none;flex:1;}
+.date-inp:focus{border-color:var(--sage);}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button onclick="history.back()" style="background:transparent;border:none;color:var(--txt3);font-size:1.2rem;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;">←</button>
+    <div>
+      <div class="logo"><span class="k">K</span><span class="fit">Fit</span> Voice</div>
+      <div class="logo-sub">Speak your workout</div>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-title">Sign In</div>
+    <div class="login-sub">Use the same details as your KFit tracker</div>
+    <div class="field-label">Your Name</div>
+    <input class="field-inp" id="loginName" placeholder="e.g. Rano" onkeydown="if(event.key==='Enter')doLogin()">
+    <div class="field-label">Mobile Number</div>
+    <input class="field-inp" id="loginMobile" type="tel" placeholder="e.g. 9820012345" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">Sign In →</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="mainScreen">
+  <div class="user-bar">
+    <div class="user-name" id="userName"></div>
+    <button class="logout-btn" onclick="doLogout()">Log Out</button>
+  </div>
+
+  <!-- GUIDE -->
+  <div class="guide-toggle" onclick="toggleGuide()">
+    <span style="font-size:1.1rem;">📖</span>
+    <span class="guide-toggle-label">How to use Voice Input</span>
+    <span class="guide-toggle-icon" id="guideIcon">▼</span>
+  </div>
+  <div id="guideSection">
+
+    <div class="guide-card">
+      <div class="guide-section-title green">✅ What you CAN do</div>
+      <div class="guide-items">
+        <div class="guide-item">
+          <span class="guide-item-icon">💪</span>
+          <div class="guide-item-text">
+            <b>One exercise at a time or multiple in one go</b><br>
+            <span class="guide-example">"Goblet squat 3 sets 10 reps 12.5 kg"</span>
+            <span class="guide-example">"Bench press 3 sets then Romanian deadlift 3 sets 10 reps 20kg"</span>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-item-icon">📊</span>
+          <div class="guide-item-text">
+            <b>Different reps and weight per set</b><br>
+            <span class="guide-example">"Bench press set 1 ten reps 60kg set 2 eight reps 65kg set 3 six reps 70kg"</span>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-item-icon">✏️</span>
+          <div class="guide-item-text">
+            <b>Edit anything after AI parses it</b> — tap any field to correct the name, reps, or weight before saving
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-item-icon">🗑️</span>
+          <div class="guide-item-text">
+            <b>Remove exercises</b> from the parsed list before saving if something was picked up incorrectly
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-item-icon">🔄</span>
+          <div class="guide-item-text">
+            <b>Re-speak</b> if the AI misheard — tap the 🔄 button to try again with the same mic session
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="guide-card">
+      <div class="guide-section-title gold">💡 Tips for best results</div>
+      <div class="guide-items">
+        <div class="guide-item">
+          <span class="guide-item-icon">🗣️</span>
+          <div class="guide-item-text">
+            <b>Speak clearly and at a normal pace</b> — don't rush. The mic stays open until you stop talking.
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-item-icon">🔢</span>
+          <div class="guide-item-text">
+            <b>Say numbers as words or digits</b> — both work<br>
+            <span class="guide-example">"ten reps" or "10 reps" — both fine</span>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-item-icon">🏋️</span>
+          <div class="guide-item-text">
+            <b>Use the full exercise name</b> — the more specific the better<br>
+            <span class="guide-example">"Romanian deadlift" not just "deadlift"</span>
+            <span class="guide-example">"Lying hamstring curl" not just "curls"</span>
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-item-icon">📍</span>
+          <div class="guide-item-text">
+            <b>Quiet environment helps</b> — background gym noise can cause mis-transcriptions
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-item-icon">📅</span>
+          <div class="guide-item-text">
+            <b>Check the date</b> before saving — defaults to today but you can change it for past sessions
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="guide-card">
+      <div class="guide-section-title red">❌ What you CANNOT do</div>
+      <div class="guide-items">
+        <div class="guide-item">
+          <span class="guide-item-icon">⏱️</span>
+          <div class="guide-item-text">
+            <b>Log rest times or session duration</b> by voice — these need to be tracked live in the main tracker
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-item-icon">🏃</span>
+          <div class="guide-item-text">
+            <b>Log cardio activities</b> by voice — treadmill, cycling etc. must be added in the tracker directly
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-item-icon">📝</span>
+          <div class="guide-item-text">
+            <b>Add session notes</b> — notes section is not available in voice mode
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-item-icon">🌐</span>
+          <div class="guide-item-text">
+            <b>Works on Chrome and Safari only</b> — some browsers don't support the microphone API
+          </div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-item-icon">📵</span>
+          <div class="guide-item-text">
+            <b>Does not work offline</b> — needs internet to send speech to AI for parsing
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="guide-card">
+      <div class="guide-section-title blue">🔄 How it connects to your tracker</div>
+      <div class="guide-items">
+        <div class="guide-item">
+          <span class="guide-item-icon">1️⃣</span>
+          <div class="guide-item-text">Speak your workout → AI parses it → you review and correct</div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-item-icon">2️⃣</span>
+          <div class="guide-item-text">Tap <b>Save to KFit</b> → saved directly to your account on Supabase</div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-item-icon">3️⃣</span>
+          <div class="guide-item-text">Open your <b>KFit Fitness Tracker</b> → session appears automatically in History</div>
+        </div>
+        <div class="guide-item">
+          <span class="guide-item-icon">⚠️</span>
+          <div class="guide-item-text">
+            <b>Sign in with the same name and mobile</b> as your KFit tracker — otherwise the session won't link to your account
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="mic-section">
+    <div class="mic-label">Tap and speak your workout</div>
+    <div class="mic-btn" id="micBtn" onclick="toggleMic()">🎙️</div>
+    <div class="mic-status" id="micStatus">Tap mic to start</div>
+  </div>
+
+  <div class="hints">
+    <div class="hint">"Goblet squat 3 sets 10 reps 12kg"</div>
+    <div class="hint">"Bench press set 1 10 reps 60kg set 2 8 reps 65kg"</div>
+    <div class="hint">"Romanian deadlift 3 sets 10 reps 20kg"</div>
+    <div class="hint">"Leg press 3 sets 15 reps 60kg"</div>
+  </div>
+
+  <div class="transcript-box empty" id="transcriptBox">Your speech will appear here...</div>
+
+  <div class="date-row">
+    <div class="date-label">Date</div>
+    <input class="date-inp" type="date" id="sessionDate">
+  </div>
+
+  <div id="parsedSection">
+    <div class="parsed-title" style="padding:0 0 0 0;">✅ Parsed — Review before saving</div>
+    <div id="parsedCards"></div>
+    <div class="action-row">
+      <button class="btn-save" onclick="saveToTracker()">💾 Save to KFit</button>
+      <button class="btn-re" onclick="resetMic()">🔄</button>
+      <button class="btn-discard" onclick="resetAll()">✕</button>
+    </div>
+  </div>
+
+  <div class="history-section">
+    <div class="hist-title">Recent Voice Sessions</div>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+// ── CONFIG ──
+var SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
+var SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
+var GEMINI_WORKER='https://kfit-gemini.karnkmalani.workers.dev';
+var sbClient=null;
+function getSB(){
+  if(!sbClient) sbClient=supabase.createClient(SB_URL,SB_KEY);
+  return sbClient;
+}
+
+function ensureAnonAuth(callback){
+  var sb=getSB();
+  sb.auth.getSession().then(function(res){
+    var session=res.data&&res.data.session;
+    if(session&&session.user){
+      localStorage.setItem('kmfit_uid',session.user.id);
+      callback(session.user.id);
+    } else {
+      sb.auth.signInAnonymously().then(function(r){
+        if(r.error||!r.data||!r.data.user){callback(null);return;}
+        localStorage.setItem('kmfit_uid',r.data.user.id);
+        callback(r.data.user.id);
+      });
+    }
+  });
+}
+
+// ── STATE ──
+var currentName='',currentMobile='',currentKey='';
+var recognition=null,isListening=false;
+var currentTranscript='';
+var parsedExercises=[];
+var voiceHistory=[];
+
+// ── TOAST ──
+function showToast(msg,isError){
+  var t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='toast show'+(isError?' error':'');
+  setTimeout(function(){t.className='toast';},3000);
+}
+
+// ── GUIDE ──
+function toggleGuide(){
+  var section=document.getElementById('guideSection');
+  var icon=document.getElementById('guideIcon');
+  var open=section.style.display==='block';
+  section.style.display=open?'none':'block';
+  icon.className='guide-toggle-icon'+(open?'':' open');
+}
+
+// ── LOGIN ──
+function doLogin(){
+  var name=document.getElementById('loginName').value.trim();
+  var mobile=document.getElementById('loginMobile').value.replace(/\D/g,'');
+  if(!name){document.getElementById('loginErr').textContent='Enter your name';return;}
+  if(!mobile){document.getElementById('loginErr').textContent='Enter your mobile';return;}
+  document.getElementById('loginErr').textContent='Checking...';
+  // Verify against Supabase
+  getSB().from('tracker_data').select('data,client_id').eq('tracker','fitness').then(function(res){
+    if(res.error||!res.data){document.getElementById('loginErr').textContent='Could not connect';return;}
+    var match=res.data.find(function(r){
+      var cid=(r.client_id||'');
+      return cid.endsWith('__'+mobile)||cid===mobile||(r.data&&r.data.mobile&&r.data.mobile.replace(/\D/g,'')=== mobile);
+    });
+    if(!match){document.getElementById('loginErr').textContent='Not found — check your details';return;}
+    currentName=name;
+    currentMobile=mobile;
+    currentKey=name+'__'+mobile;
+    sessionStorage.setItem('kfit_voice_name',name);
+    sessionStorage.setItem('kfit_voice_mobile',mobile);
+    showMainScreen();
+  });
+}
+
+function doLogout(){
+  sessionStorage.removeItem('kfit_voice_name');
+  sessionStorage.removeItem('kfit_voice_mobile');
+  currentName='';currentMobile='';currentKey='';
+  document.getElementById('mainScreen').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('loginName').value='';
+  document.getElementById('loginMobile').value='';
+  document.getElementById('loginErr').textContent='';
+}
+
+function showMainScreen(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('mainScreen').style.display='block';
+  document.getElementById('userName').textContent=currentName;
+  // Set today's date
+  var today=new Date();
+  var yyyy=today.getFullYear();
+  var mm=String(today.getMonth()+1).padStart(2,'0');
+  var dd=String(today.getDate()).padStart(2,'0');
+  document.getElementById('sessionDate').value=yyyy+'-'+mm+'-'+dd;
+  loadVoiceHistory();
+}
+
+// ── MIC ──
+function toggleMic(){
+  if(isListening) stopListening();
+  else startListening();
+}
+
+function startListening(){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){showToast('Speech recognition not supported on this browser',true);return;}
+  recognition=new SR();
+  recognition.lang='en-IN';
+  recognition.continuous=true;
+  recognition.interimResults=true;
+  recognition.maxAlternatives=1;
+  recognition.onstart=function(){
+    isListening=true;
+    document.getElementById('micBtn').className='mic-btn listening';
+    document.getElementById('micStatus').textContent='Listening... speak your workout';
+    document.getElementById('micStatus').className='mic-status active';
+    document.getElementById('transcriptBox').className='transcript-box';
+  };
+  recognition.onresult=function(e){
+    var transcript='';
+    for(var i=e.resultIndex;i<e.results.length;i++){
+      transcript+=e.results[i][0].transcript;
+    }
+    currentTranscript=transcript;
+    document.getElementById('transcriptBox').textContent=transcript;
+  };
+  recognition.onend=function(){
+    isListening=false;
+    if(currentTranscript){
+      processWithAI(currentTranscript);
+    } else {
+      document.getElementById('micBtn').className='mic-btn';
+      document.getElementById('micStatus').textContent='Tap mic to start';
+      document.getElementById('micStatus').className='mic-status';
+    }
+  };
+  recognition.onerror=function(e){
+    isListening=false;
+    document.getElementById('micBtn').className='mic-btn';
+    document.getElementById('micStatus').textContent='Error: '+e.error+'. Try again.';
+    document.getElementById('micStatus').className='mic-status';
+  };
+  recognition.start();
+}
+
+function stopListening(){
+  if(recognition) recognition.stop();
+  isListening=false;
+}
+
+// ── AI PARSING ──
+function processWithAI(text){
+  document.getElementById('micBtn').className='mic-btn processing';
+  document.getElementById('micStatus').textContent='Parsing your workout...';
+  document.getElementById('micStatus').className='mic-status processing';
+
+  var prompt='Parse this workout description into structured JSON. '
+    +'Return ONLY valid JSON, no markdown, exactly this structure: '
+    +'{"exercises":[{"name":"exercise name","sets":3,"setData":[{"set":1,"reps":10,"weight":12.5},{"set":2,"reps":10,"weight":12.5}],"bodyParts":["Legs"]}]} '
+    +'bodyParts must be from: Back, Chest, Shoulders, Biceps, Triceps, Legs, Core, Cardio. '
+    +'If reps or weight not specified for individual sets, use the same value for all sets. '
+    +'If weight not mentioned, use 0. '
+    +'Workout description: "'+text+'"';
+
+  fetch(GEMINI_WORKER,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      contents:[{parts:[{text:prompt}]}],
+      generationConfig:{temperature:0.1,maxOutputTokens:2048}
+    })
+  })
+  .then(function(r){return r.json();})
+  .then(function(data){
+    document.getElementById('micBtn').className='mic-btn';
+    document.getElementById('micStatus').textContent='Done! Review below.';
+    document.getElementById('micStatus').className='mic-status active';
+    if(data.error){showToast('AI error: '+data.error.message,true);return;}
+    var text=data.candidates&&data.candidates[0]&&data.candidates[0].content.parts[0].text;
+    if(!text){showToast('Could not parse response',true);return;}
+    text=text.replace(/```json/g,'').replace(/```/g,'').trim();
+    var result=JSON.parse(text);
+    parsedExercises=result.exercises||[];
+    renderParsed();
+  })
+  .catch(function(err){
+    document.getElementById('micBtn').className='mic-btn';
+    document.getElementById('micStatus').textContent='Error. Try again.';
+    showToast('Parse error: '+err.message,true);
+  });
+}
+
+// ── RENDER PARSED ──
+function renderParsed(){
+  if(!parsedExercises.length){showToast('No exercises found — try again',true);return;}
+  var html='';
+  parsedExercises.forEach(function(ex,i){
+    html+='<div class="parsed-card" data-idx="'+i+'">';
+    html+='<input class="ex-name-inp" data-idx="'+i+'" value="'+ex.name+'" placeholder="Exercise name" style="width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--txt);font-family:\'DM Sans\',sans-serif;font-size:1rem;font-weight:800;outline:none;margin-bottom:6px;" oninput="updateExName('+i+',this.value)">';
+    if(ex.bodyParts&&ex.bodyParts.length){
+      html+='<div class="parsed-bp">'+ex.bodyParts.map(function(bp){
+        return (bp==='Legs'?'🦵':'💪')+' '+bp;
+      }).join(' · ')+'</div>';
+    }
+    html+='<div class="parsed-sets">';
+    html+='<div></div><div class="parsed-hdr">REPS</div><div class="parsed-hdr">KG</div>';
+    (ex.setData||[]).forEach(function(s,si){
+      html+='<div class="parsed-snum">S'+s.set+'</div>';
+      html+='<input type="number" class="parsed-edit" data-ex="'+i+'" data-si="'+si+'" data-field="reps" value="'+(s.reps||'')+'" placeholder="—" style="background:var(--surf2);border:1.5px solid var(--border);border-radius:8px;height:42px;text-align:center;color:var(--txt);font-family:\'DM Sans\',sans-serif;font-size:.9rem;font-weight:700;outline:none;width:100%;" oninput="updateSetData('+i+','+si+',\'reps\',this.value)">';
+      html+='<input type="number" class="parsed-edit" data-ex="'+i+'" data-si="'+si+'" data-field="weight" value="'+(s.weight||'')+'" placeholder="—" style="background:var(--surf2);border:1.5px solid var(--border);border-radius:8px;height:42px;text-align:center;color:var(--txt);font-family:\'DM Sans\',sans-serif;font-size:.9rem;font-weight:700;outline:none;width:100%;" oninput="updateSetData('+i+','+si+',\'weight\',this.value)">';
+    });
+    html+='</div>';
+    html+='<button onclick="removeExercise('+i+')" style="margin-top:10px;background:transparent;border:none;color:var(--terra);font-size:.7rem;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;">✕ Remove</button>';
+    html+='</div>';
+  });
+  document.getElementById('parsedCards').innerHTML=html;
+  document.getElementById('parsedSection').style.display='block';
+  document.getElementById('parsedSection').scrollIntoView({behavior:'smooth'});
+}
+
+function updateExName(idx,val){
+  if(parsedExercises[idx]) parsedExercises[idx].name=val;
+}
+function updateSetData(exIdx,setIdx,field,val){
+  if(parsedExercises[exIdx]&&parsedExercises[exIdx].setData&&parsedExercises[exIdx].setData[setIdx]){
+    parsedExercises[exIdx].setData[setIdx][field]=val===''?'':parseFloat(val)||val;
+  }
+}
+function removeExercise(idx){
+  parsedExercises.splice(idx,1);
+  if(!parsedExercises.length){
+    document.getElementById('parsedSection').style.display='none';
+    return;
+  }
+  renderParsed();
+}
+
+// ── SAVE TO SUPABASE ──
+function saveToTracker(){
+  if(!parsedExercises.length){showToast('Nothing to save',true);return;}
+  var date=document.getElementById('sessionDate').value;
+  if(!date){showToast('Set a date first',true);return;}
+
+  // Load existing sessions then prepend
+  ensureAnonAuth(function(uid){
+    if(!uid){showToast('Auth error, please retry',true);return;}
+    getSB().from('tracker_data').select('data').eq('user_id',uid).eq('tracker','fitness').then(function(res){
+      var existingData={sessions:[],notes:{}};
+      if(!res.error&&res.data&&res.data.length&&res.data[0].data){
+        existingData=res.data[0].data;
+        if(!existingData.sessions) existingData.sessions=[];
+      }
+
+      // Build session object matching fitness tracker format
+      var allBP=[];
+      parsedExercises.forEach(function(ex){if(ex.bodyParts) allBP=allBP.concat(ex.bodyParts);});
+      var uniqueBP=[...new Set(allBP)];
+
+      var newSession={
+        id:Date.now(),
+        client:currentName,
+        date:date,
+        bodyParts:uniqueBP,
+        exercises:parsedExercises.map(function(ex){
+          return {
+            ex:ex.name,
+            sets:ex.sets||(ex.setData?ex.setData.length:3),
+            setData:(ex.setData||[]).map(function(s){
+              return {set:s.set,reps:String(s.reps||''),weight:String(s.weight||'')};
+            })
+          };
+        }),
+        cardio:[],
+        restTimes:[],
+        avgRestManual:null,
+        duration:null,
+        unit:'kg',
+        notes:'Added via KFit Voice',
+        source:'voice'
+      };
+
+      existingData.sessions.unshift(newSession);
+
+      var payload={
+        user_id:uid,
+        client_id:currentKey,
+        tracker:'fitness',
+        data:existingData,
+        updated_at:new Date().toISOString()
+      };
+      getSB().from('tracker_data').upsert(payload,{onConflict:'user_id,tracker'}).then(function(r){
+        if(r.error){showToast('Save failed: '+r.error.message,true);return;}
+        voiceHistory.unshift({date:date,exercises:parsedExercises.map(function(e){return e.name;})});
+        try{sessionStorage.setItem('kfit_voice_hist',JSON.stringify(voiceHistory));}catch(e){}
+        showToast('✅ Saved to KFit tracker!');
+        renderHistory();
+        resetAll();
+      });
+    });
+  });
+}
+
+// ── HISTORY ──
+function loadVoiceHistory(){
+  try{
+    var saved=sessionStorage.getItem('kfit_voice_hist');
+    voiceHistory=saved?JSON.parse(saved):[];
+  }catch(e){voiceHistory=[];}
+  renderHistory();
+}
+
+function renderHistory(){
+  var el=document.getElementById('historyList');
+  if(!voiceHistory.length){
+    el.innerHTML='<div class="hist-empty">No voice sessions yet</div>';
+    return;
+  }
+  el.innerHTML=voiceHistory.slice(0,5).map(function(h){
+    return '<div class="hist-card">'
+      +'<div class="hist-card-date">'+h.date+'</div>'
+      +'<div class="hist-card-ex">'+h.exercises.slice(0,3).join(', ')+(h.exercises.length>3?' +more':'')+'</div>'
+      +'<div class="hist-card-sets">'+h.exercises.length+' exercise'+(h.exercises.length!==1?'s':'')+'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function resetAll(){
+  currentTranscript='';
+  parsedExercises=[];
+  document.getElementById('transcriptBox').textContent='Your speech will appear here...';
+  document.getElementById('transcriptBox').className='transcript-box empty';
+  document.getElementById('parsedSection').style.display='none';
+  document.getElementById('parsedCards').innerHTML='';
+  document.getElementById('micStatus').textContent='Tap mic to start';
+  document.getElementById('micStatus').className='mic-status';
+  document.getElementById('micBtn').className='mic-btn';
+}
+
+function resetMic(){
+  currentTranscript='';
+  parsedExercises=[];
+  document.getElementById('parsedSection').style.display='none';
+  document.getElementById('parsedCards').innerHTML='';
+  document.getElementById('transcriptBox').textContent='Your speech will appear here...';
+  document.getElementById('transcriptBox').className='transcript-box empty';
+  startListening();
+}
+
+// ── INIT ──
+window.addEventListener('DOMContentLoaded',function(){
+  // Try existing KFit fitness tracker session first
+  var name=sessionStorage.getItem('kmfit_name')||localStorage.getItem('kmfit_name')
+    ||sessionStorage.getItem('kfit_voice_name');
+  var mobile=sessionStorage.getItem('kmfit_mobile')||localStorage.getItem('kmfit_mobile')
+    ||sessionStorage.getItem('kfit_voice_mobile');
+
+  // Also try IDB
+  if(!name||!mobile){
+    try{
+      var req=indexedDB.open('kmfit_auth',1);
+      req.onsuccess=function(e){
+        var store=e.target.result.transaction('flags','readonly').objectStore('flags');
+        store.get('name').onsuccess=function(ev){
+          var n=ev.target.result;
+          store.get('mobile').onsuccess=function(em){
+            var m=em.target.result;
+            if(n&&m){
+              currentName=n; currentMobile=m; currentKey=n+'__'+m;
+              sessionStorage.setItem('kfit_voice_name',n);
+              sessionStorage.setItem('kfit_voice_mobile',m);
+              showMainScreen();
+            } else {
+              document.getElementById('loginScreen').style.display='flex';
+            }
+          };
+        };
+      };
+      req.onerror=function(){
+        document.getElementById('loginScreen').style.display='flex';
+      };
+    }catch(e){
+      document.getElementById('loginScreen').style.display='flex';
+    }
+    return;
+  }
+
+  currentName=name;
+  currentMobile=mobile;
+  currentKey=name+'__'+mobile;
+  showMainScreen();
+});
+</script>
+</body>
+</html>
