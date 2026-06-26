@@ -1,0 +1,2582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="KFit">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0c0c0a">
+<title>KFit Fitness Tracker</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  /* -- Black base -- */
+  --bg:     #0c0c0a;
+  --surf:   #141412;
+  --surf2:  #1c1c19;
+  --surf3:  #232320;
+  --border: #2a2a26;
+
+  /* -- Nutrition palette -- */
+  --sage:   #6a9e6e;
+  --sage-d: rgba(106,158,110,.13);
+  --terra:  #c4694a;
+  --terra-d:rgba(196,105,74,.13);
+  --gold:   #d4a843;
+  --gold-d: rgba(212,168,67,.13);
+
+  --accent: var(--sage);
+  --red:    var(--terra);
+  --green:  var(--sage);
+
+  /* -- Text -- */
+  --text:   #eeecea;
+  --muted:  #7a7870;
+  --muted2: #4a4a46;
+  --r: 10px;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;min-height:100vh;}
+
+#setupScreen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;}
+.s-logo{font-size:46px;font-weight:900;letter-spacing:-2px;margin-bottom:5px;font-family:'Playfair Display',serif;}
+.s-logo .g{color:var(--sage);} .s-logo .t{color:var(--terra);}
+.s-sub{color:var(--muted);font-size:17px;letter-spacing:3px;text-transform:uppercase;margin-bottom:44px;}
+.s-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:28px;width:100%;max-width:360px;}
+.s-field{margin-bottom:18px;}
+.s-field label{display:block;font-size:17px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:7px;}
+.s-field input,.s-field select{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:12px 13px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:17px;outline:none;transition:border-color .2s;-webkit-appearance:none;appearance:none;}
+.s-field input:focus,.s-field select:focus{border-color:var(--sage);}
+.s-btn{width:100%;padding:14px;background:var(--sage);color:#0c0c0a;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;cursor:pointer;letter-spacing:.3px;transition:opacity .2s;}
+.s-btn:hover{opacity:.86;}
+
+#mainApp{display:none;max-width:520px;margin:0 auto;padding-bottom:90px;}
+
+.header{display:flex;align-items:center;justify-content:space-between;padding:max(15px,env(safe-area-inset-top)) 16px 12px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;background:var(--bg);gap:8px;}
+.logo{font-size:20px;font-weight:900;letter-spacing:-1px;font-family:'Playfair Display',serif;}
+.logo .g{color:var(--sage);} .logo .t{color:var(--terra);}
+.date-chip{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);background:var(--surf);border:1px solid var(--border);border-radius:20px;padding:5px 12px;}
+
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:52px;z-index:49;}
+.tab{flex:1;padding:12px 4px;text-align:center;font-size:17px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:color .2s;border-bottom:2px solid transparent;}
+.tab.active{color:var(--sage);border-bottom-color:var(--sage);}
+
+.panel{display:none;padding:14px;}
+.panel.active{display:block;}
+
+.card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;}
+.card-title{font-size:17px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted);margin-bottom:13px;}
+
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;}
+.field-block{display:flex;flex-direction:column;}
+.field-label{font-size:17px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px;display:block;}
+.field-input{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:10px 11px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;outline:none;transition:border-color .2s;display:block;line-height:1.4;}
+.field-input:focus{border-color:var(--sage);}
+input[type="date"].field-input{-webkit-appearance:none;appearance:none;min-height:40px;}
+input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(.45) sepia(1) saturate(2) hue-rotate(80deg);cursor:pointer;opacity:.7;}
+
+.bp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
+.bp-btn{padding:9px 3px;border:1px solid var(--border);border-radius:8px;background:var(--surf2);text-align:center;font-size:17px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .18s;}
+.bp-btn.active{background:var(--sage-d);border-color:var(--sage);color:var(--sage);}
+
+/* -- Exercise block -- */
+.ex-block{margin-bottom:9px;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.ex-top-row{display:flex;align-items:center;gap:6px;padding:8px;background:var(--surf2);}
+.ex-top-row .ex-select{flex:1;min-width:0;}
+.ex-top-row .sets-select{width:54px;flex-shrink:0;}
+.ex-select{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:8px 6px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:17px;outline:none;-webkit-appearance:none;appearance:none;}
+.ex-top-row .ex-select{border:1px solid var(--border);border-radius:6px;background:var(--surf3);}
+.sets-select{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--gold);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;-webkit-appearance:none;appearance:none;}
+.set-rows{padding:6px 8px 8px;}
+.set-header{display:grid;grid-template-columns:26px 1fr 1fr;gap:6px;margin-bottom:4px;}
+.set-header span{font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted2);text-align:center;}
+.set-row{display:grid;grid-template-columns:26px 1fr 1fr;gap:6px;align-items:center;margin-bottom:5px;}
+.set-row:last-child{margin-bottom:0;}
+.set-num{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);text-align:center;font-weight:600;}
+.reps-input,.weight-input{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--text);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;transition:border-color .15s;}
+.reps-input:focus,.weight-input:focus{border-color:var(--sage);}
+.weight-input:focus{border-color:var(--gold);}
+.del-btn{background:none;border:none;color:var(--muted2);font-size:20px;cursor:pointer;padding:3px 5px;line-height:1;transition:color .18s;flex-shrink:0;}
+.del-btn:hover{color:var(--terra);}
+.add-row{margin-top:10px;padding:10px;border:1px dashed var(--border);border-radius:8px;text-align:center;color:var(--muted);font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .18s;}
+.add-row:hover{border-color:var(--sage);color:var(--sage);}
+
+/* Quick-add chips */
+.quick-add-section{margin-bottom:10px;}
+.quick-add-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-bottom:6px;}
+.quick-add-label{font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+.quick-add-toggle{font-size:18px;color:var(--muted);transition:transform .2s;line-height:1;}
+.quick-add-toggle.open{transform:rotate(180deg);}
+.quick-add-body{display:none;}
+.quick-add-body.open{display:block;}
+.ex-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}
+.ex-chip{display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surf2);font-size:16px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .15s;user-select:none;}
+.ex-chip:active{background:var(--sage-d);border-color:var(--sage);color:var(--sage);}
+.ex-chip-del{background:none;border:none;color:var(--muted2);font-size:17px;cursor:pointer;padding:0 0 0 2px;line-height:1;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+.ex-chip-del:active{color:var(--terra);}
+.custom-ex-add-row{display:flex;gap:6px;margin-top:6px;}
+.custom-ex-inp{flex:1;background:var(--surf2);border:1px solid var(--border);border-radius:20px;padding:8px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:17px;outline:none;}
+.custom-ex-inp:focus{border-color:var(--sage);}
+.custom-ex-inp::placeholder{color:var(--muted2);}
+.custom-ex-add-btn{padding:8px 14px;border-radius:20px;border:none;background:var(--sage);color:#0c0c0a;font-size:16px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:'DM Sans',sans-serif;}
+
+/* Cardio section */
+.cardio-section{margin-bottom:10px;}
+.cardio-chip{display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surf2);font-size:16px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .15s;}
+.cardio-chip.active{background:var(--terra-d);border-color:var(--terra);color:var(--terra);}
+.cardio-log-block{background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:6px;margin-bottom:6px;}
+.cardio-log-name{font-size:17px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
+.cardio-fields{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+.cardio-field-label{font-size:17px;text-transform:uppercase;letter-spacing:1px;color:var(--muted2);margin-bottom:3px;}
+.cardio-field-inp{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--text);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;}
+.cardio-field-sel{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 2px;color:var(--text);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;-webkit-appearance:none;}
+
+.notes-ta{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;line-height:1.6;resize:vertical;outline:none;}
+.notes-ta:focus{border-color:var(--sage);}
+
+.btn{padding:11px 20px;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;cursor:pointer;transition:opacity .18s;}
+.btn:hover{opacity:.82;}
+.btn-accent{background:var(--sage);color:#0c0c0a;}
+.btn-ghost{background:var(--surf2);border:1px solid var(--border);color:var(--text);}
+.btn-danger{background:var(--terra-d);border:1px solid var(--terra);color:var(--terra);}
+.btn-sm{padding:8px 13px;font-size:16px;}
+.flex-end{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;}
+
+.sess-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:9px;display:flex;align-items:flex-start;gap:10px;transition:border-color .18s;}
+.sess-card:hover{border-color:var(--sage);}
+.sess-date{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);margin-bottom:4px;}
+.sess-name{font-size:17px;font-weight:700;margin-bottom:3px;}
+.sess-meta{font-size:16px;color:var(--muted);}
+.sess-dur{font-family:'DM Mono',monospace;font-size:17px;color:var(--sage);margin-top:3px;}
+
+/* -- Duration timer card -- */
+.dur-card{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.dur-display{font-family:'DM Mono',monospace;font-size:36px;font-weight:400;color:var(--sage);letter-spacing:2px;line-height:1;}
+.dur-display.idle{color:var(--muted2);}
+.dur-btns{display:flex;gap:8px;flex-direction:column;align-items:flex-end;}
+.dur-btn-start{padding:10px 20px;background:var(--sage);color:#0c0c0a;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;cursor:pointer;transition:opacity .18s;white-space:nowrap;}
+.dur-btn-start:hover{opacity:.82;}
+.dur-btn-stop{padding:10px 20px;background:var(--terra-d);border:1px solid var(--terra);color:var(--terra);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;cursor:pointer;transition:opacity .18s;white-space:nowrap;}
+.dur-btn-stop:hover{opacity:.82;}
+.dur-status{font-size:17px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:right;}
+.dur-status.running{color:var(--sage);}
+
+/* -- Manual duration input -- */
+.dur-manual{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.dur-manual-label{font-size:17px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;white-space:nowrap;}
+.dur-manual-input{flex:1;background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:16px;outline:none;text-align:center;}
+.dur-manual-input:focus{border-color:var(--gold);}
+.dur-manual-input::placeholder{color:var(--muted2);}
+
+/* -- Password gate -- */
+#pwGate{position:fixed;inset:0;z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;background:var(--bg);overflow-y:auto;}
+.pw-logo{font-size:46px;font-weight:900;letter-spacing:-2px;margin-bottom:5px;font-family:'Playfair Display',serif;}
+.pw-logo .g{color:var(--sage);} .pw-logo .t{color:var(--terra);}
+.pw-sub{color:var(--muted);font-size:17px;letter-spacing:3px;text-transform:uppercase;margin-bottom:44px;}
+.pw-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:28px;width:100%;max-width:360px;}
+.pw-label{display:block;font-size:17px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:7px;}
+.pw-input{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:12px 13px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;outline:none;transition:border-color .2s;margin-bottom:16px;-webkit-appearance:none;}
+.pw-input:focus{border-color:var(--sage);}
+.pw-btn{width:100%;padding:14px;background:var(--sage);color:#0c0c0a;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;cursor:pointer;letter-spacing:.3px;transition:opacity .2s;}
+.pw-btn:hover{opacity:.86;}
+.pw-error{color:var(--terra);font-size:16px;text-align:center;margin-top:10px;min-height:18px;}
+
+.unit-toggle{display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;width:fit-content;}
+.unit-opt{padding:6px 14px;font-size:16px;font-weight:700;color:var(--muted);cursor:pointer;transition:all .18s;background:var(--surf2);border:none;font-family:'DM Sans',sans-serif;letter-spacing:.3px;}
+.unit-opt.active{background:var(--gold);color:#0c0c0a;}
+
+/* -- Autosave dot -- */
+.autosave-dot{width:6px;height:6px;border-radius:50%;background:var(--muted2);display:inline-block;margin-left:7px;transition:background .4s;}
+.autosave-dot.saved{background:var(--sage);}
+.autosave-dot.saving{background:var(--gold);}
+.sess-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
+.sess-tag{padding:5px 12px;background:var(--surf2);border:1px solid var(--gold);border-radius:20px;font-size:15px;font-weight:700;color:var(--gold);letter-spacing:0.5px;}
+
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.stat-box{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:15px;text-align:center;}
+.stat-val{font-size:30px;font-weight:900;font-family:'DM Mono',monospace;line-height:1;}
+.sv-sage{color:var(--sage);} .sv-gold{color:var(--gold);} .sv-terra{color:var(--terra);}
+.stat-lbl{font-size:17px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:5px;}
+
+.rst-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:17px;}
+.rst-row:last-child{border-bottom:none;}
+.rst-label{color:var(--muted);}
+.rst-val{font-family:'DM Mono',monospace;color:var(--gold);}
+
+.note-block{margin-bottom:13px;}
+.note-block label{display:block;font-size:17px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px;}
+
+.detail-panel{position:fixed;inset:0;z-index:200;background:var(--bg);overflow-y:auto;transform:translateX(100%);transition:transform .28s ease;padding-top:env(safe-area-inset-top,0px);}
+.detail-panel.open{transform:translateX(0);}
+.detail-hdr{display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:201;}
+.back-btn{background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:10px 16px;color:var(--text);font-size:20px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;}
+
+.rest-bar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:var(--surf);border-top:1px solid var(--border);padding:10px 14px;display:none;align-items:center;gap:10px;max-width:520px;margin:0 auto;}
+.rest-bar.visible{display:flex;}
+.rest-lbl{font-size:17px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
+.rest-time{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--gold);min-width:56px;}
+.rest-time.go{color:var(--sage);} .rest-time.urgent{color:var(--terra);}
+.rest-btns{display:flex;gap:5px;}
+.rest-preset{padding:6px 9px;background:var(--surf2);border:1px solid var(--border);border-radius:6px;font-size:17px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .18s;font-family:'DM Mono',monospace;}
+.rest-preset.active,.rest-preset:hover{background:var(--gold-d);border-color:var(--gold);color:var(--gold);}
+.rest-stop{margin-left:auto;background:none;border:none;color:var(--muted2);font-size:17px;cursor:pointer;padding:4px;transition:color .18s;}
+.rest-stop:hover{color:var(--terra);}
+/* Big red stop square */
+.rest-stop-btn{margin-left:auto;background:var(--terra);border:none;border-radius:8px;width:44px;height:44px;font-size:20px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .18s;}
+.rest-stop-btn:active{opacity:.8;}
+
+/* Voice button */
+.voice-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--muted);font-size:17px;cursor:pointer;transition:all .18s;flex-shrink:0;}
+.voice-btn.listening{border-color:var(--terra);color:var(--terra);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+
+/* Cardio rows */
+.cardio-rows{padding:6px 8px 8px;}
+.cardio-header{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:4px;}
+.cardio-header span{font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted2);text-align:center;}
+.cardio-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:5px;}
+.cardio-input{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--text);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;transition:border-color .15s;}
+.cardio-input:focus{border-color:var(--sage);}
+.intensity-sel{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 2px;color:var(--text);font-family:'DM Mono',monospace;font-size:16px;outline:none;text-align:center;-webkit-appearance:none;appearance:none;}
+
+/* Custom exercise */
+.custom-ex-btn{display:block;width:100%;margin-top:6px;padding:8px;background:none;border:1px dashed var(--gold);border-radius:6px;color:var(--gold);font-size:17px;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:all .18s;font-family:'DM Sans',sans-serif;}
+.custom-ex-btn:hover{background:var(--gold-d);}
+
+/* Confirm overlay */
+.confirm-overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:24px;}
+.confirm-box{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:24px;width:100%;max-width:320px;text-align:center;}
+.confirm-title{font-size:16px;font-weight:700;margin-bottom:8px;}
+.confirm-sub{font-size:17px;color:var(--muted);margin-bottom:20px;line-height:1.5;}
+.confirm-btns{display:flex;gap:10px;}
+.confirm-btns button{flex:1;padding:12px;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;cursor:pointer;}
+.confirm-yes{background:var(--terra);color:#fff;}
+.confirm-no{background:var(--surf2);border:1px solid var(--border)!important;color:var(--text);}
+
+/* Custom exercise modal */
+.modal-overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;padding:0;}
+.modal-box{background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 40px;width:100%;max-width:520px;}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:5px;}
+.modal-sub{font-size:16px;color:var(--muted);margin-bottom:16px;line-height:1.5;}
+.modal-input{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:17px;outline:none;margin-bottom:10px;}
+.modal-input:focus{border-color:var(--sage);}
+.modal-sel{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:17px;outline:none;margin-bottom:14px;-webkit-appearance:none;appearance:none;}
+.modal-btns{display:flex;gap:8px;}
+.modal-btns button{flex:1;padding:12px;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;cursor:pointer;}
+.modal-submit{background:var(--sage);color:#0c0c0a;}
+.modal-cancel{background:var(--surf2);border:1px solid var(--border)!important;color:var(--text);}
+
+.toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%);background:var(--surf3);border:1px solid var(--border);border-radius:8px;padding:9px 18px;font-size:17px;font-weight:600;color:var(--text);opacity:0;transition:opacity .25s;pointer-events:none;z-index:300;white-space:nowrap;}
+.toast.show{opacity:1;}
+
+.empty{text-align:center;padding:52px 20px;color:var(--muted);}
+.empty .ico{font-size:42px;margin-bottom:11px;}
+.empty p{font-size:17px;line-height:1.7;}
+
+.pill{display:inline-block;font-family:'DM Mono',monospace;font-size:17px;color:var(--gold);background:var(--gold-d);border:1px solid var(--border);border-radius:6px;padding:3px 8px;margin:2px;}
+
+/* Voice mic on exercise cards */
+
+
+
+
+
+
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+<div id="pwGate">
+  <div class="pw-logo">K<span class="g">F</span><span class="t">it</span></div>
+  <div class="pw-sub">Training Tracker</div>
+  <div class="pw-card">
+    <!-- Tab switcher -->
+    <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+      <button id="tabPw" onclick="switchLoginTab('pw')" style="flex:1;padding:10px;background:var(--sage);border:none;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:700;color:#0c0c0a;cursor:pointer;">First Time</button>
+      <button id="tabMobile" onclick="switchLoginTab('mobile')" style="flex:1;padding:10px;background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:700;color:var(--muted);cursor:pointer;">Returning</button>
+    </div>
+    <!-- Password tab -->
+    <div id="loginTabPw">
+      <label class="pw-label">Access Password</label>
+      <input class="pw-input" type="password" id="pwInput" placeholder="Enter your password" onkeydown="if(event.key==='Enter')checkPw()">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;margin-top:-8px;">
+        <input type="checkbox" id="rememberMe" checked style="width:16px;height:16px;accent-color:var(--sage);cursor:pointer;">
+        <label for="rememberMe" style="font-size:.75rem;color:var(--muted);cursor:pointer;">Keep me logged in</label>
+      </div>
+      <button class="pw-btn" onclick="checkPw()">Unlock →</button>
+    </div>
+    <!-- Mobile tab -->
+    <div id="loginTabMobile" style="display:none;">
+      <label class="pw-label">Your Mobile Number</label>
+      <input class="pw-input" type="tel" id="mobileLoginInput" placeholder="e.g. 9820012345" onkeydown="if(event.key==='Enter')checkMobileLogin()">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;margin-top:-8px;">
+        <input type="checkbox" id="rememberMeMobile" checked style="width:16px;height:16px;accent-color:var(--sage);cursor:pointer;">
+        <label for="rememberMeMobile" style="font-size:.75rem;color:var(--muted);cursor:pointer;">Keep me logged in</label>
+      </div>
+      <button class="pw-btn" onclick="checkMobileLogin()">Sign In →</button>
+    </div>
+    <div class="pw-error" id="pwError"></div>
+    <div id="installWrap" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
+      <button id="installBtn" onclick="triggerInstall()" style="width:100%;padding:12px;background:transparent;border:1px solid var(--sage);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:700;color:var(--sage);cursor:pointer;">📲 Add to Home Screen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile number prompt modal -->
+<div id="mobilePromptModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--surf);border-radius:16px;padding:28px 24px;width:100%;max-width:380px;">
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">📱 Add your mobile number</div>
+    <div style="font-size:17px;color:var(--muted);margin-bottom:20px;">This lets you sign in from any device — no password needed next time.</div>
+    <input type="tel" id="mobilePromptInput" class="pw-input" placeholder="e.g. 9820012345" style="margin-bottom:12px;">
+    <button onclick="saveMobilePrompt()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:700;color:#0c0c0a;cursor:pointer;margin-bottom:8px;">Save</button>
+    <button onclick="dismissMobilePrompt()" style="width:100%;padding:11px;background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:.85rem;color:var(--muted);cursor:pointer;">Skip for now</button>
+  </div>
+</div>
+
+<!-- iOS install guide modal -->
+<div id="installModal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.75);align-items:flex-end;justify-content:center;">
+  <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:28px 24px 44px;width:100%;max-width:420px;">
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">📲 Add to Home Screen</div>
+    <div id="installInstructions" style="font-size:17px;color:var(--muted);margin-bottom:20px;line-height:1.6;"></div>
+    <button onclick="document.getElementById('installModal').style.display='none'" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:700;color:#fff;cursor:pointer;">Got it</button>
+  </div>
+</div>
+
+<div id="appLoader" style="display:none;position:fixed;inset:0;z-index:1000;background:#0c0c0a;align-items:center;justify-content:center;">
+  <div style="font-family:'Playfair Display',serif;font-size:2rem;font-weight:900;color:#fff;">K<span style="color:#6a9e6e;">F</span><span style="color:#c4694a;">it</span></div>
+</div>
+
+<div id="setupScreen" style="display:none;">
+  <div class="s-logo">K<span class="g">F</span><span class="t">it</span></div>
+  <div class="s-sub">Training Tracker</div>
+  <div class="s-card">
+    <div class="s-field">
+      <label>Your Name</label>
+      <input type="text" id="setupName" placeholder="e.g. Karan Mehta">
+    </div>
+    <div class="s-field">
+      <label>Mobile Number <span style="color:var(--terra);">*</span></label>
+      <input type="tel" id="setupMobile" placeholder="e.g. 9820012345" required>
+    </div>
+    <div class="s-field">
+      <label>Weekly Training Target</label>
+      <select id="setupTarget">
+        <option value="3">3 days / week</option>
+        <option value="4" selected>4 days / week</option>
+        <option value="5">5 days / week</option>
+        <option value="6">6 days / week</option>
+      </select>
+    </div>
+    <button class="s-btn" onclick="completeSetup()">Enter Tracker →</button>
+  </div>
+</div>
+
+<div id="mainApp">
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+      <div class="logo">K<span class="g">F</span><span class="t">it</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="date-chip" id="headerDate"></div>
+      <a href="https://kfit.pages.dev" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;text-decoration:none;">🏠 Home</a>
+      <button onclick="logout()" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;color:var(--muted);cursor:pointer;">Log Out</button>
+    </div>
+  </div>
+  <div id="headerRestTimer" style="display:none;position:fixed;top:48px;left:0;right:0;z-index:299;background:var(--gold);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;padding:5px 16px;text-align:center;letter-spacing:1px;"></div>
+  <div id="headerClientName" style="font-size:1.5rem;font-weight:900;color:var(--text);padding:10px 16px 0;font-family:'Playfair Display',serif;"></div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="goTab(0)">LOG</div>
+    <div class="tab" onclick="goTab(1)">HISTORY</div>
+    <div class="tab" onclick="goTab(2)">STATS</div>
+    <div class="tab" onclick="goTab(3)">NOTES</div>
+  </div>
+
+  <!-- LOG -->
+  <div class="panel active" id="panel0">
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;">
+      <span style="font-size:17px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);">Weight Unit</span>
+      <div class="unit-toggle">
+        <button class="unit-opt active" id="unitKg" onclick="setUnit('kg')">kg</button>
+        <button class="unit-opt" id="unitLbs" onclick="setUnit('lbs')">lbs</button>
+      </div>
+      <span class="autosave-dot" id="autosaveDot" title="Draft auto-saved"></span>
+    </div>
+    <input type="hidden" id="clientName">
+    <input type="hidden" id="sessDate">
+
+    <div class="card">
+      <div class="card-title">Body Parts Trained</div>
+      <div class="bp-grid" id="bpGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Exercises</div>
+      <div id="exBody"></div>
+      <div class="add-row" onclick="addExRow()">+ Add Exercise</div>
+      <div class="add-row" onclick="window.location.href='https://kfit.pages.dev/kfit-voice'" style="color:var(--gold);border-color:var(--gold);margin-top:6px;">&#127897; Voice Log Session</div>
+      <div style="margin-top:10px;">
+        <div class="quick-add-header" onclick="toggleExChips()" style="padding:8px 0;cursor:pointer;">
+          <span style="font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);">＋ Manage Exercise Library</span>
+          <span class="quick-add-toggle" id="exChipsToggle">⌄</span>
+        </div>
+        <div class="quick-add-body" id="exChipsBody">
+          <div style="font-size:17px;color:var(--muted2);margin-bottom:8px;">Tap × to remove. Tap exercise to add to session.</div>
+          <div class="ex-chips" id="exChips"></div>
+          <div class="custom-ex-add-row" style="margin-top:8px;">
+            <input class="custom-ex-inp" type="text" id="customExQuickInp" placeholder="New exercise name...">
+            <button class="custom-ex-add-btn" onclick="addCustomExQuick()">Add</button>
+          </div>
+          <button onclick="restoreDeletedEx()" style="margin-top:8px;padding:7px 12px;background:transparent;border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:17px;color:var(--muted);cursor:pointer;">↩ Restore deleted exercise</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Cardio 🏃</div>
+      <div class="quick-add-section">
+        <div class="quick-add-header" onclick="toggleCardioChips()">
+          <span class="quick-add-label">Activities</span>
+          <span class="quick-add-toggle" id="cardioChipsToggle">⌄</span>
+        </div>
+        <div class="quick-add-body" id="cardioChipsBody">
+          <div class="ex-chips" id="cardioChips" style="margin-bottom:8px;"></div>
+          <div class="custom-ex-add-row">
+            <input class="custom-ex-inp" type="text" id="customCardioInp" placeholder="Add activity (e.g. Zumba)...">
+            <button class="custom-ex-add-btn" onclick="addCustomCardio()">Add</button>
+          </div>
+        </div>
+      </div>
+      <div id="cardioBlocks"></div>
+    </div>
+
+    <div class="card" id="sessionRestCard" style="display:none;">
+      <div class="card-title">Rest This Session</div>
+      <div id="sessionRestSummary"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Session Duration</div>
+      <div class="dur-card">
+        <div>
+          <div class="dur-display idle" id="durDisplay">00:00</div>
+          <div class="dur-status" id="durStatus">Not started</div>
+        </div>
+        <div class="dur-btns">
+          <button class="dur-btn-start" id="durStartBtn" onclick="startDuration()">▶ Start</button>
+          <button class="dur-btn-stop" id="durStopBtn" onclick="stopDuration()" style="display:none;">■ Stop</button>
+        </div>
+      </div>
+      <div class="dur-manual">
+        <span class="dur-manual-label">Or enter</span>
+        <input class="dur-manual-input" type="text" id="durManual" placeholder="e.g. 45 or 1:30" inputmode="text">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Session Notes</div>
+      <textarea class="notes-ta" id="sessNotes" rows="3" placeholder="How did it go?"></textarea>
+      <div style="margin-top:12px;">
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Average Rest Time <span style="font-weight:400;text-transform:none;letter-spacing:0;">(if not tracked above)</span></div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="number" id="avgRestInput" placeholder="e.g. 90" min="0" max="600" inputmode="numeric" style="width:100px;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;">
+          <span style="font-size:17px;color:var(--muted);">seconds</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📷 Send to Coach</div>
+      <p style="font-size:16px;color:var(--muted);margin-bottom:12px;">Send your coach a progress pic or record your form.</p>
+      <div style="display:flex;gap:8px;">
+        <button onclick="openSnap('progress')" style="flex:1;padding:12px;background:var(--gold-d);border:1px solid var(--gold);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;color:var(--gold);cursor:pointer;">💪 Progress Pic</button>
+        <button onclick="openSnap('video')" style="flex:1;padding:12px;background:var(--sage-d);border:1px solid var(--sage);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;color:var(--sage);cursor:pointer;">🎥 Record Video</button>
+      </div>
+    </div>
+
+    <div class="flex-end">
+      <button class="btn btn-ghost btn-sm" onclick="clearLog()">Clear</button>
+      <button class="btn btn-accent" onclick="saveSession()">Save Session</button>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="panel" id="panel1"><div id="histList"></div></div>
+
+  <!-- STATS -->
+  <div class="panel" id="panel2">
+    <div class="stat-grid" id="statGrid"></div>
+    <div id="restStatsSection"></div>
+    <div id="statDetail"></div>
+    <div style="padding:0 14px 16px;">
+      <button onclick="shareAllSessions()" style="width:100%;padding:13px;background:var(--sage);color:#0c0c0a;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:.3px;">📤 Share Progress Report</button>
+    </div>
+  </div>
+
+  <!-- NOTES -->
+  <div class="panel" id="panel3">
+    <div class="card">
+      <div class="card-title">Coach Notes</div>
+      <div class="note-block">
+        <label>Weekly Note</label>
+        <textarea class="notes-ta" id="noteWeekly" rows="3" placeholder="Weekly observations..."></textarea>
+      </div>
+      <div class="note-block">
+        <label>Monthly Summary</label>
+        <textarea class="notes-ta" id="noteMonthly" rows="3" placeholder="Month-end summary..."></textarea>
+      </div>
+      <div class="flex-end" style="gap:8px;">
+        <button class="btn btn-accent btn-sm" onclick="shareNotes()">📤 Send</button>
+        <button class="btn btn-ghost btn-sm" onclick="saveNotes()">Save Notes</button>
+      </div>
+    </div>
+    <div class="card" id="mobileNumberCard">
+      <div class="card-title">📱 Mobile Login</div>
+      <div id="mobileCardContent"></div>
+    </div>
+  </div>
+</div>
+
+<div id="snapModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.8);align-items:flex-end;justify-content:center;">
+  <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 44px;width:100%;max-width:520px;">
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;"><span id="snapTypeLabel"></span></div>
+    <div style="font-size:16px;color:var(--muted);margin-bottom:16px;" id="snapClientLabel"></div>
+    <input type="file" id="snapFileInput" accept="image/*" capture="environment" style="display:none;" onchange="onSnapPhoto()">
+    <input type="file" id="snapVideoInput" accept="video/*" capture="environment" style="display:none;" onchange="onSnapVideo()">
+    <div id="snapPreview" style="display:none;margin-bottom:14px;">
+      <img id="snapImg" style="width:100%;max-height:260px;object-fit:cover;border-radius:10px;border:1px solid var(--border);display:none;"/>
+      <video id="snapVid" style="width:100%;max-height:260px;border-radius:10px;border:1px solid var(--border);display:none;" controls playsinline></video>
+    </div>
+    <div id="snapActions" style="display:none;flex-direction:column;gap:8px;">
+      <button onclick="snapShareAnywhere()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#0c0c0a;cursor:pointer;">📤 Send</button>
+      <button onclick="retakeSnap()" style="width:100%;padding:11px;background:transparent;border:1px dashed var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:17px;color:var(--muted);cursor:pointer;" id="retakeBtn"></button>
+    </div>
+    <div id="snapTakeWrap">
+      <button onclick="triggerSnapInput()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#0c0c0a;cursor:pointer;" id="snapOpenBtn"></button>
+    </div>
+    <button onclick="closeSnap()" style="width:100%;margin-top:8px;padding:11px;background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:17px;color:var(--muted);cursor:pointer;">Cancel</button>
+  </div>
+</div>
+
+<div class="detail-panel" id="detailPanel">
+  <div class="detail-hdr">
+    <button class="back-btn" onclick="closeDetail()" ontouchend="event.preventDefault();closeDetail();">←</button>
+    <div>
+      <div id="dTitle" style="font-size:16px;font-weight:700;"></div>
+      <div id="dSub" style="font-size:17px;color:var(--muted);font-family:'DM Mono',monospace;"></div>
+    </div>
+  </div>
+  <div id="dBody" style="padding:14px;"></div>
+</div>
+
+<div class="rest-bar">
+  <div>
+    <div class="rest-lbl">Rest</div>
+    <div class="rest-time" id="restDisp">—</div>
+  </div>
+  <div class="rest-btns">
+    <div class="rest-preset" onclick="startRest(60)">1m</div>
+    <div class="rest-preset" onclick="startRest(90)">90s</div>
+    <div class="rest-preset" onclick="startRest(120)">2m</div>
+    <div class="rest-preset" onclick="startRest(180)">3m</div>
+  </div>
+  <button class="rest-stop-btn" onclick="stopRest()" id="restStopBtn">■</button>
+</div>
+
+
+<div class="modal-overlay" id="customExModal" style="display:none;">
+  <div class="modal-box">
+    <div class="modal-title">Suggest an Exercise</div>
+    <div class="modal-sub">Your suggestion will be sent to your coach to review and add to the app.</div>
+    <input class="modal-input" type="text" id="customExName" placeholder="Exercise name">
+    <select class="modal-sel" id="customExBP">
+      <option value="">Select body part</option>
+      <option>Back</option><option>Chest</option><option>Shoulders</option>
+      <option>Biceps</option><option>Triceps</option><option>Legs</option>
+      <option>Core</option><option>Cardio</option>
+    </select>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeCustomEx()">Cancel</button>
+      <button class="modal-submit" onclick="submitCustomEx()">Send to Coach</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- CONFIRM DIALOG -->
+<div id="confirmOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center;">
+  <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 44px;width:100%;max-width:520px;">
+    <div id="confirmTitle" style="font-size:16px;font-weight:700;margin-bottom:6px;color:var(--text);"></div>
+    <div id="confirmSub" style="font-size:17px;color:var(--muted);margin-bottom:20px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="confirmResolve(false)" style="flex:1;padding:13px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:var(--text);cursor:pointer;">Cancel</button>
+      <button onclick="confirmResolve(true)" style="flex:1;padding:13px;background:var(--terra);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#fff;cursor:pointer;">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BODY_PARTS = ['Back','Chest','Shoulders','Biceps','Triceps','Legs','Core','Cardio'];
+const EX_LIB = {
+  'Back':['Pull-Ups','Chin-Ups','Lat Pulldown Wide','Lat Pulldown Close','Lat Pulldown Neutral Grip','Seated Row Close','Seated Row Wide','Chest Supported Row Wide','Chest Supported Row Close','Bent Over Barbell Row','Bent Over Dumbbell Row','Single Arm Dumbbell Row','T-Bar Row','Cable Row','Deadlift','Lat Prayer (Cable Pullover)','Straight Arm Pulldown','Face Pulls','Shrugs','Reverse Fly (Cable)'],
+  'Chest':['Barbell Bench Press (Flat)','Barbell Bench Press (Incline)','Barbell Bench Press (Decline)','Dumbbell Press (Flat)','Dumbbell Press (Incline)','Dumbbell Press (Decline)','Dumbbell Fly (Flat)','Dumbbell Fly (Incline)','Dumbbell Fly (Decline)','Chest Press Machine','Machine Fly','Cable Fly (Low to High)','Cable Fly (High to Low)','Cable Fly (Mid)','Smith Machine Bench Press (Flat)','Smith Machine Bench Press (Incline)','Smith Machine Bench Press (Decline)','Push-Ups','Deficit Push Ups','Dips (Chest Focus)'],
+  'Shoulders':['Barbell Overhead Press','Dumbbell Shoulder Press','Shoulder Press Machine','Arnold Press','Lateral Raises (Dumbbell)','Lateral Raises (Cable)','Lateral Raises (Machine)','Front Raises (Dumbbell)','Front Raises (Barbell)','Front Raises (Cable)','Rear Delt Fly (Dumbbell)','Rear Delt Fly (Cable)','Rear Delt Fly (Machine)','Face Pulls','Landmine Press','Seated Dumbbell Press','Y Raise (Standing)','Y Raise (Incline)','Prone Y Raise (Incline Bench)','Incline Bench Rear Delt Fly'],
+  'Biceps':['Barbell Curl','EZ Bar Curl','Dumbbell Curl','Hammer Curl','Preacher Curl (Barbell)','Preacher Curl (Dumbbell)','Preacher Curl (EZ Bar)','Cable Curl','Incline Dumbbell Curl','Concentration Curl','Cross Body Curl','Reverse Curl','Zottman Curl','Bayesian Curl'],
+  'Triceps':['Tricep Pushdown (Bar)','Tricep Pushdown (Rope)','Overhead Tricep Extension (Dumbbell)','Overhead Tricep Extension (EZ Bar)','Overhead Tricep Extension (Cable)','Skull Crushers (Barbell)','Skull Crushers (EZ Bar)','Skull Crushers (Dumbbell)','Close Grip Bench Press','Dips (Tricep Focus)','Single Arm Pushdown (Cable)','Kickback (Dumbbell)','Kickback (Cable)'],
+  'Legs':['Barbell Squat','Front Squat','Goblet Squat','Sumo Squat','Bulgarian Split Squat','Hack Squat','Leg Press','Leg Extension','Lying Hamstring Curl','Seated Hamstring Curl','Romanian Deadlift','Single Leg RDL','Stiff Leg Deadlift','Hip Thrust (Barbell)','Hip Thrust (Dumbbell)','Glute Bridge','Walking Lunges','Reverse Lunges','Forward Lunges','Step-Ups','Good Mornings','Nordic Curl','Calf Raise (Leg Press Machine)','Standing Calf Raise','Seated Calf Raise'],
+  'Core':['Plank','Side Plank','Hanging Leg Raise','Cable Crunch','Crunches','Decline Crunches','Russian Twist','Ab Wheel Rollout','Dead Bug','Pallof Press','Reverse Crunch','Dragon Flag','Hollow Body Hold','Landmine Twist'],
+  'Cardio':['Running (Treadmill)','Running (Outdoor)','Cycling (Bike)','Cycling (Stationary)','Rowing Machine','Elliptical','Stair Climber','Jump Rope','Swimming','Walking','HIIT','Sprint Intervals','Battle Ropes','Assault Bike','Ski Erg']
+};
+const ALL_EX = Object.values(EX_LIB).flat();
+const CARDIO_EX = new Set(EX_LIB['Cardio']);
+
+let selectedBP=[], sessions=[], notes={};
+let restTmr=null, restLeft=0, restStartSecs=0, restEndTime=0, currentRestTimes=[];
+let durTmr=null, durStart=null, durElapsed=0, durRunning=false;
+let autoSaveTmr=null;
+let weightUnit='kg';
+const CUSTOM_EX_KEY='kmfit_custom_ex'; // {bodyPart: [name, ...]}
+
+function getCustomEx(){
+  try{return JSON.parse(localStorage.getItem(CUSTOM_EX_KEY)||'{}');}catch(e){return{};}
+}
+function saveCustomEx(obj){localStorage.setItem(CUSTOM_EX_KEY,JSON.stringify(obj));}
+
+function renderExChips(){
+  const chips=document.getElementById('exChips');
+  if(!chips)return;
+  const deleted=getDeletedEx();
+  const custom=getCustomEx();
+  const customForBP=selectedBP.length===0?Object.values(custom).flat():selectedBP.flatMap(bp=>custom[bp]||[]);
+  const baseList=getExList().filter(e=>!deleted.has(e));
+  const allChips=[...baseList,...customForBP.filter(e=>!baseList.includes(e)&&!deleted.has(e))];
+  if(!allChips.length){chips.innerHTML='<span style="font-size:17px;color:var(--muted2);">Select body parts to filter, or add below</span>';return;}
+  chips.innerHTML=allChips.map(ex=>
+    `<div class="ex-chip" onclick="quickAddEx('${ex.replace(/'/g,"\\'")}')"> ${ex}<button class="ex-chip-del" onclick="event.stopPropagation();deleteAnyEx('${ex.replace(/'/g,"\\'")}')" style="margin-left:3px;">&#10005;</button></div>`
+  ).join('');
+}
+
+// DELETED EXERCISES
+const DELETED_EX_KEY='kmfit_deleted_ex';
+function getDeletedEx(){try{return new Set(JSON.parse(localStorage.getItem(DELETED_EX_KEY)||'[]'));}catch(e){return new Set();}}
+function saveDeletedEx(s){localStorage.setItem(DELETED_EX_KEY,JSON.stringify([...s]));}
+
+function deleteAnyEx(name){
+  if(!confirm('Remove "'+name+'" from the exercise list?'))return;
+  const del=getDeletedEx();del.add(name);saveDeletedEx(del);
+  const custom=getCustomEx();
+  for(const bp in custom){custom[bp]=custom[bp].filter(e=>e!==name);}
+  saveCustomEx(custom);
+  renderExChips();toast(`Removed: ${name}`);
+}
+
+function restoreDeletedEx(){
+  const del=getDeletedEx();
+  if(del.size===0){toast('No deleted exercises');return;}
+  const list=[...del].join('\n');
+  const name=prompt('Deleted exercises:\n\n'+list+'\n\nType the name to restore:');
+  if(!name||!name.trim())return;
+  const trimmed=name.trim();
+  if(!del.has(trimmed)){toast('"'+trimmed+'" not found in deleted list');return;}
+  del.delete(trimmed);saveDeletedEx(del);
+  // Also add back to custom if it was custom
+  renderExChips();toast('v "'+trimmed+'" restored');
+}
+
+function quickAddEx(exName){
+  addExRow();
+  const blocks=document.querySelectorAll('#exBody .ex-block');
+  const last=blocks[blocks.length-1];
+  if(last){const sel=last.querySelector('.ex-select');if(sel){sel.value=exName;onExChange(sel);}}
+}
+
+function addCustomExQuick(){
+  const inp=document.getElementById('customExQuickInp');
+  if(!inp)return;
+  const name=inp.value.trim();
+  if(!name){toast('Enter exercise name');return;}
+  const bp=selectedBP.length===1?selectedBP[0]:'Custom';
+  const custom=getCustomEx();
+  if(!custom[bp])custom[bp]=[];
+  if(!custom[bp].includes(name))custom[bp].push(name);
+  saveCustomEx(custom);
+  if(!EX_LIB[bp])EX_LIB[bp]=[];
+  if(!EX_LIB[bp].includes(name))EX_LIB[bp].push(name);
+  const del=getDeletedEx();del.delete(name);saveDeletedEx(del);
+  inp.value='';
+  renderExChips();quickAddEx(name);toast(`v ${name} added`);
+}
+
+function deleteCustomEx(name){deleteAnyEx(name);}
+
+function toggleExChips(){
+  const body=document.getElementById('exChipsBody');
+  const toggle=document.getElementById('exChipsToggle');
+  if(!body)return;
+  const open=body.classList.toggle('open');
+  if(toggle)toggle.classList.toggle('open',open);
+}
+
+// CARDIO
+const CUSTOM_CARDIO_KEY='kmfit_custom_cardio';
+function getCustomCardio(){try{return JSON.parse(localStorage.getItem(CUSTOM_CARDIO_KEY)||'[]');}catch(e){return[];}}
+function saveCustomCardio(arr){localStorage.setItem(CUSTOM_CARDIO_KEY,JSON.stringify(arr));}
+const DELETED_CARDIO_KEY='kmfit_deleted_cardio';
+function getDeletedCardio(){try{return new Set(JSON.parse(localStorage.getItem(DELETED_CARDIO_KEY)||'[]'));}catch(e){return new Set();}}
+function saveDeletedCardio(s){localStorage.setItem(DELETED_CARDIO_KEY,JSON.stringify([...s]));}
+
+function renderCardioChips(){
+  const chips=document.getElementById('cardioChips');
+  if(!chips)return;
+  const deleted=getDeletedCardio();
+  const custom=getCustomCardio();
+  const all=[...EX_LIB['Cardio'],...custom.filter(e=>!EX_LIB['Cardio'].includes(e))].filter(e=>!deleted.has(e));
+  chips.innerHTML=all.map(ex=>
+    `<div class="cardio-chip" onclick="addCardioBlock('${ex.replace(/'/g,"\\'")}')">${ex}<button class="ex-chip-del" onclick="event.stopPropagation();deleteCardioEx('${ex.replace(/'/g,"\\'")}')" style="margin-left:3px;">&#10005;</button></div>`
+  ).join('');
+}
+
+function deleteCardioEx(name){
+  const del=getDeletedCardio();del.add(name);saveDeletedCardio(del);
+  renderCardioChips();toast(`Removed: ${name}`);
+}
+
+function addCustomCardio(){
+  const inp=document.getElementById('customCardioInp');
+  if(!inp)return;
+  const name=inp.value.trim();
+  if(!name){toast('Enter activity name');return;}
+  const custom=getCustomCardio();
+  if(!custom.includes(name))custom.push(name);
+  saveCustomCardio(custom);
+  if(!EX_LIB['Cardio'].includes(name))EX_LIB['Cardio'].push(name);
+  const del=getDeletedCardio();del.delete(name);saveDeletedCardio(del);
+  inp.value='';
+  renderCardioChips();addCardioBlock(name);toast(`v ${name} added`);
+}
+
+function toggleCardioChips(){
+  const body=document.getElementById('cardioChipsBody');
+  const toggle=document.getElementById('cardioChipsToggle');
+  if(!body)return;
+  const open=body.classList.toggle('open');
+  if(toggle)toggle.classList.toggle('open',open);
+}
+
+let cardioBlocks=[];
+function addCardioBlock(exName){
+  const id=Date.now();
+  cardioBlocks.push({id,ex:exName,duration:'',distance:'',intensity:''});
+  renderCardioBlocks();
+}
+function removeCardioBlock(id){
+  cardioBlocks=cardioBlocks.filter(b=>b.id!==id);
+  renderCardioBlocks();
+}
+function renderCardioBlocks(){
+  const cont=document.getElementById('cardioBlocks');
+  if(!cont)return;
+  cont.innerHTML=cardioBlocks.map(b=>`
+    <div class="cardio-log-block">
+      <div class="cardio-log-name"> ${b.ex}
+        <button class="del-btn" onclick="removeCardioBlock(${b.id})">&#10005;</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px;">
+        <div><div class="cardio-field-label">Duration (min)</div>
+          <input class="cardio-field-inp" type="text" inputmode="decimal" placeholder="--"
+            value="${b.duration}" onblur="autoFixNum(this)" oninput="updateCardio(${b.id},'duration',this.value)">
+        </div>
+        <div><div class="cardio-field-label">Distance (km)</div>
+          <input class="cardio-field-inp" type="text" inputmode="decimal" placeholder="--"
+            value="${b.distance||''}" onblur="autoFixNum(this)" oninput="updateCardio(${b.id},'distance',this.value)">
+        </div>
+        <div><div class="cardio-field-label">Intensity</div>
+          <select class="cardio-field-sel" onchange="updateCardio(${b.id},'intensity',this.value)">
+            <option value="">--</option>
+            <option value="Easy"${b.intensity==='Easy'?' selected':''}>Easy</option>
+            <option value="Moderate"${b.intensity==='Moderate'?' selected':''}>Moderate</option>
+            <option value="Hard"${b.intensity==='Hard'?' selected':''}>Hard</option>
+            <option value="Max"${b.intensity==='Max'?' selected':''}>Max</option>
+          </select>
+        </div>
+      </div>
+    </div>`).join('');
+}
+function updateCardio(id,field,val){
+  const b=cardioBlocks.find(b=>b.id===id);
+  if(b)b[field]=val;draftSave();
+}
+
+function autoFixNum(inp){
+  if(!inp.value)return;
+  const v=parseFloat(inp.value);
+  if(!isNaN(v))inp.value=String(v);
+}
+
+
+
+// SETUP
+function completeSetup(){
+  const n=document.getElementById('setupName').value.trim();
+  const m=document.getElementById('setupMobile').value.trim();
+  if(!n){toast('Enter your name');return;}
+  if(!m){toast('Enter your mobile number');return;}
+  localStorage.setItem('kmfit_name',n);
+  localStorage.setItem('kmfit_mobile',m);
+  localStorage.setItem('kmfit_target',document.getElementById('setupTarget').value);
+  setUnlocked(); // re-save IDB now that name + mobile are in localStorage
+  loadFitnessFromSupabase(function(loaded){
+    initApp();
+  });
+}
+
+function switchLoginTab(tab){
+  var isPw=tab==='pw';
+  document.getElementById('loginTabPw').style.display=isPw?'block':'none';
+  document.getElementById('loginTabMobile').style.display=isPw?'none':'block';
+  document.getElementById('tabPw').style.background=isPw?'var(--sage)':'transparent';
+  document.getElementById('tabPw').style.color=isPw?'#0c0c0a':'var(--muted)';
+  document.getElementById('tabMobile').style.background=isPw?'transparent':'var(--sage)';
+  document.getElementById('tabMobile').style.color=isPw?'var(--muted)':'#0c0c0a';
+  document.getElementById('pwError').textContent='';
+}
+
+function _completeFitnessLogin(match,mobile){
+  var d=match.data;
+  if(d.sessions) sessions=d.sessions;
+  if(d.notes) notes=d.notes;
+  if(d.name) localStorage.setItem('kmfit_name',d.name);
+  localStorage.setItem('kmfit_mobile',mobile);
+  localStorage.setItem('kmfit_target',d.target||'4');
+  if(d.unit) localStorage.setItem('kmfit_unit',d.unit);
+  localStorage.setItem('kmfit_sessions',JSON.stringify(sessions));
+  localStorage.setItem('kmfit_notes',JSON.stringify(notes));
+  var remember=document.getElementById('rememberMeMobile').checked;
+  if(remember){
+    setUnlocked();
+  } else {
+    try{
+      var req2=indexedDB.open('kmfit_auth',1);
+      req2.onupgradeneeded=function(e){e.target.result.createObjectStore('flags');};
+      req2.onsuccess=function(e){
+        var store2=e.target.result.transaction('flags','readwrite').objectStore('flags');
+        store2.put('1','unlocked');
+        if(mobile) store2.put(mobile,'mobile');
+        var n=localStorage.getItem('kmfit_name');
+        if(n) store2.put(n,'name');
+      };
+    }catch(e){}
+  }
+  sessionStorage.setItem('kmfit_session','1');
+  document.getElementById('pwGate').style.display='none';
+  document.getElementById('pwError').textContent='';
+  initApp();
+  // Now migrate this row to user_id
+  syncFitnessToSupabase();
+}
+
+function checkMobileLogin(){
+  var mobile=document.getElementById('mobileLoginInput').value.trim().replace(/\D/g,'');
+  if(!mobile){document.getElementById('pwError').textContent='Enter your mobile number';return;}
+  document.getElementById('pwError').textContent='Looking you up...';
+  // First try direct client_id lookup (works even without auth session)
+  getSB().from('tracker_data').select('data,client_id').eq('tracker','fitness').like('client_id','%__'+mobile).then(function(res){
+    if(!res.error&&res.data&&res.data.length){
+      ensureAnonAuth(function(){_completeFitnessLogin(res.data[0],mobile);});
+      return;
+    }
+    // Fallback: try signing in fresh then retry
+    getSB().auth.signInAnonymously().then(function(){
+      getSB().from('tracker_data').select('data,client_id').eq('tracker','fitness').like('client_id','%__'+mobile).then(function(res2){
+        if(!res2.error&&res2.data&&res2.data.length){
+          _completeFitnessLogin(res2.data[0],mobile);
+          return;
+        }
+        document.getElementById('pwError').textContent='Mobile number not found -- try password login';
+      });
+    });
+  });
+}
+
+function showMobilePromptIfNeeded(){
+  var mobile=localStorage.getItem('kmfit_mobile');
+  var dismissed=localStorage.getItem('kmfit_mobile_dismissed');
+  if(!mobile&&!dismissed){
+    setTimeout(function(){
+      var m=document.getElementById('mobilePromptModal');
+      if(m) m.style.display='flex';
+    },1000);
+  }
+}
+
+function saveMobilePrompt(){
+  var mobile=document.getElementById('mobilePromptInput').value.trim().replace(/\D/g,'');
+  if(!mobile){return;}
+  localStorage.setItem('kmfit_mobile',mobile);
+  setUnlocked(); // re-save IDB with mobile included
+  syncFitnessToSupabase();
+  document.getElementById('mobilePromptModal').style.display='none';
+}
+
+function dismissMobilePrompt(){
+  localStorage.setItem('kmfit_mobile_dismissed','1');
+  document.getElementById('mobilePromptModal').style.display='none';
+}
+
+// PASSWORD GATE
+const PW = 'kmfit2025';
+
+function setCookie(name,val,days){
+  var d=new Date();d.setTime(d.getTime()+(days*24*60*60*1000));
+  document.cookie=name+'='+val+';expires='+d.toUTCString()+';path=/;SameSite=Lax';
+}
+function getCookie(name){
+  var v=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');
+  return v?v.pop():null;
+}
+function clearCookie(name){
+  document.cookie=name+'=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/';
+}
+
+function isUnlocked(){
+  return localStorage.getItem('kmfit_unlocked')==='1'||getCookie('kmfit_unlocked')==='1';
+}
+
+function setUnlocked(){
+  localStorage.setItem('kmfit_unlocked','1');
+  setCookie('kmfit_unlocked','1',365);
+  try{
+    var req=indexedDB.open('kmfit_auth',1);
+    req.onupgradeneeded=function(e){e.target.result.createObjectStore('flags');};
+    req.onsuccess=function(e){
+      var tx=e.target.result.transaction('flags','readwrite');
+      var store=tx.objectStore('flags');
+      store.put('1','unlocked');
+      var name=localStorage.getItem('kmfit_name');
+      var mobile=localStorage.getItem('kmfit_mobile');
+      var target=localStorage.getItem('kmfit_target');
+      if(name) store.put(name,'name');
+      if(mobile) store.put(mobile,'mobile');
+      if(target) store.put(target,'target');
+    };
+  }catch(e){}
+}
+
+function checkUnlockedIDB(callback){
+  try{
+    var req=indexedDB.open('kmfit_auth',1);
+    req.onupgradeneeded=function(e){e.target.result.createObjectStore('flags');};
+    req.onsuccess=function(e){
+      var db=e.target.result;
+      var tx=db.transaction('flags','readonly');
+      var store=tx.objectStore('flags');
+      store.get('unlocked').onsuccess=function(ev){
+        if(ev.target.result==='1'){
+          // Restore name + mobile to localStorage if missing
+          sessionStorage.setItem('kmfit_session','1'); // re-set session so next refresh is instant
+          store.get('name').onsuccess=function(e2){
+            if(e2.target.result) localStorage.setItem('kmfit_name',e2.target.result);
+            store.get('mobile').onsuccess=function(e3){
+              if(e3.target.result) localStorage.setItem('kmfit_mobile',e3.target.result);
+              store.get('target').onsuccess=function(e4){
+                if(e4.target.result) localStorage.setItem('kmfit_target',e4.target.result);
+                callback(true);
+              };
+            };
+          };
+        } else { callback(false); }
+      };
+    };
+    req.onerror=function(){callback(false);};
+  }catch(e){callback(false);}
+}
+
+function logout(){
+  localStorage.removeItem('kmfit_unlocked');
+  localStorage.removeItem('kmfit_uid');
+  clearCookie('kmfit_unlocked');
+  sessionStorage.removeItem('kmfit_session');
+  try{ getSB().auth.signOut(); }catch(e){}
+  try{
+    var req=indexedDB.open('kmfit_auth',1);
+    req.onsuccess=function(e){
+      var tx=e.target.result.transaction('flags','readwrite');
+      tx.objectStore('flags').delete('unlocked');
+    };
+  }catch(e){}
+  document.getElementById('pwGate').style.display='flex';
+  document.getElementById('setupScreen').style.display='none';
+  document.getElementById('mainApp').style.display='none';
+  document.getElementById('pwInput').value='';
+  document.getElementById('pwError').textContent='';
+}
+
+function checkPw(){
+  const val = document.getElementById('pwInput').value;
+  if(val === PW){
+    const remember = document.getElementById('rememberMe').checked;
+    if(remember) setUnlocked();
+    else {
+      // Still write to IDB so refresh works
+      try{
+        var req2=indexedDB.open('kmfit_auth',1);
+        req2.onupgradeneeded=function(e){e.target.result.createObjectStore('flags');};
+        req2.onsuccess=function(e){
+          var store2=e.target.result.transaction('flags','readwrite').objectStore('flags');
+          store2.put('1','unlocked');
+        };
+      }catch(e){}
+    }
+    sessionStorage.setItem('kmfit_session','1');
+    document.getElementById('pwGate').style.display='none';
+    initApp();
+  } else {
+    document.getElementById('pwError').textContent='Incorrect password -- try again';
+    document.getElementById('pwInput').value='';
+    setTimeout(()=>document.getElementById('pwError').textContent='', 2500);
+  }
+}
+
+function hideLoader(){
+  var loader=document.getElementById('appLoader');
+  if(loader) loader.style.display='none';
+}
+
+function initApp(){
+  // iOS install prompt detection
+  var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  var isStandalone=('standalone' in window.navigator)&&window.navigator.standalone||window.matchMedia('(display-mode: standalone)').matches;
+  var iw2=document.getElementById('installWrap');
+  if(isStandalone&&iw2) iw2.style.display='none';
+  if(isIOS&&!isStandalone){ var w=document.getElementById('installWrap'); if(w) w.style.display='block'; }
+  // Fast check first
+  if(isUnlocked()||sessionStorage.getItem('kmfit_session')){
+    hideLoader();
+    _continueInitApp();
+    return;
+  }
+  // Check IDB -- loader stays visible during this
+  checkUnlockedIDB(function(unlocked){
+    hideLoader();
+    if(unlocked){
+      sessionStorage.setItem('kmfit_session','1');
+      _continueInitApp();
+    } else {
+      var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
+      if(mobile){
+        switchLoginTab('mobile');
+        var inp=document.getElementById('mobileLoginInput');
+        if(inp) inp.value=mobile;
+      }
+      document.getElementById('pwGate').style.display='flex';
+      document.getElementById('setupScreen').style.display='none';
+      document.getElementById('mainApp').style.display='none';
+    }
+  });
+}
+
+function _continueInitApp(){
+  // kmfit_name may be missing if Android cleared localStorage -- IDB should have restored it
+  // Give IDB a moment then check again
+  var name=localStorage.getItem('kmfit_name');
+  if(!name){
+    // Try once more after IDB restore
+    setTimeout(function(){
+      name=localStorage.getItem('kmfit_name');
+      if(!name){
+        document.getElementById('pwGate').style.display='none';
+        document.getElementById('setupScreen').style.display='flex';
+        document.getElementById('mainApp').style.display='none';
+      } else {
+        _launchMainApp();
+      }
+    },300);
+    return;
+  }
+  _launchMainApp();
+}
+
+function _launchMainApp(){
+  document.getElementById('setupScreen').style.display='none';
+  document.getElementById('mainApp').style.display='block';
+  document.querySelector('.rest-bar').classList.add('visible');
+  updateDateChip(); buildBpGrid(); setTodayDate();
+  // Show client name in header
+  var clientName=localStorage.getItem('kmfit_name');
+  if(clientName){
+    var el=document.getElementById('headerClientName');
+    if(el) el.textContent=clientName;
+    var cn=document.getElementById('clientName');
+    if(cn&&!cn.value) cn.value=clientName;
+  }
+  // Load from localStorage first for instant render
+  loadData();
+  weightUnit = localStorage.getItem('kmfit_unit')||'kg';
+  setUnit(weightUnit, true);
+  const custom=getCustomEx();
+  for(const bp in custom){
+    if(!EX_LIB[bp])EX_LIB[bp]=[];
+    custom[bp].forEach(e=>{if(!EX_LIB[bp].includes(e))EX_LIB[bp].push(e);});
+  }
+  renderExChips();
+  renderCardioChips();
+  draftLoad();
+  startAutoSave();
+  // Backup localStorage before any Supabase load
+  try{var _bak=localStorage.getItem('kmfit_sessions');if(_bak&&_bak!=='[]')localStorage.setItem('kmfit_sessions_backup',_bak);}catch(e){}
+  loadFitnessFromSupabase(function(loaded){
+    if(loaded){
+      renderHistory();
+      renderStats();
+      // Re-trigger exercise history for any already-selected exercises
+      document.querySelectorAll('#exBody .ex-select').forEach(sel=>{if(sel.value)onExChange(sel);});
+    }
+  });
+  showMobilePromptIfNeeded();
+  setTimeout(checkVoiceSession, 800);
+}
+
+function setTodayDate(){
+  document.getElementById('sessDate').value=new Date().toISOString().split('T')[0];
+}
+
+function updateDateChip(){
+  const d=new Date();
+  const D=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  const M=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  document.getElementById('headerDate').textContent=D[d.getDay()]+'\u2002'+d.getDate()+'\u2002'+M[d.getMonth()];
+}
+
+// TABS
+function goTab(i){
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',i===j));
+  document.querySelectorAll('.panel').forEach((p,j)=>p.classList.toggle('active',i===j));
+  if(i===1)renderHistory();
+  if(i===2)renderStats();
+  if(i===3)renderNotesTab();
+}
+
+// BODY PARTS
+function buildBpGrid(){
+  document.getElementById('bpGrid').innerHTML=BODY_PARTS.map(bp=>
+    `<div class="bp-btn" onclick="toggleBP(this,'${bp}')">${bp}</div>`).join('');
+}
+function toggleBP(el,bp){
+  el.classList.toggle('active');
+  selectedBP=el.classList.contains('active')?[...selectedBP,bp]:selectedBP.filter(b=>b!==bp);
+  document.querySelectorAll('#exBody .ex-select').forEach(s=>populateSel(s));
+  renderExChips();
+}
+function getExList(){return selectedBP.length===0?ALL_EX:selectedBP.flatMap(bp=>EX_LIB[bp]||[]);}
+function populateSel(sel){
+  const cur=sel.value;
+  sel.innerHTML='<option value="">-- Select --</option>'+getExList().map(e=>`<option value="${e}"${e===cur?' selected':''}>${e}</option>`).join('');
+}
+
+// EXERCISES -- per-set blocks
+function setsOpts(def){let o='';for(let i=1;i<=25;i++)o+=`<option value="${i}"${i===def?' selected':''}>${i}</option>`;return o;}
+
+function setUnit(unit, silent){
+  weightUnit=unit;
+  document.getElementById('unitKg').classList.toggle('active', unit==='kg');
+  document.getElementById('unitLbs').classList.toggle('active', unit==='lbs');
+  document.querySelectorAll('.set-header .wt-label').forEach(el=>el.textContent=unit);
+  if(!silent) localStorage.setItem('kmfit_unit', unit);
+}
+
+function isCardio(exName){ return CARDIO_EX.has(exName); }
+
+function generateSetRows(container, count, exName){
+  const isC=isCardio(exName||'');
+  if(isC){
+    container.innerHTML=`<div class="cardio-header"><span>Duration</span><span>Distance</span><span>Intensity</span></div>
+      <div class="cardio-row">
+        <input class="cardio-input" type="text" inputmode="decimal" placeholder="min" value="${container._cdur||''}">
+        <input class="cardio-input" type="text" inputmode="decimal" placeholder="km" value="${container._cdist||''}">
+        <select class="intensity-sel">
+          <option value="">--</option>
+          <option value="Easy"${container._cint==='Easy'?' selected':''}>Easy</option>
+          <option value="Moderate"${container._cint==='Moderate'?' selected':''}>Moderate</option>
+          <option value="Hard"${container._cint==='Hard'?' selected':''}>Hard</option>
+          <option value="Max"${container._cint==='Max'?' selected':''}>Max</option>
+        </select>
+      </div>`;
+    return;
+  }
+  const existing=container.querySelectorAll('.set-row');
+  const vals=[];
+  existing.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value}));
+  container.innerHTML=`<div class="set-header"><span></span><span>Reps</span><span class="wt-label">${weightUnit}</span></div>`;
+  for(let i=0;i<count;i++){
+    const row=document.createElement('div');
+    row.className='set-row';
+    row.innerHTML=`<span class="set-num">S${i+1}</span>
+      <input class="reps-input" type="number" inputmode="numeric" min="0" max="999" placeholder="--" value="${vals[i]?.reps||''}" onblur="autoFixNum(this)">
+      <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" value="${vals[i]?.weight||''}" onblur="autoFixNum(this)">`;
+    // Auto-correct leading zeros
+    row.querySelectorAll('input').forEach(inp=>{
+      inp.addEventListener('blur',()=>{
+        const v=inp.value.replace(/^0+(\d)/,'$1');
+        if(v!==inp.value) inp.value=v;
+      });
+    });
+    container.appendChild(row);
+  }
+}
+
+function updateSetRows(sel){
+  const block=sel.closest('.ex-block');
+  const exName=block.querySelector('.ex-select').value;
+  generateSetRows(block.querySelector('.set-rows'),+sel.value,exName);
+}
+
+function addExRow(){
+  const block=document.createElement('div');
+  block.className='ex-block';
+  const micId='exmic_'+Date.now();
+  block.innerHTML=`
+    <div class="ex-top-row">
+      <select class="ex-select" onchange="onExChange(this)"></select>
+      <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(3)}</select>
+      <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
+    </div>
+    <div class="set-rows"></div>`;
+  document.getElementById('exBody').appendChild(block);
+  populateSel(block.querySelector('.ex-select'));
+  generateSetRows(block.querySelector('.set-rows'),3,'');
+  // Custom exercise suggestion button
+  const btn=document.createElement('button');
+  btn.className='custom-ex-btn';
+  btn.textContent='+ Suggest a new exercise to your coach';
+  btn.onclick=()=>openCustomEx();
+  block.appendChild(btn);
+}
+
+function onExChange(sel){
+  const block=sel.closest('.ex-block');
+  const exName=sel.value;
+  const setsEl=block.querySelector('.sets-select');
+  const isC=isCardio(exName);
+  setsEl.style.display=isC?'none':'';
+  generateSetRows(block.querySelector('.set-rows'),+setsEl.value,exName);
+
+  // Show last session history for this exercise
+  let histEl=block.querySelector('.ex-last-hist');
+  if(!histEl){
+    histEl=document.createElement('div');
+    histEl.className='ex-last-hist';
+    block.querySelector('.ex-top-row').insertAdjacentElement('afterend',histEl);
+  }
+
+  if(!exName){histEl.innerHTML='';return;}
+
+  const lastSess=sessions.slice().reverse().find(s=>
+    (s.exercises||[]).some(e=>e.ex===exName)
+  );
+
+  if(!lastSess){histEl.innerHTML='';return;}
+
+  const lastEx=(lastSess.exercises||[]).find(e=>e.ex===exName);
+  if(!lastEx){histEl.innerHTML='';return;}
+
+  const d=new Date(lastSess.date+'T12:00:00');
+  const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dateStr=d.getDate()+' '+M[d.getMonth()];
+
+  var innerHtml='';
+  if(lastEx.type==='cardio'){
+    const parts=[];
+    if(lastEx.duration)parts.push(lastEx.duration+'min');
+    if(lastEx.distance)parts.push(lastEx.distance+'km');
+    if(lastEx.intensity)parts.push(lastEx.intensity);
+    innerHtml='<div style="font-size:16px;font-weight:600;color:var(--text);">'+parts.join(' . ')+'</div>';
+  } else {
+    const setData=(lastEx.setData||[]).filter(r=>r.reps||r.weight);
+    const unit=lastSess.unit||'kg';
+    innerHtml=setData.map(function(r,i){
+      return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;">'
+        +'<span style="font-family:\'DM Mono\',monospace;font-size:17px;color:var(--muted2);width:36px;flex-shrink:0;text-transform:uppercase;">Set '+(i+1)+'</span>'
+        +(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps</span>':'<span style="flex:1;"></span>')
+        +(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:17px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
+        +'</div>';
+    }).join('');
+    if(!innerHtml) innerHtml='<div style="font-size:17px;color:var(--muted);padding:4px 0;">No set data recorded</div>';
+  }
+
+  histEl.innerHTML=
+    '<div style="background:rgba(212,168,67,.1);border:1px solid rgba(212,168,67,.25);border-radius:8px;margin-top:6px;overflow:hidden;">'
+    +'<div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\';this.querySelector(\'.hchev\').textContent=this.nextElementSibling.style.display===\'none\'?\'v\':\'^\';" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;user-select:none;">'
+    +'<div style="font-size:17px;font-weight:700;color:var(--gold);letter-spacing:.06em;text-transform:uppercase;">&#9888; Last Session</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;">'
+    +'<div style="font-size:17px;color:var(--muted);">'+dateStr+'</div>'
+    +'<div class="hchev" style="font-size:17px;color:var(--muted);">^</div>'
+    +'</div></div>'
+    +'<div style="padding:0 12px 10px;"><div style="display:flex;flex-direction:column;gap:5px;">'+innerHtml+'</div></div>'
+    +'</div>';
+}
+
+// SAVE / CLEAR
+function saveSession(){
+  const date=document.getElementById('sessDate').value;
+  if(!date){toast('Set a date first');return;}
+  const exercises=[];
+  document.querySelectorAll('#exBody .ex-block').forEach(block=>{
+    const ex=block.querySelector('.ex-select').value;
+    const setsCount=+block.querySelector('.sets-select').value;
+    if(!ex)return;
+    if(isCardio(ex)){
+      const dur=block.querySelector('.cardio-input')?.value||'';
+      const dist=block.querySelectorAll('.cardio-input')[1]?.value||'';
+      const intensity=block.querySelector('.intensity-sel')?.value||'';
+      exercises.push({ex,type:'cardio',duration:dur,distance:dist,intensity});
+    } else {
+      const setData=[];
+      block.querySelectorAll('.set-row').forEach((row,i)=>{
+        setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value});
+      });
+      exercises.push({ex,sets:setsCount,setData});
+    }
+  });
+  if(!exercises.length && !cardioBlocks.length){toast('Add at least one exercise or cardio activity');return;}
+  const timerDur = durRunning ? durElapsed+Math.floor((Date.now()-durStart)/1000) : durElapsed;
+  const manualRaw = document.getElementById('durManual').value.trim();
+  let finalDur = timerDur || null;
+  if(!finalDur && manualRaw){
+    // Parse "45" (minutes), "1:30" (h:mm), "90m", "1h30m"
+    const colonMatch = manualRaw.match(/^(\d+):(\d+)$/);
+    const hmMatch    = manualRaw.match(/(?:(\d+)h\s*)?(?:(\d+)m)?/i);
+    if(colonMatch) finalDur = +colonMatch[1]*3600 + +colonMatch[2]*60;
+    else if(hmMatch && (hmMatch[1]||hmMatch[2])) finalDur = (+hmMatch[1]||0)*3600 + (+hmMatch[2]||0)*60;
+    else if(/^\d+$/.test(manualRaw)) finalDur = +manualRaw*60;
+  }
+  // Get average rest -- use tracked times if available, else manual entry
+  const avgRestInput=document.getElementById('avgRestInput');
+  const manualAvgRest=avgRestInput&&avgRestInput.value?parseInt(avgRestInput.value):null;
+  var _now=new Date();
+  var _timeStr=_now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
+  sessions.unshift({
+    id:Date.now(),
+    client:document.getElementById('clientName').value.trim()||'Client',
+    date, timeOfDay:_timeStr,
+    bodyParts:[...selectedBP], exercises,
+    cardio:[...cardioBlocks],
+    restTimes:[...currentRestTimes],
+    avgRestManual: currentRestTimes.length===0?manualAvgRest:null,
+    duration: finalDur||null,
+    unit: weightUnit,
+    notes:document.getElementById('sessNotes').value
+  });
+  saveSessions();
+  toast('Session saved v');
+  // Stop rest timer if running
+  if(restTmr){clearInterval(restTmr);restTmr=null;}
+  restLeft=0;
+  document.getElementById('restDisp').textContent='--';
+  document.getElementById('restDisp').className='rest-time';
+  document.querySelectorAll('.rest-preset').forEach(p=>p.classList.remove('active'));
+  currentRestTimes=[];
+  clearInterval(durTmr); durTmr=null; durElapsed=0; durRunning=false; durStart=null;
+  document.getElementById('durDisplay').textContent='00:00';
+  document.getElementById('durDisplay').className='dur-display idle';
+  document.getElementById('durStatus').textContent='Not started';
+  document.getElementById('durStatus').className='dur-status';
+  document.getElementById('durStartBtn').style.display='block';
+  document.getElementById('durStartBtn').textContent='> Start';
+  document.getElementById('durStopBtn').style.display='none';
+  document.getElementById('durManual').value='';
+  document.getElementById('sessionRestCard').style.display='none';
+  cardioBlocks=[];
+  renderCardioBlocks();
+  draftClear();
+  clearLog(); renderHistory(); renderStats();
+}
+
+function clearLog(){
+  document.getElementById('clientName').value='';
+  setTodayDate();
+  document.getElementById('sessNotes').value='';
+  var ari=document.getElementById('avgRestInput'); if(ari) ari.value='';
+  document.getElementById('exBody').innerHTML='';
+  selectedBP=[];
+  document.querySelectorAll('.bp-btn').forEach(b=>b.classList.remove('active'));
+  draftClear();
+}
+
+// -- SUPABASE CONFIG --
+var SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
+var SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
+var sbClient=null;
+function getSB(){
+  if(!sbClient) sbClient=supabase.createClient(SB_URL,SB_KEY);
+  return sbClient;
+}
+
+function getFitClientKey(){
+  var name=(localStorage.getItem('kmfit_name')||'unknown').toLowerCase().replace(/\s+/g,'_');
+  var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
+  return mobile?name+'__'+mobile:name;
+}
+
+// -- ANONYMOUS AUTH --
+function ensureAnonAuth(callback){
+  var sb=getSB();
+  sb.auth.getSession().then(function(res){
+    var session=res.data&&res.data.session;
+    if(session&&session.user){
+      localStorage.setItem('kmfit_uid',session.user.id);
+      callback(session.user.id);
+    } else {
+      sb.auth.signInAnonymously().then(function(r){
+        if(r.error||!r.data||!r.data.user){callback(null);return;}
+        localStorage.setItem('kmfit_uid',r.data.user.id);
+        callback(r.data.user.id);
+      });
+    }
+  });
+}
+
+// -- VOICE FILL FUNCTIONS --
+
+
+
+
+
+function checkVoiceSession(){
+  try{
+    var raw=sessionStorage.getItem('kfit_voice_pending');
+    if(!raw) return;
+    var vdata=JSON.parse(raw);
+    if(!vdata||!vdata.exercises||!vdata.exercises.length) return;
+    vdata.exercises.forEach(function(ex){
+      addExRow();
+      var blocks=document.querySelectorAll('#exBody .ex-block');
+      var block=blocks[blocks.length-1];
+      var sel=block.querySelector('.ex-select');
+      setTimeout(function(){
+        var opts=Array.from(sel.options);
+        var found=opts.find(function(o){return o.value.toLowerCase()===ex.name.toLowerCase();});
+        if(!found) found=opts.find(function(o){return o.value.toLowerCase().includes(ex.name.toLowerCase().split(' ')[0]);});
+        if(found){sel.value=found.value;onExChange(sel);}
+        var sets=ex.setData?ex.setData.length:(ex.sets||3);
+        var setsEl=block.querySelector('.sets-select');
+        if(setsEl) setsEl.value=Math.min(sets,6);
+        var setRows=block.querySelector('.set-rows');
+        generateSetRows(setRows,Math.min(sets,6),ex.name||'');
+        setTimeout(function(){
+          var rows=setRows.querySelectorAll('.set-row');
+          (ex.setData||[]).forEach(function(s,i){
+            if(!rows[i]) return;
+            var ri=rows[i].querySelector('.reps-input');
+            var wi=rows[i].querySelector('.weight-input');
+            if(ri) ri.value=String(s.reps||'');
+            if(wi) wi.value=String(s.weight||'').replace(/[^0-9.]/g,'');
+          });
+        },200);
+      },100);
+    });
+    sessionStorage.setItem('kfit_voice_session_active','1');
+    sessionStorage.removeItem('kfit_voice_pending');
+    showToast('Voice exercises added!');
+  }catch(e){console.error('checkVoiceSession:',e);}
+}
+
+function syncFitnessToSupabase(){
+  var key=getFitClientKey();
+  if(key==='unknown')return;
+  if(!sessions||sessions.length===0)return;
+  ensureAnonAuth(function(uid){
+    if(!uid)return;
+    var payload={
+      user_id:uid,
+      client_id:key,
+      tracker:'fitness',
+      data:{
+        sessions:sessions,
+        notes:notes,
+        name:localStorage.getItem('kmfit_name'),
+        mobile:localStorage.getItem('kmfit_mobile'),
+        target:localStorage.getItem('kmfit_target'),
+        unit:localStorage.getItem('kmfit_unit')
+      },
+      updated_at:new Date().toISOString()
+    };
+    getSB().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(res){
+      if(res.error){
+        console.error('Supabase write error:', JSON.stringify(res.error));
+        toast('Sync error: '+(res.error.message||res.error.code||JSON.stringify(res.error)));
+      }
+    });
+  });
+}
+
+function loadFitnessFromSupabase(callback){
+  ensureAnonAuth(function(uid){
+    if(!uid){callback(false);return;}
+    // Try loading by user_id first
+    getSB().from('tracker_data').select('data').eq('user_id',uid).eq('tracker','fitness').then(function(res){
+      if(!res.error&&res.data&&res.data.length){
+        _applyFitnessData(res.data[0].data);
+        callback(true);
+        return;
+      }
+      // Fallback: migrate existing row by client_id
+      var key=getFitClientKey();
+      getSB().from('tracker_data').select('data').eq('client_id',key).eq('tracker','fitness').then(function(res2){
+        if(res2.error||!res2.data||!res2.data.length){
+          // Try by name only
+          var name=(localStorage.getItem('kmfit_name')||'').toLowerCase().replace(/\s+/g,'_');
+          if(!name){callback(false);return;}
+          getSB().from('tracker_data').select('data').eq('client_id',name).eq('tracker','fitness').then(function(res3){
+            if(res3.error||!res3.data||!res3.data.length){callback(false);return;}
+            _applyFitnessData(res3.data[0].data);
+            syncFitnessToSupabase(); // migrate: write user_id onto row
+            callback(true);
+          });
+          return;
+        }
+        _applyFitnessData(res2.data[0].data);
+        syncFitnessToSupabase(); // migrate: write user_id onto row
+        callback(true);
+      });
+    });
+  });
+}
+
+function _applyFitnessData(d){
+  var localRaw=localStorage.getItem('kmfit_sessions');
+  var localSessions=[];
+  try{localSessions=JSON.parse(localRaw)||[];}catch(e){}
+  var remoteSessions=d.sessions||[];
+  var sessionMap={};
+  remoteSessions.forEach(function(s){if(s.id)sessionMap[s.id]=s;});
+  localSessions.forEach(function(s){if(s.id&&!sessionMap[s.id])sessionMap[s.id]=s;});
+  var merged=Object.values(sessionMap).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+  sessions=merged.length>0?merged:remoteSessions;
+  if(d.notes)notes=d.notes;
+  if(d.name)localStorage.setItem('kmfit_name',d.name);
+  if(d.target)localStorage.setItem('kmfit_target',d.target);
+  if(d.unit)localStorage.setItem('kmfit_unit',d.unit);
+  localStorage.setItem('kmfit_sessions',JSON.stringify(sessions));
+  localStorage.setItem('kmfit_notes',JSON.stringify(notes));
+  syncFitnessToSupabase();
+}
+
+// STORAGE
+function loadData(){
+  try{sessions=JSON.parse(localStorage.getItem('kmfit_sessions')||'[]');}catch(e){sessions=[];}
+  try{notes=JSON.parse(localStorage.getItem('kmfit_notes')||'{}');}catch(e){notes={};}
+}
+function saveSessions(){
+  localStorage.setItem('kmfit_sessions',JSON.stringify(sessions));
+  syncFitnessToSupabase();
+}
+function saveNotes(){
+  notes.weekly=document.getElementById('noteWeekly').value;
+  notes.monthly=document.getElementById('noteMonthly').value;
+  localStorage.setItem('kmfit_notes',JSON.stringify(notes));
+  syncFitnessToSupabase();
+  toast('Notes saved v');
+}
+
+// == AUTO-SAVE DRAFT ==
+function startAutoSave(){
+  clearInterval(autoSaveTmr);
+  autoSaveTmr=setInterval(draftSave,5000);
+  // Also save on any input change
+  document.getElementById('panel0').addEventListener('input',draftSave);
+  document.getElementById('panel0').addEventListener('change',draftSave);
+}
+
+function draftSave(){
+  const dot=document.getElementById('autosaveDot');
+  if(dot){dot.className='autosave-dot saving';}
+  try{
+    const exercises=[];
+    document.querySelectorAll('#exBody .ex-block').forEach(block=>{
+      const ex=block.querySelector('.ex-select').value;
+      const sets=+block.querySelector('.sets-select').value;
+      const setData=[];
+      block.querySelectorAll('.set-row').forEach((row,i)=>{
+        setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value});
+      });
+      exercises.push({ex,sets,setData});
+    });
+    const ari=document.getElementById('avgRestInput');
+    const draft={
+      client:document.getElementById('clientName').value,
+      date:document.getElementById('sessDate').value,
+      bodyParts:[...selectedBP],
+      exercises,
+      notes:document.getElementById('sessNotes').value,
+      restTimes:[...currentRestTimes],
+      avgRestManual:ari&&ari.value?parseInt(ari.value):null,
+      durElapsed: durRunning ? durElapsed + Math.floor((Date.now()-durStart)/1000) : durElapsed,
+      durRunning
+    };
+    localStorage.setItem('kmfit_draft',JSON.stringify(draft));
+    setTimeout(()=>{ if(dot) dot.className='autosave-dot saved'; },300);
+  }catch(e){}
+}
+
+function draftLoad(){
+  try{
+    const raw=localStorage.getItem('kmfit_draft');
+    if(!raw){
+      // No draft -- just fill name from localStorage
+      var cn=document.getElementById('clientName');
+      var storedName=localStorage.getItem('kmfit_name');
+      if(cn&&storedName&&!cn.value) cn.value=storedName;
+      return;
+    }
+    const d=JSON.parse(raw);
+    // Fill name from draft or localStorage
+    var storedName=localStorage.getItem('kmfit_name');
+    document.getElementById('clientName').value=d.client||storedName||'';
+    // Always use today's date -- never restore old date from draft
+    setTodayDate();
+    if(d.notes)  document.getElementById('sessNotes').value=d.notes;
+    if(d.restTimes) currentRestTimes=[...d.restTimes];
+    var ari=document.getElementById('avgRestInput');
+    if(ari&&d.avgRestManual) ari.value=d.avgRestManual;
+
+    // Restore body parts
+    if(d.bodyParts&&d.bodyParts.length){
+      selectedBP=[...d.bodyParts];
+      document.querySelectorAll('.bp-btn').forEach(btn=>{
+        if(d.bodyParts.includes(btn.textContent)){btn.classList.add('active');}
+      });
+    }
+
+    // Restore exercises
+    if(d.exercises&&d.exercises.length){
+      d.exercises.forEach(e=>{
+        const block=document.createElement('div');
+        block.className='ex-block';
+        block.innerHTML=`
+          <div class="ex-top-row">
+            <select class="ex-select"></select>
+            <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
+            <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
+          </div>
+          <div class="set-rows"></div>`;
+        document.getElementById('exBody').appendChild(block);
+        populateSel(block.querySelector('.ex-select'));
+        block.querySelector('.ex-select').value=e.ex;
+        generateSetRows(block.querySelector('.set-rows'),e.sets||3);
+        if(e.setData){
+          block.querySelectorAll('.set-row').forEach((row,i)=>{
+            if(e.setData[i]){
+              row.querySelector('.reps-input').value=e.setData[i].reps||'';
+              row.querySelector('.weight-input').value=e.setData[i].weight||'';
+            }
+          });
+        }
+      });
+    }
+
+    // Restore duration
+    if(d.durElapsed){
+      durElapsed=d.durElapsed;
+      updateDurDisplay(durElapsed);
+      document.getElementById('durStatus').textContent='Paused -- tap Start to resume';
+      document.getElementById('durDisplay').className='dur-display';
+    }
+
+    updateSessionRestCard();
+    if(raw) toast('Draft restored v');
+  }catch(e){}
+}
+
+function draftClear(){
+  localStorage.removeItem('kmfit_draft');
+  const dot=document.getElementById('autosaveDot');
+  if(dot) dot.className='autosave-dot';
+}
+
+// == DURATION TIMER ==
+function startDuration(){
+  // If exercises already logged and timer hasn't started yet, offer to backfill
+  if(durElapsed===0){
+    var exBlocks=document.querySelectorAll('#exBody .ex-block');
+    var hasData=false;
+    exBlocks.forEach(function(b){
+      var reps=b.querySelectorAll('.reps-input');
+      reps.forEach(function(r){if(r.value&&r.value!=='--')hasData=true;});
+    });
+    if(hasData){
+      var mins=prompt('You already have sets logged. How many minutes ago did you start? (tap Cancel to start from now)');
+      if(mins!==null&&!isNaN(parseInt(mins))&&parseInt(mins)>0){
+        durElapsed=parseInt(mins)*60;
+        updateDurDisplay(durElapsed);
+      }
+    }
+  }
+  durStart=Date.now();
+  durRunning=true;
+  document.getElementById('durStartBtn').style.display='none';
+  document.getElementById('durStopBtn').style.display='block';
+  document.getElementById('durStatus').textContent='Running...';
+  document.getElementById('durStatus').className='dur-status running';
+  document.getElementById('durDisplay').className='dur-display';
+  clearInterval(durTmr);
+  durTmr=setInterval(()=>{
+    const total=durElapsed+Math.floor((Date.now()-durStart)/1000);
+    updateDurDisplay(total);
+  },1000);
+}
+
+async function stopDuration(){
+  if(!durRunning)return;
+  const ok=await showConfirm('Stop session timer?','Current time will be saved with your session.');
+  if(!ok)return;
+  durElapsed+=Math.floor((Date.now()-durStart)/1000);
+  durRunning=false;
+  clearInterval(durTmr);
+  document.getElementById('durStartBtn').style.display='block';
+  document.getElementById('durStartBtn').textContent='> Resume';
+  document.getElementById('durStopBtn').style.display='none';
+  document.getElementById('durStatus').textContent='Stopped -- '+fmtDur(durElapsed);
+  document.getElementById('durStatus').className='dur-status';
+  updateDurDisplay(durElapsed);
+}
+
+function updateDurDisplay(secs){
+  const h=Math.floor(secs/3600);
+  const m=Math.floor((secs%3600)/60);
+  const s=secs%60;
+  document.getElementById('durDisplay').textContent=
+    h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+        : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function fmtDur(secs){
+  if(!secs)return'--';
+  const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60);
+  if(h>0) return`${h}h ${m}m`;
+  return`${m}m`;
+}
+
+// REST HELPERS
+function fmtSecs(s){
+  if(s===null||s===undefined)return'--';
+  const m=Math.floor(s/60),r=Math.round(s%60);
+  return m>0?`${m}:${String(r).padStart(2,'0')}`:`${r}s`;
+}
+function calcAvg(arr){
+  const flat=arr.flat().filter(n=>n>0);
+  if(!flat.length)return null;
+  return flat.reduce((a,b)=>a+b,0)/flat.length;
+}
+// Get rest average for a session -- uses tracked times or manual entry
+function sessRestAvg(s){
+  if(s.restTimes&&s.restTimes.length>0) return calcAvg([s.restTimes]);
+  if(s.avgRestManual) return s.avgRestManual;
+  return null;
+}
+function sessInRange(s,e){
+  return sessions.filter(x=>{const d=new Date(x.date+'T12:00:00');return d>=s&&d<=e;});
+}
+
+// SESSION REST CARD (live)
+function updateSessionRestCard(){
+  if(!currentRestTimes.length){document.getElementById('sessionRestCard').style.display='none';return;}
+  document.getElementById('sessionRestCard').style.display='block';
+  const avg=calcAvg([currentRestTimes]);
+  const total=currentRestTimes.reduce((a,b)=>a+b,0);
+  document.getElementById('sessionRestSummary').innerHTML=`
+    <div class="rst-row"><span class="rst-label">Rests taken</span><span class="rst-val">${currentRestTimes.length}</span></div>
+    <div class="rst-row"><span class="rst-label">Average rest</span><span class="rst-val">${fmtSecs(avg)}</span></div>
+    <div class="rst-row"><span class="rst-label">Total rest time</span><span class="rst-val">${fmtSecs(total)}</span></div>
+    <div style="margin-top:9px;">${currentRestTimes.map(r=>`<span class="pill">${fmtSecs(r)}</span>`).join('')}</div>`;
+}
+
+// HISTORY
+function renderHistory(){
+  const el=document.getElementById('histList');
+  if(!sessions.length){el.innerHTML='<div class="empty"><div class="ico"></div><p>No sessions yet.<br>Log your first workout.</p></div>';return;}
+  const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  el.innerHTML=sessions.map(s=>{
+    const d=new Date(s.date+'T12:00:00');
+    const avg=sessRestAvg(s);
+    return`<div class="sess-card">
+      <div onclick="openDetail(${s.id})" style="flex:1;cursor:pointer;">
+        <div class="sess-date">${D[d.getDay()]} . ${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}${s.timeOfDay?' &nbsp;·&nbsp; '+s.timeOfDay:''}</div>
+        <div class="sess-name">${s.client}</div>
+        <div class="sess-meta">${s.exercises.length} exercise${s.exercises.length!==1?'s':''}</div>
+        ${s.duration?`<div class="sess-dur">&#9888; ${fmtDur(s.duration)}</div>`:''}
+        ${avg?`<div class="sess-rest">avg rest ${fmtSecs(avg)}</div>`:''}
+        <div class="sess-tags">${(s.bodyParts||[]).map(b=>`<span class="sess-tag">${b}</span>`).join('')}</div>
+      </div>
+      <button onclick="editSession(${s.id})" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;align-self:flex-start;margin-top:4px;">Edit</button>
+    </div>`;
+  }).join('');
+}
+
+// STATS
+function renderStats(){
+  const target=+localStorage.getItem('kmfit_target')||4;
+  const now=new Date();
+  const dow=now.getDay()===0?6:now.getDay()-1;
+  const startW=new Date(now); startW.setDate(now.getDate()-dow); startW.setHours(0,0,0,0);
+  const endW=new Date(startW); endW.setDate(startW.getDate()+6); endW.setHours(23,59,59,999);
+  const startM=new Date(now.getFullYear(),now.getMonth(),1);
+  const endM=new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59);
+
+  const wkS=sessInRange(startW,endW);
+  const moS=sessInRange(startM,endM);
+  const total=sessions.length;
+  const clients=new Set(sessions.map(s=>s.client)).size;
+  const avgEx=total?Math.round(sessions.reduce((a,s)=>a+s.exercises.length,0)/total):0;
+
+  document.getElementById('statGrid').innerHTML=`
+    <div class="stat-box"><div class="stat-val sv-sage">${wkS.length}<span style="font-size:17px;color:var(--muted)">/${target}</span></div><div class="stat-lbl">This Week</div></div>
+    <div class="stat-box"><div class="stat-val sv-sage">${total}</div><div class="stat-lbl">Total Sessions</div></div>
+    <div class="stat-box"><div class="stat-val sv-terra">${clients}</div><div class="stat-lbl">Clients</div></div>
+    <div class="stat-box"><div class="stat-val sv-gold">${avgEx}</div><div class="stat-lbl">Avg Exercises</div></div>`;
+
+  const last=sessions[0];
+  const arL=last?sessRestAvg(last):null;
+  const arW=wkS.length?(function(){var vals=wkS.map(s=>sessRestAvg(s)).filter(v=>v!==null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;})():null;
+  const arM=moS.length?(function(){var vals=moS.map(s=>sessRestAvg(s)).filter(v=>v!==null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;})():null;
+  const arA=total?(function(){var vals=sessions.map(s=>sessRestAvg(s)).filter(v=>v!==null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;})():null;
+
+  // Duration averages
+  const durAvg=arr=>{ const f=arr.filter(n=>n>0); return f.length?Math.round(f.reduce((a,b)=>a+b,0)/f.length):null; };
+  const adL=last&&last.duration?last.duration:null;
+  const adW=durAvg(wkS.map(s=>s.duration||0));
+  const adM=durAvg(moS.map(s=>s.duration||0));
+  const adA=durAvg(sessions.map(s=>s.duration||0));
+
+  document.getElementById('restStatsSection').innerHTML=`
+    <div class="card">
+      <div class="card-title">Avg Session Duration <span style="color:var(--sage)">&#9888;</span></div>
+      <div class="rst-row"><span class="rst-label">Last session</span><span class="rst-val" style="color:var(--sage)">${adL?fmtDur(adL):'--'}</span></div>
+      <div class="rst-row"><span class="rst-label">This week</span><span class="rst-val" style="color:var(--sage)">${adW?fmtDur(adW):'--'}</span></div>
+      <div class="rst-row"><span class="rst-label">This month</span><span class="rst-val" style="color:var(--sage)">${adM?fmtDur(adM):'--'}</span></div>
+      <div class="rst-row"><span class="rst-label">All time</span><span class="rst-val" style="color:var(--sage)">${adA?fmtDur(adA):'--'}</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Avg Rest Time <span style="color:var(--gold)">&#9888;</span></div>
+      <div class="rst-row"><span class="rst-label">Last session</span><span class="rst-val">${fmtSecs(arL)}</span></div>
+      <div class="rst-row"><span class="rst-label">This week</span><span class="rst-val">${fmtSecs(arW)}</span></div>
+      <div class="rst-row"><span class="rst-label">This month</span><span class="rst-val">${fmtSecs(arM)}</span></div>
+      <div class="rst-row"><span class="rst-label">All time</span><span class="rst-val">${fmtSecs(arA)}</span></div>
+    </div>`;
+
+  const exCt={};
+  sessions.forEach(s=>s.exercises.forEach(e=>{exCt[e.ex]=(exCt[e.ex]||0)+1;}));
+  const top=Object.entries(exCt).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  document.getElementById('statDetail').innerHTML=top.length?`
+    <div class="card">
+      <div class="card-title">Top Exercises</div>
+      ${top.map(([ex,n])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:17px;"><span>${ex}</span><span style="font-family:'DM Mono',monospace;color:var(--sage);font-size:16px;">${n}x</span></div>`).join('')}
+    </div>`:'';
+}
+
+// NOTES TAB
+function renderNotesTab(){
+  document.getElementById('noteWeekly').value=notes.weekly||'';
+  document.getElementById('noteMonthly').value=notes.monthly||'';
+  // Mobile login card
+  var mobile=localStorage.getItem('kmfit_mobile');
+  var el=document.getElementById('mobileCardContent');
+  if(el){
+    if(mobile){
+      el.innerHTML='<p style="font-size:17px;color:var(--muted);margin-bottom:12px;">Registered: <strong style="color:var(--text);">'+mobile+'</strong></p>'
+        +'<button onclick="updateMobileNumber()" style="padding:9px 16px;background:transparent;border:1px solid var(--border);border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:16px;font-weight:600;color:var(--muted);cursor:pointer;">Update Number</button>';
+    } else {
+      el.innerHTML='<p style="font-size:17px;color:var(--muted);margin-bottom:12px;">No mobile number saved. Add one to sign in from any device.</p>'
+        +'<div style="display:flex;gap:8px;">'
+        +'<input type="tel" id="mobileCardInput" class="pw-input" placeholder="e.g. 9820012345" style="flex:1;margin-bottom:0;">'
+        +'<button onclick="saveMobileFromCard()" style="padding:10px 16px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:17px;font-weight:700;color:#0c0c0a;cursor:pointer;">Save</button>'
+        +'</div>';
+    }
+  }
+}
+
+function saveMobileFromCard(){
+  var mobile=(document.getElementById('mobileCardInput').value||'').trim().replace(/\D/g,'');
+  if(!mobile){toast('Enter a valid mobile number');return;}
+  localStorage.setItem('kmfit_mobile',mobile);
+  localStorage.removeItem('kmfit_mobile_dismissed');
+  setUnlocked();
+  syncFitnessToSupabase();
+  renderNotesTab();
+  toast('v Mobile number saved');
+}
+
+function updateMobileNumber(){
+  localStorage.removeItem('kmfit_mobile');
+  renderNotesTab();
+}
+
+// DETAIL
+function editSession(id){
+  const s=sessions.find(x=>x.id===id);
+  if(!s)return;
+  // Confirm
+  if(!confirm('Load this session into the LOG tab for editing? Current unsaved changes will be lost.'))return;
+  // Switch to LOG tab
+  goTab(0);
+  // Populate fields
+  const cn=document.getElementById('clientName');
+  if(cn) cn.value=s.client||localStorage.getItem('kmfit_name')||'';
+  // Set date
+  const di=document.getElementById('sessDate');
+  if(di) di.value=s.date;
+  // Set notes
+  const sn=document.getElementById('sessNotes');
+  if(sn) sn.value=s.notes||'';
+  var ari=document.getElementById('avgRestInput');
+  if(ari) ari.value=s.avgRestManual||'';
+  // Set body parts
+  selectedBP=[...(s.bodyParts||[])];
+  document.querySelectorAll('.bp-btn').forEach(btn=>{
+    btn.classList.toggle('active',selectedBP.includes(btn.textContent));
+  });
+  // Clear and repopulate exercises
+  const exBody=document.getElementById('exBody');
+  if(exBody) exBody.innerHTML='';
+  (s.exercises||[]).forEach(e=>{
+    const block=document.createElement('div');
+    block.className='ex-block';
+    block.innerHTML=`
+      <div class="ex-top-row">
+        <select class="ex-select"></select>
+        <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
+        <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
+      </div>
+      <div class="set-rows"></div>`;
+    exBody.appendChild(block);
+    populateSel(block.querySelector('.ex-select'));
+    block.querySelector('.ex-select').value=e.ex;
+    generateSetRows(block.querySelector('.set-rows'),e.sets||3);
+    if(e.setData){
+      block.querySelectorAll('.set-row').forEach((row,i)=>{
+        if(e.setData[i]){
+          const inp=row.querySelectorAll('input');
+          if(inp[0]&&e.setData[i][0]!=null) inp[0].value=e.setData[i][0];
+          if(inp[1]&&e.setData[i][1]!=null) inp[1].value=e.setData[i][1];
+        }
+      });
+    }
+  });
+  renderExChips();
+  // Remove old session so saving replaces it
+  sessions=sessions.filter(x=>x.id!==id);
+  saveSessions();
+  toast('Session loaded -- make changes and Save Session');
+}
+
+function openDetail(id){
+  const s=sessions.find(s=>s.id===id);
+  if(!s)return;
+  const d=new Date(s.date+'T12:00:00');
+  const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('dTitle').textContent=s.client;
+  document.getElementById('dSub').textContent=d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear()+(s.timeOfDay?' · '+s.timeOfDay:'');
+  const durLine=s.duration?`<div class="card"><div class="card-title">Session Duration</div><div class="rst-row"><span class="rst-label">Total time</span><span class="rst-val" style="color:var(--sage);font-size:20px;">${fmtDur(s.duration)}</span></div></div>`:'';
+  const rt=s.restTimes||[];
+  const avg=sessRestAvg(s);
+  const total=rt.reduce((a,b)=>a+b,0);
+  const restSec=rt.length?`
+    <div class="card">
+      <div class="card-title">Rest Times</div>
+      <div class="rst-row"><span class="rst-label">Rests taken</span><span class="rst-val">${rt.length}</span></div>
+      <div class="rst-row"><span class="rst-label">Average rest</span><span class="rst-val">${fmtSecs(avg)}</span></div>
+      <div class="rst-row"><span class="rst-label">Total rest</span><span class="rst-val">${fmtSecs(total)}</span></div>
+      <div style="margin-top:9px;">${rt.map(r=>`<span class="pill">${fmtSecs(r)}</span>`).join('')}</div>
+    </div>`:s.avgRestManual?`
+    <div class="card">
+      <div class="card-title">Rest Times</div>
+      <div class="rst-row"><span class="rst-label">Average rest</span><span class="rst-val">${fmtSecs(s.avgRestManual)}</span></div>
+      <div style="font-size:17px;color:var(--muted);margin-top:4px;">Manually entered</div>
+    </div>`:'';
+
+  // Cardio section
+  const cardioSection=(s.cardio&&s.cardio.length)?`
+    <div class="card">
+      <div class="card-title">Cardio</div>
+      ${s.cardio.map(c=>`
+        <div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:17px;font-weight:600;"> ${c.ex}</div>
+          <div style="display:flex;gap:10px;font-family:'DM Mono',monospace;font-size:16px;">
+            ${c.duration?`<span style="color:var(--sage)">${c.duration}min</span>`:''}
+            ${c.distance?`<span style="color:var(--gold)">${c.distance}km</span>`:''}
+            ${c.intensity?`<span style="color:var(--terra)">${c.intensity}</span>`:''}
+          </div>
+        </div>`).join('')}
+    </div>`:'';
+
+  // Exercises section (weight training only)
+  const exSection=(s.exercises&&s.exercises.length)?`
+    <div class="card">
+      <div class="card-title">Exercises</div>
+      ${s.exercises.map(e=>{
+        const hasWeight=e.setData&&e.setData.some(r=>r.weight);
+        const uLabel=s.unit||'kg';
+        return`<div style="margin-bottom:12px;">
+          <div style="font-size:17px;font-weight:600;margin-bottom:6px;">${e.ex}</div>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead><tr>
+              <th style="text-align:center;font-size:17px;letter-spacing:1px;color:var(--muted2);padding-bottom:5px;width:30px">Set</th>
+              <th style="text-align:center;font-size:17px;letter-spacing:1px;color:var(--muted2);padding-bottom:5px;">Reps</th>
+              ${hasWeight?`<th style="text-align:center;font-size:17px;letter-spacing:1px;color:var(--muted2);padding-bottom:5px;">${uLabel}</th>`:''}
+            </tr></thead>
+            <tbody>${(e.setData||[]).map(r=>`<tr>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;color:var(--muted);border-bottom:1px solid var(--border);padding:5px 0">S${r.set}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:17px;border-bottom:1px solid var(--border);padding:5px 0">${r.reps||'--'}</td>
+              ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:17px;color:var(--gold);border-bottom:1px solid var(--border);padding:5px 0">${r.weight||'--'}</td>`:''}
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>`;
+      }).join('')}
+    </div>`:'';
+
+  document.getElementById('dBody').innerHTML=`
+    ${(s.bodyParts||[]).length?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">${s.bodyParts.map(b=>`<span class="sess-tag">${b}</span>`).join('')}</div>`:''}
+    ${durLine}
+    ${cardioSection}
+    ${exSection}
+    ${restSec}
+    ${s.notes?`<div class="card"><div class="card-title">Notes</div><p style="font-size:17px;line-height:1.65;color:var(--muted)">${s.notes}</p></div>`:''}
+    <div class="flex-end" style="gap:8px;">
+      <button class="btn btn-accent btn-sm" onclick="shareSession(${id})">Send to Coach</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteSession(${id})">Delete Session</button>
+    </div>`;
+  document.getElementById('detailPanel').classList.add('open');
+}
+
+function closeDetail(){
+  var panel=document.getElementById('detailPanel');
+  if(panel){
+    panel.classList.remove('open');
+    panel.style.transform='translateX(100%)';
+    setTimeout(function(){panel.style.transform='';},300);
+  }
+}
+
+async function deleteSession(id){
+  const ok=await showConfirm('Delete this session?','This cannot be undone.');
+  if(!ok)return;
+  sessions=sessions.filter(s=>s.id!==id);
+  saveSessions();closeDetail();renderHistory();renderStats();toast('Deleted');
+}
+
+
+
+
+
+// REST TIMER -- records every completed rest
+// SHARED AUDIO CONTEXT -- unlocked on first user tap
+let sharedAC=null;
+function unlockAudio(){
+  if(!sharedAC){
+    try{sharedAC=new(window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+  }
+  if(sharedAC.state==='suspended')sharedAC.resume();
+}
+
+function startRest(secs){
+  unlockAudio();
+  if(restTmr)clearInterval(restTmr);
+  restLeft=secs; restStartSecs=secs;
+  restEndTime=Date.now()+(secs*1000); // store actual end time
+  document.querySelectorAll('.rest-preset').forEach((p,i)=>p.classList.toggle('active',[60,90,120,180][i]===secs));
+  tickRest();
+  restTmr=setInterval(tickRest,500); // check every 500ms
+}
+function tickRest(){
+  const el=document.getElementById('restDisp');
+  const ht=document.getElementById('headerRestTimer');
+  restLeft=Math.max(0,Math.round((restEndTime-Date.now())/1000));
+  if(restLeft<=0){
+    clearInterval(restTmr);restTmr=null;
+    el.textContent='GO!';el.className='rest-time go';
+    if(ht){ht.textContent='GO!';setTimeout(()=>{ht.style.display='none';},2500);}
+    document.querySelectorAll('.rest-preset').forEach(p=>p.classList.remove('active'));
+    currentRestTimes.push(restStartSecs);
+    updateSessionRestCard();
+    playBeep();
+    setTimeout(()=>{el.textContent='--';el.className='rest-time';},2500);
+    return;
+  }
+  const m=Math.floor(restLeft/60),s=restLeft%60;
+  const timeStr=m>0?`${m}:${String(s).padStart(2,'0')}`:`${s}s`;
+  el.textContent=timeStr;
+  el.className='rest-time'+(restLeft<=10?' urgent':'');
+  if(ht){ht.style.display='block';ht.textContent='REST '+timeStr;}
+}
+function stopRest(){
+  if(restTmr){
+    const elapsed=restStartSecs-restLeft;
+    if(elapsed>=5){currentRestTimes.push(elapsed);updateSessionRestCard();}
+    clearInterval(restTmr);restTmr=null;
+  }
+  restLeft=0;restEndTime=0;
+  document.getElementById('restDisp').textContent='--';
+  document.getElementById('restDisp').className='rest-time';
+  document.querySelectorAll('.rest-preset').forEach(p=>p.classList.remove('active'));
+}
+
+// Resync rest timer when user returns to screen
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden && restEndTime){
+    // Unlock audio immediately on return
+    if(sharedAC&&sharedAC.state==='suspended') sharedAC.resume();
+    if(restTmr){
+      // Timer still running -- check if it already expired while in background
+      const remaining=Math.round((restEndTime-Date.now())/1000);
+      if(remaining<=0){
+        // Expired while in background -- fire beep now
+        clearInterval(restTmr);restTmr=null;
+        const el=document.getElementById('restDisp');
+        if(el){el.textContent='GO!';el.className='rest-time go';}
+        document.querySelectorAll('.rest-preset').forEach(p=>p.classList.remove('active'));
+        currentRestTimes.push(restStartSecs);
+        updateSessionRestCard();
+        var ht=document.getElementById('headerRestTimer');
+        if(ht) ht.style.display='none';
+        // Unlock audio then beep
+        if(sharedAC){
+          sharedAC.resume().then(()=>{ doBeep(sharedAC); }).catch(()=>{ playBeep(); });
+        } else { playBeep(); }
+        setTimeout(()=>{const el=document.getElementById('restDisp');if(el){el.textContent='--';el.className='rest-time';}},2500);
+      } else {
+        tickRest();
+      }
+    }
+  }
+});
+
+// BEEP -- uses pre-unlocked AudioContext
+function playBeep(){
+  // Vibrate -- works reliably on Android, silently ignored on iOS
+  try{ if(navigator.vibrate) navigator.vibrate([200,100,200,100,400]); }catch(e){}
+  try{
+    const ac=sharedAC||new(window.AudioContext||window.webkitAudioContext)();
+    if(!sharedAC) sharedAC=ac;
+    if(ac.state==='suspended'){
+      ac.resume().then(()=>doBeep(ac)).catch(()=>{});
+    } else {
+      doBeep(ac);
+    }
+  }catch(e){}
+}
+function doBeep(ac){
+  try{
+    [0,280,560].forEach(t=>{
+      const o=ac.createOscillator(),g=ac.createGain();
+      o.connect(g);g.connect(ac.destination);
+      o.frequency.value=900;
+      g.gain.setValueAtTime(0,ac.currentTime+t/1000);
+      g.gain.linearRampToValueAtTime(0.9,ac.currentTime+t/1000+0.01);
+      g.gain.linearRampToValueAtTime(0,ac.currentTime+t/1000+0.2);
+      o.start(ac.currentTime+t/1000);
+      o.stop(ac.currentTime+t/1000+0.22);
+    });
+    const o2=ac.createOscillator(),g2=ac.createGain();
+    o2.connect(g2);g2.connect(ac.destination);
+    o2.frequency.value=1200;
+    g2.gain.setValueAtTime(0,ac.currentTime+0.85);
+    g2.gain.linearRampToValueAtTime(0.8,ac.currentTime+0.86);
+    g2.gain.linearRampToValueAtTime(0,ac.currentTime+1.6);
+    o2.start(ac.currentTime+0.85);
+    o2.stop(ac.currentTime+1.65);
+  }catch(e){}
+}
+
+// CONFIRM DIALOG
+let _confirmResolve=null;
+function showConfirm(title,sub){
+  return new Promise(res=>{
+    _confirmResolve=res;
+    document.getElementById('confirmTitle').textContent=title;
+    document.getElementById('confirmSub').textContent=sub;
+    document.getElementById('confirmOverlay').style.display='flex';
+  });
+}
+function confirmResolve(val){
+  document.getElementById('confirmOverlay').style.display='none';
+  if(_confirmResolve){_confirmResolve(val);_confirmResolve=null;}
+}
+
+// CUSTOM EXERCISE
+function openCustomEx(){document.getElementById('customExModal').style.display='flex';}
+function closeCustomEx(){document.getElementById('customExModal').style.display='none';}
+function submitCustomEx(){
+  const name=document.getElementById('customExName').value.trim();
+  const bp=document.getElementById('customExBP').value;
+  if(!name){toast('Enter exercise name');return;}
+
+  // Add directly to client's custom exercise library
+  const custom=getCustomEx();
+  const key=bp||'Other';
+  if(!custom[key]) custom[key]=[];
+  if(!custom[key].includes(name)){
+    custom[key].push(name);
+    saveCustomEx(custom);
+    // Also add to EX_LIB so it shows in dropdowns immediately
+    if(!EX_LIB[key]) EX_LIB[key]=[];
+    if(!EX_LIB[key].includes(name)) EX_LIB[key].push(name);
+    // Refresh all exercise dropdowns
+    document.querySelectorAll('.ex-select').forEach(sel=>{populateSel(sel);});
+  }
+
+  closeCustomEx();
+  document.getElementById('customExName').value='';
+  document.getElementById('customExBP').value='';
+  toast(name+' added to your library!');
+
+  // Ask if they want to notify coach
+  setTimeout(function(){
+    if(confirm('Notify your coach about "'+name+'"?')){
+      const subject=encodeURIComponent('KFit -- New Exercise Suggestion');
+      const body=encodeURIComponent('Exercise: '+name+'\nBody Part: '+(bp||'Not specified')+'\nSuggested by: '+(localStorage.getItem('kmfit_name')||'Client')+'\nDate: '+new Date().toLocaleDateString());
+      window.open('mailto:karnkmalani@gmail.com?subject='+subject+'&body='+body);
+    }
+  },300);
+}
+
+
+function shareNotes(){
+  const weekly=document.getElementById('noteWeekly')?.value.trim();
+  const monthly=document.getElementById('noteMonthly')?.value.trim();
+  if(!weekly&&!monthly){toast('No notes to share');return;}
+  const name=localStorage.getItem('kmfit_name')||'Client';
+  let text='KFit Coach Notes\n';
+  text+='Client: '+name+'\n';
+  text+='Date: '+new Date().toLocaleDateString()+'\n\n';
+  if(weekly)text+='-- Weekly Note --\n'+weekly+'\n\n';
+  if(monthly)text+='-- Monthly Summary --\n'+monthly+'\n';
+  text+='\nPowered by KFit -- karnkmalani@gmail.com';
+  if(navigator.share){navigator.share({title:'KFit Notes -- '+name,text}).catch(()=>{});}
+  else{navigator.clipboard.writeText(text).catch(()=>{});toast('v Notes copied to clipboard');}
+}
+
+// SEND TO COACH
+function shareSession(id){
+  const s=sessions.find(s=>s.id===id);
+  if(!s)return;
+  const d=new Date(s.date+'T12:00:00');
+  const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dateStr=d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear();
+  let text='KFit Fitness Session\n';
+  text+='Client: '+(s.client||'Client')+'\n';
+  text+='Date: '+dateStr+'\n';
+  if(s.bodyParts&&s.bodyParts.length)text+='Body Parts: '+s.bodyParts.join(', ')+'\n';
+  if(s.duration)text+='Duration: '+fmtDur(s.duration)+'\n';
+  text+='\n';
+  if(s.exercises&&s.exercises.length){
+    text+='-- Exercises --\n';
+    s.exercises.forEach(e=>{
+      text+=e.ex+'\n';
+      if(e.setData){e.setData.forEach(r=>{
+        const p=[];
+        if(r.reps)p.push(r.reps+' reps');
+        if(r.weight)p.push(r.weight+(s.unit||'kg'));
+        text+='  S'+r.set+': '+p.join(' . ')+'\n';
+      });}
+    });
+  }
+  if(s.cardio&&s.cardio.length){
+    text+='\n-- Cardio --\n';
+    s.cardio.forEach(c=>{
+      const p=[];
+      if(c.duration)p.push(c.duration+' min');
+      if(c.distance)p.push(c.distance+' km');
+      if(c.intensity)p.push(c.intensity);
+      text+=c.ex+': '+p.join(' . ')+'\n';
+    });
+  }
+  const rt=s.restTimes||[];
+  if(rt.length){const avg=Math.round(rt.reduce((a,b)=>a+b,0)/rt.length);text+='\nAvg Rest: '+fmtSecs(avg)+'\n';}
+  if(s.notes)text+='\nNotes: '+s.notes+'\n';
+  text+='\nPowered by KFit -- karnkmalani@gmail.com';
+  if(navigator.share){
+    navigator.share({title:'KFit Session -- '+dateStr,text}).then(function(){
+      // Re-open detail panel in case iOS closed it during share
+      var panel=document.getElementById('detailPanel');
+      if(panel&&!panel.classList.contains('open')) panel.classList.add('open');
+    }).catch(function(){
+      var panel=document.getElementById('detailPanel');
+      if(panel&&!panel.classList.contains('open')) panel.classList.add('open');
+    });
+  }
+  else{navigator.clipboard.writeText(text).catch(()=>{});toast('v Session copied to clipboard');}
+}
+
+function shareAllSessions(){
+  if(!sessions.length){toast('No sessions to share');return;}
+  let text='KFit Training Progress\n';
+  text+='Client: '+(sessions[0]?.client||'Client')+'\n';
+  text+='Total Sessions: '+sessions.length+'\n';
+  text+='Report Date: '+new Date().toLocaleDateString()+'\n\n';
+  const allRest=sessions.flatMap(s=>s.restTimes||[]);
+  if(allRest.length){const avg=Math.round(allRest.reduce((a,b)=>a+b,0)/allRest.length);text+='Avg Rest: '+fmtSecs(avg)+'\n';}
+  const allDurs=sessions.filter(s=>s.duration).map(s=>s.duration);
+  if(allDurs.length){const avg=Math.round(allDurs.reduce((a,b)=>a+b,0)/allDurs.length);text+='Avg Session Duration: '+fmtDur(avg)+'\n';}
+  text+='\n-- Sessions --\n';
+  sessions.slice(0,10).forEach(s=>{
+    const d=new Date(s.date+'T12:00:00');
+    const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    text+=d.getDate()+' '+M[d.getMonth()]+': '+(s.bodyParts||[]).join('+')+' -- '+(s.exercises||[]).map(e=>e.ex).slice(0,3).join(', ')+'\n';
+  });
+  text+='\nPowered by KFit -- karnkmalani@gmail.com';
+  if(navigator.share){navigator.share({title:'KFit Training Progress',text}).catch(()=>{});}
+  else{navigator.clipboard.writeText(text).catch(()=>{});toast('v Progress copied to clipboard');}
+}
+
+// TOAST
+// -- SNAP & SEND --
+var snapType='progress', snapFile=null;
+
+function openSnap(type){
+  snapType=type;
+  snapFile=null;
+  var isVideo=type==='video';
+  document.getElementById('snapTypeLabel').textContent=isVideo?' Record Video':' Progress Pic';
+  document.getElementById('snapOpenBtn').textContent=isVideo?' Open Camera to Record':' Open Camera';
+  document.getElementById('retakeBtn').textContent=isVideo?' Re-record':' Retake';
+  var name=document.getElementById('clientName')?document.getElementById('clientName').value||'Client':'Client';
+  var date=new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short'});
+  document.getElementById('snapClientLabel').textContent=name+' -- '+date;
+  document.getElementById('snapPreview').style.display='none';
+  document.getElementById('snapImg').style.display='none';
+  document.getElementById('snapVid').style.display='none';
+  document.getElementById('snapActions').style.display='none';
+  document.getElementById('snapTakeWrap').style.display='block';
+  document.getElementById('snapModal').style.display='flex';
+}
+
+function triggerSnapInput(){
+  if(snapType==='video'){
+    document.getElementById('snapVideoInput').click();
+  } else {
+    document.getElementById('snapFileInput').click();
+  }
+}
+
+function retakeSnap(){
+  document.getElementById('snapPreview').style.display='none';
+  document.getElementById('snapImg').style.display='none';
+  document.getElementById('snapVid').style.display='none';
+  document.getElementById('snapActions').style.display='none';
+  document.getElementById('snapTakeWrap').style.display='block';
+  triggerSnapInput();
+}
+
+function closeSnap(){
+  document.getElementById('snapModal').style.display='none';
+  snapFile=null;
+}
+
+function onSnapPhoto(){
+  var input=document.getElementById('snapFileInput');
+  if(!input.files||!input.files[0])return;
+  snapFile=input.files[0];
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=document.getElementById('snapImg');
+    img.src=e.target.result;
+    img.style.display='block';
+    document.getElementById('snapVid').style.display='none';
+    document.getElementById('snapPreview').style.display='block';
+    document.getElementById('snapActions').style.display='flex';
+    document.getElementById('snapTakeWrap').style.display='none';
+  };
+  reader.readAsDataURL(snapFile);
+}
+
+function onSnapVideo(){
+  var input=document.getElementById('snapVideoInput');
+  if(!input.files||!input.files[0])return;
+  snapFile=input.files[0];
+  var vid=document.getElementById('snapVid');
+  vid.src=URL.createObjectURL(snapFile);
+  vid.style.display='block';
+  document.getElementById('snapImg').style.display='none';
+  document.getElementById('snapPreview').style.display='block';
+  document.getElementById('snapActions').style.display='flex';
+  document.getElementById('snapTakeWrap').style.display='none';
+}
+
+function snapSendCoach(){
+  var name=document.getElementById('clientName')?document.getElementById('clientName').value||'Client':'Client';
+  var date=new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short'});
+  var label=snapType==='video'?'Workout Video':'Progress Pic';
+  var text='Hi Karan! Here\'s my '+label+' ('+date+') -- '+name;
+  var phone='919820074761';
+  if(navigator.share&&snapFile){
+    navigator.share({title:'KFit '+label,text:text,files:[snapFile]})
+      .catch(function(){
+        // fallback: open WhatsApp with just the text
+        window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(text),'_blank');
+      });
+  } else {
+    window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(text),'_blank');
+  }
+}
+
+function snapShareAnywhere(){
+  var name=localStorage.getItem('kmfit_name')||'Client';
+  var date=new Date().toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+  var label=snapType==='video'?'Workout Video':'Progress Pic';
+  var text='KFit '+label+'\nClient: '+name+'\nDate: '+date+'\nPowered by KFit -- karnkmalani@gmail.com';
+
+  if(!navigator.share){
+    navigator.clipboard&&navigator.clipboard.writeText(text).catch(function(){});
+    toast('v Copied -- paste anywhere to share');
+    return;
+  }
+
+  var isAndroid=/android/i.test(navigator.userAgent);
+
+  // Android: try file + text together
+  if(isAndroid&&snapFile){
+    try{
+      if(navigator.canShare&&navigator.canShare({files:[snapFile],text:text})){
+        navigator.share({title:'KFit '+label,text:text,files:[snapFile]}).catch(function(e){
+          if(e.name!=='AbortError') navigator.share({title:'KFit '+label,text:text}).catch(function(){});
+        });
+        return;
+      }
+    }catch(e2){}
+  }
+
+  // iOS: share text (copies to clipboard too so they can paste alongside video)
+  navigator.clipboard&&navigator.clipboard.writeText(text).catch(function(){});
+  navigator.share({title:'KFit '+label,text:text}).catch(function(e){
+    if(e.name!=='AbortError') toast('v Details copied -- paste in your message');
+  });
+}
+
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// -- INSTALL PROMPT --
+var deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',function(e){
+  e.preventDefault();
+  deferredInstallPrompt=e;
+  // Only show if not already installed
+  if(!window.matchMedia('(display-mode: standalone)').matches){
+    var w=document.getElementById('installWrap');
+    if(w) w.style.display='block';
+  }
+});
+window.addEventListener('appinstalled',function(){
+  deferredInstallPrompt=null;
+  var w=document.getElementById('installWrap');
+  if(w) w.style.display='none';
+});
+function triggerInstall(){
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(function(){ deferredInstallPrompt=null; });
+    return;
+  }
+  var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  var instructions=document.getElementById('installInstructions');
+  if(instructions){
+    if(isIOS){
+      instructions.innerHTML='<b>1.</b> Tap the <b>Share button [^</b> at the bottom of Safari<br><br><b>2.</b> Scroll down and tap <b>"Add to Home Screen"</b> -> <b>Add</b>';
+    } else {
+      instructions.innerHTML='<b>1.</b> Tap the <b>... menu</b> (top right of Chrome)<br><br><b>2.</b> Tap <b>"Add to Home screen"</b> -> <b>Add</b>';
+    }
+  }
+  document.getElementById('installModal').style.display='flex';
+}
+
+window.addEventListener('DOMContentLoaded',function(){
+  // Show loading screen immediately
+  var loader=document.getElementById('appLoader');
+  if(loader) loader.style.display='flex';
+  initApp();
+});
+
+
+// -- PWA: ICON + MANIFEST + OFFLINE --
+(function(){
+  // Generate app icon on canvas
+  const c=document.createElement('canvas');
+  c.width=c.height=512;
+  const x=c.getContext('2d');
+  // Background
+  const r=90;
+  x.beginPath();
+  x.moveTo(r,0);x.lineTo(512-r,0);x.quadraticCurveTo(512,0,512,r);
+  x.lineTo(512,512-r);x.quadraticCurveTo(512,512,512-r,512);
+  x.lineTo(r,512);x.quadraticCurveTo(0,512,0,512-r);
+  x.lineTo(0,r);x.quadraticCurveTo(0,0,r,0);
+  x.closePath();
+  x.fillStyle='#0f0f0d';x.fill();
+  // K green
+  x.fillStyle='#4a8050';
+  x.font='900 210px Georgia,serif';
+  x.textAlign='left';x.textBaseline='alphabetic';
+  x.fillText('K',62,300);
+  // Fit white
+  x.fillStyle='#ffffff';
+  x.font='900 168px Georgia,serif';
+  x.fillText('Fit',230,300);
+  // Gold line
+  x.fillStyle='#c8922a';
+  x.fillRect(62,318,388,4);
+  // FITNESS gold
+  x.fillStyle='#c8922a';
+  x.font='500 52px Arial,sans-serif';
+  x.textAlign='center';
+  x.fillText('FITNESS',256,400);
+  // White dot with green centre top right
+  x.fillStyle='#ffffff';
+  x.beginPath();x.arc(450,62,22,0,Math.PI*2);x.fill();
+  x.fillStyle='#4a8050';
+  x.beginPath();x.arc(450,62,12,0,Math.PI*2);x.fill();
+  const ico=c.toDataURL('image/png');
+  // Apple touch icon
+  const il=document.createElement('link');
+  il.rel='apple-touch-icon';il.href=ico;
+  document.head.appendChild(il);
+  // Manifest
+  const manifest={name:'KFit Fitness',short_name:'KFit Fitness',start_url:'https://kfit.pages.dev/km-fitness-tracker',display:'standalone',
+    background_color:'#0f0f0d',theme_color:'#4a8050',
+    icons:[{src:ico,sizes:'512x512',type:'image/png',purpose:'any maskable'}]};
+  const ml=document.createElement('link');ml.rel='manifest';
+  ml.href=URL.createObjectURL(new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'}));
+  document.head.appendChild(ml);
+  // Service worker for offline
+  if('serviceWorker' in navigator){
+    const sw=`
+      const V='kmfit-v2';
+      self.addEventListener('install',e=>e.waitUntil(
+        caches.open(V).then(c=>c.addAll([self.location.href.replace(/\\/sw.*$/,'')]))
+      ));
+      self.addEventListener('activate',e=>e.waitUntil(
+        caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k))))
+      ));
+      self.addEventListener('fetch',e=>e.respondWith(
+        caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{
+          const clone=res.clone();
+          caches.open(V).then(c=>c.put(e.request,clone));
+          return res;
+        }))
+      ));`;
+    const swBlob=new Blob([sw],{type:'text/javascript'});
+    navigator.serviceWorker.register(URL.createObjectURL(swBlob),{scope:'./'}).catch(()=>{});
+  }
+})();
+</script>
+</body>
+</html>
