@@ -92,9 +92,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .ex-top-row .ex-select{border:1px solid var(--border);border-radius:6px;background:var(--surf3);}
 .sets-select{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--gold);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c9a84c' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;}
 .set-rows{padding:6px 8px 8px;}
-.set-header{display:grid;grid-template-columns:26px 1fr 1fr;gap:6px;margin-bottom:4px;}
+.set-header{display:grid;grid-template-columns:26px 1fr 1fr 20px;gap:6px;margin-bottom:4px;}
 .set-header span{font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted2);text-align:center;}
-.set-row{display:grid;grid-template-columns:26px 1fr 1fr;gap:6px;align-items:center;margin-bottom:5px;}
+.set-row{display:grid;grid-template-columns:26px 1fr 1fr 20px;gap:6px;align-items:center;margin-bottom:5px;}
 .set-row:last-child{margin-bottom:0;}
 .set-num{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);text-align:center;font-weight:600;}
 .reps-input,.weight-input{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--text);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;transition:border-color .15s;}
@@ -1476,13 +1476,14 @@ function generateSetRows(container, count, exName){
   const existing=container.querySelectorAll('.set-row');
   const vals=[];
   existing.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value}));
-  container.innerHTML=`<div class="set-header"><span></span><span>Reps</span><span class="wt-label">${weightUnit}</span></div>`;
+  container.innerHTML=`<div class="set-header"><span></span><span>Reps</span><span class="wt-label">${weightUnit}</span><span></span></div>`;
   for(let i=0;i<count;i++){
     const row=document.createElement('div');
     row.className='set-row';
     row.innerHTML=`<span class="set-num">S${i+1}</span>
       <input class="reps-input" type="number" inputmode="numeric" min="0" max="999" placeholder="--" value="${vals[i]?.reps||''}" onblur="autoFixNum(this)">
-      <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" value="${vals[i]?.weight||''}" onblur="autoFixNum(this)">`;
+      <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" value="${vals[i]?.weight||''}" onblur="autoFixNum(this)">
+      <span class="pr-badge-slot" style="font-size:14px;text-align:center;"></span>`;
     // PR check fires when both reps and weight are filled
     row.querySelectorAll('.reps-input,.weight-input').forEach(inp=>{
       inp.addEventListener('input',()=>checkSetForPR(row));
@@ -2647,15 +2648,12 @@ function checkSetForPR(row){
   if(!isPR) return;
   // Update trophy badges across all set rows for this exercise block
   block.querySelectorAll('.set-row').forEach(function(r){
-    var badge=r.querySelector('.pr-badge');
-    if(badge) badge.remove();
+    var slot=r.querySelector('.pr-badge-slot');
+    if(slot) slot.textContent='';
   });
-  // Add trophy to this row
-  var badge=document.createElement('span');
-  badge.className='pr-badge';
-  badge.textContent='🏆';
-  badge.style.cssText='font-size:16px;margin-left:6px;flex-shrink:0;';
-  row.appendChild(badge);
+  // Add trophy to this row's reserved slot
+  var slot=row.querySelector('.pr-badge-slot');
+  if(slot) slot.textContent='🏆';
   // Flash full screen
   showPRFlash(exName, weight, reps);
 }
@@ -3127,12 +3125,12 @@ function openDetail(id){
             <thead><tr>
               <th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;width:30px;text-transform:uppercase;">Set</th>
               <th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;">Reps</th>
-              ${hasWeight?`<th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;">${uLabel}</th>`:''}
+              ${hasWeight?`<th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;">${uLabel}</th><th style="width:22px;padding-bottom:6px;"></th>`:''}
             </tr></thead>
             <tbody>${(e.setData||[]).map(r=>`<tr>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">S${r.set}</td>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}</td>
-              ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}${exPR&&r.weight&&parseFloat(r.weight)>=exPR.weight?' 🏆':''}</td>`:''}
+              ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${exPR&&r.weight&&parseFloat(r.weight)>=exPR.weight?'🏆':''}</td>`:''}
             </tr>`).join('')}</tbody>
           </table>
         </div>`;
@@ -3162,12 +3160,12 @@ function openDetail(id){
             <thead><tr>
               <th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;width:30px;text-transform:uppercase;">Set</th>
               <th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;">Reps</th>
-              ${hasWeight?`<th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;">${uLabel}</th>`:''}
+              ${hasWeight?`<th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;">${uLabel}</th><th style="width:22px;padding-bottom:6px;"></th>`:''}
             </tr></thead>
             <tbody>${(e.setData||[]).map(r=>`<tr>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">S${r.set}</td>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}</td>
-              ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}${ssExPR&&r.weight&&parseFloat(r.weight)>=ssExPR.weight?' 🏆':''}</td>`:''}
+              ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${ssExPR&&r.weight&&parseFloat(r.weight)>=ssExPR.weight?'🏆':''}</td>`:''}
             </tr>`).join('')}</tbody>
           </table>
         </div>`;
