@@ -546,7 +546,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
     <div class="flex-end">
       <button class="btn btn-ghost btn-sm" onclick="clearLog()">Clear</button>
-      <button class="btn btn-accent" onclick="saveSession()">Save Session</button>
+      <button class="btn btn-accent" id="saveSessionBtn" onclick="saveSession()">Save Session</button>
     </div>
   </div>
 
@@ -1233,6 +1233,16 @@ function logout(){
       tx.objectStore('flags').delete('unlocked');
     };
   }catch(e){}
+  // Stop any running timers and clear the in-progress draft -- logging out should always be a clean slate
+  if(restTmr){clearInterval(restTmr);restTmr=null;}
+  if(durTmr){clearInterval(durTmr);durTmr=null;}
+  restLeft=0; durElapsed=0; durRunning=false; durStart=null;
+  currentRestTimes=[]; cardioBlocks=[]; selectedBP=[];
+  const rb=document.querySelector('.rest-bar');
+  if(rb) rb.classList.remove('visible');
+  draftClear();
+  const exBody=document.getElementById('exBody');
+  if(exBody) exBody.innerHTML='';
   document.getElementById('pwGate').style.display='flex';
   document.getElementById('setupScreen').style.display='none';
   document.getElementById('mainApp').style.display='none';
@@ -1856,9 +1866,12 @@ function onExChange(sel){
 
 // SAVE / CLEAR
 function saveSession(){
+  const saveBtn=document.getElementById('saveSessionBtn');
+  if(saveBtn&&saveBtn.disabled) return;
   const date=document.getElementById('sessDate').value;
   if(!date){toast('Set a date first');return;}
   const exercises=[];
+  let incompleteMsg=null;
   document.querySelectorAll('#exBody .ex-block').forEach(block=>{
     const ex=block.querySelector('.ex-select').value;
     const setsCount=+block.querySelector('.sets-select').value;
@@ -1871,11 +1884,21 @@ function saveSession(){
     } else {
       const setData=[];
       block.querySelectorAll('.set-row').forEach((row,i)=>{
-        setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value});
+        const reps=row.querySelector('.reps-input').value.trim();
+        const weight=row.querySelector('.weight-input').value.trim();
+        if((reps&&!weight)||(!reps&&weight)){
+          if(!incompleteMsg) incompleteMsg=ex+' -- Set '+(i+1)+' is missing '+(reps?'a weight':'reps')+'. Fill it in or clear both fields.';
+          row.style.outline='1.5px solid var(--terra)';
+          row.style.borderRadius='6px';
+        } else {
+          row.style.outline='';
+        }
+        setData.push({set:i+1,reps:reps,weight:weight});
       });
       exercises.push({ex,sets:setsCount,setData});
     }
   });
+  if(incompleteMsg){toast(incompleteMsg);return;}
   if(!exercises.length && !cardioBlocks.length){toast('Add at least one exercise or cardio activity');return;}
   const timerDur = durRunning ? durElapsed+Math.floor((Date.now()-durStart)/1000) : durElapsed;
   const manualRaw = document.getElementById('durManual').value.trim();
@@ -1894,15 +1917,21 @@ function saveSession(){
     const cardioMins=cardioBlocks.reduce((a,c)=>a+(parseInt(c.duration)||0),0);
     if(cardioMins>0) finalDur=cardioMins*60;
   }
-  // If still no duration, ask user
+  // Session duration is mandatory -- no more silent default
   if(!finalDur){
-    const entered=prompt('How long was this session? (minutes)\nLeave blank to default to 60 mins:');
-    if(entered===null) return; // cancelled
-    finalDur=(parseInt(entered)||60)*60;
+    toast('Session duration is required -- start the timer or enter it manually before saving');
+    document.getElementById('durManual')?.focus();
+    return;
   }
-  // Get average rest -- use tracked times if available, else manual entry
+  // Rest time is mandatory -- either tracked live between sets, or entered manually
   const avgRestInput=document.getElementById('avgRestInput');
   const manualAvgRest=avgRestInput&&avgRestInput.value?parseInt(avgRestInput.value):null;
+  if(currentRestTimes.length===0 && !manualAvgRest){
+    toast('Rest time is required -- log it live between sets, or enter an average manually below');
+    avgRestInput?.focus();
+    return;
+  }
+  if(saveBtn) saveBtn.disabled=true;
   var _now=new Date();
   var _timeStr=_now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
   const _newId=window._editingSessionId||Date.now();
@@ -1971,6 +2000,7 @@ function saveSession(){
   renderCardioBlocks();
   draftClear();
   clearLog(); renderHistory(); renderStats();
+  if(saveBtn) saveBtn.disabled=false;
 }
 
 function clearLog(){
@@ -2295,6 +2325,17 @@ function draftLoad(){
       return;
     }
     const d=JSON.parse(raw);
+    const todayStr=new Date().toISOString().split('T')[0];
+    if(d.date && d.date!==todayStr){
+      // This draft is from a previous day -- almost certainly abandoned or already saved.
+      // Restoring its content under today's date would silently mislabel old data as today's.
+      draftClear();
+      var cn=document.getElementById('clientName');
+      var storedName=localStorage.getItem('kmfit_name');
+      if(cn&&storedName&&!cn.value) cn.value=storedName;
+      setTodayDate();
+      return;
+    }
     // Fill name from draft or localStorage
     var storedName=localStorage.getItem('kmfit_name');
     document.getElementById('clientName').value=d.client||storedName||'';
@@ -2589,7 +2630,8 @@ function calcPersonalRecords(){
       var key=e.ex.toLowerCase().trim();
       (e.setData||[]).forEach(function(set){
         var w=parseFloat(set.weight);
-        if(!w||isNaN(w)) return;
+        var r=set.reps?String(set.reps).trim():'';
+        if(!w||isNaN(w)||!r) return;
         var existing=prMap[key];
         if(!existing||w>existing.weight){
           prMap[key]={weight:w,reps:set.reps||'',date:s.date,timeOfDay:s.timeOfDay||'',displayName:e.ex};
@@ -2628,7 +2670,12 @@ function checkSetForPR(row){
   const weightInp=row.querySelector('.weight-input');
   const reps=repsInp&&repsInp.value?repsInp.value.trim():'';
   const weight=weightInp&&weightInp.value?parseFloat(weightInp.value):null;
-  if(!reps||!weight||isNaN(weight)) return;
+  if(!reps||!weight||isNaN(weight)){
+    // Incomplete set -- it can't hold a valid PR, so clear any stale trophy sitting on this row
+    var staleSlot=row.querySelector('.pr-badge-slot');
+    if(staleSlot) staleSlot.textContent='';
+    return;
+  }
   // Check against historical best
   const prMap=calcPersonalRecords();
   const existing=prMap[exName.toLowerCase().trim()];
