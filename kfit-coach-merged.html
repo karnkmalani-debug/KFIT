@@ -437,10 +437,12 @@ async function toggleClientTag(canonKey,name,mobile,btnEvent,trackerType){
   if(btnEvent)btnEvent.stopPropagation();
   const tk=trackerType==='nutrition'?'nutrition':'fitness';
   if(taggedClients[tk][canonKey]){
-    await getSB().from('client_tags').delete().eq('client_key',canonKey).eq('tracker',tk);
+    const {error}=await getSB().from('client_tags').delete().eq('client_key',canonKey).eq('tracker',tk);
+    if(error){alert('Could not remove this tag -- nothing changed. Error: '+error.message);return;}
     delete taggedClients[tk][canonKey];
   } else {
-    await getSB().from('client_tags').upsert({client_key:canonKey,name,mobile:mobile||'',tracker:tk},{onConflict:'client_key,tracker'});
+    const {error}=await getSB().from('client_tags').upsert({client_key:canonKey,name,mobile:mobile||'',tracker:tk},{onConflict:'client_key,tracker'});
+    if(error){alert('Could not save this tag -- it will not persist after reload. Error: '+error.message);return;}
     taggedClients[tk][canonKey]=true;
   }
   if(tk==='fitness') renderDash();
