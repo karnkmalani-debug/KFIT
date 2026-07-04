@@ -250,7 +250,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
   <!-- Meal Plan modal -->
-  <div id="mealPlanModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.6);overflow-y:auto;">
+  <div id="mealPlanModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.6);overflow-y:auto;-webkit-overflow-scrolling:touch;">
     <div style="max-width:520px;margin:20px auto;background:var(--bg);border-radius:14px;padding:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <div style="font-size:18px;font-weight:800;">Assign Meal Plan</div>
@@ -262,7 +262,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       </div>
       <div class="form-group">
         <div class="form-label">Date</div>
-        <input id="mp-date" class="form-inp" type="date">
+        <input id="mp-date" class="form-inp" type="date" onchange="onMpDateChange()">
       </div>
       <div id="mp-meals"></div>
       <button id="mp-save-btn" onclick="saveMealPlan()" style="width:100%;margin-top:16px;padding:14px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#fff;cursor:pointer;">Save Meal Plan</button>
@@ -1588,6 +1588,31 @@ let mpHabits={};       // habitId -> bool
 let mpDayNote='';      // day-level note
 let mpClientCache={}; // client_id -> {setup, data, mobile}
 
+function mwdiToDate(startDateStr,m,w,di){
+  const start=new Date(startDateStr+'T00:00:00');
+  const monthStart=new Date(start); monthStart.setMonth(monthStart.getMonth()+m);
+  const blockStart=new Date(monthStart);
+  const wsStart=new Date(blockStart); wsStart.setDate(wsStart.getDate()-wsStart.getDay());
+  const result=new Date(wsStart); result.setDate(result.getDate()+w*7+di);
+  return result;
+}
+
+function getCoachAssignedDays(cw){
+  const out=[];
+  if(!cw.setup||!cw.setup.startDate||!cw.data) return out;
+  cw.data.forEach(function(monthArr,m){
+    (monthArr||[]).forEach(function(weekArr,w){
+      (weekArr||[]).forEach(function(day,di){
+        if(day&&day.coachAssigned){
+          out.push({m:m,w:w,di:di,date:mwdiToDate(cw.setup.startDate,m,w,di)});
+        }
+      });
+    });
+  });
+  out.sort(function(a,b){return b.date-a.date;});
+  return out;
+}
+
 function computeMWDI(startDateStr,totalMonths,targetDateStr){
   const start=new Date(startDateStr+'T00:00:00');
   const target=new Date(targetDateStr+'T00:00:00');
@@ -1603,18 +1628,26 @@ function computeMWDI(startDateStr,totalMonths,targetDateStr){
   return null;
 }
 
-function openMealPlan(){
+function openMealPlan(prefillClientId,prefillDate){
   mpSelections={}; mpNotes={}; mpScores={}; mpOrder={}; mpProteinPlate={}; mpHabits={}; mpDayNote='';
   MEALS.forEach(meal=>{mpSelections[meal.id]=new Set();});
   const sel=document.getElementById('mp-client');
   sel.innerHTML='<option value="">-- Select Client --</option>'+
     allClients.map(c=>`<option value="${c.client_id}">${c.name}</option>`).join('');
-  document.getElementById('mp-date').valueAsDate=new Date();
+  document.getElementById('mp-date').valueAsDate=prefillDate?new Date(prefillDate+'T00:00:00'):new Date();
   document.getElementById('mp-meals').innerHTML='<div style="color:var(--muted);text-align:center;padding:20px;">Select a client to begin</div>';
   document.getElementById('mealPlanModal').style.display='block';
+  document.body.style.overflow='hidden'; // lock background scroll so the modal doesn't fight the page underneath
+  if(prefillClientId){
+    sel.value=prefillClientId;
+    onMpClientChange();
+  }
 }
 
-function closeMealPlan(){document.getElementById('mealPlanModal').style.display='none';}
+function closeMealPlan(){
+  document.getElementById('mealPlanModal').style.display='none';
+  document.body.style.overflow='';
+}
 
 async function onMpClientChange(){
   const clientId=document.getElementById('mp-client').value;
@@ -1627,6 +1660,36 @@ async function onMpClientChange(){
   }
   const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
   mpClientCache[clientId]={setup:d.setup,data:d.data||[],raw:d};
+  loadExistingDayIntoState(clientId);
+  renderMealPlanForm();
+}
+
+function loadExistingDayIntoState(clientId){
+  mpSelections={}; mpNotes={}; mpScores={}; mpOrder={}; mpProteinPlate={}; mpHabits={}; mpDayNote='';
+  MEALS.forEach(meal=>{mpSelections[meal.id]=new Set();});
+  const cached=mpClientCache[clientId];
+  const dateStr=document.getElementById('mp-date').value;
+  if(!cached||!cached.setup||!cached.setup.startDate||!dateStr) return;
+  const totalMonths=cached.setup.totalMonths||3;
+  const pos=computeMWDI(cached.setup.startDate,totalMonths,dateStr);
+  if(!pos) return;
+  const day=(cached.data[pos.m]||[])[pos.w]&&cached.data[pos.m][pos.w][pos.di];
+  if(!day) return;
+  MEALS.forEach(meal=>{
+    if(day.foodLog&&day.foodLog[meal.id]) mpSelections[meal.id]=new Set(day.foodLog[meal.id]);
+    if(day.mealNotes&&day.mealNotes[meal.id]!==undefined) mpNotes[meal.id]=day.mealNotes[meal.id];
+    if(day.meals&&day.meals[meal.id]!==undefined) mpScores[meal.id]=day.meals[meal.id];
+    if(day.order&&day.order[meal.id]!==undefined) mpOrder[meal.id]=day.order[meal.id];
+    if(day.proteinPlate&&day.proteinPlate[meal.id]!==undefined) mpProteinPlate[meal.id]=day.proteinPlate[meal.id];
+  });
+  if(day.habits) mpHabits=Object.assign({},day.habits);
+  if(day.note) mpDayNote=day.note;
+}
+
+function onMpDateChange(){
+  const clientId=document.getElementById('mp-client').value;
+  if(!clientId) return;
+  loadExistingDayIntoState(clientId);
   renderMealPlanForm();
 }
 
@@ -1635,44 +1698,78 @@ function renderMealPlanForm(){
     <div class="form-group">
       <div class="form-label">${meal.name}</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
-        ${FOOD_OPTIONS[meal.id].map(food=>`<button type="button" onclick="toggleMpFood('${meal.id}','${food.replace(/'/g,"\\'")}',this)" style="padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;">${food}</button>`).join('')}
+        ${FOOD_OPTIONS[meal.id].map(food=>{
+          const isSel=mpSelections[meal.id]&&mpSelections[meal.id].has(food);
+          return`<button type="button" onclick="toggleMpFood('${meal.id}','${food.replace(/'/g,"\\'")}',this)" style="padding:6px 12px;border-radius:20px;border:1px solid ${isSel?'var(--sage)':'var(--border)'};background:${isSel?'var(--sage)':'transparent'};color:${isSel?'#fff':'var(--muted)'};font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;">${food}</button>`;
+        }).join('')}
       </div>
-      <textarea id="mp-note-${meal.id}" class="form-inp" rows="2" placeholder="Optional note for this meal (portion size, instructions, etc.)" onchange="mpNotes['${meal.id}']=this.value" style="font-family:'DM Sans',sans-serif;margin-bottom:8px;"></textarea>
+      <textarea id="mp-note-${meal.id}" class="form-inp" rows="2" placeholder="Optional note for this meal (portion size, instructions, etc.)" onchange="mpNotes['${meal.id}']=this.value" style="font-family:'DM Sans',sans-serif;margin-bottom:8px;">${mpNotes[meal.id]||''}</textarea>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
         <span style="font-size:12px;color:var(--muted);white-space:nowrap;">Set score (only if reporting a day that already happened):</span>
         <select onchange="mpScores['${meal.id}']=this.value===''?undefined:parseInt(this.value)" style="flex:1;padding:6px 8px;background:var(--surf2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;">
-          <option value="">Don't set</option>
-          <option value="3">Good</option>
-          <option value="2">OK</option>
-          <option value="1">Poor</option>
-          <option value="0">Skip</option>
+          <option value="" ${mpScores[meal.id]===undefined?'selected':''}>Don't set</option>
+          <option value="3" ${mpScores[meal.id]===3?'selected':''}>Good</option>
+          <option value="2" ${mpScores[meal.id]===2?'selected':''}>OK</option>
+          <option value="1" ${mpScores[meal.id]===1?'selected':''}>Poor</option>
+          <option value="0" ${mpScores[meal.id]===0?'selected':''}>Skip</option>
         </select>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-        <input type="checkbox" onchange="mpOrder['${meal.id}']=this.checked" style="accent-color:var(--sage);">
+        <input type="checkbox" ${mpOrder[meal.id]?'checked':''} onchange="mpOrder['${meal.id}']=this.checked" style="accent-color:var(--sage);">
         <span style="font-size:12px;color:var(--muted);">Ate in ideal order (Protein First)</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:12px;color:var(--muted);white-space:nowrap;">Protein on plate:</span>
         <select onchange="mpProteinPlate['${meal.id}']=this.value===''?undefined:this.value" style="flex:1;padding:6px 8px;background:var(--surf2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;">
-          <option value="">Don't set</option>
-          <option value="more">More than usual</option>
-          <option value="same">Same as usual</option>
-          <option value="less">Less than usual</option>
+          <option value="" ${!mpProteinPlate[meal.id]?'selected':''}>Don't set</option>
+          <option value="more" ${mpProteinPlate[meal.id]==='more'?'selected':''}>More than usual</option>
+          <option value="same" ${mpProteinPlate[meal.id]==='same'?'selected':''}>Same as usual</option>
+          <option value="less" ${mpProteinPlate[meal.id]==='less'?'selected':''}>Less than usual</option>
         </select>
       </div>
     </div>`).join('')
     +`<div class="form-group">
       <div class="form-label">Habits</div>
       ${HABITS.map(h=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-        <input type="checkbox" onchange="mpHabits['${h.id}']=this.checked" style="accent-color:var(--sage);">
+        <input type="checkbox" ${mpHabits[h.id]?'checked':''} onchange="mpHabits['${h.id}']=this.checked" style="accent-color:var(--sage);">
         <span style="font-size:13px;color:var(--text);">${h.text}</span>
       </div>`).join('')}
     </div>
     <div class="form-group">
       <div class="form-label">Day Note</div>
-      <textarea class="form-inp" rows="2" placeholder="Optional overall note for the day" onchange="mpDayNote=this.value" style="font-family:'DM Sans',sans-serif;"></textarea>
-    </div>`;
+      <textarea class="form-inp" rows="2" placeholder="Optional overall note for the day" onchange="mpDayNote=this.value" style="font-family:'DM Sans',sans-serif;">${mpDayNote||''}</textarea>
+    </div>
+    <button type="button" onclick="clearMpDay()" style="width:100%;margin-top:6px;padding:11px;background:none;border:1px solid var(--terra);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--terra);cursor:pointer;">🗑 Clear This Entire Day</button>`;
+}
+
+async function clearMpDay(){
+  const clientId=document.getElementById('mp-client').value;
+  const dateStr=document.getElementById('mp-date').value;
+  if(!clientId||!dateStr) return;
+  const ok=confirm('This wipes EVERYTHING logged for this day -- foods, notes, scores, habits, everything -- including anything the client logged themselves. This cannot be undone. Continue?');
+  if(!ok) return;
+  const cached=mpClientCache[clientId];
+  if(!cached||!cached.setup||!cached.setup.startDate){alert('Missing program start date -- cannot locate this day.');return;}
+  const totalMonths=cached.setup.totalMonths||3;
+  const pos=computeMWDI(cached.setup.startDate,totalMonths,dateStr);
+  if(!pos){alert('That date falls outside this client\'s tracked program window.');return;}
+
+  const {data:fresh,error:fetchErr}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','nutrition');
+  if(fetchErr||!fresh||!fresh.length){alert('Could not reach the server -- nothing was changed.');return;}
+  const full=typeof fresh[0].data==='string'?JSON.parse(fresh[0].data):fresh[0].data;
+  const dataArr=full.data||[];
+  if(dataArr[pos.m]&&dataArr[pos.m][pos.w]&&dataArr[pos.m][pos.w][pos.di]){
+    dataArr[pos.m][pos.w][pos.di]={meals:{},mealNotes:{},habits:{},order:{},proteinPlate:{},note:'',foodLog:{}};
+  }
+  full.data=dataArr;
+  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+    client_id:clientId, tracker:'nutrition', data:JSON.stringify(full), updated_at:new Date().toISOString()
+  },{onConflict:'client_id,tracker'});
+  if(saveErr){alert('Error clearing day: '+saveErr.message);return;}
+  mpClientCache[clientId].data=dataArr;
+  loadExistingDayIntoState(clientId);
+  renderMealPlanForm();
+  alert('Day cleared ✓');
 }
 
 function toggleMpFood(mealId,food,btn){
@@ -1732,35 +1829,23 @@ async function saveMealPlan(){
   if(!day.mealNotes) day.mealNotes={};
 
   MEALS.forEach(meal=>{
-    const foods=Array.from(mpSelections[meal.id]);
-    if(foods.length){
-      const existing=day.foodLog[meal.id]||[];
-      // Merge rather than overwrite, in case the client already logged something for this meal
-      day.foodLog[meal.id]=Array.from(new Set([...existing,...foods]));
-    }
-    const note=(mpNotes[meal.id]||'').trim();
-    if(note){
-      day.mealNotes[meal.id]=day.mealNotes[meal.id]?day.mealNotes[meal.id]+'\n'+note:note;
-    }
-    if(mpScores[meal.id]!==undefined){
-      day.meals[meal.id]=mpScores[meal.id];
-    }
-    if(mpOrder[meal.id]!==undefined){
-      if(!day.order) day.order={};
-      day.order[meal.id]=mpOrder[meal.id];
-    }
-    if(mpProteinPlate[meal.id]!==undefined){
-      if(!day.proteinPlate) day.proteinPlate={};
-      day.proteinPlate[meal.id]=mpProteinPlate[meal.id];
-    }
+    day.foodLog[meal.id]=Array.from(mpSelections[meal.id]);
+    day.mealNotes[meal.id]=(mpNotes[meal.id]||'').trim();
+    if(!day.order) day.order={};
+    if(!day.proteinPlate) day.proteinPlate={};
+    if(mpScores[meal.id]!==undefined) day.meals[meal.id]=mpScores[meal.id];
+    else delete day.meals[meal.id];
+    if(mpOrder[meal.id]!==undefined) day.order[meal.id]=mpOrder[meal.id];
+    else delete day.order[meal.id];
+    if(mpProteinPlate[meal.id]!==undefined) day.proteinPlate[meal.id]=mpProteinPlate[meal.id];
+    else delete day.proteinPlate[meal.id];
   });
   if(Object.keys(mpHabits).length){
     if(!day.habits) day.habits={};
     Object.keys(mpHabits).forEach(hid=>{ day.habits[hid]=mpHabits[hid]; });
   }
-  if(mpDayNote.trim()){
-    day.note=day.note?day.note+'\n'+mpDayNote.trim():mpDayNote.trim();
-  }
+  day.note=mpDayNote.trim();
+  day.coachAssigned=true;
   full.data=dataArr;
 
   const {error:saveErr}=await getSB().from('tracker_data').upsert({
@@ -1841,10 +1926,23 @@ function nutShowClient(clientId){
   document.getElementById('nutDashView').style.display='none';
   document.getElementById('nutClientView').style.display='block';
   const days=getLoggedDays(cw);
+  const assigned=getCoachAssignedDays(cw);
   document.getElementById('nutClientDetail').innerHTML=
     '<div class="card" style="margin-bottom:14px;">'
       +'<div style="font-size:22px;font-weight:800;margin-bottom:4px;">'+cw.name+'</div>'
       +(cw.mobile?'<div style="font-size:13px;color:var(--muted);">📱 '+cw.mobile+'</div>':'')
+    +'</div>'
+    +'<div class="card" style="margin-bottom:14px;">'
+      +'<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📋 Assigned by You'
+        +'<button onclick="openMealPlan(\''+clientId+'\')" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Assign Another Day</button>'
+      +'</div>'
+      +(assigned.length?assigned.map(function(a){
+        const dStr=a.date.getFullYear()+'-'+String(a.date.getMonth()+1).padStart(2,'0')+'-'+String(a.date.getDate()).padStart(2,'0');
+        return `<div class="day-row" onclick="openMealPlan('${clientId}','${dStr}')" style="cursor:pointer;">
+          <div style="font-size:15px;font-weight:600;">${DAYS_SHORT[a.date.getDay()]} ${a.date.getDate()} ${MONTHS_SHORT[a.date.getMonth()]} ${a.date.getFullYear()}</div>
+          <span style="color:var(--muted2);font-size:16px;">\u203a</span>
+        </div>`;
+      }).join(''):'<div style="color:var(--muted);padding:8px 0;">Nothing assigned yet.</div>')
     +'</div>'
     +'<div class="card">'
       +'<div class="card-title">Logged Days</div>'
