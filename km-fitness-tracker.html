@@ -461,6 +461,10 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
     <div class="card">
       <div class="card-title">Exercises</div>
+      <div id="skipAssignedBanner" style="display:none;margin-bottom:10px;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <span style="font-size:13px;color:var(--muted);">Not doing this workout today?</span>
+        <button onclick="cancelAssignedWorkout()" style="padding:6px 12px;background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Cancel</button>
+      </div>
       <div id="exBody"></div>
       <div class="add-row" onclick="addExRow()">+ Add Exercise</div>
       <div class="add-row" onclick="addSupersetBlock()" style="color:var(--sage);border-color:var(--sage);margin-top:6px;">+ Superset</div>
@@ -1359,7 +1363,7 @@ function _launchMainApp(){
 }
 
 function applyAssignedWorkoutIfAny(){
-  const dateStr=document.getElementById('sessDate')?document.getElementById('sessDate').value:new Date().toISOString().slice(0,10);
+  const dateStr=document.getElementById('sessDate')?document.getElementById('sessDate').value:localDateStr();
   if(!dateStr||!assignedWorkouts||!assignedWorkouts[dateStr]) return;
   // Don't overwrite an already-logged session for this date
   if(sessions.some(s=>s.date===dateStr)) return;
@@ -1413,16 +1417,37 @@ function applyAssignedWorkoutIfAny(){
     var notesEl=document.getElementById('sessNotes');
     if(notesEl) notesEl.value=w.notes;
   }
+
+  currentAssignedDate=dateStr;
+  var banner=document.getElementById('skipAssignedBanner');
+  if(banner) banner.style.display='flex';
+}
+
+let currentAssignedDate=null;
+function cancelAssignedWorkout(){
+  if(!currentAssignedDate)return;
+  showConfirm('Cancel this workout?','This removes it from your log for today. Your coach can always assign another one.').then(function(ok){
+    if(!ok)return;
+    clearLog();
+    if(assignedWorkouts&&assignedWorkouts[currentAssignedDate]){
+      delete assignedWorkouts[currentAssignedDate];
+      syncFitnessToSupabase();
+    }
+    var banner=document.getElementById('skipAssignedBanner');
+    if(banner) banner.style.display='none';
+    currentAssignedDate=null;
+    toast('Workout cancelled');
+  });
 }
 
 function setTodayDate(){
-  document.getElementById('sessDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('sessDate').value=localDateStr();
 }
 
 function updateDateChip(){
   const D=['SUN','MON','TUE','WED','THU','FRI','SAT'];
   const M=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  var dateVal=document.getElementById('sessDate').value||new Date().toISOString().split('T')[0];
+  var dateVal=document.getElementById('sessDate').value||localDateStr();
   const d=new Date(dateVal+'T12:00:00');
   document.getElementById('headerDate').textContent=D[d.getDay()]+' '+d.getDate()+' '+M[d.getMonth()];
 }
@@ -1430,7 +1455,7 @@ function updateDateChip(){
 function openDatePicker(){
   if(window._editingSessionId){toast('Date cannot be changed while editing a session');return;}
   var dp=document.getElementById('datePicker');
-  var today=new Date().toISOString().split('T')[0];
+  var today=localDateStr();
   dp.value=document.getElementById('sessDate').value||today;
   dp.style.pointerEvents='auto';
   if(dp.showPicker){try{dp.showPicker();}catch(e){dp.click();}}else{dp.click();}
@@ -1439,7 +1464,7 @@ function openDatePicker(){
 
 function onDatePicked(val){
   if(!val) return;
-  var today=new Date().toISOString().split('T')[0];
+  var today=localDateStr();
   if(val>today){
     if(confirm('This is a future date. Add a workout reminder to your calendar?')){
       var d2=new Date(val+'T09:00:00');
@@ -2079,6 +2104,11 @@ function clearLog(){
 var SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
 var SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
 var sbClient=null;
+function localDateStr(d){
+  d=d||new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
 function getSB(){
   if(!sbClient) sbClient=supabase.createClient(SB_URL,SB_KEY);
   return sbClient;
@@ -2385,7 +2415,7 @@ function draftLoad(){
       return;
     }
     const d=JSON.parse(raw);
-    const todayStr=new Date().toISOString().split('T')[0];
+    const todayStr=localDateStr();
     if(d.date && d.date!==todayStr){
       // This draft is from a previous day -- almost certainly abandoned or already saved.
       // Restoring its content under today's date would silently mislabel old data as today's.
@@ -2590,7 +2620,7 @@ function renderAttendance(){
     if(!records.length){inner.innerHTML='<span style="color:var(--muted2);">No attendance records yet.</span>';return;}
     const total=records.length;
     const now=new Date();
-    const thisMonth=records.filter(r=>r.session_date&&r.session_date.slice(0,7)===now.toISOString().slice(0,7)).length;
+    const thisMonth=records.filter(r=>r.session_date&&r.session_date.slice(0,7)===localDateStr(now).slice(0,7)).length;
     const weeks=new Set(records.map(r=>{
       const d=new Date(r.session_date+'T12:00:00');
       const jan1=new Date(d.getFullYear(),0,1);

@@ -329,6 +329,11 @@ const SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
 let sb=null;
 let allRecords=[];
 
+function localDateStr(d){
+  d=d||new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
 function getSB(){
   if(!sb)sb=supabase.createClient(SB_URL,SB_KEY);
   return sb;
@@ -482,7 +487,7 @@ async function toggleClientTag(canonKey,name,mobile,btnEvent,trackerType){
 
 function renderDash(){
   const now=new Date();
-  const thisMonth=now.toISOString().slice(0,7);
+  const thisMonth=localDateStr(now).slice(0,7);
   const total=allRecords.length;
   const monthCount=allRecords.filter(r=>r.session_date&&r.session_date.slice(0,7)===thisMonth).length;
 
@@ -552,7 +557,7 @@ function showClient(key){
   document.getElementById('clientView').style.display='block';
   const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const now=new Date();
-  const thisMonth=now.toISOString().slice(0,7);
+  const thisMonth=localDateStr(now).slice(0,7);
   const monthSessions=c.records.filter(r=>r.session_date&&r.session_date.slice(0,7)===thisMonth).length;
   const rows=c.records.map(r=>{
     const d=new Date(r.session_date+'T12:00:00');
@@ -613,7 +618,7 @@ async function loadAssignedWorkoutsForClient(key,c){
   }
   const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const loggedDates=new Set(c.records.map(r=>r.session_date));
-  const todayStr=new Date().toISOString().slice(0,10);
+  const todayStr=localDateStr();
   listEl.innerHTML=dates.map(dateStr=>{
     const dt=new Date(dateStr+'T12:00:00');
     const done=loggedDates.has(dateStr);
@@ -1034,10 +1039,10 @@ function openAddSession(clientKey){
   document.getElementById('as-mode-assign').style.display='block';
   // Set today's date and current time
   const now=new Date();
-  document.getElementById('as-date').value=now.toISOString().slice(0,10);
+  document.getElementById('as-date').value=localDateStr(now);
   document.getElementById('as-time').value=now.toTimeString().slice(0,5);
-  document.getElementById('as-date-start').value=now.toISOString().slice(0,10);
-  document.getElementById('as-date-end').value=now.toISOString().slice(0,10);
+  document.getElementById('as-date-start').value=localDateStr(now);
+  document.getElementById('as-date-end').value=localDateStr(now);
   asSelectedDOW=[0,1,2,3,4,5,6];
   renderAsDowRow();
   document.getElementById('as-duration').value='';
@@ -2040,9 +2045,12 @@ function openMealPlan(prefillClientId,prefillDate){
   const sel=document.getElementById('mp-client');
   sel.innerHTML='<option value="">-- Select Client --</option>'+
     allClients.map(c=>`<option value="${c.client_id}">${c.name}</option>`).join('');
-  const initDate=prefillDate?new Date(prefillDate+'T00:00:00'):new Date();
-  document.getElementById('mp-date-start').valueAsDate=initDate;
-  document.getElementById('mp-date-end').valueAsDate=initDate;
+  function toDateInputStr(d){
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  const initDateStr=prefillDate?prefillDate:toDateInputStr(new Date());
+  document.getElementById('mp-date-start').value=initDateStr;
+  document.getElementById('mp-date-end').value=initDateStr;
   mpSelectedDOW=[0,1,2,3,4,5,6];
   renderDowRow('mp-dow-row','toggleMpDow');
   updateMpRangeSummary();
@@ -2385,7 +2393,7 @@ function nutShowClient(clientId){
         const day=cw.data[a.m][a.w][a.di];
         const snap=day.coachSnapshot;
         const untouched=snap&&JSON.stringify(day.foodLog||{})===JSON.stringify(snap.foodLog||{});
-        const todayStr=new Date().toISOString().slice(0,10);
+        const todayStr=localDateStr();
         let statusLabel,statusClass;
         if(!untouched){statusLabel='✓ Reviewed';statusClass='badge-sage';}
         else if(dStr<todayStr){statusLabel='⚠️ Missed';statusClass='badge-terra';}

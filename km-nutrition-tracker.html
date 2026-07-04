@@ -438,6 +438,11 @@ var ui={activeMonth:0,activeWeek:0,activeDay:0,expandedWeeks:{}};
 var SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
 var SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
 var sbClient=null;
+function localDateStr(d){
+  d=d||new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
 function getSB(){
   if(!sbClient) sbClient=supabase.createClient(SB_URL,SB_KEY);
   return sbClient;
@@ -559,14 +564,14 @@ function renderVicesView(cal){
   var v=getVicesData();
   // Get all dates that have any data, sorted newest first
   var today=new Date();
-  var todayStr=today.toISOString().split('T')[0];
+  var todayStr=localDateStr(today);
   
   // Build last 30 days
   var days=[];
   for(var i=0;i<30;i++){
     var d=new Date(today);
     d.setDate(today.getDate()-i);
-    days.push(d.toISOString().split('T')[0]);
+    days.push(localDateStr(d));
   }
 
   var html='<div style="padding:16px;">';
