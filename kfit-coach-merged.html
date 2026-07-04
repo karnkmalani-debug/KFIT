@@ -144,7 +144,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <!-- Add Session Modal -->
   <div id="addSessionModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;overflow-y:auto;padding:20px;">
     <div style="background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:480px;margin:0 auto;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:-20px -20px 16px -20px;padding:16px 20px;position:sticky;top:0;background:var(--surf);z-index:5;border-radius:16px 16px 0 0;">
         <div id="as-modal-title" style="font-size:18px;font-weight:800;">Add Session</div>
         <button onclick="closeAddSession()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">✕</button>
       </div>
@@ -267,8 +267,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <!-- Meal Plan modal -->
   <div id="mealPlanModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.6);overflow-y:auto;-webkit-overflow-scrolling:touch;">
     <div style="max-width:520px;margin:20px auto;background:var(--bg);border-radius:14px;padding:20px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <div style="font-size:18px;font-weight:800;">Assign Meal Plan</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:-20px -20px 16px -20px;padding:16px 20px;position:sticky;top:0;background:var(--bg);z-index:5;border-radius:14px 14px 0 0;">
+        <div id="mp-modal-title" style="font-size:18px;font-weight:800;">Assign Meal Plan</div>
         <button onclick="closeMealPlan()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">✕</button>
       </div>
       <div class="form-group">
@@ -613,17 +613,43 @@ async function loadAssignedWorkoutsForClient(key,c){
   }
   const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const loggedDates=new Set(c.records.map(r=>r.session_date));
+  const todayStr=new Date().toISOString().slice(0,10);
   listEl.innerHTML=dates.map(dateStr=>{
     const dt=new Date(dateStr+'T12:00:00');
     const done=loggedDates.has(dateStr);
-    return `<div onclick="editAssignedWorkout('${key.replace(/'/g,"\\'")}','${dateStr}')" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;">
-      <div style="font-size:15px;font-weight:600;">${dt.getDate()} ${M[dt.getMonth()]} ${dt.getFullYear()}</div>
+    let statusLabel,statusClass;
+    if(done){statusLabel='✓ Completed';statusClass='badge-sage';}
+    else if(dateStr<todayStr){statusLabel='⚠️ Missed';statusClass='badge-terra';}
+    else{statusLabel='⏳ Pending';statusClass='badge-gold';}
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+      <div onclick="editAssignedWorkout('${key.replace(/'/g,"\\'")}','${dateStr}')" style="cursor:pointer;flex:1;">
+        <div style="font-size:15px;font-weight:600;">${dt.getDate()} ${M[dt.getMonth()]} ${dt.getFullYear()}</div>
+      </div>
       <div style="display:flex;align-items:center;gap:8px;">
-        <span class="badge ${done?'badge-sage':'badge-gold'}">${done?'✓ Completed':'⏳ Pending'}</span>
-        <span style="color:var(--muted2);font-size:16px;">›</span>
+        <span class="badge ${statusClass}">${statusLabel}</span>
+        <button onclick="event.stopPropagation();deleteAssignedWorkout('${key.replace(/'/g,"\\'")}','${dateStr}')" style="background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-size:12px;padding:4px 8px;cursor:pointer;">🗑</button>
+        <span onclick="editAssignedWorkout('${key.replace(/'/g,"\\'")}','${dateStr}')" style="color:var(--muted2);font-size:16px;cursor:pointer;">›</span>
       </div>
     </div>`;
   }).join('');
+}
+
+async function deleteAssignedWorkout(clientKey,dateStr){
+  const ok=confirm('Delete this assigned workout for '+dateStr+'? If they haven\'t logged it yet, it will just disappear from their Log tab.');
+  if(!ok)return;
+  const c=Object.values(groupClients()).find(c=>(c.mobile||c.name)===clientKey);
+  if(!c)return;
+  const clientId=buildClientId(c.name,c.mobile);
+  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+  if(error||!data||!data.length||!data[0].data){alert('Could not load this client\'s data.');return;}
+  const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
+  if(d.assignedWorkouts) delete d.assignedWorkouts[dateStr];
+  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+    client_id:clientId, tracker:'fitness', data:JSON.stringify(d), updated_at:new Date().toISOString()
+  },{onConflict:'client_id,tracker'});
+  if(saveErr){alert('Error deleting: '+saveErr.message);return;}
+  loadAssignedWorkoutsForClient(clientKey,c);
+  alert('Assignment deleted ✓');
 }
 
 async function editAssignedWorkout(clientKey,dateStr){
@@ -669,6 +695,42 @@ async function editAssignedWorkout(clientKey,dateStr){
 
   document.getElementById('as-notes').value=w.notes||'';
   document.getElementById('as-modal-title').textContent='Edit Assigned Workout';
+  document.getElementById('as-save-btn').textContent='Update Assignment';
+
+  let convertBtn=document.getElementById('as-convert-btn');
+  if(!convertBtn){
+    convertBtn=document.createElement('button');
+    convertBtn.id='as-convert-btn';
+    convertBtn.style.cssText='width:100%;margin-top:10px;padding:12px;background:none;border:1px solid var(--sage);border-radius:10px;font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;color:var(--sage);cursor:pointer;';
+    document.getElementById('as-save-btn').insertAdjacentElement('afterend',convertBtn);
+  }
+  convertBtn.style.display='block';
+  convertBtn.textContent='✓ Convert to Logged Session';
+  convertBtn.onclick=function(){ convertAssignmentToSession(clientKey,dateStr); };
+
+  let cancelBtn=document.getElementById('as-cancel-assign-btn');
+  if(!cancelBtn){
+    cancelBtn=document.createElement('button');
+    cancelBtn.id='as-cancel-assign-btn';
+    cancelBtn.style.cssText='width:100%;margin-top:10px;padding:12px;background:none;border:1px solid var(--terra);border-radius:10px;font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;color:var(--terra);cursor:pointer;';
+    convertBtn.insertAdjacentElement('afterend',cancelBtn);
+  }
+  cancelBtn.style.display='block';
+  cancelBtn.textContent='🗑 Cancel This Assignment';
+  cancelBtn.onclick=function(){ deleteAssignedWorkout(clientKey,dateStr); closeAddSession(); };
+}
+
+function convertAssignmentToSession(clientKey,dateStr){
+  convertingAssignment={clientKey:clientKey,dateStr:dateStr};
+  setAsMode('log');
+  document.getElementById('as-date').value=dateStr;
+  document.getElementById('as-time').value=new Date().toTimeString().slice(0,5);
+  document.getElementById('as-modal-title').textContent='Convert to Logged Session';
+  const convertBtn=document.getElementById('as-convert-btn');
+  if(convertBtn) convertBtn.style.display='none';
+  const cancelBtn=document.getElementById('as-cancel-assign-btn');
+  if(cancelBtn) cancelBtn.style.display='none';
+  toast('Now fill in duration & rest, then Save Session to log it for real');
 }
 
 function showDash(){
@@ -958,6 +1020,11 @@ function buildClientId(name,mobile){
 function openAddSession(clientKey){
   editingContext=null;
   excludeSessionIdFromHistory=null;
+  convertingAssignment=null;
+  const convertBtn=document.getElementById('as-convert-btn');
+  if(convertBtn) convertBtn.style.display='none';
+  const cancelAssignBtn=document.getElementById('as-cancel-assign-btn');
+  if(cancelAssignBtn) cancelAssignBtn.style.display='none';
   document.getElementById('as-modal-title').textContent='Add Session';
   document.getElementById('as-save-btn').textContent='Save Session';
   document.getElementById('as-delete-btn').style.display='none';
@@ -1565,16 +1632,21 @@ async function saveAdminSession(){
     alert('Could not reach the tracker, so nothing was saved. Please try again. Error: '+fetchErr.message);
     return;
   }
-  let sessions=[];
+  let full={};
   if(existing&&existing.length&&existing[0].data){
-    const d=typeof existing[0].data==='string'?JSON.parse(existing[0].data):existing[0].data;
-    sessions=d.sessions||[];
+    full=typeof existing[0].data==='string'?JSON.parse(existing[0].data):existing[0].data;
   }
+  const sessions=full.sessions||[];
   sessions.unshift(newSession);
+  full.sessions=sessions;
+  // If this save is fulfilling an assigned workout, remove it now that it's a real logged session
+  if(convertingAssignment&&convertingAssignment.clientKey&&full.assignedWorkouts){
+    delete full.assignedWorkouts[date];
+  }
   const trackerPayload={
     client_id:clientKey,
     tracker:'fitness',
-    data:JSON.stringify({sessions}),
+    data:JSON.stringify(full),
     updated_at:new Date().toISOString()
   };
   const {error:trackerErr}=await getSB().from('tracker_data').upsert(trackerPayload,{onConflict:'client_id,tracker'});
@@ -1588,6 +1660,7 @@ async function saveAdminSession(){
 
   btn.disabled=false;btn.textContent=origBtnText;
   closeAddSession();
+  convertingAssignment=null;
   await loadAll();
   alert('Session saved ✓');
 }
@@ -1828,6 +1901,27 @@ function closePlanCompare(){
   document.getElementById('planCompareModal').style.display='none';
 }
 
+async function deleteMealPlanAssignment(clientId,m,w,di){
+  const ok=confirm('Delete this assigned meal plan? This wipes everything logged for this day, including anything the client added themselves. This cannot be undone.');
+  if(!ok)return;
+  const {data:fresh,error:fetchErr}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','nutrition');
+  if(fetchErr||!fresh||!fresh.length){alert('Could not reach the server -- nothing was changed.');return;}
+  const full=typeof fresh[0].data==='string'?JSON.parse(fresh[0].data):fresh[0].data;
+  const dataArr=full.data||[];
+  if(dataArr[m]&&dataArr[m][w]&&dataArr[m][w][di]){
+    dataArr[m][w][di]={meals:{},mealNotes:{},habits:{},order:{},proteinPlate:{},note:'',foodLog:{},mealTimes:{}};
+  }
+  full.data=dataArr;
+  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+    client_id:clientId, tracker:'nutrition', data:JSON.stringify(full), updated_at:new Date().toISOString()
+  },{onConflict:'client_id,tracker'});
+  if(saveErr){alert('Error deleting: '+saveErr.message);return;}
+  const cw=allClients.find(function(c){return c.client_id===clientId;});
+  if(cw) cw.data=dataArr;
+  nutShowClient(clientId);
+  alert('Assignment deleted ✓');
+}
+
 function computeMWDI(startDateStr,totalMonths,targetDateStr){
   const start=new Date(startDateStr+'T00:00:00');
   const target=new Date(targetDateStr+'T00:00:00');
@@ -1844,6 +1938,7 @@ function computeMWDI(startDateStr,totalMonths,targetDateStr){
 }
 
 let asMode='log'; // 'log' | 'assign'
+let convertingAssignment=null; // {clientKey,dateStr} when converting an assignment into a real logged session
 let asSelectedDOW=[0,1,2,3,4,5,6];
 
 function setAsMode(mode){
@@ -1978,6 +2073,10 @@ async function onMpClientChange(){
 function loadExistingDayIntoState(clientId){
   mpSelections={}; mpNotes={}; mpScores={}; mpOrder={}; mpProteinPlate={}; mpHabits={}; mpDayNote=''; mpTimes={};
   MEALS.forEach(meal=>{mpSelections[meal.id]=new Set();});
+  const titleEl=document.getElementById('mp-modal-title');
+  const saveBtn=document.getElementById('mp-save-btn');
+  if(titleEl){titleEl.textContent='Assign Meal Plan';}
+  if(saveBtn){saveBtn.textContent='Save Meal Plan';}
   const cached=mpClientCache[clientId];
   const dateStr=document.getElementById('mp-date').value;
   if(!cached||!cached.setup||!cached.setup.startDate||!dateStr) return;
@@ -1986,6 +2085,10 @@ function loadExistingDayIntoState(clientId){
   if(!pos) return;
   const day=(cached.data[pos.m]||[])[pos.w]&&cached.data[pos.m][pos.w][pos.di];
   if(!day) return;
+  if(day.coachAssigned){
+    if(titleEl) titleEl.textContent='Edit Assigned Meal Plan';
+    if(saveBtn) saveBtn.textContent='Update Meal Plan';
+  }
   MEALS.forEach(meal=>{
     if(day.foodLog&&day.foodLog[meal.id]) mpSelections[meal.id]=new Set(day.foodLog[meal.id]);
     if(day.mealNotes&&day.mealNotes[meal.id]!==undefined) mpNotes[meal.id]=day.mealNotes[meal.id];
@@ -2270,11 +2373,21 @@ function nutShowClient(clientId){
       +'</div>'
       +(assigned.length?assigned.map(function(a){
         const dStr=a.date.getFullYear()+'-'+String(a.date.getMonth()+1).padStart(2,'0')+'-'+String(a.date.getDate()).padStart(2,'0');
+        const day=cw.data[a.m][a.w][a.di];
+        const snap=day.coachSnapshot;
+        const untouched=snap&&JSON.stringify(day.foodLog||{})===JSON.stringify(snap.foodLog||{});
+        const todayStr=new Date().toISOString().slice(0,10);
+        let statusLabel,statusClass;
+        if(!untouched){statusLabel='✓ Reviewed';statusClass='badge-sage';}
+        else if(dStr<todayStr){statusLabel='⚠️ Missed';statusClass='badge-terra';}
+        else{statusLabel='⏳ Pending';statusClass='badge-gold';}
         return `<div class="day-row" style="display:flex;justify-content:space-between;align-items:center;">
           <div onclick="openMealPlan('${clientId}','${dStr}')" style="cursor:pointer;flex:1;">
             <div style="font-size:15px;font-weight:600;">${DAYS_SHORT[a.date.getDay()]} ${a.date.getDate()} ${MONTHS_SHORT[a.date.getMonth()]} ${a.date.getFullYear()}</div>
           </div>
+          <span class="badge ${statusClass}" style="margin-right:6px;">${statusLabel}</span>
           <button onclick="event.stopPropagation();viewPlanComparison('${clientId}',${a.m},${a.w},${a.di})" style="padding:5px 10px;background:none;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted);cursor:pointer;margin-right:6px;">👁 Compare</button>
+          <button onclick="event.stopPropagation();deleteMealPlanAssignment('${clientId}',${a.m},${a.w},${a.di})" style="background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-size:12px;padding:4px 8px;cursor:pointer;margin-right:6px;">🗑</button>
           <span style="color:var(--muted2);font-size:16px;cursor:pointer;" onclick="openMealPlan('${clientId}','${dStr}')">\u203a</span>
         </div>`;
       }).join(''):'<div style="color:var(--muted);padding:8px 0;">Nothing assigned yet.</div>')
