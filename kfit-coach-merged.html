@@ -1398,12 +1398,12 @@ async function deleteCoachSession(){
   }
   const {data:existing,error:fetchErr}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
   if(fetchErr){alert('Attendance record deleted, but could not update the tracker: '+fetchErr.message);return;}
-  let sessions=[];
+  let full={};
   if(existing&&existing.length&&existing[0].data){
-    const d=typeof existing[0].data==='string'?JSON.parse(existing[0].data):existing[0].data;
-    sessions=(d.sessions||[]).filter(x=>x.id!==sessionId);
+    full=typeof existing[0].data==='string'?JSON.parse(existing[0].data):existing[0].data;
   }
-  const {error:trackerErr}=await getSB().from('tracker_data').upsert({client_id:clientId,tracker:'fitness',data:JSON.stringify({sessions}),updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
+  full.sessions=(full.sessions||[]).filter(x=>x.id!==sessionId);
+  const {error:trackerErr}=await getSB().from('tracker_data').upsert({client_id:clientId,tracker:'fitness',data:JSON.stringify(full),updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
   if(trackerErr){alert('Attendance record deleted, but the tracker could not be updated: '+trackerErr.message);return;}
   editingContext=null;
   closeAddSession();
@@ -1556,11 +1556,11 @@ async function saveAdminSession(){
       alert('Attendance updated, but could not load the tracker to finish syncing: '+fetchErr.message+'\nPlease try saving again.');
       return;
     }
-    let sessions=[];
+    let full={};
     if(existing&&existing.length&&existing[0].data){
-      const d=typeof existing[0].data==='string'?JSON.parse(existing[0].data):existing[0].data;
-      sessions=d.sessions||[];
+      full=typeof existing[0].data==='string'?JSON.parse(existing[0].data):existing[0].data;
     }
+    let sessions=full.sessions||[];
     const idx=sessions.findIndex(x=>x.id===sessionId);
     const updatedSession={
       id:sessionId, client:clientName, date, timeOfDay:timeStr,
@@ -1569,8 +1569,9 @@ async function saveAdminSession(){
       notes:notesVal, adminAdded:true
     };
     if(idx>=0) sessions[idx]=updatedSession; else sessions.unshift(updatedSession);
+    full.sessions=sessions;
 
-    const {error:trackerErr}=await getSB().from('tracker_data').upsert({client_id:clientId,tracker:'fitness',data:JSON.stringify({sessions}),updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
+    const {error:trackerErr}=await getSB().from('tracker_data').upsert({client_id:clientId,tracker:'fitness',data:JSON.stringify(full),updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
     if(trackerErr){
       // Roll back the attendance update so the two records don't disagree
       if(attendanceId&&attendanceSnapshot){

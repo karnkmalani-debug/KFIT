@@ -3363,10 +3363,27 @@ function closeDetail(){
 }
 
 async function deleteSession(id){
+  const s=sessions.find(x=>x.id===id);
   const ok=await showConfirm('Delete this session?','This cannot be undone.');
   if(!ok)return;
-  sessions=sessions.filter(s=>s.id!==id);
+  sessions=sessions.filter(x=>x.id!==id);
   saveSessions();closeDetail();renderHistory();renderStats();toast('Deleted');
+  if(s) deleteAttendance(s.date, s.timeOfDay||'');
+}
+
+function deleteAttendance(date,time){
+  var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
+  if(!mobile||!date) return;
+  ensureAnonAuth(function(){
+    getSB().from('attendance')
+      .delete()
+      .eq('client_mobile', mobile)
+      .eq('session_date', date)
+      .eq('session_time', time)
+      .then(function(res){
+        if(res.error) console.warn('Attendance delete error:',res.error.message);
+      });
+  });
 }
 
 
