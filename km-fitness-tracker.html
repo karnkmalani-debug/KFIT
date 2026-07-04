@@ -2006,13 +2006,17 @@ function saveSession(){
     document.getElementById('durManual')?.focus();
     return;
   }
-  // Rest time is mandatory -- either tracked live between sets, or entered manually
+  // Rest time only makes sense for strength work -- cardio-only sessions can skip it entirely
+  const hasStrengthWork=exercises.some(e=>e.type!=='cardio');
   const avgRestInput=document.getElementById('avgRestInput');
   const manualAvgRest=avgRestInput&&avgRestInput.value?parseInt(avgRestInput.value):null;
-  if(currentRestTimes.length===0 && !manualAvgRest){
-    toast('Rest time is required -- log it live between sets, or enter an average manually below');
+  if(hasStrengthWork && currentRestTimes.length===0 && !manualAvgRest){
+    toast('Rest time is required for strength sets -- log it live between sets, or enter an average manually below');
     avgRestInput?.focus();
     return;
+  }
+  if(!hasStrengthWork && currentRestTimes.length===0 && !manualAvgRest){
+    toast('Saving cardio session (rest time is optional here)');
   }
   if(saveBtn) saveBtn.disabled=true;
   var _now=new Date();
