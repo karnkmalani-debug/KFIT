@@ -582,10 +582,93 @@ function showClient(key){
       <div class="stat-box"><div class="stat-val" style="color:var(--gold);">${monthSessions}</div><div class="stat-lbl">This Month</div></div>
       <div class="stat-box"><div class="stat-val" style="color:var(--terra);">${calcStreak(c.records)}w</div><div class="stat-lbl">Streak</div></div>
     </div>
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📋 Assigned Workouts
+        <button onclick="openAddSession('${key.replace(/'/g,"\\'")}');setAsMode('assign');" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Assign Another Workout</button>
+      </div>
+      <div id="assignedWorkoutsList">Loading...</div>
+    </div>
     <div class="card">
       <div class="card-title">Session History</div>
       ${rows||'<div style="color:var(--muted);">No sessions yet.</div>'}
     </div>`;
+  loadAssignedWorkoutsForClient(key,c);
+}
+
+async function loadAssignedWorkoutsForClient(key,c){
+  const listEl=document.getElementById('assignedWorkoutsList');
+  if(!listEl)return;
+  const clientId=buildClientId(c.name,c.mobile);
+  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+  if(error||!data||!data.length||!data[0].data){
+    listEl.innerHTML='<div style="color:var(--muted);">Nothing assigned yet.</div>';
+    return;
+  }
+  const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
+  const assigned=d.assignedWorkouts||{};
+  const dates=Object.keys(assigned).sort().reverse();
+  if(!dates.length){
+    listEl.innerHTML='<div style="color:var(--muted);">Nothing assigned yet.</div>';
+    return;
+  }
+  const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const loggedDates=new Set(c.records.map(r=>r.session_date));
+  listEl.innerHTML=dates.map(dateStr=>{
+    const dt=new Date(dateStr+'T12:00:00');
+    const done=loggedDates.has(dateStr);
+    return `<div onclick="editAssignedWorkout('${key.replace(/'/g,"\\'")}','${dateStr}')" style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+      <div style="font-size:15px;font-weight:600;">${dt.getDate()} ${M[dt.getMonth()]} ${dt.getFullYear()}</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="badge ${done?'badge-sage':'badge-gold'}">${done?'✓ Completed':'⏳ Pending'}</span>
+        <span style="color:var(--muted2);font-size:16px;">›</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function editAssignedWorkout(clientKey,dateStr){
+  const c=Object.values(groupClients()).find(c=>(c.mobile||c.name)===clientKey);
+  if(!c)return;
+  const clientId=buildClientId(c.name,c.mobile);
+  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+  if(error||!data||!data.length||!data[0].data){alert('Could not load this assignment.');return;}
+  const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
+  const w=(d.assignedWorkouts||{})[dateStr];
+  if(!w){alert('Could not find this assignment.');return;}
+
+  openAddSession(clientKey);
+  setAsMode('assign');
+  document.getElementById('as-date-start').value=dateStr;
+  document.getElementById('as-date-end').value=dateStr;
+  asSelectedDOW=[0,1,2,3,4,5,6];
+  renderAsDowRow();
+
+  asSelectedBP=[...(w.bodyParts||[])];
+  document.querySelectorAll('#as-bp-grid .as-bp-btn').forEach(btn=>{
+    if(asSelectedBP.includes(btn.textContent)) btn.classList.add('active');
+  });
+
+  asExercises=(w.exercises||[]).map(e=>({
+    id:Date.now()+Math.random(), ex:e.ex, sets:(e.setData&&e.setData.length)||e.sets||3,
+    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||''})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+  }));
+  renderAsExercises();
+
+  asSupersets=(w.supersets||[]).map(ss=>({
+    id:Date.now()+Math.random(),
+    exercises:(ss.exercises||[]).map(e=>({
+      id:Date.now()+Math.random(), ex:e.ex, sets:(e.setData&&e.setData.length)||e.sets||3,
+      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||''})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+    }))
+  }));
+  renderAsSupersets();
+
+  asCardioBlocks=(w.cardio||[]).map(c2=>({id:Date.now()+Math.random(),ex:c2.ex||'',duration:c2.duration||'',intensity:c2.intensity||''}));
+  renderAsCardio();
+  if(asCardioBlocks.length) document.getElementById('as-cardio-section').style.display='block';
+
+  document.getElementById('as-notes').value=w.notes||'';
+  document.getElementById('as-modal-title').textContent='Edit Assigned Workout';
 }
 
 function showDash(){
