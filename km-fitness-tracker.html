@@ -709,6 +709,13 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
 <div class="toast" id="toast"></div>
 
+<div id="blockingAlert" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:360px;width:100%;text-align:center;">
+    <div id="blockingAlertMsg" style="font-size:17px;color:var(--text);line-height:1.5;margin-bottom:20px;"></div>
+    <button onclick="dismissBlockingAlert()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#0c0c0a;cursor:pointer;">Got it</button>
+  </div>
+</div>
+
 <script>
 const BODY_PARTS = ['Back','Chest','Shoulders','Biceps','Triceps','Legs','Core','Cardio'];
 const EX_LIB = {
@@ -1955,6 +1962,8 @@ function saveSession(){
   if(!date){toast('Set a date first');return;}
   const exercises=[];
   let incompleteMsg=null;
+  // Bodyweight/freehand exercises don't need a weight entered -- reps alone is a complete set for these
+  const BODYWEIGHT_EX=['Pull-Ups','Chin-Ups','Push-Ups','Deficit Push Ups','Nordic Curl','Plank','Side Plank','Hanging Leg Raise','Dragon Flag','Hollow Body Hold','Dips (Chest Focus)','Dips (Tricep Focus)','Crunches','Decline Crunches','Dead Bug','Reverse Crunch'];
   document.querySelectorAll('#exBody .ex-block').forEach(block=>{
     const ex=block.querySelector('.ex-select').value;
     const setsCount=+block.querySelector('.sets-select').value;
@@ -1965,11 +1974,12 @@ function saveSession(){
       const intensity=block.querySelector('.intensity-sel')?.value||'';
       exercises.push({ex,type:'cardio',duration:dur,distance:dist,intensity});
     } else {
+      const isBodyweight=BODYWEIGHT_EX.includes(ex);
       const setData=[];
       block.querySelectorAll('.set-row').forEach((row,i)=>{
         const reps=row.querySelector('.reps-input').value.trim();
         const weight=row.querySelector('.weight-input').value.trim();
-        if((reps&&!weight)||(!reps&&weight)){
+        if(!isBodyweight && ((reps&&!weight)||(!reps&&weight))){
           if(!incompleteMsg) incompleteMsg=ex+' -- Set '+(i+1)+' is missing '+(reps?'a weight':'reps')+'. Fill it in or clear both fields.';
           row.style.outline='1.5px solid var(--terra)';
           row.style.borderRadius='6px';
@@ -1981,8 +1991,8 @@ function saveSession(){
       exercises.push({ex,sets:setsCount,setData});
     }
   });
-  if(incompleteMsg){toast(incompleteMsg);return;}
-  if(!exercises.length && !cardioBlocks.length){toast('Add at least one exercise or cardio activity');return;}
+  if(incompleteMsg){showBlockingAlert(incompleteMsg);return;}
+  if(!exercises.length && !cardioBlocks.length){showBlockingAlert('Add at least one exercise or cardio activity');return;}
   const timerDur = durRunning ? durElapsed+Math.floor((Date.now()-durStart)/1000) : durElapsed;
   const manualRaw = document.getElementById('durManual').value.trim();
   let finalDur = null;
@@ -2002,8 +2012,7 @@ function saveSession(){
   }
   // Session duration is mandatory -- no more silent default
   if(!finalDur){
-    toast('Session duration is required -- start the timer or enter it manually before saving');
-    document.getElementById('durManual')?.focus();
+    showBlockingAlert('Session duration is required -- start the timer or enter it manually before saving','durManual');
     return;
   }
   // Rest time only makes sense for strength work -- cardio-only sessions can skip it entirely
@@ -2011,8 +2020,7 @@ function saveSession(){
   const avgRestInput=document.getElementById('avgRestInput');
   const manualAvgRest=avgRestInput&&avgRestInput.value?parseInt(avgRestInput.value):null;
   if(hasStrengthWork && currentRestTimes.length===0 && !manualAvgRest){
-    toast('Rest time is required for strength sets -- log it live between sets, or enter an average manually below');
-    avgRestInput?.focus();
+    showBlockingAlert('Rest time is required for strength sets -- log it live between sets, or enter an average manually below','avgRestInput');
     return;
   }
   if(!hasStrengthWork && currentRestTimes.length===0 && !manualAvgRest){
@@ -3853,6 +3861,20 @@ function toast(msg){
   const t=document.getElementById('toast');
   t.textContent=msg;t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+function showBlockingAlert(msg,focusId){
+  document.getElementById('blockingAlertMsg').textContent=msg;
+  document.getElementById('blockingAlert').style.display='flex';
+  window._blockingAlertFocusId=focusId||null;
+}
+function dismissBlockingAlert(){
+  document.getElementById('blockingAlert').style.display='none';
+  if(window._blockingAlertFocusId){
+    var el=document.getElementById(window._blockingAlertFocusId);
+    if(el) el.focus();
+    window._blockingAlertFocusId=null;
+  }
 }
 
 // -- INSTALL PROMPT --
