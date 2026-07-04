@@ -1563,11 +1563,6 @@ function renderDayPanel(m,w,di,cal){
         var parts=Object.keys(counts).map(function(f){return(counts[f]>1?counts[f]+' ':'')+f;});
         return '<div style="font-size:.72rem;color:var(--sage);font-weight:600;margin:6px 0;">'+parts.join(', ')+'</div>';
       })()
-      // Macro totals for this meal
-      +(function(){
-        var totals=calcMealMacros(m,w,di,meal.id);
-        return totals?renderMacroRow(totals):'';
-      })()
       +(function(){
         var photos=dd.photos&&dd.photos[meal.id]?dd.photos[meal.id]:[];
         if(!photos.length) return '';
@@ -1780,19 +1775,6 @@ function addCustomFood(m,w,di,mealId){
   if(!data[m][w][di].foodLog[mealId])data[m][w][di].foodLog[mealId]=[];
   data[m][w][di].foodLog[mealId].push(val);
   autoSave();
-  // Ask for macros if not already known
-  if(!getMacros(val)){
-    var enterMacros=confirm('"'+val+'" is not in the macro database.\n\nWould you like to add its approximate macros?\n(You can skip -- it just won\'t be tracked in totals)');
-    if(enterMacros){
-      var cal=parseInt(prompt('Calories (kcal) per serving of '+val+':')||'0');
-      var p=parseInt(prompt('Protein (g):')||'0');
-      var c=parseInt(prompt('Carbs (g):')||'0');
-      var f=parseInt(prompt('Fat (g):')||'0');
-      if(cal||p||c||f){
-        saveCustomMacro(val,{cal:cal,p:p,c:c,f:f,srv:'1 serving'});
-      }
-    }
-  }
   render();
 }
 
