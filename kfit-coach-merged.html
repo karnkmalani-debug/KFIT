@@ -149,6 +149,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <button onclick="closeAddSession()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">✕</button>
       </div>
 
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button id="as-mode-log" class="mode-btn active" style="flex:1;" onclick="setAsMode('log')">📝 Log Completed Session</button>
+        <button id="as-mode-assign" class="mode-btn" style="flex:1;" onclick="setAsMode('assign')">📋 Assign Upcoming Workout</button>
+      </div>
+
       <div class="form-group">
         <div class="form-label">Client</div>
         <select id="as-client" class="form-inp" onchange="onAsClientChange(this)">
@@ -159,7 +164,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <input id="as-client-mobile" class="form-inp" type="tel" placeholder="Mobile number" style="display:none;margin-top:6px;">
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div id="as-log-date-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <div class="form-group">
           <div class="form-label">Date</div>
           <input id="as-date" class="form-inp" type="date">
@@ -170,7 +175,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         </div>
       </div>
 
-      <div class="form-group">
+      <div id="as-assign-date-row" class="form-group" style="display:none;">
+        <div class="form-label">Date Range</div>
+        <div style="display:flex;gap:8px;">
+          <input id="as-date-start" class="form-inp" type="date" style="flex:1;" onchange="updateAsRangeSummary()">
+          <input id="as-date-end" class="form-inp" type="date" style="flex:1;" onchange="updateAsRangeSummary()">
+        </div>
+        <div id="as-dow-row" style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;"></div>
+        <div id="as-range-summary" style="font-size:12px;color:var(--muted);margin-top:6px;"></div>
+      </div>
+
+      <div id="as-duration-group" class="form-group">
         <div class="form-label">Duration (minutes)</div>
         <input id="as-duration" class="form-inp" type="number" inputmode="numeric" placeholder="e.g. 60">
       </div>
@@ -198,7 +213,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div onclick="addAsSuperset()" style="padding:8px;border:1px dashed var(--sage);border-radius:8px;text-align:center;color:var(--sage);font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;">+ Add Superset</div>
       </div>
 
-      <div class="form-group">
+      <div id="as-rest-group" class="form-group">
         <div class="form-label">Average Rest (seconds)</div>
         <input id="as-avg-rest" class="form-inp" type="number" inputmode="numeric" min="0" max="600" placeholder="e.g. 90">
       </div>
@@ -261,11 +276,27 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <select id="mp-client" class="form-inp" onchange="onMpClientChange()"></select>
       </div>
       <div class="form-group">
-        <div class="form-label">Date</div>
-        <input id="mp-date" class="form-inp" type="date" onchange="onMpDateChange()">
+        <div class="form-label">Date Range</div>
+        <div style="display:flex;gap:8px;">
+          <input id="mp-date-start" class="form-inp" type="date" onchange="onMpDateChange()" style="flex:1;">
+          <input id="mp-date-end" class="form-inp" type="date" onchange="onMpDateChange()" style="flex:1;">
+        </div>
+        <div id="mp-dow-row" style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;"></div>
+        <div id="mp-range-summary" style="font-size:12px;color:var(--muted);margin-top:6px;"></div>
       </div>
       <div id="mp-meals"></div>
       <button id="mp-save-btn" onclick="saveMealPlan()" style="width:100%;margin-top:16px;padding:14px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#fff;cursor:pointer;">Save Meal Plan</button>
+    </div>
+  </div>
+
+  <!-- Plan comparison modal: assigned vs actual -->
+  <div id="planCompareModal" style="display:none;position:fixed;inset:0;z-index:501;background:rgba(0,0,0,.65);align-items:center;justify-content:center;padding:20px;">
+    <div style="max-width:480px;width:100%;max-height:80vh;overflow-y:auto;background:var(--bg);border-radius:14px;padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:16px;font-weight:800;">Assigned vs Actual</div>
+        <button onclick="closePlanCompare()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+      </div>
+      <div id="planCompareBody"></div>
     </div>
   </div>
 
@@ -848,10 +879,17 @@ function openAddSession(clientKey){
   document.getElementById('as-save-btn').textContent='Save Session';
   document.getElementById('as-delete-btn').style.display='none';
   document.getElementById('as-client').disabled=false;
+  setAsMode('log');
+  document.getElementById('as-mode-log').style.display='block';
+  document.getElementById('as-mode-assign').style.display='block';
   // Set today's date and current time
   const now=new Date();
   document.getElementById('as-date').value=now.toISOString().slice(0,10);
   document.getElementById('as-time').value=now.toTimeString().slice(0,5);
+  document.getElementById('as-date-start').value=now.toISOString().slice(0,10);
+  document.getElementById('as-date-end').value=now.toISOString().slice(0,10);
+  asSelectedDOW=[0,1,2,3,4,5,6];
+  renderAsDowRow();
   document.getElementById('as-duration').value='';
   document.getElementById('as-notes').value='';
   document.getElementById('as-client-new').style.display='none';
@@ -1229,7 +1267,67 @@ function to24Hour(timeStr){
   return String(h).padStart(2,'0')+':'+min;
 }
 
+async function saveAssignedWorkout(){
+  const clientSel=document.getElementById('as-client');
+  const isNew=clientSel.value==='__new__';
+  let clientName,clientMobile;
+  if(isNew){
+    clientName=document.getElementById('as-client-new').value.trim();
+    clientMobile=document.getElementById('as-client-mobile').value.trim().replace(/\D/g,'');
+    if(!clientName){alert('Enter client name');return;}
+  } else {
+    if(!clientSel.value){alert('Select a client');return;}
+    const opt=clientSel.options[clientSel.selectedIndex];
+    clientName=opt.dataset.name||clientSel.value;
+    clientMobile=opt.dataset.mobile||clientSel.value;
+  }
+  const startDate=document.getElementById('as-date-start').value;
+  const endDate=document.getElementById('as-date-end').value;
+  if(!startDate||!endDate){alert('Select a date range');return;}
+  const dateList=getDateRangeList(startDate,endDate,asSelectedDOW);
+  if(!dateList.length){alert('No matching days in that range -- check your day-of-week selection.');return;}
+
+  const exercisesPayload=asExercises.filter(b=>b.ex).map(b=>({ex:b.ex,sets:b.sets,setData:b.setData}));
+  const cardioPayload=asCardioBlocks.filter(b=>b.ex).map(b=>({ex:b.ex,duration:b.duration,intensity:b.intensity}));
+  const supersetsPayload=asSupersets.map((ss,i)=>({num:i+1,exercises:ss.exercises.filter(e=>e.ex).map(e=>({ex:e.ex,sets:e.sets,setData:e.setData}))})).filter(ss=>ss.exercises.length);
+  const notesVal=document.getElementById('as-notes').value.trim();
+  if(!exercisesPayload.length&&!supersetsPayload.length&&!cardioPayload.length){
+    alert('Add at least one exercise, superset, or cardio activity');return;
+  }
+
+  const btn=document.getElementById('as-save-btn');
+  btn.disabled=true; btn.textContent='Assigning...';
+
+  const clientKey=clientMobile?clientName.toLowerCase().replace(/\s+/g,'_')+'__'+clientMobile:clientName.toLowerCase().replace(/\s+/g,'_');
+  const {data:fresh,error:fetchErr}=await getSB().from('tracker_data').select('data').eq('client_id',clientKey).eq('tracker','fitness');
+  if(fetchErr){
+    btn.disabled=false; btn.textContent='Assign Workout';
+    alert('Could not reach the server -- nothing was assigned. Please try again.');
+    return;
+  }
+  let full={};
+  if(fresh&&fresh.length&&fresh[0].data){
+    full=typeof fresh[0].data==='string'?JSON.parse(fresh[0].data):fresh[0].data;
+  }
+  if(!full.assignedWorkouts) full.assignedWorkouts={};
+  const workout={bodyParts:asSelectedBP,exercises:exercisesPayload,supersets:supersetsPayload,cardio:cardioPayload,notes:notesVal};
+  dateList.forEach(d=>{ full.assignedWorkouts[d]=workout; });
+
+  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+    client_id:clientKey, tracker:'fitness', data:JSON.stringify(full), updated_at:new Date().toISOString()
+  },{onConflict:'client_id,tracker'});
+
+  btn.disabled=false; btn.textContent='Assign Workout';
+  if(saveErr){alert('Error assigning workout: '+saveErr.message);return;}
+  closeAddSession();
+  await loadAll();
+  alert((dateList.length>1?dateList.length+' days':'Workout')+' assigned -- they\'ll see it pre-filled next time they open that day\'s log ✓');
+}
+
 async function saveAdminSession(){
+  if(asMode==='assign'){
+    return saveAssignedWorkout();
+  }
   const clientSel=document.getElementById('as-client');
   const isNew=clientSel.value==='__new__';
   let clientName,clientMobile;
@@ -1586,6 +1684,7 @@ let mpOrder={};        // mealId -> bool ("ate in ideal order")
 let mpProteinPlate={}; // mealId -> 'more'|'same'|'less'|undefined
 let mpHabits={};       // habitId -> bool
 let mpDayNote='';      // day-level note
+let mpTimes={};        // mealId -> "HH:MM" or undefined
 let mpClientCache={}; // client_id -> {setup, data, mobile}
 
 function mwdiToDate(startDateStr,m,w,di){
@@ -1613,6 +1712,39 @@ function getCoachAssignedDays(cw){
   return out;
 }
 
+function foodListStr(arr){
+  if(!arr||!arr.length) return '\u2014';
+  const counts={};
+  arr.forEach(function(f){counts[f]=(counts[f]||0)+1;});
+  return Object.keys(counts).map(function(f){return(counts[f]>1?counts[f]+' ':'')+f;}).join(', ');
+}
+
+function viewPlanComparison(clientId,m,w,di){
+  const cw=allClients.find(function(c){return c.client_id===clientId;});
+  if(!cw||!cw.data||!cw.data[m]||!cw.data[m][w]||!cw.data[m][w][di]){alert('Could not find this day.');return;}
+  const day=cw.data[m][w][di];
+  const snap=day.coachSnapshot;
+  if(!snap){alert('No snapshot saved for this day (it may have been assigned before this feature was added).');return;}
+  const rows=MEALS.map(function(meal){
+    const assignedFoods=foodListStr(snap.foodLog&&snap.foodLog[meal.id]);
+    const currentFoods=foodListStr(day.foodLog&&day.foodLog[meal.id]);
+    const changed=assignedFoods!==currentFoods;
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+      <div style="font-weight:700;font-size:13px;margin-bottom:4px;">${meal.name}${changed?' <span style="color:var(--gold);font-size:11px;">(changed)</span>':''}</div>
+      <div style="font-size:12px;color:var(--muted);">You assigned: <span style="color:var(--text);">${assignedFoods}</span></div>
+      <div style="font-size:12px;color:var(--muted);">They now have: <span style="color:${changed?'var(--gold)':'var(--sage)'};">${currentFoods}</span></div>
+    </div>`;
+  }).join('');
+  const assignedAt=snap.assignedAt?new Date(snap.assignedAt).toLocaleString():'Unknown';
+  document.getElementById('planCompareBody').innerHTML=
+    `<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Assigned ${assignedAt}</div>${rows}`;
+  document.getElementById('planCompareModal').style.display='flex';
+}
+
+function closePlanCompare(){
+  document.getElementById('planCompareModal').style.display='none';
+}
+
 function computeMWDI(startDateStr,totalMonths,targetDateStr){
   const start=new Date(startDateStr+'T00:00:00');
   const target=new Date(targetDateStr+'T00:00:00');
@@ -1628,8 +1760,104 @@ function computeMWDI(startDateStr,totalMonths,targetDateStr){
   return null;
 }
 
+let asMode='log'; // 'log' | 'assign'
+let asSelectedDOW=[0,1,2,3,4,5,6];
+
+function setAsMode(mode){
+  asMode=mode;
+  document.getElementById('as-mode-log').classList.toggle('active',mode==='log');
+  document.getElementById('as-mode-assign').classList.toggle('active',mode==='assign');
+  document.getElementById('as-log-date-row').style.display=mode==='log'?'grid':'none';
+  document.getElementById('as-assign-date-row').style.display=mode==='assign'?'block':'none';
+  document.getElementById('as-duration-group').style.display=mode==='log'?'block':'none';
+  document.getElementById('as-rest-group').style.display=mode==='log'?'block':'none';
+  document.getElementById('as-save-btn').textContent=mode==='log'?'Save Session':'Assign Workout';
+  if(mode==='assign') renderAsDowRow();
+}
+
+function renderAsDowRow(){
+  const names=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  document.getElementById('as-dow-row').innerHTML=names.map((n,i)=>{
+    const on=asSelectedDOW.includes(i);
+    return `<button type="button" onclick="toggleAsDow(${i},this)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--sage);background:${on?'var(--sage)':'transparent'};color:${on?'#fff':'var(--muted)'};font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;">${n}</button>`;
+  }).join('');
+  updateAsRangeSummary();
+}
+
+function toggleAsDow(dow,btn){
+  if(asSelectedDOW.includes(dow)){
+    asSelectedDOW=asSelectedDOW.filter(d=>d!==dow);
+    btn.style.background='transparent'; btn.style.color='var(--muted)';
+  } else {
+    asSelectedDOW.push(dow);
+    btn.style.background='var(--sage)'; btn.style.color='#fff';
+  }
+  updateAsRangeSummary();
+}
+
+function updateAsRangeSummary(){
+  const start=document.getElementById('as-date-start').value;
+  const end=document.getElementById('as-date-end').value;
+  const el=document.getElementById('as-range-summary');
+  if(!start||!end){el.textContent='';return;}
+  const list=getDateRangeList(start,end,asSelectedDOW);
+  el.textContent=list.length===1
+    ?'1 day selected.'
+    :list.length+' days selected -- the same workout will be assigned to all of them.';
+}
+
+function getDateRangeList(startStr,endStr,allowedDOW){
+  const out=[];
+  if(!startStr||!endStr) return out;
+  const start=new Date(startStr+'T00:00:00');
+  const end=new Date(endStr+'T00:00:00');
+  if(end<start) return out;
+  const maxDays=186; // ~6 months safety cap
+  let cur=new Date(start);
+  let count=0;
+  while(cur<=end&&count<maxDays){
+    if(!allowedDOW||allowedDOW.length===0||allowedDOW.includes(cur.getDay())){
+      out.push(cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0')+'-'+String(cur.getDate()).padStart(2,'0'));
+    }
+    cur.setDate(cur.getDate()+1);
+    count++;
+  }
+  return out;
+}
+
+function renderDowRow(containerId,onToggle){
+  const names=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  document.getElementById(containerId).innerHTML=names.map((n,i)=>
+    `<button type="button" data-dow="${i}" onclick="${onToggle}(${i},this)" style="padding:6px 10px;border-radius:8px;border:1px solid var(--sage);background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;">${n}</button>`
+  ).join('');
+}
+
+let mpSelectedDOW=[0,1,2,3,4,5,6]; // all days on by default -- coach narrows down if needed
+
+function toggleMpDow(dow,btn){
+  if(mpSelectedDOW.includes(dow)){
+    mpSelectedDOW=mpSelectedDOW.filter(d=>d!==dow);
+    btn.style.background='transparent'; btn.style.color='var(--muted)';
+  } else {
+    mpSelectedDOW.push(dow);
+    btn.style.background='var(--sage)'; btn.style.color='#fff';
+  }
+  updateMpRangeSummary();
+}
+
+function updateMpRangeSummary(){
+  const start=document.getElementById('mp-date-start').value;
+  const end=document.getElementById('mp-date-end').value;
+  const el=document.getElementById('mp-range-summary');
+  if(!start||!end){el.textContent='';return;}
+  const list=getDateRangeList(start,end,mpSelectedDOW);
+  el.textContent=list.length===1
+    ?'1 day selected -- editing that specific day.'
+    :list.length+' days selected -- the same plan will be applied to all of them.';
+}
+
 function openMealPlan(prefillClientId,prefillDate){
-  mpSelections={}; mpNotes={}; mpScores={}; mpOrder={}; mpProteinPlate={}; mpHabits={}; mpDayNote='';
+  mpSelections={}; mpNotes={}; mpScores={}; mpOrder={}; mpProteinPlate={}; mpHabits={}; mpDayNote=''; mpTimes={};
   MEALS.forEach(meal=>{mpSelections[meal.id]=new Set();});
   const sel=document.getElementById('mp-client');
   sel.innerHTML='<option value="">-- Select Client --</option>'+
@@ -1665,7 +1893,7 @@ async function onMpClientChange(){
 }
 
 function loadExistingDayIntoState(clientId){
-  mpSelections={}; mpNotes={}; mpScores={}; mpOrder={}; mpProteinPlate={}; mpHabits={}; mpDayNote='';
+  mpSelections={}; mpNotes={}; mpScores={}; mpOrder={}; mpProteinPlate={}; mpHabits={}; mpDayNote=''; mpTimes={};
   MEALS.forEach(meal=>{mpSelections[meal.id]=new Set();});
   const cached=mpClientCache[clientId];
   const dateStr=document.getElementById('mp-date').value;
@@ -1681,6 +1909,7 @@ function loadExistingDayIntoState(clientId){
     if(day.meals&&day.meals[meal.id]!==undefined) mpScores[meal.id]=day.meals[meal.id];
     if(day.order&&day.order[meal.id]!==undefined) mpOrder[meal.id]=day.order[meal.id];
     if(day.proteinPlate&&day.proteinPlate[meal.id]!==undefined) mpProteinPlate[meal.id]=day.proteinPlate[meal.id];
+    if(day.mealTimes&&day.mealTimes[meal.id]!==undefined) mpTimes[meal.id]=day.mealTimes[meal.id];
   });
   if(day.habits) mpHabits=Object.assign({},day.habits);
   if(day.note) mpDayNote=day.note;
@@ -1696,7 +1925,13 @@ function onMpDateChange(){
 function renderMealPlanForm(){
   document.getElementById('mp-meals').innerHTML=MEALS.map(meal=>`
     <div class="form-group">
-      <div class="form-label">${meal.name}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div class="form-label" style="margin-bottom:0;">${meal.name}</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:12px;color:var(--muted);">Time:</span>
+          <input type="time" value="${mpTimes[meal.id]||''}" onchange="mpTimes['${meal.id}']=this.value||undefined" style="padding:5px 8px;background:var(--surf2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;">
+        </div>
+      </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
         ${FOOD_OPTIONS[meal.id].map(food=>{
           const isSel=mpSelections[meal.id]&&mpSelections[meal.id].has(food);
@@ -1797,7 +2032,7 @@ async function saveMealPlan(){
     alert('Missing program start date for this client -- cannot place this on their calendar.');
     return;
   }
-  const hasAnything=MEALS.some(m=>mpSelections[m.id].size>0||(mpNotes[m.id]&&mpNotes[m.id].trim())||mpScores[m.id]!==undefined||mpOrder[m.id]!==undefined||mpProteinPlate[m.id]!==undefined)
+  const hasAnything=MEALS.some(m=>mpSelections[m.id].size>0||(mpNotes[m.id]&&mpNotes[m.id].trim())||mpScores[m.id]!==undefined||mpOrder[m.id]!==undefined||mpProteinPlate[m.id]!==undefined||mpTimes[m.id]!==undefined)
     ||Object.keys(mpHabits).length>0||mpDayNote.trim();
   if(!hasAnything){alert('Add at least one item -- food, note, score, habit, or day note');return;}
 
@@ -1833,12 +2068,15 @@ async function saveMealPlan(){
     day.mealNotes[meal.id]=(mpNotes[meal.id]||'').trim();
     if(!day.order) day.order={};
     if(!day.proteinPlate) day.proteinPlate={};
+    if(!day.mealTimes) day.mealTimes={};
     if(mpScores[meal.id]!==undefined) day.meals[meal.id]=mpScores[meal.id];
     else delete day.meals[meal.id];
     if(mpOrder[meal.id]!==undefined) day.order[meal.id]=mpOrder[meal.id];
     else delete day.order[meal.id];
     if(mpProteinPlate[meal.id]!==undefined) day.proteinPlate[meal.id]=mpProteinPlate[meal.id];
     else delete day.proteinPlate[meal.id];
+    if(mpTimes[meal.id]!==undefined) day.mealTimes[meal.id]=mpTimes[meal.id];
+    else delete day.mealTimes[meal.id];
   });
   if(Object.keys(mpHabits).length){
     if(!day.habits) day.habits={};
@@ -1846,6 +2084,17 @@ async function saveMealPlan(){
   }
   day.note=mpDayNote.trim();
   day.coachAssigned=true;
+  day.coachSnapshot={
+    foodLog:JSON.parse(JSON.stringify(day.foodLog)),
+    mealNotes:JSON.parse(JSON.stringify(day.mealNotes)),
+    meals:JSON.parse(JSON.stringify(day.meals||{})),
+    order:JSON.parse(JSON.stringify(day.order||{})),
+    proteinPlate:JSON.parse(JSON.stringify(day.proteinPlate||{})),
+    habits:JSON.parse(JSON.stringify(day.habits||{})),
+    note:day.note||'',
+    mealTimes:JSON.parse(JSON.stringify(day.mealTimes||{})),
+    assignedAt:new Date().toISOString()
+  };
   full.data=dataArr;
 
   const {error:saveErr}=await getSB().from('tracker_data').upsert({
@@ -1938,9 +2187,12 @@ function nutShowClient(clientId){
       +'</div>'
       +(assigned.length?assigned.map(function(a){
         const dStr=a.date.getFullYear()+'-'+String(a.date.getMonth()+1).padStart(2,'0')+'-'+String(a.date.getDate()).padStart(2,'0');
-        return `<div class="day-row" onclick="openMealPlan('${clientId}','${dStr}')" style="cursor:pointer;">
-          <div style="font-size:15px;font-weight:600;">${DAYS_SHORT[a.date.getDay()]} ${a.date.getDate()} ${MONTHS_SHORT[a.date.getMonth()]} ${a.date.getFullYear()}</div>
-          <span style="color:var(--muted2);font-size:16px;">\u203a</span>
+        return `<div class="day-row" style="display:flex;justify-content:space-between;align-items:center;">
+          <div onclick="openMealPlan('${clientId}','${dStr}')" style="cursor:pointer;flex:1;">
+            <div style="font-size:15px;font-weight:600;">${DAYS_SHORT[a.date.getDay()]} ${a.date.getDate()} ${MONTHS_SHORT[a.date.getMonth()]} ${a.date.getFullYear()}</div>
+          </div>
+          <button onclick="event.stopPropagation();viewPlanComparison('${clientId}',${a.m},${a.w},${a.di})" style="padding:5px 10px;background:none;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted);cursor:pointer;margin-right:6px;">👁 Compare</button>
+          <span style="color:var(--muted2);font-size:16px;cursor:pointer;" onclick="openMealPlan('${clientId}','${dStr}')">\u203a</span>
         </div>`;
       }).join(''):'<div style="color:var(--muted);padding:8px 0;">Nothing assigned yet.</div>')
     +'</div>'

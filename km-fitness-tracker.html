@@ -720,7 +720,7 @@ const EX_LIB = {
 const ALL_EX = Object.values(EX_LIB).flat();
 const CARDIO_EX = new Set(EX_LIB['Cardio']);
 
-let selectedBP=[], sessions=[], notes={};
+let selectedBP=[], sessions=[], notes={}, assignedWorkouts={};
 let restTmr=null, restLeft=0, restStartSecs=0, restEndTime=0, currentRestTimes=[];
 let durTmr=null, durStart=null, durElapsed=0, durRunning=false;
 let autoSaveTmr=null;
@@ -1352,9 +1352,67 @@ function _launchMainApp(){
       // Re-trigger exercise history for any already-selected exercises
       document.querySelectorAll('#exBody .ex-select').forEach(sel=>{if(sel.value)onExChange(sel);});
     }
+    applyAssignedWorkoutIfAny();
   });
   showMobilePromptIfNeeded();
   setTimeout(checkVoiceSession, 800);
+}
+
+function applyAssignedWorkoutIfAny(){
+  const dateStr=document.getElementById('sessDate')?document.getElementById('sessDate').value:new Date().toISOString().slice(0,10);
+  if(!dateStr||!assignedWorkouts||!assignedWorkouts[dateStr]) return;
+  // Don't overwrite an already-logged session for this date
+  if(sessions.some(s=>s.date===dateStr)) return;
+  // Don't clobber anything already in the form (e.g. a restored draft)
+  if(document.querySelectorAll('#exBody .ex-block').length>0) return;
+  const w=assignedWorkouts[dateStr];
+
+  if(w.bodyParts&&w.bodyParts.length){
+    selectedBP=[...w.bodyParts];
+    document.querySelectorAll('.bp-btn').forEach(btn=>{
+      if(w.bodyParts.includes(btn.textContent)) btn.classList.add('active');
+    });
+  }
+
+  if(w.exercises&&w.exercises.length){
+    w.exercises.forEach(e=>{
+      const block=document.createElement('div');
+      block.className='ex-block';
+      block.innerHTML=`
+        <div class="ex-top-row">
+          <select class="ex-select"></select>
+          <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
+          <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">▲</button>
+          <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
+        </div>
+        <div class="set-rows"></div>`;
+      document.getElementById('exBody').appendChild(block);
+      populateSel(block.querySelector('.ex-select'));
+      block.querySelector('.ex-select').value=e.ex;
+      generateSetRows(block.querySelector('.set-rows'),e.sets||3);
+      if(e.setData){
+        block.querySelectorAll('.set-row').forEach((row,i)=>{
+          if(e.setData[i]){
+            row.querySelector('.reps-input').value=e.setData[i].reps||'';
+            row.querySelector('.weight-input').value=e.setData[i].weight||'';
+          }
+        });
+      }
+      onExChange(block.querySelector('.ex-select'));
+    });
+  }
+
+  if(w.cardio&&w.cardio.length){
+    w.cardio.forEach(c=>{
+      cardioBlocks.push({id:Date.now()+Math.random(),ex:c.ex,duration:c.duration||'',distance:'',intensity:c.intensity||''});
+    });
+    renderCardioBlocks();
+  }
+
+  if(w.notes){
+    var notesEl=document.getElementById('sessNotes');
+    if(notesEl) notesEl.value=w.notes;
+  }
 }
 
 function setTodayDate(){
@@ -2119,6 +2177,7 @@ function syncFitnessToSupabase(){
       data:{
         sessions:sessions,
         notes:notes,
+        assignedWorkouts:assignedWorkouts,
         name:localStorage.getItem('kmfit_name'),
         mobile:localStorage.getItem('kmfit_mobile'),
         email:localStorage.getItem('kmfit_email'),
@@ -2180,6 +2239,7 @@ function _applyFitnessData(d){
   var merged=Object.values(sessionMap).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
   sessions=merged.length>0?merged:remoteSessions;
   if(d.notes)notes=d.notes;
+  if(d.assignedWorkouts)assignedWorkouts=d.assignedWorkouts;
   if(d.name)localStorage.setItem('kmfit_name',d.name);
   if(d.target)localStorage.setItem('kmfit_target',d.target);
   if(d.unit)localStorage.setItem('kmfit_unit',d.unit);

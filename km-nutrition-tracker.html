@@ -278,6 +278,7 @@ body{overflow-x:hidden;}
     <div style="font-size:16px;font-weight:700;color:var(--txt);margin-bottom:4px;">📷 <span id="snapMealLabel"></span></div>
     <div style="font-size:16px;color:var(--txt3);margin-bottom:16px;" id="snapDateLabel"></div>
     <input type="file" id="snapInput" accept="image/*" capture="environment" style="display:none;" onchange="onSnapPhoto()">
+    <input type="file" id="proofPhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="onProofPhotoSelected()">
     <div id="snapPreview" style="display:none;margin-bottom:14px;">
       <img id="snapImg" style="width:100%;max-height:240px;object-fit:cover;border-radius:10px;border:1px solid var(--border);"/>
     </div>
@@ -1485,7 +1486,7 @@ function renderDayPanel(m,w,di,cal){
       +'<div class="meal-head">'
       +'<div class="meal-name">'+meal.name+'</div>'
       +(isSnack?'<div style="font-size:.65rem;color:var(--txt3);margin-top:2px;">Optional -- skip won\'t affect score</div>':'')
-      +'<button onclick="snapMeal(\''+meal.id+'\','+m+','+w+','+di+')" style="background:var(--sage-d);border:1px solid var(--sage);border-radius:7px;padding:5px 10px;color:var(--sage);font-size:17px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;white-space:nowrap;"> Snap</button>'
+      +'<button onclick="snapMeal(\''+meal.id+'\','+m+','+w+','+di+')" style="background:var(--sage-d);border:1px solid var(--sage);border-radius:7px;padding:5px 10px;color:var(--sage);font-size:15px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;white-space:nowrap;">🤖 AI Analysis</button>'
       +'</div>'
       +'<div class="meal-score-row" style="margin-bottom:6px;">'
       +'<div class="score-btn s0'+(score===0?' active':'')+'" onclick="setMeal('+m+','+w+','+di+',\''+meal.id+'\',0)">--</div>'
@@ -1516,6 +1517,10 @@ function renderDayPanel(m,w,di,cal){
           +'</div>'
         +'</div>'
         :'')
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+      +'<span style="font-size:.68rem;color:var(--txt3);white-space:nowrap;">Time eaten:</span>'
+      +'<input type="time" class="form-inp" style="padding:6px 8px;font-size:.8rem;width:auto;margin-bottom:0;" value="'+((dd.mealTimes&&dd.mealTimes[meal.id])||'')+'" onchange="setMealTime('+m+','+w+','+di+',\''+meal.id+'\',this.value)">'
+      +'</div>'
       +'<textarea class="meal-note-inp" placeholder="Notes..." rows="1"'
       +' onchange="setMealNote('+m+','+w+','+di+',\''+meal.id+'\',this.value)"'
       +' oninput="setMealNote('+m+','+w+','+di+',\''+meal.id+'\',this.value)">'
@@ -1534,15 +1539,25 @@ function renderDayPanel(m,w,di,cal){
         var customFoods=dd.customFoods&&dd.customFoods[meal.id]?dd.customFoods[meal.id]:[];
         var allFoods=(FOOD_OPTIONS[meal.id]||[]).concat(customFoods.filter(function(f){return(FOOD_OPTIONS[meal.id]||[]).indexOf(f)<0;}));
         return allFoods.map(function(food){
-          var sel=fl.indexOf(food)>-1;
+          var count=fl.filter(function(f){return f===food;}).length;
+          var sel=count>0;
           var isCustom=customFoods.indexOf(food)>-1;
-          return'<div class="food-chip'+(sel?' selected':'')+'" onclick="toggleFood('+m+','+w+','+di+',\''+meal.id+'\',\''+food+'\')">'
-            +food
+          return'<div class="food-chip'+(sel?' selected':'')+'" style="display:inline-flex;align-items:center;gap:6px;">'
+            +'<span onclick="toggleFood('+m+','+w+','+di+',\''+meal.id+'\',\''+food+'\')" style="cursor:pointer;">'+food+(count>1?' \u00d7'+count:'')+'</span>'
+            +(sel?'<button onclick="event.stopPropagation();decrementFood('+m+','+w+','+di+',\''+meal.id+'\',\''+food+'\')" style="background:none;border:none;color:inherit;font-size:1rem;font-weight:800;cursor:pointer;padding:0 2px;line-height:1;">\u2212</button>':'')
             +'<button class="food-chip-del" onclick="event.stopPropagation();deleteFood('+m+','+w+','+di+',\''+meal.id+'\',\''+food+'\','+isCustom+')">x</button>'
             +'</div>';
         }).join('');
       })()
       +'</div>'
+      +(function(){
+        var fl=dd.foodLog&&dd.foodLog[meal.id]?dd.foodLog[meal.id]:[];
+        if(!fl.length) return '';
+        var counts={};
+        fl.forEach(function(f){counts[f]=(counts[f]||0)+1;});
+        var parts=Object.keys(counts).map(function(f){return(counts[f]>1?counts[f]+' ':'')+f;});
+        return '<div style="font-size:.72rem;color:var(--sage);font-weight:600;margin:6px 0;">'+parts.join(', ')+'</div>';
+      })()
       // Macro totals for this meal
       +(function(){
         var totals=calcMealMacros(m,w,di,meal.id);
@@ -1563,6 +1578,7 @@ function renderDayPanel(m,w,di,cal){
       +'<div class="food-chip-add">'
       +'<input class="food-log-add-inp" type="text" id="fi-'+m+'-'+w+'-'+di+'-'+meal.id+'" placeholder="Type food + Add...">'
       +'<button class="food-log-add-btn" onclick="addCustomFood('+m+','+w+','+di+',\''+meal.id+'\')">Add</button>'
+      +'<button class="food-log-add-btn" style="background:var(--surf2);color:var(--sage);" onclick="attachProofPhoto('+m+','+w+','+di+',\''+meal.id+'\')" title="Attach a photo as proof -- no AI analysis">📷 Add Photo</button>'
       +'</div>'
       +'</div>';
   });
@@ -1707,6 +1723,12 @@ function setMealNote(m,w,di,mealId,val){
   data[m][w][di].mealNotes[mealId]=val;
   autoSave();
 }
+function setMealTime(m,w,di,mealId,val){
+  ensureData(m,w,di);
+  if(!data[m][w][di].mealTimes)data[m][w][di].mealTimes={};
+  data[m][w][di].mealTimes[mealId]=val;
+  autoSave();
+}
 function toggleHabit(m,w,di,hid){
   ensureData(m,w,di);
   data[m][w][di].habits[hid]=!data[m][w][di].habits[hid];
@@ -1726,10 +1748,15 @@ function toggleFood(m,w,di,mealId,food){
   ensureData(m,w,di);
   if(!data[m][w][di].foodLog)data[m][w][di].foodLog={};
   if(!data[m][w][di].foodLog[mealId])data[m][w][di].foodLog[mealId]=[];
+  data[m][w][di].foodLog[mealId].push(food);
+  autoSave();render();
+}
+function decrementFood(m,w,di,mealId,food){
+  ensureData(m,w,di);
+  if(!data[m][w][di].foodLog||!data[m][w][di].foodLog[mealId])return;
   var fl=data[m][w][di].foodLog[mealId];
   var idx=fl.indexOf(food);
   if(idx>-1)fl.splice(idx,1);
-  else fl.push(food);
   autoSave();render();
 }
 function addCustomFood(m,w,di,mealId){
@@ -1743,12 +1770,10 @@ function addCustomFood(m,w,di,mealId){
   if(data[m][w][di].customFoods[mealId].indexOf(val)<0){
     data[m][w][di].customFoods[mealId].push(val);
   }
-  // Also auto-select it
+  // Also select it (always push -- repeats mean quantity, same as tapping a chip)
   if(!data[m][w][di].foodLog)data[m][w][di].foodLog={};
   if(!data[m][w][di].foodLog[mealId])data[m][w][di].foodLog[mealId]=[];
-  if(data[m][w][di].foodLog[mealId].indexOf(val)<0){
-    data[m][w][di].foodLog[mealId].push(val);
-  }
+  data[m][w][di].foodLog[mealId].push(val);
   autoSave();
   // Ask for macros if not already known
   if(!getMacros(val)){
@@ -2148,6 +2173,44 @@ function saveSnapToHistory(){
       });
     }
   });
+}
+
+// -- Simple photo-as-proof attach (no AI analysis, just visual evidence) --
+let proofPhotoCtx=null;
+function attachProofPhoto(m,w,di,mealId){
+  proofPhotoCtx={m:m,w:w,di:di,mealId:mealId};
+  document.getElementById('proofPhotoInput').click();
+}
+function onProofPhotoSelected(){
+  var input=document.getElementById('proofPhotoInput');
+  if(!input.files||!input.files[0]||!proofPhotoCtx)return;
+  var file=input.files[0];
+  var ctx=proofPhotoCtx;
+  showToast('Uploading photo...');
+  compressImage(file, 800, 0.65, function(blob){
+    var clientKey=getClientKey();
+    var filename=clientKey+'_'+ctx.mealId+'_m'+ctx.m+'w'+ctx.w+'d'+ctx.di+'_proof_'+Date.now()+'.jpg';
+    var fr=new FileReader();
+    fr.onload=function(e){
+      getSB().storage.from('meal-photos').upload(filename, e.target.result, {
+        contentType:'image/jpeg', upsert:true
+      }).then(function(res){
+        if(res.error){showToast('Upload failed: '+res.error.message);return;}
+        var urlRes=getSB().storage.from('meal-photos').getPublicUrl(filename);
+        var photoUrl=urlRes.data.publicUrl;
+        ensureData(ctx.m,ctx.w,ctx.di);
+        if(!data[ctx.m][ctx.w][ctx.di].photos) data[ctx.m][ctx.w][ctx.di].photos={};
+        if(!data[ctx.m][ctx.w][ctx.di].photos[ctx.mealId]) data[ctx.m][ctx.w][ctx.di].photos[ctx.mealId]=[];
+        data[ctx.m][ctx.w][ctx.di].photos[ctx.mealId].push(photoUrl);
+        autoSave();
+        showToast('Photo attached ✓');
+        render();
+      });
+    };
+    fr.readAsArrayBuffer(blob);
+  });
+  input.value='';
+  proofPhotoCtx=null;
 }
 
 // -- SNAP & SHARE --
