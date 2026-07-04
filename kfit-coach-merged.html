@@ -621,14 +621,14 @@ async function loadAssignedWorkoutsForClient(key,c){
     if(done){statusLabel='✓ Completed';statusClass='badge-sage';}
     else if(dateStr<todayStr){statusLabel='⚠️ Missed';statusClass='badge-terra';}
     else{statusLabel='⏳ Pending';statusClass='badge-gold';}
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
-      <div onclick="editAssignedWorkout('${key.replace(/'/g,"\\'")}','${dateStr}')" style="cursor:pointer;flex:1;">
+    return `<div style="padding:12px 0;border-bottom:1px solid var(--border);">
+      <div onclick="editAssignedWorkout('${key.replace(/'/g,"\\'")}','${dateStr}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
         <div style="font-size:15px;font-weight:600;">${dt.getDate()} ${M[dt.getMonth()]} ${dt.getFullYear()}</div>
+        <span style="color:var(--muted2);font-size:16px;">›</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
         <span class="badge ${statusClass}">${statusLabel}</span>
-        <button onclick="event.stopPropagation();deleteAssignedWorkout('${key.replace(/'/g,"\\'")}','${dateStr}')" style="background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-size:12px;padding:4px 8px;cursor:pointer;">🗑</button>
-        <span onclick="editAssignedWorkout('${key.replace(/'/g,"\\'")}','${dateStr}')" style="color:var(--muted2);font-size:16px;cursor:pointer;">›</span>
+        <button onclick="event.stopPropagation();deleteAssignedWorkout('${key.replace(/'/g,"\\'")}','${dateStr}')" style="background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-size:12px;padding:4px 8px;cursor:pointer;">🗑 Delete</button>
       </div>
     </div>`;
   }).join('');
@@ -2381,14 +2381,16 @@ function nutShowClient(clientId){
         if(!untouched){statusLabel='✓ Reviewed';statusClass='badge-sage';}
         else if(dStr<todayStr){statusLabel='⚠️ Missed';statusClass='badge-terra';}
         else{statusLabel='⏳ Pending';statusClass='badge-gold';}
-        return `<div class="day-row" style="display:flex;justify-content:space-between;align-items:center;">
-          <div onclick="openMealPlan('${clientId}','${dStr}')" style="cursor:pointer;flex:1;">
+        return `<div class="day-row" style="display:block;padding:12px 0;">
+          <div onclick="openMealPlan('${clientId}','${dStr}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
             <div style="font-size:15px;font-weight:600;">${DAYS_SHORT[a.date.getDay()]} ${a.date.getDate()} ${MONTHS_SHORT[a.date.getMonth()]} ${a.date.getFullYear()}</div>
+            <span style="color:var(--muted2);font-size:16px;">\u203a</span>
           </div>
-          <span class="badge ${statusClass}" style="margin-right:6px;">${statusLabel}</span>
-          <button onclick="event.stopPropagation();viewPlanComparison('${clientId}',${a.m},${a.w},${a.di})" style="padding:5px 10px;background:none;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted);cursor:pointer;margin-right:6px;">👁 Compare</button>
-          <button onclick="event.stopPropagation();deleteMealPlanAssignment('${clientId}',${a.m},${a.w},${a.di})" style="background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-size:12px;padding:4px 8px;cursor:pointer;margin-right:6px;">🗑</button>
-          <span style="color:var(--muted2);font-size:16px;cursor:pointer;" onclick="openMealPlan('${clientId}','${dStr}')">\u203a</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+            <span class="badge ${statusClass}">${statusLabel}</span>
+            <button onclick="event.stopPropagation();viewPlanComparison('${clientId}',${a.m},${a.w},${a.di})" style="padding:5px 10px;background:none;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted);cursor:pointer;">👁 Compare</button>
+            <button onclick="event.stopPropagation();deleteMealPlanAssignment('${clientId}',${a.m},${a.w},${a.di})" style="background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-size:12px;padding:4px 8px;cursor:pointer;">🗑 Delete</button>
+          </div>
         </div>`;
       }).join(''):'<div style="color:var(--muted);padding:8px 0;">Nothing assigned yet.</div>')
     +'</div>'
