@@ -3088,8 +3088,8 @@ function editSession(id){
 
   // Body parts
   selectedBP=[...(s.bodyParts||[])];
-  document.querySelectorAll('.bp-chip').forEach(function(btn){
-    btn.classList.toggle('active',selectedBP.includes(btn.dataset.bp||btn.textContent.trim()));
+  document.querySelectorAll('.bp-btn').forEach(function(btn){
+    btn.classList.toggle('active',selectedBP.includes(btn.textContent.trim()));
   });
 
   // Duration
