@@ -2040,7 +2040,12 @@ function openMealPlan(prefillClientId,prefillDate){
   const sel=document.getElementById('mp-client');
   sel.innerHTML='<option value="">-- Select Client --</option>'+
     allClients.map(c=>`<option value="${c.client_id}">${c.name}</option>`).join('');
-  document.getElementById('mp-date').valueAsDate=prefillDate?new Date(prefillDate+'T00:00:00'):new Date();
+  const initDate=prefillDate?new Date(prefillDate+'T00:00:00'):new Date();
+  document.getElementById('mp-date-start').valueAsDate=initDate;
+  document.getElementById('mp-date-end').valueAsDate=initDate;
+  mpSelectedDOW=[0,1,2,3,4,5,6];
+  renderDowRow('mp-dow-row','toggleMpDow');
+  updateMpRangeSummary();
   document.getElementById('mp-meals').innerHTML='<div style="color:var(--muted);text-align:center;padding:20px;">Select a client to begin</div>';
   document.getElementById('mealPlanModal').style.display='block';
   document.body.style.overflow='hidden'; // lock background scroll so the modal doesn't fight the page underneath
@@ -2078,7 +2083,7 @@ function loadExistingDayIntoState(clientId){
   if(titleEl){titleEl.textContent='Assign Meal Plan';}
   if(saveBtn){saveBtn.textContent='Save Meal Plan';}
   const cached=mpClientCache[clientId];
-  const dateStr=document.getElementById('mp-date').value;
+  const dateStr=document.getElementById('mp-date-start').value;
   if(!cached||!cached.setup||!cached.setup.startDate||!dateStr) return;
   const totalMonths=cached.setup.totalMonths||3;
   const pos=computeMWDI(cached.setup.startDate,totalMonths,dateStr);
@@ -2165,7 +2170,7 @@ function renderMealPlanForm(){
 
 async function clearMpDay(){
   const clientId=document.getElementById('mp-client').value;
-  const dateStr=document.getElementById('mp-date').value;
+  const dateStr=document.getElementById('mp-date-start').value;
   if(!clientId||!dateStr) return;
   const ok=confirm('This wipes EVERYTHING logged for this day -- foods, notes, scores, habits, everything -- including anything the client logged themselves. This cannot be undone. Continue?');
   if(!ok) return;
@@ -2210,9 +2215,10 @@ function toggleMpFood(mealId,food,btn){
 
 async function saveMealPlan(){
   const clientId=document.getElementById('mp-client').value;
-  const dateStr=document.getElementById('mp-date').value;
+  const startDate=document.getElementById('mp-date-start').value;
+  const endDate=document.getElementById('mp-date-end').value;
   if(!clientId){alert('Select a client');return;}
-  if(!dateStr){alert('Select a date');return;}
+  if(!startDate||!endDate){alert('Select a date range');return;}
   const cached=mpClientCache[clientId];
   if(!cached||!cached.setup||!cached.setup.startDate){
     alert('Missing program start date for this client -- cannot place this on their calendar.');
@@ -2222,13 +2228,10 @@ async function saveMealPlan(){
     ||Object.keys(mpHabits).length>0||mpDayNote.trim();
   if(!hasAnything){alert('Add at least one item -- food, note, score, habit, or day note');return;}
 
-  const totalMonths=cached.setup.totalMonths||3;
-  const pos=computeMWDI(cached.setup.startDate,totalMonths,dateStr);
-  if(!pos){
-    alert('That date falls outside this client\'s tracked program window ('+totalMonths+' month(s) from '+cached.setup.startDate+'). Extend their program or pick a date within range.');
-    return;
-  }
+  const dateList=getDateRangeList(startDate,endDate,mpSelectedDOW);
+  if(!dateList.length){alert('No matching days in that range -- check your day-of-week selection.');return;}
 
+  const totalMonths=cached.setup.totalMonths||3;
   const btn=document.getElementById('mp-save-btn');
   btn.disabled=true; btn.textContent='Saving...';
 
@@ -2241,46 +2244,52 @@ async function saveMealPlan(){
   }
   const full=typeof fresh[0].data==='string'?JSON.parse(fresh[0].data):fresh[0].data;
   const dataArr=full.data||[];
-  const {m,w,di}=pos;
-  if(!dataArr[m]) dataArr[m]=[];
-  if(!dataArr[m][w]) dataArr[m][w]=[];
-  if(!dataArr[m][w][di]) dataArr[m][w][di]={meals:{},mealNotes:{},habits:{},order:{},proteinPlate:{},note:''};
-  const day=dataArr[m][w][di];
-  if(!day.foodLog) day.foodLog={};
-  if(!day.mealNotes) day.mealNotes={};
 
-  MEALS.forEach(meal=>{
-    day.foodLog[meal.id]=Array.from(mpSelections[meal.id]);
-    day.mealNotes[meal.id]=(mpNotes[meal.id]||'').trim();
-    if(!day.order) day.order={};
-    if(!day.proteinPlate) day.proteinPlate={};
-    if(!day.mealTimes) day.mealTimes={};
-    if(mpScores[meal.id]!==undefined) day.meals[meal.id]=mpScores[meal.id];
-    else delete day.meals[meal.id];
-    if(mpOrder[meal.id]!==undefined) day.order[meal.id]=mpOrder[meal.id];
-    else delete day.order[meal.id];
-    if(mpProteinPlate[meal.id]!==undefined) day.proteinPlate[meal.id]=mpProteinPlate[meal.id];
-    else delete day.proteinPlate[meal.id];
-    if(mpTimes[meal.id]!==undefined) day.mealTimes[meal.id]=mpTimes[meal.id];
-    else delete day.mealTimes[meal.id];
+  let skipped=0;
+  dateList.forEach(dateStr=>{
+    const pos=computeMWDI(cached.setup.startDate,totalMonths,dateStr);
+    if(!pos){ skipped++; return; }
+    const {m,w,di}=pos;
+    if(!dataArr[m]) dataArr[m]=[];
+    if(!dataArr[m][w]) dataArr[m][w]=[];
+    if(!dataArr[m][w][di]) dataArr[m][w][di]={meals:{},mealNotes:{},habits:{},order:{},proteinPlate:{},note:''};
+    const day=dataArr[m][w][di];
+    if(!day.foodLog) day.foodLog={};
+    if(!day.mealNotes) day.mealNotes={};
+
+    MEALS.forEach(meal=>{
+      day.foodLog[meal.id]=Array.from(mpSelections[meal.id]);
+      day.mealNotes[meal.id]=(mpNotes[meal.id]||'').trim();
+      if(!day.order) day.order={};
+      if(!day.proteinPlate) day.proteinPlate={};
+      if(!day.mealTimes) day.mealTimes={};
+      if(mpScores[meal.id]!==undefined) day.meals[meal.id]=mpScores[meal.id];
+      else delete day.meals[meal.id];
+      if(mpOrder[meal.id]!==undefined) day.order[meal.id]=mpOrder[meal.id];
+      else delete day.order[meal.id];
+      if(mpProteinPlate[meal.id]!==undefined) day.proteinPlate[meal.id]=mpProteinPlate[meal.id];
+      else delete day.proteinPlate[meal.id];
+      if(mpTimes[meal.id]!==undefined) day.mealTimes[meal.id]=mpTimes[meal.id];
+      else delete day.mealTimes[meal.id];
+    });
+    if(Object.keys(mpHabits).length){
+      if(!day.habits) day.habits={};
+      Object.keys(mpHabits).forEach(hid=>{ day.habits[hid]=mpHabits[hid]; });
+    }
+    day.note=mpDayNote.trim();
+    day.coachAssigned=true;
+    day.coachSnapshot={
+      foodLog:JSON.parse(JSON.stringify(day.foodLog)),
+      mealNotes:JSON.parse(JSON.stringify(day.mealNotes)),
+      meals:JSON.parse(JSON.stringify(day.meals||{})),
+      order:JSON.parse(JSON.stringify(day.order||{})),
+      proteinPlate:JSON.parse(JSON.stringify(day.proteinPlate||{})),
+      habits:JSON.parse(JSON.stringify(day.habits||{})),
+      note:day.note||'',
+      mealTimes:JSON.parse(JSON.stringify(day.mealTimes||{})),
+      assignedAt:new Date().toISOString()
+    };
   });
-  if(Object.keys(mpHabits).length){
-    if(!day.habits) day.habits={};
-    Object.keys(mpHabits).forEach(hid=>{ day.habits[hid]=mpHabits[hid]; });
-  }
-  day.note=mpDayNote.trim();
-  day.coachAssigned=true;
-  day.coachSnapshot={
-    foodLog:JSON.parse(JSON.stringify(day.foodLog)),
-    mealNotes:JSON.parse(JSON.stringify(day.mealNotes)),
-    meals:JSON.parse(JSON.stringify(day.meals||{})),
-    order:JSON.parse(JSON.stringify(day.order||{})),
-    proteinPlate:JSON.parse(JSON.stringify(day.proteinPlate||{})),
-    habits:JSON.parse(JSON.stringify(day.habits||{})),
-    note:day.note||'',
-    mealTimes:JSON.parse(JSON.stringify(day.mealTimes||{})),
-    assignedAt:new Date().toISOString()
-  };
   full.data=dataArr;
 
   const {error:saveErr}=await getSB().from('tracker_data').upsert({
@@ -2290,7 +2299,7 @@ async function saveMealPlan(){
   btn.disabled=false; btn.textContent='Save Meal Plan';
   if(saveErr){alert('Error saving meal plan: '+saveErr.message);return;}
   closeMealPlan();
-  alert('Meal plan saved -- they\'ll see it next time they open that day ✓');
+  alert((dateList.length>1?dateList.length+' days':'Meal plan')+' assigned -- they\'ll see it next time they open that day ✓'+(skipped?' ('+skipped+' day(s) fell outside their program window and were skipped)':''));
 }
 
 function nutRenderDash(){
