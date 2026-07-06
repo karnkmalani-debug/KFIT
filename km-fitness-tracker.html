@@ -3371,7 +3371,7 @@ function openDetail(id){
   document.getElementById('dTitle').textContent=s.client;
   document.getElementById('dSub').textContent=d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear()+(s.timeOfDay?' - '+s.timeOfDay:'');
   const _sessDur=s.duration||(s.cardio&&s.cardio.length?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60:0);
-  const durLine=_sessDur?`<div class="card"><div class="card-title" style="color:var(--text);font-size:13px;font-weight:800;">SESSION DURATION &#128336;</div><div class="rst-row"><span class="rst-label" style="color:var(--text);font-weight:600;font-size:16px;">Total time</span><span class="rst-val" style="color:var(--gold);font-size:22px;font-weight:800;">${fmtDur(_sessDur)}</span></div></div>`:'';
+  const durLine=(_sessDur&&!(s.cardio&&s.cardio.length))?`<div class="card"><div class="card-title" style="color:var(--text);font-size:13px;font-weight:800;">SESSION DURATION</div><div class="rst-row"><span class="rst-label" style="color:var(--text);font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.03em;">Total Time</span><span class="rst-val" style="color:var(--gold);font-size:26px;font-weight:900;">${fmtDur(_sessDur)}</span></div></div>`:'';
   const rt=s.restTimes||[];
   const avg=sessRestAvg(s);
   const total=rt.reduce((a,b)=>a+b,0);
@@ -3389,18 +3389,16 @@ function openDetail(id){
       <div style="font-size:15px;color:var(--muted);margin-top:4px;">Manually entered</div>
     </div>`:'';
 
-  // Cardio section
+  // Cardio section -- merged with duration so Time/Intensity/Activity stack as one loud block
   const cardioSection=(s.cardio&&s.cardio.length)?`
     <div class="card">
-      <div class="card-title">Cardio</div>
+      <div class="card-title" style="color:var(--text);font-size:13px;font-weight:800;">SESSION DURATION</div>
+      ${_sessDur?`<div class="rst-row" style="margin-bottom:14px;"><span class="rst-label" style="color:var(--text);font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.03em;">Total Time</span><span class="rst-val" style="color:var(--gold);font-size:26px;font-weight:900;">${fmtDur(_sessDur)}</span></div>`:''}
       ${s.cardio.map(c=>`
-        <div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-          <div style="font-size:17px;font-weight:600;"> ${c.ex}</div>
-          <div style="display:flex;gap:10px;font-family:'DM Mono',monospace;font-size:16px;">
-            ${c.duration?`<span style="color:var(--sage)">${c.duration} min</span>`:''}
-            ${c.distance?`<span style="color:var(--gold)">${c.distance}km</span>`:''}
-            ${c.intensity?`<span style="color:var(--terra)">Intensity: ${c.intensity}</span>`:''}
-          </div>
+        <div style="margin-bottom:6px;">
+          ${c.intensity?`<div class="rst-row"><span class="rst-label" style="color:var(--text);font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.03em;">Intensity</span><span style="color:var(--terra);font-size:19px;font-weight:800;font-family:'DM Mono',monospace;">${c.intensity.toUpperCase()}</span></div>`:''}
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);color:var(--text);font-size:22px;font-weight:800;letter-spacing:.02em;">${c.ex}</div>
+          ${c.distance?`<div style="margin-top:6px;color:var(--gold);font-size:16px;font-weight:700;font-family:'DM Mono',monospace;">${c.distance}km</div>`:''}
         </div>`).join('')}
     </div>`:'';
 
