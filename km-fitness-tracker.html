@@ -719,9 +719,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 <script>
 const BODY_PARTS = ['Back','Chest','Shoulders','Biceps','Triceps','Legs','Core','Cardio'];
 const EX_LIB = {
-  'Back':['Pull-Ups','Chin-Ups','Lat Pulldown Wide','Lat Pulldown Close','Lat Pulldown Neutral Grip','Seated Row Close','Seated Row Wide','Chest Supported Row Wide','Chest Supported Row Close','Bent Over Barbell Row','Bent Over Dumbbell Row','Single Arm Dumbbell Row','T-Bar Row','Cable Row','Deadlift','Lat Prayer (Cable Pullover)','Straight Arm Pulldown','Face Pulls','Shrugs','Reverse Fly (Cable)'],
+  'Back':['Pull-Ups','Chin-Ups','Lat Pulldown Wide','Lat Pulldown Close','Lat Pulldown Neutral Grip','Seated Row Close','Seated Row Wide','Chest Supported Row Wide','Chest Supported Row Close','Bent Over Barbell Row','Bent Over Dumbbell Row','Single Arm Dumbbell Row','T-Bar Row','Cable Row','Deadlift','Lat Prayer (Cable Pullover)','Straight Arm Pulldown','Face Pulls (Back)','Shrugs','Reverse Fly (Cable)'],
   'Chest':['Barbell Bench Press (Flat)','Barbell Bench Press (Incline)','Barbell Bench Press (Decline)','Dumbbell Press (Flat)','Dumbbell Press (Incline)','Dumbbell Press (Decline)','Dumbbell Fly (Flat)','Dumbbell Fly (Incline)','Dumbbell Fly (Decline)','Chest Press Machine','Machine Fly','Cable Fly (Low to High)','Cable Fly (High to Low)','Cable Fly (Mid)','Smith Machine Bench Press (Flat)','Smith Machine Bench Press (Incline)','Smith Machine Bench Press (Decline)','Push-Ups','Deficit Push Ups','Dips (Chest Focus)'],
-  'Shoulders':['Barbell Overhead Press','Dumbbell Shoulder Press','Shoulder Press Machine','Arnold Press','Lateral Raises (Dumbbell)','Lateral Raises (Cable)','Lateral Raises (Machine)','Front Raises (Dumbbell)','Front Raises (Barbell)','Front Raises (Cable)','Rear Delt Fly (Dumbbell)','Rear Delt Fly (Cable)','Rear Delt Fly (Machine)','Face Pulls','Landmine Press','Seated Dumbbell Press','Y Raise (Standing)','Y Raise (Incline)','Prone Y Raise (Incline Bench)','Incline Bench Rear Delt Fly'],
+  'Shoulders':['Barbell Overhead Press','Dumbbell Shoulder Press','Shoulder Press Machine','Arnold Press','Lateral Raises (Dumbbell)','Lateral Raises (Cable)','Lateral Raises (Machine)','Front Raises (Dumbbell)','Front Raises (Barbell)','Front Raises (Cable)','Rear Delt Fly (Dumbbell)','Rear Delt Fly (Cable)','Rear Delt Fly (Machine)','Face Pulls (Shoulders)','Landmine Press','Seated Dumbbell Press','Y Raise (Standing)','Y Raise (Incline)','Prone Y Raise (Incline Bench)','Incline Bench Rear Delt Fly'],
   'Biceps':['Barbell Curl','EZ Bar Curl','Dumbbell Curl','Hammer Curl','Preacher Curl (Barbell)','Preacher Curl (Dumbbell)','Preacher Curl (EZ Bar)','Cable Curl','Incline Dumbbell Curl','Concentration Curl','Cross Body Curl','Reverse Curl','Zottman Curl','Bayesian Curl'],
   'Triceps':['Tricep Pushdown (Bar)','Tricep Pushdown (Rope)','Overhead Tricep Extension (Dumbbell)','Overhead Tricep Extension (EZ Bar)','Overhead Tricep Extension (Cable)','Skull Crushers (Barbell)','Skull Crushers (EZ Bar)','Skull Crushers (Dumbbell)','Close Grip Bench Press','Dips (Tricep Focus)','Single Arm Pushdown (Cable)','Kickback (Dumbbell)','Kickback (Cable)'],
   'Legs':['Barbell Squat','Front Squat','Goblet Squat','Sumo Squat','Bulgarian Split Squat','Hack Squat','Leg Press','Leg Extension','Lying Hamstring Curl','Seated Hamstring Curl','Romanian Deadlift','Single Leg RDL','Stiff Leg Deadlift','Hip Thrust (Barbell)','Hip Thrust (Dumbbell)','Glute Bridge','Walking Lunges','Reverse Lunges','Forward Lunges','Step-Ups','Good Mornings','Nordic Curl','Calf Raise (Leg Press Machine)','Standing Calf Raise','Seated Calf Raise'],
@@ -1418,10 +1418,6 @@ function autoFillExercisesForBodyPart(bp){
   // Don't do this while an assigned workout is loaded -- that already has its own exercises
   if(currentAssignedDate) return;
   const dateStr=document.getElementById('sessDate')?document.getElementById('sessDate').value:localDateStr();
-  if(sessions.some(s=>s.date===dateStr)){
-    toast('Already logged a session for today -- edit that instead');
-    return;
-  }
 
   // Most recent session that actually trained this body part
   const last=[...sessions].sort((a,b)=>new Date(b.date)-new Date(a.date))
