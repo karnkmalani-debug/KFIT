@@ -1575,12 +1575,51 @@ function toggleBP(el,bp){
   document.querySelectorAll('#exBody .ex-select').forEach(s=>populateSel(s));
   renderExChips();
   if(isNowActive){
-    autoFillExercisesForBodyPart(bp);
+    if(bp==='Cardio') autoFillCardioIfAny();
+    else autoFillExercisesForBodyPart(bp);
   } else {
     // Instantly remove only the exercises that were auto-filled for this specific body part --
     // anything manually added stays untouched, and whatever's left just naturally flows to the top
     document.querySelectorAll('#exBody .ex-block[data-autobp="'+bp+'"]').forEach(b=>b.remove());
+    if(bp==='Cardio'){
+      cardioBlocks=cardioBlocks.filter(c=>!c._autofilled);
+      renderCardioBlocks();
+    }
   }
+}
+
+function autoFillCardioIfAny(){
+  if(currentAssignedDate) return;
+  const dateStr=document.getElementById('sessDate')?document.getElementById('sessDate').value:localDateStr();
+
+  const last=[...sessions].sort((a,b)=>new Date(b.date)-new Date(a.date))
+    .find(s=>s.cardio&&s.cardio.length>0);
+  if(!last){
+    toast('No previous cardio session found to load from');
+    return;
+  }
+
+  const existingActivities=new Set(cardioBlocks.map(c=>c.ex));
+  let added=0;
+  last.cardio.forEach(c=>{
+    if(existingActivities.has(c.ex)) return;
+    added++;
+    cardioBlocks.push({id:Date.now()+Math.random(),ex:c.ex,duration:c.duration||'',distance:c.distance||'',intensity:c.intensity||'',_autofilled:true});
+  });
+  renderCardioBlocks();
+
+  // Notes are a single shared field -- only fill in if empty, so we never overwrite something already typed
+  var notesEl=document.getElementById('sessNotes');
+  if(notesEl && !notesEl.value.trim() && last.notes){
+    notesEl.value=last.notes;
+  }
+
+  if(added===0){
+    toast('That cardio activity is already in your log');
+    return;
+  }
+  const daysAgo=Math.round((new Date(dateStr)-new Date(last.date))/86400000);
+  toast('Loaded your cardio from '+(daysAgo>0?daysAgo+' day'+(daysAgo===1?'':'s')+' ago':'last time'));
 }
 function getExList(){return selectedBP.length===0?ALL_EX:selectedBP.flatMap(bp=>EX_LIB[bp]||[]);}
 function populateSel(sel){
