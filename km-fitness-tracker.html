@@ -1442,6 +1442,7 @@ function autoFillExercisesForBodyPart(bp){
     added++;
     const block=document.createElement('div');
     block.className='ex-block';
+    block.dataset.autobp=bp;
     block.innerHTML=`
       <div class="ex-top-row">
         <select class="ex-select"></select>
@@ -1573,7 +1574,13 @@ function toggleBP(el,bp){
   selectedBP=isNowActive?[...selectedBP,bp]:selectedBP.filter(b=>b!==bp);
   document.querySelectorAll('#exBody .ex-select').forEach(s=>populateSel(s));
   renderExChips();
-  if(isNowActive) autoFillExercisesForBodyPart(bp);
+  if(isNowActive){
+    autoFillExercisesForBodyPart(bp);
+  } else {
+    // Instantly remove only the exercises that were auto-filled for this specific body part --
+    // anything manually added stays untouched, and whatever's left just naturally flows to the top
+    document.querySelectorAll('#exBody .ex-block[data-autobp="'+bp+'"]').forEach(b=>b.remove());
+  }
 }
 function getExList(){return selectedBP.length===0?ALL_EX:selectedBP.flatMap(bp=>EX_LIB[bp]||[]);}
 function populateSel(sel){
