@@ -192,14 +192,14 @@ body{overflow-x:hidden;}
   <div class="pw-sub">Nutrition Tracker</div>
   <div class="pw-card">
     <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:10px;overflow:hidden;">
-      <button id="tabPw" onclick="switchLoginTab('pw')" style="flex:1;padding:10px;background:var(--sage);border:none;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:700;color:#fff;cursor:pointer;">New</button>
-      <button id="tabMobile" onclick="switchLoginTab('mobile')" style="flex:1;padding:10px;background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:700;color:var(--txt2);cursor:pointer;">Returning</button>
+      <button id="tabPw" onclick="switchLoginTab('pw')" style="flex:1;padding:10px;background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:700;color:var(--txt2);cursor:pointer;">New</button>
+      <button id="tabMobile" onclick="switchLoginTab('mobile')" style="flex:1;padding:10px;background:var(--sage);border:none;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:700;color:#fff;cursor:pointer;">Returning</button>
     </div>
-    <div id="loginTabPw">
+    <div id="loginTabPw" style="display:none;">
       <div style="font-size:.85rem;color:var(--txt2);margin-bottom:16px;line-height:1.5;">First time here? Tap below to set up your profile and start tracking.</div>
       <button class="pw-btn" onclick="startNewNutritionUser()">Start Tracking →</button>
     </div>
-    <div id="loginTabMobile" style="display:none;">
+    <div id="loginTabMobile">
       <div id="mobileStepEntry">
         <label class="pw-label">Your Mobile Number</label>
         <input class="pw-input" type="tel" id="mobileLoginInput" placeholder="e.g. 9820012345" onkeydown="if(event.key==='Enter')checkMobileLogin()">
