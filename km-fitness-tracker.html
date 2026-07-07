@@ -285,6 +285,8 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .modal-submit{background:var(--sage);color:#0c0c0a;}
 .modal-cancel{background:var(--surf2);border:1px solid var(--border)!important;color:var(--text);}
 
+@keyframes bpSlideIn{from{opacity:0;transform:translateY(-10px);}to{opacity:1;transform:translateY(0);}}
+@keyframes bpCountdown{from{width:100%;}to{width:0%;}}
 .toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%);background:var(--surf3);border:1px solid var(--border);border-radius:8px;padding:9px 18px;font-size:17px;font-weight:600;color:var(--text);opacity:0;transition:opacity .25s;pointer-events:none;z-index:300;white-space:nowrap;}
 .toast.show{opacity:1;}
 
@@ -440,6 +442,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     <div class="tab" onclick="goTab(3)">NOTES</div>
     <div class="tab" onclick="goTab(4)">PR</div>
   </div>
+  <div id="bpNotifStack" style="position:fixed;top:112px;left:16px;right:16px;max-width:488px;margin:0 auto;z-index:350;display:flex;flex-direction:column;gap:8px;pointer-events:none;"></div>
 
   <!-- LOG -->
   <div class="panel active" id="panel0">
@@ -529,6 +532,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
     <div class="card">
       <div class="card-title">Session Notes</div>
+      <div id="bpNotesStack" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
       <textarea class="notes-ta" id="sessNotes" rows="3" placeholder="How did it go?"></textarea>
       <div style="margin-top:12px;">
         <div style="font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">&#128336; Average Rest Time <span style="font-weight:400;text-transform:none;letter-spacing:0;">(if not tracked above)</span></div>
@@ -1423,14 +1427,14 @@ function autoFillExercisesForBodyPart(bp){
   const last=[...sessions].sort((a,b)=>new Date(b.date)-new Date(a.date))
     .find(s=>s.bodyParts&&s.bodyParts.includes(bp)&&s.exercises&&s.exercises.length);
   if(!last){
-    toast('No previous '+bp+' session found to load from');
+    showBpNotif(bp,'🔍','No previous <b style="color:var(--gold);">'+bp+'</b> session found');
     return;
   }
 
   const bpExerciseNames=new Set(EX_LIB[bp]||[]);
   const relevant=last.exercises.filter(e=>bpExerciseNames.has(e.ex));
   if(!relevant.length){
-    toast('Found a previous '+bp+' session, but none of its exercises matched the current library');
+    showBpNotif(bp,'🔍','Found a previous <b style="color:var(--gold);">'+bp+'</b> session, but none of its exercises matched your current library');
     return;
   }
 
@@ -1460,11 +1464,12 @@ function autoFillExercisesForBodyPart(bp){
   });
 
   if(added===0){
-    toast('Those '+bp+' exercises are already in your log');
+    showBpNotif(bp,'✓','<b style="color:var(--gold);">'+bp+'</b> exercises already added');
     return;
   }
   const daysAgo=Math.round((new Date(dateStr)-new Date(last.date))/86400000);
-  toast('Loaded your '+bp+' exercises from '+(daysAgo>0?daysAgo+' day'+(daysAgo===1?'':'s')+' ago':'last time'));
+  if(last.notes) showBpNoteRef(bp,last.notes,daysAgo);
+  showBpNotif(bp,'💪','Loaded <b style="color:var(--gold);">'+bp+'</b> \u2014 '+added+' exercise'+(added!==1?'s':'')+' from '+(daysAgo>0?'<b style="color:var(--gold);">'+daysAgo+' day'+(daysAgo===1?'':'s')+' ago</b>':'last time'));
 }
 
 let currentAssignedDate=null;
@@ -1581,9 +1586,16 @@ function toggleBP(el,bp){
     // Instantly remove only the exercises that were auto-filled for this specific body part --
     // anything manually added stays untouched, and whatever's left just naturally flows to the top
     document.querySelectorAll('#exBody .ex-block[data-autobp="'+bp+'"]').forEach(b=>b.remove());
+    document.querySelectorAll('#bpNotifStack [data-bp="'+bp+'"]').forEach(el=>el.remove());
+    document.querySelectorAll('#bpNotesStack [data-bp="'+bp+'"]').forEach(el=>el.remove());
     if(bp==='Cardio'){
       cardioBlocks=cardioBlocks.filter(c=>!c._autofilled);
       renderCardioBlocks();
+      var notesEl=document.getElementById('sessNotes');
+      if(notesEl && window._autoFilledCardioNotes && notesEl.value===window._autoFilledCardioNotes){
+        notesEl.value='';
+      }
+      window._autoFilledCardioNotes=null;
     }
   }
 }
@@ -1595,7 +1607,7 @@ function autoFillCardioIfAny(){
   const last=[...sessions].sort((a,b)=>new Date(b.date)-new Date(a.date))
     .find(s=>s.cardio&&s.cardio.length>0);
   if(!last){
-    toast('No previous cardio session found to load from');
+    showBpNotif('Cardio','🔍','No previous cardio session found');
     return;
   }
 
@@ -1608,18 +1620,13 @@ function autoFillCardioIfAny(){
   });
   renderCardioBlocks();
 
-  // Notes are a single shared field -- only fill in if empty, so we never overwrite something already typed
-  var notesEl=document.getElementById('sessNotes');
-  if(notesEl && !notesEl.value.trim() && last.notes){
-    notesEl.value=last.notes;
-  }
-
   if(added===0){
-    toast('That cardio activity is already in your log');
+    showBpNotif('Cardio','✓','That cardio activity is already in your log');
     return;
   }
   const daysAgo=Math.round((new Date(dateStr)-new Date(last.date))/86400000);
-  toast('Loaded your cardio from '+(daysAgo>0?daysAgo+' day'+(daysAgo===1?'':'s')+' ago':'last time'));
+  if(last.notes) showBpNoteRef('Cardio',last.notes,daysAgo);
+  showBpNotif('Cardio','🏃','Loaded your cardio from '+(daysAgo>0?'<b style="color:var(--gold);">'+daysAgo+' day'+(daysAgo===1?'':'s')+' ago</b>':'last time'));
 }
 function getExList(){return selectedBP.length===0?ALL_EX:selectedBP.flatMap(bp=>EX_LIB[bp]||[]);}
 function populateSel(sel){
@@ -4018,6 +4025,39 @@ function snapShareAnywhere(){
   navigator.share({title:'KFit '+label,text:text}).catch(function(e){
     if(e.name!=='AbortError') toast('v Details copied -- paste in your message');
   });
+}
+
+function showBpNoteRef(bp,text,daysAgo){
+  const stack=document.getElementById('bpNotesStack');
+  if(!stack||!text) return;
+  // Don't stack a duplicate if this body part's note is already shown
+  if(stack.querySelector('[data-bp="'+bp+'"]')) return;
+  const card=document.createElement('div');
+  card.dataset.bp=bp;
+  card.style.cssText='background:var(--surf2);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:8px;padding:10px 12px;animation:bpSlideIn .25s ease;';
+  card.innerHTML=
+    '<div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--gold);margin-bottom:4px;">'+bp+' \u2014 '+(daysAgo>0?daysAgo+' day'+(daysAgo===1?'':'s')+' ago':'last time')+'</div>'+
+    '<div style="font-size:13.5px;color:var(--muted);line-height:1.4;font-style:italic;">"'+text+'"</div>';
+  stack.appendChild(card);
+}
+
+function showBpNotif(bp,icon,html){
+  const stack=document.getElementById('bpNotifStack');
+  if(!stack) return;
+  const card=document.createElement('div');
+  card.dataset.bp=bp;
+  card.style.cssText='background:var(--surf);border:1px solid var(--gold);border-radius:12px;padding:12px 15px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,.5);pointer-events:auto;position:relative;overflow:hidden;animation:bpSlideIn .25s ease;';
+  card.innerHTML=
+    '<div style="font-size:19px;flex-shrink:0;">'+icon+'</div>'+
+    '<div style="color:var(--text);font-size:14px;font-weight:600;line-height:1.35;flex:1;">'+html+'</div>'+
+    '<div style="position:absolute;bottom:0;left:0;height:2px;background:var(--gold);width:100%;animation:bpCountdown 5s linear forwards;"></div>';
+  stack.insertBefore(card,stack.firstChild);
+  setTimeout(function(){
+    card.style.transition='opacity .3s, transform .3s';
+    card.style.opacity='0';
+    card.style.transform='translateY(-8px)';
+    setTimeout(function(){card.remove();},300);
+  },5000);
 }
 
 function toast(msg){
