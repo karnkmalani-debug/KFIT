@@ -54,7 +54,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-seri
 .s-btn{width:100%;padding:14px;background:var(--sage);color:#0c0c0a;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;cursor:pointer;letter-spacing:.3px;transition:opacity .2s;}
 .s-btn:hover{opacity:.86;}
 
-#mainApp{display:none;max-width:520px;margin:0 auto;padding-bottom:90px;}
+#mainApp{display:none;max-width:520px;margin:0 auto;padding-bottom:140px;}
 
 .header{display:flex;align-items:center;justify-content:space-between;padding:max(15px,env(safe-area-inset-top)) 16px 12px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;background:var(--bg);gap:8px;}
 .logo{font-size:20px;font-weight:900;letter-spacing:-1px;font-family:'Playfair Display',serif;}
@@ -100,8 +100,8 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .reps-input,.weight-input{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--text);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;transition:border-color .15s;}
 .reps-input:focus,.weight-input:focus{border-color:var(--sage);}
 .weight-input:focus{border-color:var(--gold);}
-.del-btn{background:none;border:none;color:var(--muted2);font-size:20px;cursor:pointer;padding:3px 5px;line-height:1;transition:color .18s;flex-shrink:0;}
-.collapse-btn{background:none;border:none;color:var(--muted2);font-size:13px;cursor:pointer;padding:3px 6px;line-height:1;flex-shrink:0;transition:color .18s;}
+.del-btn{background:var(--surf3);border:1px solid var(--terra);color:var(--terra);font-size:17px;cursor:pointer;width:36px;height:36px;min-width:36px;border-radius:9px;line-height:1;transition:color .18s;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-left:10px;}
+.collapse-btn{background:var(--surf3);border:1px solid var(--border);color:var(--muted2);font-size:15px;cursor:pointer;width:36px;height:36px;min-width:36px;border-radius:9px;line-height:1;flex-shrink:0;transition:color .18s;display:flex;align-items:center;justify-content:center;}
 .collapse-btn:hover{color:var(--sage);}
 .del-btn:hover{color:var(--terra);}
 .add-row{margin-top:10px;padding:10px;border:1px dashed var(--border);border-radius:8px;text-align:center;color:var(--muted);font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .18s;}
@@ -1375,7 +1375,7 @@ function applyAssignedWorkoutIfAny(){
       block.className='ex-block';
       block.innerHTML=`
         <div class="ex-top-row">
-          <select class="ex-select"></select>
+          <select class="ex-select" onchange="onExChange(this)"></select>
           <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
           <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">▲</button>
           <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
@@ -1445,7 +1445,7 @@ function autoFillExercisesForBodyPart(bp){
     block.dataset.autobp=bp;
     block.innerHTML=`
       <div class="ex-top-row">
-        <select class="ex-select"></select>
+        <select class="ex-select" onchange="onExChange(this)"></select>
         <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
         <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">▲</button>
         <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
@@ -2608,7 +2608,7 @@ function draftLoad(){
         block.className='ex-block';
         block.innerHTML=`
           <div class="ex-top-row">
-            <select class="ex-select"></select>
+            <select class="ex-select" onchange="onExChange(this)"></select>
             <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
             <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">▲</button>
             <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
@@ -3371,6 +3371,7 @@ function openDetail(id){
   document.getElementById('dTitle').textContent=s.client;
   document.getElementById('dSub').textContent=d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear()+(s.timeOfDay?' - '+s.timeOfDay:'');
   const _sessDur=s.duration||(s.cardio&&s.cardio.length?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60:0);
+  const _exCount=(s.exercises?s.exercises.length:0)+(s.supersets?s.supersets.reduce((a,ss)=>a+(ss.exercises?ss.exercises.length:0),0):0);
   const durLine=(_sessDur&&!(s.cardio&&s.cardio.length))?`<div class="card"><div class="card-title" style="color:var(--text);font-size:13px;font-weight:800;">SESSION DURATION</div><div class="rst-row"><span class="rst-label" style="color:var(--text);font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.03em;">Total Time</span><span class="rst-val" style="color:var(--gold);font-size:26px;font-weight:900;">${fmtDur(_sessDur)}</span></div></div>`:'';
   const rt=s.restTimes||[];
   const avg=sessRestAvg(s);
@@ -3481,7 +3482,7 @@ function openDetail(id){
     </div>`;
   }).join(''):'';
   document.getElementById('dBody').innerHTML=`
-    ${(s.bodyParts||[]).length?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">${s.bodyParts.map(b=>`<span class="sess-tag">${b}</span>`).join('')}</div>`:''}
+    ${(s.bodyParts||[]).length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${s.bodyParts.map(b=>`<span class="sess-tag">${b}</span>`).join('')}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''})</span>`:''}</div>`:''}
     ${durLine}
     ${cardioSection}
     ${ssSection}
@@ -4024,6 +4025,23 @@ function toast(msg){
   t.textContent=msg;t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2200);
 }
+
+// Keep Save Session (and everything else) from ever being hidden behind the fixed rest bar,
+// no matter how tall it gets (countdown display, button wrapping on narrow screens, etc.)
+(function(){
+  var restBar=document.querySelector('.rest-bar');
+  var mainApp=document.getElementById('mainApp');
+  if(!restBar||!mainApp) return;
+  function syncPadding(){
+    var h=restBar.offsetHeight;
+    mainApp.style.paddingBottom=(h>0?h+30:140)+'px';
+  }
+  if(window.ResizeObserver){
+    new ResizeObserver(syncPadding).observe(restBar);
+  }
+  syncPadding();
+  window.addEventListener('orientationchange',function(){setTimeout(syncPadding,300);});
+})();
 
 function showBlockingAlert(msg,focusId){
   document.getElementById('blockingAlertMsg').textContent=msg;
