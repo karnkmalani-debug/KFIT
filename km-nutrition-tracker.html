@@ -882,6 +882,9 @@ function renderSetup(){
     +'</div>'
     +'<button class="start-btn" onclick="startTracker()">Begin Tracking</button>'
     +'<div style="font-size:11px;color:var(--txt2);line-height:1.5;margin-top:14px;text-align:center;">Your nutrition entries are stored securely to power this tracker and improve KFit. Anonymised, aggregate insights (not tied to your identity) may be used or shared for research, product improvement, or partnerships. Your identifiable data is never sold without your separate, explicit consent.</div>'
+    +'<div style="text-align:center;margin-top:16px;">'
+    +'<span onclick="backToLoginGateNut()" style="font-size:.8rem;color:var(--sage);text-decoration:underline;cursor:pointer;">Already have an account? Tap here to sign in</span>'
+    +'</div>'
     +'</div>';
 }
 
@@ -2612,6 +2615,12 @@ function startNewNutritionUser(){
   loadFromSupabase(function(loaded){ if(loaded) render(); });
 }
 
+function backToLoginGateNut(){
+  document.getElementById('mainContent').style.display='none';
+  document.getElementById('pwGate').style.display='flex';
+  switchLoginTab('mobile');
+}
+
 // -- INIT --
 // -- INSTALL PROMPT --
 var deferredInstallPrompt=null;
@@ -2697,7 +2706,23 @@ window.addEventListener('DOMContentLoaded',function(){
 
   // Fast path
   if(isUnlocked()||sessionStorage.getItem('kmnut_session')){
-    _showApp();
+    loadState();
+    if(appSetup){
+      _showApp();
+      return;
+    }
+    // 'unlocked' flag was true (e.g. a cookie survived after localStorage got wiped -- common
+    // on standalone home-screen apps left untouched for a while) but the actual setup data is
+    // missing. Try IndexedDB recovery before ever falling back to a blank signup screen.
+    checkUnlockedIDB(function(unlocked){
+      loadState();
+      if(appSetup){
+        sessionStorage.setItem('kmnut_session','1');
+        _showApp();
+      } else {
+        _showLogin();
+      }
+    });
     return;
   }
 

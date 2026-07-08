@@ -413,6 +413,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:14px;text-align:center;">
       Your workout &amp; nutrition entries are stored securely to power this tracker and improve KFit. Anonymised, aggregate insights (not tied to your identity) may be used or shared for research, product improvement, or partnerships. Your identifiable data is never sold without your separate, explicit consent.
     </div>
+    <div style="text-align:center;margin-top:16px;">
+      <span onclick="backToLoginGate()" style="font-size:.8rem;color:var(--sage);text-decoration:underline;cursor:pointer;">Already have an account? Tap here to sign in</span>
+    </div>
   </div>
 </div>
 
@@ -1247,6 +1250,13 @@ function startNewFitnessUser(){
   document.getElementById('mainApp').style.display='none';
 }
 
+function backToLoginGate(){
+  document.getElementById('setupScreen').style.display='none';
+  document.getElementById('mainApp').style.display='none';
+  document.getElementById('pwGate').style.display='flex';
+  switchLoginTab('mobile');
+}
+
 function hideLoader(){
   var loader=document.getElementById('appLoader');
   if(loader) loader.style.display='none';
@@ -1290,17 +1300,30 @@ function _continueInitApp(){
   // Give IDB a moment then check again
   var name=localStorage.getItem('kmfit_name');
   if(!name){
-    // Try once more after IDB restore
-    setTimeout(function(){
+    // The 'unlocked' flag can survive in a cookie even after localStorage itself gets
+    // cleared (common on iOS standalone home-screen apps that go untouched for a while).
+    // When that happens, the normal IDB-restore path never runs because isUnlocked()
+    // already returned true from the cookie alone -- so explicitly try IDB recovery here
+    // as a last resort before ever giving up and showing a blank signup screen.
+    checkUnlockedIDB(function(unlocked){
       name=localStorage.getItem('kmfit_name');
-      if(!name){
-        document.getElementById('pwGate').style.display='none';
-        document.getElementById('setupScreen').style.display='flex';
-        document.getElementById('mainApp').style.display='none';
-      } else {
+      if(name){
         _launchMainApp();
+        return;
       }
-    },300);
+      // Still nothing after a real IDB attempt -- give it one more brief grace period
+      // in case the restore was mid-flight, then fall back to signup for real.
+      setTimeout(function(){
+        name=localStorage.getItem('kmfit_name');
+        if(!name){
+          document.getElementById('pwGate').style.display='none';
+          document.getElementById('setupScreen').style.display='flex';
+          document.getElementById('mainApp').style.display='none';
+        } else {
+          _launchMainApp();
+        }
+      },300);
+    });
     return;
   }
   _launchMainApp();
