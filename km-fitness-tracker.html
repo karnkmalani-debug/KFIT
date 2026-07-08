@@ -3122,7 +3122,23 @@ function renderStats(){
   const adM=durAvg(moS.map(getSessDur));
   const adA=durAvg(sessions.map(getSessDur));
 
+  const startY=new Date(now.getFullYear(),0,1);
+  const endY=new Date(now.getFullYear(),11,31,23,59,59);
+  const yrS=sessInRange(startY,endY);
+
+  const totW=wkS.reduce((a,s)=>a+getSessDur(s),0);
+  const totM=moS.reduce((a,s)=>a+getSessDur(s),0);
+  const totY=yrS.reduce((a,s)=>a+getSessDur(s),0);
+  const totA=sessions.reduce((a,s)=>a+getSessDur(s),0);
+
   document.getElementById('restStatsSection').innerHTML=`
+    <div class="card">
+      <div class="card-title">Total Time Trained <span>&#9201;</span></div>
+      <div class="rst-row"><span class="rst-label">This week</span><span class="rst-val">${totW?fmtDur(totW):'--'}</span></div>
+      <div class="rst-row"><span class="rst-label">This month</span><span class="rst-val">${totM?fmtDur(totM):'--'}</span></div>
+      <div class="rst-row"><span class="rst-label">This year</span><span class="rst-val">${totY?fmtDur(totY):'--'}</span></div>
+      <div class="rst-row"><span class="rst-label">All time</span><span class="rst-val">${totA?fmtDur(totA):'--'}</span></div>
+    </div>
     <div class="card">
       <div class="card-title">Avg Session Duration <span>&#128336;</span></div>
       <div class="rst-row"><span class="rst-label">Last session</span><span class="rst-val">${adL?fmtDur(adL):'--'}</span></div>
@@ -3379,6 +3395,10 @@ function openDetail(id){
   document.getElementById('dSub').textContent=d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear()+(s.timeOfDay?' - '+s.timeOfDay:'');
   const _sessDur=s.duration||(s.cardio&&s.cardio.length?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60:0);
   const _exCount=(s.exercises?s.exercises.length:0)+(s.supersets?s.supersets.reduce((a,ss)=>a+(ss.exercises?ss.exercises.length:0),0):0);
+  const _allExForTotals=[...(s.exercises||[])].concat((s.supersets||[]).flatMap(ss=>ss.exercises||[])).filter(e=>e.type!=='cardio');
+  const _realSetsForTotals=_allExForTotals.flatMap(e=>(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim())));
+  const _totalSets=_realSetsForTotals.length;
+  const _totalReps=_realSetsForTotals.reduce((a,r)=>a+(parseInt(r.reps)||0),0);
   const durLine=(_sessDur&&!(s.cardio&&s.cardio.length))?`<div class="card"><div class="card-title" style="color:var(--text);font-size:13px;font-weight:800;">SESSION DURATION</div><div class="rst-row"><span class="rst-label" style="color:var(--text);font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.03em;">Total Time</span><span class="rst-val" style="color:var(--gold);font-size:26px;font-weight:900;">${fmtDur(_sessDur)}</span></div></div>`:'';
   const rt=s.restTimes||[];
   const avg=sessRestAvg(s);
@@ -3416,10 +3436,11 @@ function openDetail(id){
     <div class="card">
       <div class="card-title">Exercises</div>
       ${s.exercises.map(e=>{
-        const hasWeight=e.setData&&e.setData.some(r=>r.weight);
+        const realSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
+        const hasWeight=realSets.some(r=>r.weight);
         const uLabel=s.unit||'kg';
         const exPR=prMap8[e.ex.toLowerCase().trim()];
-        const setWeights=(e.setData||[]).map(r=>parseFloat(r.weight)||0);
+        const setWeights=realSets.map(r=>parseFloat(r.weight)||0);
         const sessionMax=Math.max(0,...setWeights);
         const isSessionPR=exPR&&sessionMax>=exPR.weight;
         let trophyShown=false;
@@ -3431,7 +3452,7 @@ function openDetail(id){
               <th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;width:${hasWeight?'40%':'auto'};">Reps</th>
               ${hasWeight?`<th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;width:40%;">${uLabel}</th><th style="width:22px;padding-bottom:6px;"></th>`:''}
             </tr></thead>
-            <tbody>${(e.setData||[]).map(r=>{
+            <tbody>${realSets.map(r=>{
               const w=parseFloat(r.weight)||0;
               const showTrophy=isSessionPR&&!trophyShown&&w===sessionMax&&w>0;
               if(showTrophy) trophyShown=true;
@@ -3460,9 +3481,10 @@ function openDetail(id){
             </div>
           </div>`;
         }
-        const hasWeight=e.setData&&e.setData.some(r=>r.weight);
+        const ssRealSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
+        const hasWeight=ssRealSets.some(r=>r.weight);
         const ssExPR=prMap8[e.ex.toLowerCase().trim()];
-        const ssSetWeights=(e.setData||[]).map(r=>parseFloat(r.weight)||0);
+        const ssSetWeights=ssRealSets.map(r=>parseFloat(r.weight)||0);
         const ssSessionMax=Math.max(0,...ssSetWeights);
         const ssIsSessionPR=ssExPR&&ssSessionMax>=ssExPR.weight;
         let ssTrophyShown=false;
@@ -3474,7 +3496,7 @@ function openDetail(id){
               <th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;width:${hasWeight?'40%':'auto'};">Reps</th>
               ${hasWeight?`<th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;width:40%;">${uLabel}</th><th style="width:22px;padding-bottom:6px;"></th>`:''}
             </tr></thead>
-            <tbody>${(e.setData||[]).map(r=>{
+            <tbody>${ssRealSets.map(r=>{
               const w=parseFloat(r.weight)||0;
               const showTrophy=ssIsSessionPR&&!ssTrophyShown&&w===ssSessionMax&&w>0;
               if(showTrophy) ssTrophyShown=true;
@@ -3489,7 +3511,7 @@ function openDetail(id){
     </div>`;
   }).join(''):'';
   document.getElementById('dBody').innerHTML=`
-    ${(s.bodyParts||[]).length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${s.bodyParts.map(b=>`<span class="sess-tag">${b}</span>`).join('')}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''})</span>`:''}</div>`:''}
+    ${(s.bodyParts||[]).length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${s.bodyParts.map(b=>`<span class="sess-tag">${b}</span>`).join('')}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:''}
     ${durLine}
     ${cardioSection}
     ${ssSection}

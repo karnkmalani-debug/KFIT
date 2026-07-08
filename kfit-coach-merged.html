@@ -789,8 +789,34 @@ function openCoachSession(clientKey, date, time){
       document.getElementById('coachSessActions').innerHTML=`
         <button onclick="editCoachSession()" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">✎ Edit</button>
         <button onclick="deleteCoachSessionFromPanel()" style="background:none;border:1px solid var(--terra);border-radius:8px;padding:8px 14px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🗑 Delete</button>`;
-      renderCoachSession(s);
+      renderCoachSession(s,sessions);
     });
+}
+
+function calcPersonalRecordsCoach(sessions){
+  var prMap={};
+  sessions.forEach(function(s){
+    var allEx=[...(s.exercises||[])];
+    (s.supersets||[]).forEach(function(ss){
+      (ss.exercises||[]).forEach(function(e){
+        if(e.type!=='cardio') allEx.push(e);
+      });
+    });
+    allEx.forEach(function(e){
+      if(!e.ex) return;
+      var key=e.ex.toLowerCase().trim();
+      (e.setData||[]).forEach(function(set){
+        var w=parseFloat(set.weight);
+        var r=set.reps?String(set.reps).trim():'';
+        if(!w||isNaN(w)||!r) return;
+        var existing=prMap[key];
+        if(!existing||w>existing.weight){
+          prMap[key]={weight:w,reps:set.reps||'',date:s.date,timeOfDay:s.timeOfDay||'',displayName:e.ex};
+        }
+      });
+    });
+  });
+  return prMap;
 }
 
 function closeCoachSession(){
@@ -798,13 +824,20 @@ function closeCoachSession(){
   document.getElementById('coachSessionPanel').style.display='none';
 }
 
-function renderCoachSession(s){
+function renderCoachSession(s,allSessions){
   const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const uLabel=s.unit||'kg';
+  const prMap8=(allSessions&&allSessions.length>=8)?calcPersonalRecordsCoach(allSessions):{};
+
+  const _exCount=(s.exercises?s.exercises.length:0)+(s.supersets?s.supersets.reduce((a,ss)=>a+(ss.exercises?ss.exercises.length:0),0):0);
+  const _allExForTotals=[...(s.exercises||[])].concat((s.supersets||[]).flatMap(ss=>ss.exercises||[])).filter(e=>e.type!=='cardio');
+  const _realSetsForTotals=_allExForTotals.flatMap(e=>(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim())));
+  const _totalSets=_realSetsForTotals.length;
+  const _totalReps=_realSetsForTotals.reduce((a,r)=>a+(parseInt(r.reps)||0),0);
 
   // Body parts
   const bpHtml=(s.bodyParts&&s.bodyParts.length)?
-    `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">${s.bodyParts.map(b=>`<span style="padding:4px 12px;background:var(--gold-d);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold);">${b}</span>`).join('')}</div>`:'' ;
+    `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${s.bodyParts.map(b=>`<span style="padding:4px 12px;background:var(--gold-d);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold);">${b}</span>`).join('')}${_exCount?`<span style="color:var(--muted);font-size:14px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:'' ;
 
   // Duration
   const sessDur=s.duration||(s.cardio&&s.cardio.length?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60:0);
@@ -834,20 +867,30 @@ function renderCoachSession(s){
         <div style="font-size:16px;font-weight:700;margin-bottom:4px;">${e.ex}</div>
         <div style="font-size:14px;color:var(--sage);">${e.duration?e.duration+' min':''} ${e.intensity?'· Intensity: '+e.intensity:''}</div>
       </div>`;
-      const hasW=e.setData&&e.setData.some(r=>r.weight);
+      const ssRealSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
+      const hasW=ssRealSets.some(r=>r.weight);
+      const ssExPR=prMap8[e.ex.toLowerCase().trim()];
+      const ssSetWeights=ssRealSets.map(r=>parseFloat(r.weight)||0);
+      const ssSessionMax=Math.max(0,...ssSetWeights);
+      const ssIsSessionPR=ssExPR&&ssSessionMax>=ssExPR.weight;
+      let ssTrophyShown=false;
       return`<div style="border-left:3px solid var(--sage);padding-left:10px;margin-bottom:12px;">
         <div style="font-size:16px;font-weight:700;margin-bottom:6px;">${e.ex}</div>
         <table style="width:100%;border-collapse:collapse;">
           <thead><tr>
             <th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;width:30px;">Set</th>
             <th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;">Reps</th>
-            ${hasW?`<th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;">${uLabel}</th>`:''}
+            ${hasW?`<th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;">${uLabel}</th><th style="width:20px;"></th>`:''}
           </tr></thead>
-          <tbody>${(e.setData||[]).map(r=>`<tr>
+          <tbody>${ssRealSets.map(r=>{
+            const w=parseFloat(r.weight)||0;
+            const showTrophy=ssIsSessionPR&&!ssTrophyShown&&w===ssSessionMax&&w>0;
+            if(showTrophy) ssTrophyShown=true;
+            return`<tr>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">S${r.set}</td>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}</td>
-            ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td>`:''}
-          </tr>`).join('')}</tbody>
+            ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
+          </tr>`;}).join('')}</tbody>
         </table>
       </div>`;
     }).join('')}
@@ -857,20 +900,30 @@ function renderCoachSession(s){
   const exHtml=(s.exercises&&s.exercises.length)?`<div class="card">
     <div class="card-title">Exercises</div>
     ${s.exercises.map(e=>{
-      const hasW=e.setData&&e.setData.some(r=>r.weight);
+      const realSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
+      const hasW=realSets.some(r=>r.weight);
+      const exPR=prMap8[e.ex.toLowerCase().trim()];
+      const setWeights=realSets.map(r=>parseFloat(r.weight)||0);
+      const sessionMax=Math.max(0,...setWeights);
+      const isSessionPR=exPR&&sessionMax>=exPR.weight;
+      let trophyShown=false;
       return`<div style="margin-bottom:16px;">
         <div style="font-size:16px;font-weight:700;margin-bottom:6px;">${e.ex}</div>
         <table style="width:100%;border-collapse:collapse;">
           <thead><tr>
             <th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;width:30px;">Set</th>
             <th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;">Reps</th>
-            ${hasW?`<th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;">${uLabel}</th>`:''}
+            ${hasW?`<th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;">${uLabel}</th><th style="width:20px;"></th>`:''}
           </tr></thead>
-          <tbody>${(e.setData||[]).map(r=>`<tr>
+          <tbody>${realSets.map(r=>{
+            const w=parseFloat(r.weight)||0;
+            const showTrophy=isSessionPR&&!trophyShown&&w===sessionMax&&w>0;
+            if(showTrophy) trophyShown=true;
+            return`<tr>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">S${r.set}</td>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}</td>
-            ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td>`:''}
-          </tr>`).join('')}</tbody>
+            ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
+          </tr>`;}).join('')}</tbody>
         </table>
       </div>`;
     }).join('')}
