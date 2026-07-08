@@ -401,10 +401,6 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
       <input type="tel" id="setupMobile" placeholder="e.g. 9820012345" required>
     </div>
     <div class="s-field">
-      <label>Email <span style="color:var(--terra);">*</span></label>
-      <input type="email" id="setupEmail" placeholder="e.g. you@email.com" required>
-    </div>
-    <div class="s-field">
       <label>Weekly Training Target</label>
       <select id="setupTarget">
         <option value="3">3 days / week</option>
@@ -937,15 +933,12 @@ function autoFixNum(inp){
 function completeSetup(){
   const n=document.getElementById('setupName').value.trim();
   const m=document.getElementById('setupMobile').value.trim().replace(/\D/g,'');
-  const em=document.getElementById('setupEmail').value.trim();
   if(!n){toast('Enter your name');return;}
   if(!m){toast('Enter your mobile number');return;}
-  if(!em||em.indexOf('@')===-1){toast('Enter a valid email');return;}
   toast('Checking...');
   function proceedWithSetup(){
     localStorage.setItem('kmfit_name',n);
     localStorage.setItem('kmfit_mobile',m);
-    localStorage.setItem('kmfit_email',em);
     localStorage.setItem('kmfit_target',document.getElementById('setupTarget').value);
     setUnlocked();
     loadFitnessFromSupabase(function(loaded){

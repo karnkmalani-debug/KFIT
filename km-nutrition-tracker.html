@@ -873,8 +873,6 @@ function renderSetup(){
     +'<input class="field-inp" id="clientName" placeholder="e.g. Priya" maxlength="40">'
     +'<div class="field-label">Mobile Number <span style=\"color:var(--terra);\">*</span></div>'
     +'<input class="field-inp" id="clientMobile" type="tel" placeholder="e.g. 9820012345" required>'
-    +'<div class="field-label">Email <span style=\"color:var(--terra);\">*</span></div>'
-    +'<input class="field-inp" id="clientEmail" type="email" placeholder="e.g. you@email.com" required>'
     +'<div class="field-label">Programme Start Date</div>'
     +'<input class="field-inp" id="startDate" type="date">'
     +'<div class="field-label">Programme Length</div>'
@@ -907,17 +905,14 @@ function setMonths(n){
 function startTracker(){
   var name=document.getElementById('clientName').value.trim();
   var mobile=document.getElementById('clientMobile').value.trim().replace(/\D/g,'');
-  var email=document.getElementById('clientEmail').value.trim();
   var dateVal=document.getElementById('startDate').value;
   if(!name){showToast('Please enter your name');return;}
   if(!mobile){showToast('Please enter your mobile number');return;}
-  if(!email||email.indexOf('@')===-1){showToast('Please enter a valid email');return;}
   if(!dateVal){showToast('Please enter a start date');return;}
   showToast('Checking...');
   getSB().from('tracker_data').select('client_id').eq('tracker','nutrition').like('client_id','%__'+mobile).then(function(res){
     function proceed(){
       localStorage.setItem('kmnut_mobile',mobile);
-      localStorage.setItem('kmnut_email',email);
       appSetup={clientName:name,startDate:dateVal,totalMonths:_selectedMonths};
       data=[];weekNotes=[];
       setUnlocked(); // re-save IDB now that name + mobile are in localStorage
