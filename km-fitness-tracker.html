@@ -2548,7 +2548,7 @@ function draftSave(){
       block.querySelectorAll('.set-row').forEach((row,i)=>{
         setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value});
       });
-      exercises.push({ex,sets,setData});
+      exercises.push({ex,sets,setData,autobp:block.dataset.autobp||null});
     });
     const ari=document.getElementById('avgRestInput');
     const draft={
@@ -2613,6 +2613,7 @@ function draftLoad(){
       d.exercises.forEach(e=>{
         const block=document.createElement('div');
         block.className='ex-block';
+        if(e.autobp) block.dataset.autobp=e.autobp;
         block.innerHTML=`
           <div class="ex-top-row">
             <select class="ex-select" onchange="onExChange(this)"></select>
