@@ -364,16 +364,6 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
   </div>
 </div>
 
-<!-- Email prompt modal (security upgrade for existing accounts) -->
-<div id="emailPromptModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:24px;">
-  <div style="background:var(--surf);border-radius:16px;padding:28px 24px;width:100%;max-width:380px;">
-    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">🔒 Secure your account</div>
-    <div style="font-size:17px;color:var(--muted);margin-bottom:20px;">Add your email so only you can sign in with your mobile number on a new device — we'll send a code to verify it's really you.</div>
-    <input type="email" id="emailPromptInput" class="pw-input" placeholder="e.g. you@email.com" style="margin-bottom:12px;">
-    <button onclick="saveEmailPrompt()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:700;color:#0c0c0a;cursor:pointer;margin-bottom:8px;">Secure My Account</button>
-    <button onclick="dismissEmailPrompt()" style="width:100%;padding:11px;background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:.85rem;color:var(--muted);cursor:pointer;">Skip for now</button>
-  </div>
-</div>
 
 <!-- iOS install guide modal -->
 <div id="installModal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.75);align-items:flex-end;justify-content:center;">
@@ -593,10 +583,6 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     <div class="card" id="mobileNumberCard">
       <div class="card-title">📱 Mobile Login</div>
       <div id="mobileCardContent"></div>
-    </div>
-    <div class="card" id="emailSecurityCard">
-      <div class="card-title">🔒 Account Security</div>
-      <div id="emailCardContent"></div>
     </div>
   </div>
 
@@ -1100,34 +1086,7 @@ function showMobilePromptIfNeeded(){
       var m=document.getElementById('mobilePromptModal');
       if(m) m.style.display='flex';
     },1000);
-    return;
   }
-  showEmailPromptIfNeeded();
-}
-
-function showEmailPromptIfNeeded(){
-  var email=localStorage.getItem('kmfit_email');
-  var dismissed=localStorage.getItem('kmfit_email_dismissed');
-  if(!email&&!dismissed){
-    setTimeout(function(){
-      var m=document.getElementById('emailPromptModal');
-      if(m) m.style.display='flex';
-    },1000);
-  }
-}
-
-function saveEmailPrompt(){
-  var email=document.getElementById('emailPromptInput').value.trim();
-  if(!email||email.indexOf('@')===-1){toast('Enter a valid email');return;}
-  localStorage.setItem('kmfit_email',email);
-  syncFitnessToSupabase();
-  document.getElementById('emailPromptModal').style.display='none';
-  toast('Account secured ✓');
-}
-
-function dismissEmailPrompt(){
-  localStorage.setItem('kmfit_email_dismissed','1');
-  document.getElementById('emailPromptModal').style.display='none';
 }
 
 function saveMobilePrompt(){
@@ -1137,13 +1096,11 @@ function saveMobilePrompt(){
   setUnlocked(); // re-save IDB with mobile included
   syncFitnessToSupabase();
   document.getElementById('mobilePromptModal').style.display='none';
-  showEmailPromptIfNeeded();
 }
 
 function dismissMobilePrompt(){
   localStorage.setItem('kmfit_mobile_dismissed','1');
   document.getElementById('mobilePromptModal').style.display='none';
-  showEmailPromptIfNeeded();
 }
 
 // PASSWORD GATE
@@ -3200,21 +3157,6 @@ function renderNotesTab(){
         +'</div>';
     }
   }
-  // Email security card
-  var email=localStorage.getItem('kmfit_email');
-  var elE=document.getElementById('emailCardContent');
-  if(elE){
-    if(email){
-      elE.innerHTML='<p style="font-size:17px;color:var(--muted);margin-bottom:12px;">Verified: <strong style="color:var(--text);">'+email+'</strong> -- this is where we\'ll send your sign-in code.</p>'
-        +'<button onclick="updateEmailAddress()" style="padding:9px 16px;background:transparent;border:1px solid var(--border);border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:16px;font-weight:600;color:var(--muted);cursor:pointer;">Update Email</button>';
-    } else {
-      elE.innerHTML='<p style="font-size:17px;color:var(--muted);margin-bottom:12px;">No email saved. Add one so only you can sign in with your mobile number on a new device.</p>'
-        +'<div style="display:flex;gap:8px;">'
-        +'<input type="email" id="emailCardInput" class="pw-input" placeholder="e.g. you@email.com" style="flex:1;margin-bottom:0;">'
-        +'<button onclick="saveEmailFromCard()" style="padding:10px 16px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:17px;font-weight:700;color:#0c0c0a;cursor:pointer;">Save</button>'
-        +'</div>';
-    }
-  }
 }
 
 function saveMobileFromCard(){
@@ -3230,21 +3172,6 @@ function saveMobileFromCard(){
 
 function updateMobileNumber(){
   localStorage.removeItem('kmfit_mobile');
-  renderNotesTab();
-}
-
-function saveEmailFromCard(){
-  var email=(document.getElementById('emailCardInput').value||'').trim();
-  if(!email||email.indexOf('@')===-1){toast('Enter a valid email');return;}
-  localStorage.setItem('kmfit_email',email);
-  localStorage.removeItem('kmfit_email_dismissed');
-  syncFitnessToSupabase();
-  renderNotesTab();
-  toast('Account secured ✓');
-}
-
-function updateEmailAddress(){
-  localStorage.removeItem('kmfit_email');
   renderNotesTab();
 }
 

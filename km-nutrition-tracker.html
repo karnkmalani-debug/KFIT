@@ -240,16 +240,6 @@ body{overflow-x:hidden;}
   </div>
 </div>
 
-<!-- Email prompt modal (security upgrade for existing accounts) -->
-<div id="emailPromptModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:24px;">
-  <div style="background:var(--surf);border-radius:16px;padding:28px 24px;width:100%;max-width:380px;">
-    <div style="font-size:16px;font-weight:700;color:var(--txt);margin-bottom:6px;">🔒 Secure your account</div>
-    <div style="font-size:17px;color:var(--txt2);margin-bottom:20px;">Add your email so only you can sign in with your mobile number on a new device — we'll send a code to verify it's really you.</div>
-    <input type="email" id="emailPromptInput" class="pw-input" placeholder="e.g. you@email.com" style="margin-bottom:12px;">
-    <button onclick="saveEmailPrompt()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:700;color:#fff;cursor:pointer;margin-bottom:8px;">Secure My Account</button>
-    <button onclick="dismissEmailPrompt()" style="width:100%;padding:11px;background:transparent;border:none;font-family:'DM Sans',sans-serif;font-size:.85rem;color:var(--txt3);cursor:pointer;">Skip for now</button>
-  </div>
-</div>
 
 <!-- iOS install guide modal -->
 <div id="installModal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.75);align-items:flex-end;justify-content:center;">
@@ -494,7 +484,6 @@ function setVice(dateStr,field,val){
 
 function renderAccountView(){
   var mobile=localStorage.getItem('kmnut_mobile');
-  var email=localStorage.getItem('kmnut_email');
   var html='<div style="padding:16px;">';
 
   html+='<div style="background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">';
@@ -507,20 +496,6 @@ function renderAccountView(){
       +'<div style="display:flex;gap:8px;">'
       +'<input type="tel" id="mobileCardInputNut" class="pw-input" placeholder="e.g. 9820012345" style="flex:1;margin-bottom:0;">'
       +'<button onclick="saveMobileFromCardNut()" style="padding:10px 16px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:.85rem;font-weight:700;color:#fff;cursor:pointer;">Save</button>'
-      +'</div>';
-  }
-  html+='</div>';
-
-  html+='<div style="background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;">';
-  html+='<div style="font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:12px;">🔒 Account Security</div>';
-  if(email){
-    html+='<p style="font-size:.85rem;color:var(--txt2);margin-bottom:12px;">Verified: <strong style="color:var(--txt);">'+email+'</strong> -- this is where we\'ll send your sign-in code.</p>'
-      +'<button onclick="updateEmailAddressNut()" style="padding:9px 16px;background:transparent;border:1px solid var(--border);border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:.8rem;font-weight:600;color:var(--txt2);cursor:pointer;">Update Email</button>';
-  } else {
-    html+='<p style="font-size:.85rem;color:var(--txt2);margin-bottom:12px;">No email saved. Add one so only you can sign in with your mobile number on a new device.</p>'
-      +'<div style="display:flex;gap:8px;">'
-      +'<input type="email" id="emailCardInputNut" class="pw-input" placeholder="e.g. you@email.com" style="flex:1;margin-bottom:0;">'
-      +'<button onclick="saveEmailFromCardNut()" style="padding:10px 16px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:.85rem;font-weight:700;color:#fff;cursor:pointer;">Save</button>'
       +'</div>';
   }
   html+='</div>';
@@ -542,21 +517,6 @@ function saveMobileFromCardNut(){
 
 function updateMobileNumberNut(){
   localStorage.removeItem('kmnut_mobile');
-  render();
-}
-
-function saveEmailFromCardNut(){
-  var email=(document.getElementById('emailCardInputNut').value||'').trim();
-  if(!email||email.indexOf('@')===-1){showToast('Enter a valid email');return;}
-  localStorage.setItem('kmnut_email',email);
-  localStorage.removeItem('kmnut_email_dismissed');
-  syncToSupabase();
-  render();
-  showToast('Account secured ✓');
-}
-
-function updateEmailAddressNut(){
-  localStorage.removeItem('kmnut_email');
   render();
 }
 
@@ -2479,34 +2439,7 @@ function showMobilePromptIfNeeded(){
       var m=document.getElementById('mobilePromptModal');
       if(m) m.style.display='flex';
     },1000);
-    return;
   }
-  showEmailPromptIfNeeded();
-}
-
-function showEmailPromptIfNeeded(){
-  var email=localStorage.getItem('kmnut_email');
-  var dismissed=localStorage.getItem('kmnut_email_dismissed');
-  if(!email&&!dismissed){
-    setTimeout(function(){
-      var m=document.getElementById('emailPromptModal');
-      if(m) m.style.display='flex';
-    },1000);
-  }
-}
-
-function saveEmailPrompt(){
-  var email=document.getElementById('emailPromptInput').value.trim();
-  if(!email||email.indexOf('@')===-1){showToast('Enter a valid email');return;}
-  localStorage.setItem('kmnut_email',email);
-  syncToSupabase();
-  document.getElementById('emailPromptModal').style.display='none';
-  showToast('Account secured ✓');
-}
-
-function dismissEmailPrompt(){
-  localStorage.setItem('kmnut_email_dismissed','1');
-  document.getElementById('emailPromptModal').style.display='none';
 }
 
 function saveMobilePrompt(){
@@ -2516,13 +2449,11 @@ function saveMobilePrompt(){
   setUnlocked();
   syncToSupabase();
   document.getElementById('mobilePromptModal').style.display='none';
-  showEmailPromptIfNeeded();
 }
 
 function dismissMobilePrompt(){
   localStorage.setItem('kmnut_mobile_dismissed','1');
   document.getElementById('mobilePromptModal').style.display='none';
-  showEmailPromptIfNeeded();
 }
 
 // -- PASSWORD GATE --
