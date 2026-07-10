@@ -451,7 +451,7 @@ async function dismissExercise(id){
 
 function loadAll(){
   Promise.all([
-    getSB().from('attendance').select('*').order('session_date',{ascending:false}),
+    getSB().from('attendance').select('*').order('session_date',{ascending:false}).order('logged_at',{ascending:false}),
     loadClientTags()
   ]).then(function(results){
     const res=results[0];

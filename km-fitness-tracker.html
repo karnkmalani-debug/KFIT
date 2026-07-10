@@ -1648,9 +1648,10 @@ function generateSetRows(container, count, exName){
       <input class="reps-input" type="number" inputmode="numeric" min="0" max="999" placeholder="--" value="${vals[i]?.reps||''}" onblur="autoFixNum(this)">
       <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" value="${vals[i]?.weight||''}" onblur="autoFixNum(this)">
       <span class="pr-badge-slot" style="font-size:14px;text-align:center;"></span>`;
-    // PR check fires when both reps and weight are filled
+    // PR check fires once you finish typing and move away from the field --
+    // not on every keystroke, so it doesn't flash mid-type
     row.querySelectorAll('.reps-input,.weight-input').forEach(inp=>{
-      inp.addEventListener('input',()=>checkSetForPR(row));
+      inp.addEventListener('blur',()=>checkSetForPR(row));
     });
     // Auto-correct leading zeros
     row.querySelectorAll('input').forEach(inp=>{
@@ -1961,7 +1962,6 @@ function onExChange(sel){
   const setsEl=block.querySelector('.sets-select');
   const isC=isCardio(exName);
   setsEl.style.display=isC?'none':'';
-  generateSetRows(block.querySelector('.set-rows'),+setsEl.value,exName);
 
   // Show last session history for this exercise
   let histEl=block.querySelector('.ex-last-hist');
@@ -1971,15 +1971,27 @@ function onExChange(sel){
     block.querySelector('.ex-top-row').insertAdjacentElement('afterend',histEl);
   }
 
-  if(!exName){histEl.innerHTML='';return;}
+  if(!exName){
+    generateSetRows(block.querySelector('.set-rows'),+setsEl.value,exName);
+    histEl.innerHTML='';
+    return;
+  }
 
   const lastSess=sessions.find(s=>
     (s.exercises||[]).some(e=>e.ex===exName)
   );
 
-  if(!lastSess){histEl.innerHTML='';return;}
+  const lastEx=lastSess?(lastSess.exercises||[]).find(e=>e.ex===exName):null;
 
-  const lastEx=(lastSess.exercises||[]).find(e=>e.ex===exName);
+  // Match the sets dropdown to this exercise's own last-session set count
+  // (not whatever was left over from the previously-selected exercise) before
+  // generating the rows, so switching exercises adjusts sets correctly.
+  if(!isC&&lastEx&&lastEx.type!=='cardio'&&(lastEx.setData||[]).length){
+    setsEl.value=String(Math.min(lastEx.setData.length,+setsEl.querySelector('option:last-child')?.value||lastEx.setData.length));
+  }
+  generateSetRows(block.querySelector('.set-rows'),+setsEl.value,exName);
+
+  if(!lastSess){histEl.innerHTML='';return;}
   if(!lastEx){histEl.innerHTML='';return;}
 
   const d=new Date(lastSess.date+'T12:00:00');
@@ -2480,6 +2492,7 @@ function loadAttendance(callback){
       .select('*')
       .eq('client_mobile',mobile)
       .order('session_date',{ascending:false})
+      .order('logged_at',{ascending:false})
       .then(function(res){
         callback(res.error?[]:res.data||[]);
       }).catch(function(){callback([]);});
