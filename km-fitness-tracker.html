@@ -1335,8 +1335,17 @@ function applyAssignedWorkoutIfAny(){
   if(!dateStr||!assignedWorkouts||!assignedWorkouts[dateStr]) return;
   // Don't overwrite an already-logged session for this date
   if(sessions.some(s=>s.date===dateStr)) return;
-  // Don't clobber anything already in the form (e.g. a restored draft)
-  if(document.querySelectorAll('#exBody .ex-block').length>0) return;
+  // Don't clobber anything already in the form -- but a same-day draft can leave behind
+  // empty/untouched ex-blocks (e.g. a body part was tapped and then the app was closed
+  // without picking an exercise). Those aren't real work, so don't let them silently
+  // block an assignment from ever showing. Only skip if there's genuine content.
+  const existingBlocks=[...document.querySelectorAll('#exBody .ex-block')];
+  const hasRealContent=existingBlocks.some(b=>{
+    if(b.querySelector('.ex-select')?.value) return true;
+    return [...b.querySelectorAll('.reps-input,.weight-input')].some(inp=>inp.value.trim()!=='');
+  });
+  if(hasRealContent) return;
+  existingBlocks.forEach(b=>b.remove());
   const w=assignedWorkouts[dateStr];
 
   if(w.bodyParts&&w.bodyParts.length){
