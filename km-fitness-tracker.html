@@ -2297,28 +2297,45 @@ function syncFitnessToSupabase(){
   if((!sessions||sessions.length===0)&&(!deletedSessionIds||deletedSessionIds.length===0))return;
   ensureAnonAuth(function(uid){
     if(!uid)return;
-    var payload={
-      user_id:uid,
-      client_id:key,
-      tracker:'fitness',
-      data:{
-        sessions:sessions,
-        notes:notes,
-        assignedWorkouts:assignedWorkouts,
-        deletedSessionIds:deletedSessionIds,
-        name:localStorage.getItem('kmfit_name'),
-        mobile:localStorage.getItem('kmfit_mobile'),
-        email:localStorage.getItem('kmfit_email'),
-        target:localStorage.getItem('kmfit_target'),
-        unit:localStorage.getItem('kmfit_unit')
-      },
-      updated_at:new Date().toISOString()
-    };
-    getSB().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(res){
-      if(res.error){
-        console.error('Supabase write error:', JSON.stringify(res.error));
-        toast('Sync error: '+(res.error.message||res.error.code||JSON.stringify(res.error)));
-      }
+    // assignedWorkouts is coach-authored and can change on the server between when this
+    // device last loaded it and now (e.g. a coach assigning a new workout). Re-fetch the
+    // freshest copy right before writing and merge it in -- local wins for any date it has
+    // explicitly touched (new/edited/fulfilled), but anything new on the server that this
+    // device doesn't know about yet is preserved instead of getting silently wiped out by
+    // a stale full-object overwrite.
+    getSB().from('tracker_data').select('data').eq('client_id',key).eq('tracker','fitness').then(function(fres){
+      var serverAssigned={};
+      try{
+        if(!fres.error&&fres.data&&fres.data.length&&fres.data[0].data){
+          var fd=typeof fres.data[0].data==='string'?JSON.parse(fres.data[0].data):fres.data[0].data;
+          serverAssigned=fd.assignedWorkouts||{};
+        }
+      }catch(e){}
+      var mergedAssigned=Object.assign({},serverAssigned,assignedWorkouts);
+      assignedWorkouts=mergedAssigned;
+      var payload={
+        user_id:uid,
+        client_id:key,
+        tracker:'fitness',
+        data:{
+          sessions:sessions,
+          notes:notes,
+          assignedWorkouts:mergedAssigned,
+          deletedSessionIds:deletedSessionIds,
+          name:localStorage.getItem('kmfit_name'),
+          mobile:localStorage.getItem('kmfit_mobile'),
+          email:localStorage.getItem('kmfit_email'),
+          target:localStorage.getItem('kmfit_target'),
+          unit:localStorage.getItem('kmfit_unit')
+        },
+        updated_at:new Date().toISOString()
+      };
+      getSB().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(res){
+        if(res.error){
+          console.error('Supabase write error:', JSON.stringify(res.error));
+          toast('Sync error: '+(res.error.message||res.error.code||JSON.stringify(res.error)));
+        }
+      });
     });
   });
 }
