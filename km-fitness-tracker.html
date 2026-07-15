@@ -92,9 +92,11 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .ex-top-row .ex-select{border:1px solid var(--border);border-radius:6px;background:var(--surf3);}
 .sets-select{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--gold);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c9a84c' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;}
 .set-rows{padding:6px 8px 8px;}
-.set-header{display:grid;grid-template-columns:26px 1fr 1fr 20px;gap:6px;margin-bottom:4px;}
+.set-header{display:grid;grid-template-columns:26px 1fr 18px 1fr 20px;gap:6px;margin-bottom:4px;}
 .set-header span{font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted2);text-align:center;}
-.set-row{display:grid;grid-template-columns:26px 1fr 1fr 20px;gap:6px;align-items:center;margin-bottom:5px;}
+.set-row{display:grid;grid-template-columns:26px 1fr 18px 1fr 20px;gap:6px;align-items:center;margin-bottom:5px;}
+.assist-toggle{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--border);background:transparent;color:var(--muted2);font-size:11px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;}
+.assist-toggle.active{background:var(--gold);border-color:var(--gold);color:#0c0c0a;}
 .set-row:last-child{margin-bottom:0;}
 .set-num{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);text-align:center;font-weight:600;}
 .reps-input,.weight-input{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--text);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;transition:border-color .15s;}
@@ -1376,6 +1378,7 @@ function applyAssignedWorkoutIfAny(){
           if(e.setData[i]){
             row.querySelector('.reps-input').value=e.setData[i].reps||'';
             row.querySelector('.weight-input').value=e.setData[i].weight||'';
+            if(e.setData[i].assisted) row.querySelector('.assist-toggle')?.classList.add('active');
           }
         });
       }
@@ -1648,13 +1651,14 @@ function generateSetRows(container, count, exName){
   }
   const existing=container.querySelectorAll('.set-row');
   const vals=[];
-  existing.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value}));
-  container.innerHTML=`<div class="set-header"><span></span><span>Reps</span><span class="wt-label">${weightUnit}</span><span></span></div>`;
+  existing.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value,assisted:r.querySelector('.assist-toggle')?.classList.contains('active')||false}));
+  container.innerHTML=`<div class="set-header"><span></span><span>Reps</span><span></span><span class="wt-label">${weightUnit}</span><span></span></div>`;
   for(let i=0;i<count;i++){
     const row=document.createElement('div');
     row.className='set-row';
     row.innerHTML=`<span class="set-num">S${i+1}</span>
       <input class="reps-input" type="number" inputmode="numeric" min="0" max="999" placeholder="--" value="${vals[i]?.reps||''}" onblur="autoFixNum(this)">
+      <button type="button" class="assist-toggle${vals[i]?.assisted?' active':''}" onclick="toggleAssist(this)" title="Had help with this set? Tap to mark it">i</button>
       <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" value="${vals[i]?.weight||''}" onblur="autoFixNum(this)">
       <span class="pr-badge-slot" style="font-size:14px;text-align:center;"></span>`;
     // PR check fires once you finish typing and move away from the field --
@@ -1954,7 +1958,7 @@ function collectSupersets(){
         const setsCount=+exBlock.querySelector('.sets-select').value;
         const setData=[];
         exBlock.querySelectorAll('.set-row').forEach((row,i)=>{
-          setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value});
+          setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false});
         });
         exercises.push({ex,sets:setsCount,setData});
       }
@@ -2071,7 +2075,7 @@ function saveSession(){
         } else {
           row.style.outline='';
         }
-        setData.push({set:i+1,reps:reps,weight:weight});
+        setData.push({set:i+1,reps:reps,weight:weight,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false});
       });
       exercises.push({ex,sets:setsCount,setData});
     }
@@ -2558,7 +2562,7 @@ function draftSave(){
       const sets=+block.querySelector('.sets-select').value;
       const setData=[];
       block.querySelectorAll('.set-row').forEach((row,i)=>{
-        setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value});
+        setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false});
       });
       exercises.push({ex,sets,setData,autobp:block.dataset.autobp||null});
     });
@@ -2643,6 +2647,7 @@ function draftLoad(){
             if(e.setData[i]){
               row.querySelector('.reps-input').value=e.setData[i].reps||'';
               row.querySelector('.weight-input').value=e.setData[i].weight||'';
+              if(e.setData[i].assisted) row.querySelector('.assist-toggle')?.classList.add('active');
             }
           });
         }
@@ -2896,11 +2901,15 @@ function calcPersonalRecords(){
       if(!e.ex) return;
       var key=e.ex.toLowerCase().trim();
       (e.setData||[]).forEach(function(set){
+        if(set.assisted) return;
         var w=parseFloat(set.weight);
         var r=set.reps?String(set.reps).trim():'';
         if(!w||isNaN(w)||!r) return;
         var existing=prMap[key];
-        if(!existing||w>existing.weight){
+        var rNum=parseInt(r);
+        var isBetter=!existing||w>existing.weight||
+          (w===existing.weight&&!isNaN(rNum)&&!isNaN(parseInt(existing.reps))&&rNum>parseInt(existing.reps));
+        if(isBetter){
           prMap[key]={weight:w,reps:set.reps||'',date:s.date,timeOfDay:s.timeOfDay||'',displayName:e.ex};
         }
       });
@@ -2925,8 +2934,15 @@ function showPRFlash(exName, weight, reps){
   },4500);
 }
 
+function toggleAssist(btn){
+  btn.classList.toggle('active');
+  const row=btn.closest('.set-row');
+  if(row) checkSetForPR(row);
+  draftSave();
+}
+
 function checkSetForPR(row){
-  // Only fire after 12 logged sessions
+  // Only fire after 8 logged sessions
   if(sessions.length<8) return;
   const block=row.closest('.ex-block,.superset-ex-block');
   if(!block) return;
@@ -2937,8 +2953,9 @@ function checkSetForPR(row){
   const weightInp=row.querySelector('.weight-input');
   const reps=repsInp&&repsInp.value?repsInp.value.trim():'';
   const weight=weightInp&&weightInp.value?parseFloat(weightInp.value):null;
-  if(!reps||!weight||isNaN(weight)){
-    // Incomplete set -- it can't hold a valid PR, so clear any stale trophy sitting on this row
+  const isAssisted=row.querySelector('.assist-toggle')?.classList.contains('active')||false;
+  if(!reps||!weight||isNaN(weight)||isAssisted){
+    // Incomplete or assisted set -- it can't hold a valid PR, so clear any stale trophy sitting on this row
     var staleSlot=row.querySelector('.pr-badge-slot');
     if(staleSlot) staleSlot.textContent='';
     return;
@@ -2946,19 +2963,29 @@ function checkSetForPR(row){
   // Check against historical best
   const prMap=calcPersonalRecords();
   const existing=prMap[exName.toLowerCase().trim()];
-  var bestSoFar=existing?existing.weight:0;
+  var bestWeight=existing?existing.weight:0;
+  var bestRepsAtBestWeight=existing?parseInt(existing.reps):NaN;
+  var repsNum=parseInt(reps);
   // Also consider other sets for this same exercise already filled in THIS session (unsaved) --
   // otherwise a brand-new exercise has no "existing" record and every set looks like a PR,
   // even a lighter one entered after a heavier one.
   block.querySelectorAll('.set-row').forEach(function(r){
     if(r===row) return;
+    if(r.querySelector('.assist-toggle')?.classList.contains('active')) return;
     var wInp=r.querySelector('.weight-input');
     var rInp=r.querySelector('.reps-input');
     var w=wInp&&wInp.value?parseFloat(wInp.value):null;
     var rp=rInp&&rInp.value?rInp.value.trim():'';
-    if(rp&&w&&!isNaN(w)&&w>bestSoFar) bestSoFar=w;
+    if(!rp||!w||isNaN(w)) return;
+    var rpNum=parseInt(rp);
+    if(w>bestWeight){
+      bestWeight=w; bestRepsAtBestWeight=rpNum;
+    } else if(w===bestWeight&&!isNaN(rpNum)&&(isNaN(bestRepsAtBestWeight)||rpNum>bestRepsAtBestWeight)){
+      bestRepsAtBestWeight=rpNum;
+    }
   });
-  const isPR=weight>bestSoFar;
+  const isPR=weight>bestWeight||
+    (weight===bestWeight&&!isNaN(repsNum)&&!isNaN(bestRepsAtBestWeight)&&repsNum>bestRepsAtBestWeight);
   if(!isPR) return;
   // Update trophy badges across all set rows for this exercise block
   block.querySelectorAll('.set-row').forEach(function(r){
@@ -3300,6 +3327,7 @@ function editSession(id){
         var wi=row.querySelector('.weight-input');
         if(ri) ri.value=sd.reps!==undefined?sd.reps:'';
         if(wi) wi.value=sd.weight!==undefined?sd.weight:'';
+        if(sd.assisted) row.querySelector('.assist-toggle')?.classList.add('active');
       });
     });
     toast('Session loaded -- make changes and Save Session');
@@ -3356,6 +3384,7 @@ function editSession(id){
               var wi=row.querySelector('.weight-input');
               if(ri) ri.value=sd.reps!==undefined?sd.reps:'';
               if(wi) wi.value=sd.weight!==undefined?sd.weight:'';
+              if(sd.assisted) row.querySelector('.assist-toggle')?.classList.add('active');
             });
           }
         });
@@ -3423,9 +3452,7 @@ function openDetail(id){
         const hasWeight=realSets.some(r=>r.weight);
         const uLabel=s.unit||'kg';
         const exPR=prMap8[e.ex.toLowerCase().trim()];
-        const setWeights=realSets.map(r=>parseFloat(r.weight)||0);
-        const sessionMax=Math.max(0,...setWeights);
-        const isSessionPR=exPR&&sessionMax>=exPR.weight;
+        const isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
         let trophyShown=false;
         return`<div style="margin-bottom:16px;">
           <div style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--text);">${e.ex}</div>
@@ -3437,11 +3464,11 @@ function openDetail(id){
             </tr></thead>
             <tbody>${realSets.map(r=>{
               const w=parseFloat(r.weight)||0;
-              const showTrophy=isSessionPR&&!trophyShown&&w===sessionMax&&w>0;
+              const showTrophy=isSessionPR&&!trophyShown&&w===exPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(exPR.reps);
               if(showTrophy) trophyShown=true;
               return`<tr>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">S${r.set}</td>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assisted?'<span style="color:var(--muted2);font-size:12px;font-weight:700;margin-left:3px;" title="Assisted set">ⓘ</span>':''}</td>
               ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
             </tr>`;}).join('')}</tbody>
           </table>
@@ -3467,9 +3494,7 @@ function openDetail(id){
         const ssRealSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
         const hasWeight=ssRealSets.some(r=>r.weight);
         const ssExPR=prMap8[e.ex.toLowerCase().trim()];
-        const ssSetWeights=ssRealSets.map(r=>parseFloat(r.weight)||0);
-        const ssSessionMax=Math.max(0,...ssSetWeights);
-        const ssIsSessionPR=ssExPR&&ssSessionMax>=ssExPR.weight;
+        const ssIsSessionPR=ssExPR&&s.date===ssExPR.date&&(s.timeOfDay||'')===(ssExPR.timeOfDay||'');
         let ssTrophyShown=false;
         return`<div style="margin-bottom:16px;border-left:3px solid var(--sage);padding-left:10px;">
           <div style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--text);">${e.ex}</div>
@@ -3481,11 +3506,11 @@ function openDetail(id){
             </tr></thead>
             <tbody>${ssRealSets.map(r=>{
               const w=parseFloat(r.weight)||0;
-              const showTrophy=ssIsSessionPR&&!ssTrophyShown&&w===ssSessionMax&&w>0;
+              const showTrophy=ssIsSessionPR&&!ssTrophyShown&&w===ssExPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(ssExPR.reps);
               if(showTrophy) ssTrophyShown=true;
               return`<tr>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">S${r.set}</td>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assisted?'<span style="color:var(--muted2);font-size:12px;font-weight:700;margin-left:3px;" title="Assisted set">ⓘ</span>':''}</td>
               ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
             </tr>`;}).join('')}</tbody>
           </table>
@@ -3493,8 +3518,10 @@ function openDetail(id){
       }).join('')}
     </div>`;
   }).join(''):'';
+  const _effectiveTags=[...(s.bodyParts||[])];
+  if((s.cardio&&s.cardio.length)&&_effectiveTags.indexOf('Cardio')===-1) _effectiveTags.push('Cardio');
   document.getElementById('dBody').innerHTML=`
-    ${(s.bodyParts||[]).length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${s.bodyParts.map(b=>`<span class="sess-tag">${b}</span>`).join('')}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:''}
+    ${_effectiveTags.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${_effectiveTags.map(b=>`<span class="sess-tag">${b}</span>`).join('')}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:''}
     ${durLine}
     ${cardioSection}
     ${ssSection}
