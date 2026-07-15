@@ -211,6 +211,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .autosave-dot.saving{background:var(--gold);}
 .sess-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
 .sess-tag{padding:5px 14px;background:var(--surf2);border:1px solid var(--gold);border-radius:20px;font-size:12px;font-weight:900;color:var(--gold);letter-spacing:2px;text-transform:uppercase;}
+.sess-tag-pr{background:var(--gold);border-color:var(--gold);color:#171200;}
 
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
 .stat-box{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:15px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:148px;}
@@ -2999,6 +3000,25 @@ function checkSetForPR(row){
   showPRFlash(exName, weight, reps);
 }
 
+// Returns {bodyParts:Set, count:Number} -- which body parts hit a new PR in this
+// session, and how many exercises hit one. Reuses the same prMap/date+timeOfDay
+// match already used to show individual trophy icons on set rows.
+function getSessionPRInfo(s,prMap){
+  var bodyParts=new Set();
+  var count=0;
+  if(!prMap) return{bodyParts:bodyParts,count:count};
+  var allEx=[...(s.exercises||[])].concat((s.supersets||[]).flatMap(function(ss){return ss.exercises||[];}));
+  allEx.filter(function(e){return e.type!=='cardio'&&e.ex;}).forEach(function(e){
+    var exPR=prMap[e.ex.toLowerCase().trim()];
+    var isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
+    if(isSessionPR){
+      count++;
+      bodyParts.add(getBodyPartForExercise(e.ex));
+    }
+  });
+  return{bodyParts:bodyParts,count:count};
+}
+
 function getBodyPartForExercise(name){
   if(!name) return 'Other';
   var lower=name.toLowerCase().trim();
@@ -3075,6 +3095,7 @@ function renderHistory(){
   const D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const validSessions=sessions.filter(s=>(s.exercises&&s.exercises.length>0)||(s.cardio&&s.cardio.length>0));
   if(!validSessions.length){el.innerHTML='<div class="empty"><div class="ico"></div><p>No sessions yet.<br>Log your first workout.</p></div>';return;}
+  const _histPrMap=sessions.length>=8?calcPersonalRecords():{};
   el.innerHTML=validSessions.map(s=>{
     const d=new Date(s.date+'T12:00:00');
     const avg=sessRestAvg(s);
@@ -3088,6 +3109,8 @@ function renderHistory(){
     const cardioIntensities=cardioCount?s.cardio.filter(c=>c.intensity).map(c=>c.intensity).filter((v,i,a)=>a.indexOf(v)===i):[];
     // Cardio name pills
     const cardioPills=cardioCount?s.cardio.map(c=>`<span class="sess-tag">${c.ex.toUpperCase()}</span>`).join(''):'';
+    const _histPrInfo=getSessionPRInfo(s,_histPrMap);
+    const bpPills=(s.bodyParts||[]).map(b=>`<span class="sess-tag${_histPrInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')+(!cardioCount&&_histPrInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_histPrInfo.count} PR</span>`:'');
     return`<div class="sess-card">
       <div onclick="openDetail(${s.id})" style="flex:1;cursor:pointer;">
         <div class="sess-date">${D[d.getDay()]} . ${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}${s.timeOfDay?' - '+s.timeOfDay:''}</div>
@@ -3096,7 +3119,7 @@ function renderHistory(){
         ${(cardioDurSecs||cardioDurMins)?`<div class="sess-dur">&#128336; ${cardioDurSecs?fmtDur(cardioDurSecs):cardioDurMins+'m'}</div>`:(s.duration?`<div class="sess-dur">&#128336; ${fmtDur(s.duration)}</div>`:'')}
         ${cardioIntensities.length?`<div class="sess-rest">Intensity: ${cardioIntensities.join(', ')}</div>`:''}
         ${!cardioCount&&avg?`<div class="sess-rest">Avg Rest ${fmtSecs(avg)}</div>`:''}
-        <div class="sess-tags">${cardioPills||(s.bodyParts||[]).map(b=>`<span class="sess-tag">${b}</span>`).join('')}</div>
+        <div class="sess-tags">${cardioPills||bpPills}</div>
       </div>
       <button onclick="editSession(${s.id})" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:600;color:var(--text);cursor:pointer;white-space:nowrap;align-self:flex-start;margin-top:4px;">Edit</button>
     </div>`;
@@ -3520,8 +3543,10 @@ function openDetail(id){
   }).join(''):'';
   const _effectiveTags=[...(s.bodyParts||[])];
   if((s.cardio&&s.cardio.length)&&_effectiveTags.indexOf('Cardio')===-1) _effectiveTags.push('Cardio');
+  const _prInfo=getSessionPRInfo(s,prMap8);
+  const _prPillHtml=_prInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_prInfo.count} PR</span>`:'';
   document.getElementById('dBody').innerHTML=`
-    ${_effectiveTags.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${_effectiveTags.map(b=>`<span class="sess-tag">${b}</span>`).join('')}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:''}
+    ${_effectiveTags.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${_effectiveTags.map(b=>`<span class="sess-tag${_prInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')}${_prPillHtml}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:''}
     ${durLine}
     ${cardioSection}
     ${ssSection}
