@@ -56,6 +56,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .form-group{margin-bottom:14px;}
 .form-label{font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
 .form-inp{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;-webkit-appearance:none;}
+.assist-toggle{width:34px;height:34px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--muted2);font-size:9px;font-weight:900;letter-spacing:0.4px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;touch-action:manipulation;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
+.assist-toggle.active{background:var(--gold);border-color:var(--gold);color:#0c0c0a;font-size:14px;}
 .form-inp:focus{border-color:var(--sage);}
 .as-bp-btn{padding:5px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;text-transform:uppercase;letter-spacing:1px;}
 .as-bp-btn.active{background:var(--sage-d);border-color:var(--sage);color:var(--sage);}
@@ -681,7 +683,7 @@ async function editAssignedWorkout(clientKey,dateStr){
 
   asExercises=(w.exercises||[]).map(e=>({
     id:Date.now()+Math.random(), ex:e.ex, sets:(e.setData&&e.setData.length)||e.sets||3,
-    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||''})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assisted:r.assisted===true?1:(r.assisted||0)})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
   }));
   renderAsExercises();
 
@@ -689,7 +691,7 @@ async function editAssignedWorkout(clientKey,dateStr){
     id:Date.now()+Math.random(),
     exercises:(ss.exercises||[]).map(e=>({
       id:Date.now()+Math.random(), ex:e.ex, sets:(e.setData&&e.setData.length)||e.sets||3,
-      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||''})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assisted:r.assisted===true?1:(r.assisted||0)})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
     }))
   }));
   renderAsSupersets();
@@ -819,6 +821,13 @@ function calcPersonalRecordsCoach(sessions){
   return prMap;
 }
 
+function fmtAssistCoach(v){
+  if(!v) return '';
+  const n=(v===true)?1:(parseInt(v)||0);
+  if(!n) return '';
+  return `<span style="display:inline-flex;align-items:center;gap:2px;background:rgba(212,168,67,0.15);border:1px solid var(--gold);color:var(--gold);font-size:9px;font-weight:800;letter-spacing:0.5px;padding:2px 6px;border-radius:10px;margin-left:6px;vertical-align:middle;">SOS \u00d7${n}</span>`;
+}
+
 function getBodyPartForExerciseCoach(name){
   if(!name) return 'Other';
   var lower=name.toLowerCase().trim();
@@ -864,7 +873,7 @@ function renderCoachSession(s,allSessions){
 
   // Body parts
   const _coachPrInfo=getSessionPRInfoCoach(s,prMap8);
-  const _coachPrPill=_coachPrInfo.count?`<span style="padding:4px 12px;background:var(--gold);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#171200;">🏆 ${_coachPrInfo.count} PR</span>`:'';
+  const _coachPrPill=_coachPrInfo.count?`<span style="padding:4px 12px;background:var(--gold);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#171200;">🏆 ${_coachPrInfo.count} P.R.</span>`:'';
   const bpHtml=(s.bodyParts&&s.bodyParts.length)?
     `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${s.bodyParts.map(b=>_coachPrInfo.bodyParts.has(b)?`<span style="padding:4px 12px;background:var(--gold);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#171200;">${b}</span>`:`<span style="padding:4px 12px;background:var(--gold-d);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold);">${b}</span>`).join('')}${_coachPrPill}${_exCount?`<span style="color:var(--muted);font-size:14px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:'' ;
 
@@ -917,7 +926,7 @@ function renderCoachSession(s,allSessions){
             if(showTrophy) ssTrophyShown=true;
             return`<tr>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">S${r.set}</td>
-            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}</td>
+            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${fmtAssistCoach(r.assisted)}</td>
             ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
           </tr>`;}).join('')}</tbody>
         </table>
@@ -950,7 +959,7 @@ function renderCoachSession(s,allSessions){
             if(showTrophy) trophyShown=true;
             return`<tr>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">S${r.set}</td>
-            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}</td>
+            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${fmtAssistCoach(r.assisted)}</td>
             ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
           </tr>`;}).join('')}</tbody>
         </table>
@@ -1331,16 +1340,61 @@ function renderAsSupersets(){
           ${lastPerfHtml(e.ex)}
           <div style="display:flex;flex-direction:column;gap:6px;">
             <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);"><span></span><span>Reps</span><span>${asUnit}</span></div>
-            ${e.setData.map((r,i2)=>`<div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;align-items:center;">
+            ${e.setData.map((r,i2)=>`<div style="display:grid;grid-template-columns:30px 1fr 34px 1fr;gap:8px;align-items:center;">
               <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);text-align:center;">S${r.set}</span>
               <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${r.reps}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${i2},'reps',this.value)">
+              <button type="button" class="assist-toggle as-assist-btn${r.assisted?' active':''}" data-count="${r.assisted||0}" data-kind="ss" data-ss="${ss.id}" data-ex="${e.id}" data-idx="${i2}" title="Tap to add a helped rep, hold to remove one">${r.assisted||'SOS'}</button>
               <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${r.weight}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${i2},'weight',this.value)">
             </div>`).join('')}
           </div>
         </div>`).join('')}
       <div onclick="addAsSupersetEx('${ss.id}')" style="padding:6px;border:1px dashed var(--sage);border-radius:8px;text-align:center;color:var(--sage);font-size:12px;font-weight:700;cursor:pointer;">+ Add Exercise to Superset</div>
     </div>`).join('');
+  document.querySelectorAll('#as-superset-blocks .as-assist-btn').forEach(attachAsAssistHandlers);
   autoDetectAsType();
+}
+
+function attachAsAssistHandlers(btn){
+  if(!btn) return;
+  let timer=null, longFired=false;
+  const getRow=()=>{
+    if(btn.dataset.kind==='ex'){
+      const b=asExercises.find(x=>x.id==btn.dataset.id);
+      return b?b.setData[+btn.dataset.idx]:null;
+    } else {
+      const ss=asSupersets.find(x=>x.id==btn.dataset.ss);
+      const e=ss?ss.exercises.find(x=>x.id==btn.dataset.ex):null;
+      return e?e.setData[+btn.dataset.idx]:null;
+    }
+  };
+  const apply=delta=>{
+    const row=getRow(); if(!row) return;
+    if(delta>0){
+      const cap=row.reps?parseInt(row.reps):20;
+      const v=(parseInt(row.assisted)||0)+1;
+      row.assisted=v>cap?0:v;
+    } else {
+      row.assisted=Math.max(0,(parseInt(row.assisted)||0)-1);
+    }
+    if(btn.dataset.kind==='ex') renderAsExercises(); else renderAsSupersets();
+  };
+  const startHold=e=>{
+    e.preventDefault();
+    longFired=false;
+    timer=setTimeout(()=>{longFired=true;apply(-1);},450);
+  };
+  const clearHold=()=>{ if(timer){clearTimeout(timer);timer=null;} };
+  const endHold=e=>{
+    e.preventDefault();
+    clearHold();
+    if(!longFired) apply(1);
+    longFired=false;
+  };
+  btn.addEventListener('pointerdown',startHold,{passive:false});
+  btn.addEventListener('pointerup',endHold,{passive:false});
+  btn.addEventListener('pointerleave',clearHold);
+  btn.addEventListener('pointercancel',clearHold);
+  btn.addEventListener('contextmenu',e=>e.preventDefault());
 }
 
 function addAsExercise(){
@@ -1361,13 +1415,15 @@ function renderAsExercises(){
       ${lastPerfHtml(b.ex)}
       <div style="display:flex;flex-direction:column;gap:6px;">
         <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);"><span></span><span>Reps</span><span>${asUnit}</span></div>
-        ${b.setData.map((r,i)=>`<div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;align-items:center;">
+        ${b.setData.map((r,i)=>`<div style="display:grid;grid-template-columns:30px 1fr 34px 1fr;gap:8px;align-items:center;">
           <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);text-align:center;">S${r.set}</span>
           <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${r.reps}" oninput="updateAsExSetData('${b.id}',${i},'reps',this.value)">
+          <button type="button" class="assist-toggle as-assist-btn${r.assisted?' active':''}" data-count="${r.assisted||0}" data-kind="ex" data-id="${b.id}" data-idx="${i}" title="Tap to add a helped rep, hold to remove one">${r.assisted||'SOS'}</button>
           <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${r.weight}" oninput="updateAsExSetData('${b.id}',${i},'weight',this.value)">
         </div>`).join('')}
       </div>
     </div>`).join('');
+  document.querySelectorAll('#as-ex-blocks .as-assist-btn').forEach(attachAsAssistHandlers);
   autoDetectAsType();
 }
 
@@ -1428,7 +1484,7 @@ function editCoachSession(){
     id:Date.now()+Math.random(),
     ex:e.ex,
     sets:(e.setData&&e.setData.length)||e.sets||3,
-    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||''})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assisted:r.assisted===true?1:(r.assisted||0)})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
   }));
   renderAsExercises();
 
@@ -1439,7 +1495,7 @@ function editCoachSession(){
       id:Date.now()+Math.random(),
       ex:e.ex,
       sets:(e.setData&&e.setData.length)||e.sets||3,
-      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||''})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assisted:r.assisted===true?1:(r.assisted||0)})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
     }))
   }));
   renderAsSupersets();

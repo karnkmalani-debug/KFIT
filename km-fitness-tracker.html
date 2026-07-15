@@ -95,8 +95,8 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .set-header{display:grid;grid-template-columns:26px 1fr 18px 1fr 20px;gap:6px;margin-bottom:4px;}
 .set-header span{font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted2);text-align:center;}
 .set-row{display:grid;grid-template-columns:26px 1fr 18px 1fr 20px;gap:6px;align-items:center;margin-bottom:5px;}
-.assist-toggle{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--border);background:transparent;color:var(--muted2);font-size:11px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;}
-.assist-toggle.active{background:var(--gold);border-color:var(--gold);color:#0c0c0a;}
+.assist-toggle{width:30px;height:22px;border-radius:6px;border:1.5px solid var(--border);background:transparent;color:var(--muted2);font-size:8px;font-weight:900;letter-spacing:0.4px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;touch-action:manipulation;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
+.assist-toggle.active{background:var(--gold);border-color:var(--gold);color:#0c0c0a;font-size:13px;}
 .set-row:last-child{margin-bottom:0;}
 .set-num{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);text-align:center;font-weight:600;}
 .reps-input,.weight-input{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--text);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;transition:border-color .15s;}
@@ -1379,7 +1379,7 @@ function applyAssignedWorkoutIfAny(){
           if(e.setData[i]){
             row.querySelector('.reps-input').value=e.setData[i].reps||'';
             row.querySelector('.weight-input').value=e.setData[i].weight||'';
-            if(e.setData[i].assisted) row.querySelector('.assist-toggle')?.classList.add('active');
+            setAssistBtnState(row.querySelector('.assist-toggle'),e.setData[i].assisted===true?1:(e.setData[i].assisted||0));
           }
         });
       }
@@ -1664,14 +1664,14 @@ function generateSetRows(container, count, exName){
   }
   const existing=container.querySelectorAll('.set-row');
   const vals=[];
-  existing.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value,assisted:r.querySelector('.assist-toggle')?.classList.contains('active')||false}));
+  existing.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value,assisted:parseInt(r.querySelector('.assist-toggle')?.dataset.count)||0}));
   container.innerHTML=`<div class="set-header"><span></span><span>Reps</span><span></span><span class="wt-label">${weightUnit}</span><span></span></div>`;
   for(let i=0;i<count;i++){
     const row=document.createElement('div');
     row.className='set-row';
     row.innerHTML=`<span class="set-num">S${i+1}</span>
       <input class="reps-input" type="number" inputmode="numeric" min="0" max="999" placeholder="--" value="${vals[i]?.reps||''}" onblur="autoFixNum(this)">
-      <button type="button" class="assist-toggle${vals[i]?.assisted?' active':''}" onclick="toggleAssist(this)" title="Had help with this set? Tap to mark it">i</button>
+      <button type="button" class="assist-toggle${vals[i]?.assisted?' active':''}" data-count="${vals[i]?.assisted||0}" title="Tap to add a helped rep, hold to remove one">${vals[i]?.assisted||'SOS'}</button>
       <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" value="${vals[i]?.weight||''}" onblur="autoFixNum(this)">
       <span class="pr-badge-slot" style="font-size:14px;text-align:center;"></span>`;
     // PR check fires once you finish typing and move away from the field --
@@ -1686,6 +1686,7 @@ function generateSetRows(container, count, exName){
         if(v!==inp.value) inp.value=v;
       });
     });
+    attachAssistHandlers(row.querySelector('.assist-toggle'));
     container.appendChild(row);
   }
 }
@@ -1971,7 +1972,7 @@ function collectSupersets(){
         const setsCount=+exBlock.querySelector('.sets-select').value;
         const setData=[];
         exBlock.querySelectorAll('.set-row').forEach((row,i)=>{
-          setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false});
+          setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0});
         });
         exercises.push({ex,sets:setsCount,setData});
       }
@@ -2088,7 +2089,7 @@ function saveSession(){
         } else {
           row.style.outline='';
         }
-        setData.push({set:i+1,reps:reps,weight:weight,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false});
+        setData.push({set:i+1,reps:reps,weight:weight,assisted:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0});
       });
       exercises.push({ex,sets:setsCount,setData});
     }
@@ -2575,7 +2576,7 @@ function draftSave(){
       const sets=+block.querySelector('.sets-select').value;
       const setData=[];
       block.querySelectorAll('.set-row').forEach((row,i)=>{
-        setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false});
+        setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0});
       });
       exercises.push({ex,sets,setData,autobp:block.dataset.autobp||null});
     });
@@ -2660,7 +2661,7 @@ function draftLoad(){
             if(e.setData[i]){
               row.querySelector('.reps-input').value=e.setData[i].reps||'';
               row.querySelector('.weight-input').value=e.setData[i].weight||'';
-              if(e.setData[i].assisted) row.querySelector('.assist-toggle')?.classList.add('active');
+              setAssistBtnState(row.querySelector('.assist-toggle'),e.setData[i].assisted===true?1:(e.setData[i].assisted||0));
             }
           });
         }
@@ -2951,12 +2952,12 @@ function setAssistBtnState(btn,count){
   if(!btn) return;
   count=Math.max(0,parseInt(count)||0);
   btn.dataset.count=count;
-  btn.textContent=count>0?String(count):'i';
+  btn.textContent=count>0?String(count):'SOS';
   btn.classList.toggle('active',count>0);
   btn.title=count>0?('Helped on '+count+' rep'+(count!==1?'s':'')+' this set \u2014 tap to add another'):'Had help with this set? Tap to mark it';
 }
 
-function toggleAssist(btn){
+function incrementAssist(btn){
   const row=btn.closest('.set-row');
   const repsInp=row?row.querySelector('.reps-input'):null;
   const repsVal=repsInp&&repsInp.value?parseInt(repsInp.value):0;
@@ -2965,6 +2966,39 @@ function toggleAssist(btn){
   setAssistBtnState(btn,count>=cap?0:count+1);
   if(row) checkSetForPR(row);
   draftSave();
+}
+
+function decrementAssist(btn){
+  const row=btn.closest('.set-row');
+  const count=parseInt(btn.dataset.count)||0;
+  setAssistBtnState(btn,Math.max(0,count-1));
+  if(row) checkSetForPR(row);
+  draftSave();
+  if(navigator.vibrate) navigator.vibrate(15); // small confirmation buzz that a hold registered
+}
+
+// Tap = +1 helped rep. Press and hold (~450ms) = -1, so a mis-tap is easy to undo
+// without needing a separate button.
+function attachAssistHandlers(btn){
+  if(!btn) return;
+  let timer=null, longFired=false;
+  const startHold=e=>{
+    e.preventDefault(); // stop iOS from treating this as a text-select/callout long-press,
+    longFired=false;    // which was swallowing the hold before our timer could fire
+    timer=setTimeout(()=>{longFired=true;decrementAssist(btn);},450);
+  };
+  const clearHold=()=>{ if(timer){clearTimeout(timer);timer=null;} };
+  const endHold=e=>{
+    e.preventDefault();
+    clearHold();
+    if(!longFired) incrementAssist(btn);
+    longFired=false;
+  };
+  btn.addEventListener('pointerdown',startHold,{passive:false});
+  btn.addEventListener('pointerup',endHold,{passive:false});
+  btn.addEventListener('pointerleave',clearHold);
+  btn.addEventListener('pointercancel',clearHold);
+  btn.addEventListener('contextmenu',e=>e.preventDefault());
 }
 
 function checkSetForPR(row){
@@ -2979,7 +3013,7 @@ function checkSetForPR(row){
   const weightInp=row.querySelector('.weight-input');
   const reps=repsInp&&repsInp.value?repsInp.value.trim():'';
   const weight=weightInp&&weightInp.value?parseFloat(weightInp.value):null;
-  const isAssisted=row.querySelector('.assist-toggle')?.classList.contains('active')||false;
+  const isAssisted=(parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0)>0;
   if(!reps||!weight||isNaN(weight)||isAssisted){
     // Incomplete or assisted set -- it can't hold a valid PR, so clear any stale trophy sitting on this row
     var staleSlot=row.querySelector('.pr-badge-slot');
@@ -2997,7 +3031,7 @@ function checkSetForPR(row){
   // even a lighter one entered after a heavier one.
   block.querySelectorAll('.set-row').forEach(function(r){
     if(r===row) return;
-    if(r.querySelector('.assist-toggle')?.classList.contains('active')) return;
+    if((parseInt(r.querySelector('.assist-toggle')?.dataset.count)||0)>0) return;
     var wInp=r.querySelector('.weight-input');
     var rInp=r.querySelector('.reps-input');
     var w=wInp&&wInp.value?parseFloat(wInp.value):null;
@@ -3382,7 +3416,7 @@ function editSession(id){
         var wi=row.querySelector('.weight-input');
         if(ri) ri.value=sd.reps!==undefined?sd.reps:'';
         if(wi) wi.value=sd.weight!==undefined?sd.weight:'';
-        if(sd.assisted) row.querySelector('.assist-toggle')?.classList.add('active');
+        setAssistBtnState(row.querySelector('.assist-toggle'),sd.assisted===true?1:(sd.assisted||0));
       });
     });
     toast('Session loaded -- make changes and Save Session');
@@ -3439,7 +3473,7 @@ function editSession(id){
               var wi=row.querySelector('.weight-input');
               if(ri) ri.value=sd.reps!==undefined?sd.reps:'';
               if(wi) wi.value=sd.weight!==undefined?sd.weight:'';
-              if(sd.assisted) row.querySelector('.assist-toggle')?.classList.add('active');
+              setAssistBtnState(row.querySelector('.assist-toggle'),sd.assisted===true?1:(sd.assisted||0));
             });
           }
         });
