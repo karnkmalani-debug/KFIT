@@ -432,7 +432,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     <div class="tab" onclick="goTab(1)">HISTORY</div>
     <div class="tab" onclick="goTab(2)">STATS</div>
     <div class="tab" onclick="goTab(3)">NOTES</div>
-    <div class="tab" onclick="goTab(4)">PR</div>
+    <div class="tab" onclick="goTab(4)">P.R.</div>
   </div>
   <div id="bpNotifStack" style="position:fixed;top:112px;left:16px;right:16px;max-width:488px;margin:0 auto;z-index:350;display:flex;flex-direction:column;gap:8px;pointer-events:none;"></div>
 
@@ -604,7 +604,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 <!-- PR Flash Overlay -->
 <div id="prFlashOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(10,10,10,0.97);flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 32px;">
   <div style="font-size:72px;margin-bottom:20px;">🏆</div>
-  <div id="prFlashTitle" style="font-family:'DM Sans',sans-serif;font-size:32px;font-weight:900;color:var(--gold);letter-spacing:2px;line-height:1.15;margin-bottom:6px;">NEW PR</div>
+  <div id="prFlashTitle" style="font-family:'DM Sans',sans-serif;font-size:32px;font-weight:900;color:var(--gold);letter-spacing:2px;line-height:1.15;margin-bottom:6px;">NEW P.R.</div>
   <div style="font-family:'DM Sans',sans-serif;font-size:32px;font-weight:900;color:var(--gold);letter-spacing:2px;margin-bottom:28px;">YOU JUST GOT STRONGER</div>
   <div style="width:48px;height:2px;background:var(--gold);opacity:0.4;margin-bottom:28px;"></div>
   <div id="prFlashEx" style="font-family:'DM Sans',sans-serif;font-size:15px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:var(--sage);margin-bottom:8px;"></div>
@@ -1429,6 +1429,10 @@ function autoFillExercisesForBodyPart(bp){
 
   relevant.forEach(e=>{
     if(existingNames.has(e.ex)) return; // already in the form, don't duplicate
+    // Re-check live DOM right before inserting -- guards against another autofill
+    // call (e.g. a second body part) having added this same exercise in the meantime
+    const liveNames=new Set([...document.querySelectorAll('#exBody .ex-select')].map(s=>s.value).filter(Boolean));
+    if(liveNames.has(e.ex)) return;
     added++;
     const block=document.createElement('div');
     block.className='ex-block';
@@ -1559,7 +1563,15 @@ function buildBpGrid(){
   document.getElementById('bpGrid').innerHTML=BODY_PARTS.map(bp=>
     `<div class="bp-btn" onclick="toggleBP(this,'${bp}')">${bp}</div>`).join('');
 }
+let _bpToggleLock=false;
 function toggleBP(el,bp){
+  // Mobile browsers occasionally fire both a touch and a click event for one tap,
+  // which would call this twice in the same instant and immediately re-toggle
+  // whatever state was just set. This lock makes a rapid double-fire a no-op.
+  if(_bpToggleLock) return;
+  _bpToggleLock=true;
+  setTimeout(()=>{_bpToggleLock=false;},350);
+
   el.classList.toggle('active');
   const isNowActive=el.classList.contains('active');
   selectedBP=isNowActive?[...selectedBP,bp]:selectedBP.filter(b=>b!==bp);
@@ -2935,9 +2947,22 @@ function showPRFlash(exName, weight, reps){
   },4500);
 }
 
+function setAssistBtnState(btn,count){
+  if(!btn) return;
+  count=Math.max(0,parseInt(count)||0);
+  btn.dataset.count=count;
+  btn.textContent=count>0?String(count):'i';
+  btn.classList.toggle('active',count>0);
+  btn.title=count>0?('Helped on '+count+' rep'+(count!==1?'s':'')+' this set \u2014 tap to add another'):'Had help with this set? Tap to mark it';
+}
+
 function toggleAssist(btn){
-  btn.classList.toggle('active');
   const row=btn.closest('.set-row');
+  const repsInp=row?row.querySelector('.reps-input'):null;
+  const repsVal=repsInp&&repsInp.value?parseInt(repsInp.value):0;
+  const cap=repsVal>0?repsVal:20; // can't be helped on more reps than the set has
+  const count=parseInt(btn.dataset.count)||0;
+  setAssistBtnState(btn,count>=cap?0:count+1);
   if(row) checkSetForPR(row);
   draftSave();
 }
@@ -3017,6 +3042,13 @@ function getSessionPRInfo(s,prMap){
     }
   });
   return{bodyParts:bodyParts,count:count};
+}
+
+function fmtAssist(v){
+  if(!v) return '';
+  const n=(v===true)?1:(parseInt(v)||0);
+  if(!n) return '';
+  return `<span style="color:var(--muted2);font-size:12px;font-weight:700;margin-left:3px;" title="Helped on ${n} rep${n!==1?'s':''} this set">🆘${n}</span>`;
 }
 
 function getBodyPartForExercise(name){
@@ -3110,7 +3142,7 @@ function renderHistory(){
     // Cardio name pills
     const cardioPills=cardioCount?s.cardio.map(c=>`<span class="sess-tag">${c.ex.toUpperCase()}</span>`).join(''):'';
     const _histPrInfo=getSessionPRInfo(s,_histPrMap);
-    const bpPills=(s.bodyParts||[]).map(b=>`<span class="sess-tag${_histPrInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')+(!cardioCount&&_histPrInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_histPrInfo.count} PR</span>`:'');
+    const bpPills=(s.bodyParts||[]).map(b=>`<span class="sess-tag${_histPrInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')+(!cardioCount&&_histPrInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_histPrInfo.count} P.R.</span>`:'');
     return`<div class="sess-card">
       <div onclick="openDetail(${s.id})" style="flex:1;cursor:pointer;">
         <div class="sess-date">${D[d.getDay()]} . ${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}${s.timeOfDay?' - '+s.timeOfDay:''}</div>
@@ -3168,7 +3200,7 @@ function renderStats(){
   document.getElementById('statGrid').innerHTML=`
     <div class="stat-box"><div class="stat-val sv-sage">${total}</div><div class="stat-lbl">Total Sessions</div><div style="font-size:13px;font-weight:500;color:var(--text);font-style:italic;margin-top:4px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px;opacity:0.55;">‹ All time ›</div></div>
     <div class="stat-box"><div class="stat-val sv-sage">${wkS.length}<span style="font-size:17px;color:var(--muted)">/${target}</span></div><div class="stat-lbl">This Week</div><div style="font-size:13px;font-weight:500;color:var(--text);font-style:italic;margin-top:4px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px;opacity:0.55;">‹ Of weekly target ›</div></div>
-    <div class="stat-box"><div class="stat-val sv-gold">${prsSet}</div><div class="stat-lbl">Exercises PR'd</div><div style="font-size:13px;font-weight:500;color:var(--text);font-style:italic;margin-top:4px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px;opacity:0.55;">‹ Min. 8 sessions ›</div></div>
+    <div class="stat-box"><div class="stat-val sv-gold">${prsSet}</div><div class="stat-lbl">Exercises P.R.'d</div><div style="font-size:13px;font-weight:500;color:var(--text);font-style:italic;margin-top:4px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px;opacity:0.55;">‹ Min. 8 sessions ›</div></div>
     <div class="stat-box"><div class="stat-val sv-terra">${bestStreak}w</div><div class="stat-lbl">Best Streak</div><div style="font-size:13px;font-weight:500;color:var(--text);font-style:italic;margin-top:4px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px;opacity:0.55;">‹ Consecutive weeks ›</div></div>`;
 
   const last=sessions[0];
@@ -3491,7 +3523,7 @@ function openDetail(id){
               if(showTrophy) trophyShown=true;
               return`<tr>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">S${r.set}</td>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assisted?'<span style="color:var(--muted2);font-size:12px;font-weight:700;margin-left:3px;" title="Assisted set">ⓘ</span>':''}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${fmtAssist(r.assisted)}</td>
               ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
             </tr>`;}).join('')}</tbody>
           </table>
@@ -3533,7 +3565,7 @@ function openDetail(id){
               if(showTrophy) ssTrophyShown=true;
               return`<tr>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">S${r.set}</td>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assisted?'<span style="color:var(--muted2);font-size:12px;font-weight:700;margin-left:3px;" title="Assisted set">ⓘ</span>':''}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${fmtAssist(r.assisted)}</td>
               ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
             </tr>`;}).join('')}</tbody>
           </table>
@@ -3544,7 +3576,7 @@ function openDetail(id){
   const _effectiveTags=[...(s.bodyParts||[])];
   if((s.cardio&&s.cardio.length)&&_effectiveTags.indexOf('Cardio')===-1) _effectiveTags.push('Cardio');
   const _prInfo=getSessionPRInfo(s,prMap8);
-  const _prPillHtml=_prInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_prInfo.count} PR</span>`:'';
+  const _prPillHtml=_prInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_prInfo.count} P.R.</span>`:'';
   document.getElementById('dBody').innerHTML=`
     ${_effectiveTags.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${_effectiveTags.map(b=>`<span class="sess-tag${_prInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')}${_prPillHtml}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:''}
     ${durLine}
