@@ -94,9 +94,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .set-rows{padding:6px 8px 8px;}
 .set-header{display:grid;grid-template-columns:26px 1fr 18px 1fr 20px;gap:6px;margin-bottom:4px;}
 .set-header span{font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted2);text-align:center;}
-.set-row{display:grid;grid-template-columns:26px 1fr 18px 1fr 20px;gap:6px;align-items:center;margin-bottom:5px;}
-.assist-toggle{width:30px;height:22px;border-radius:6px;border:1.5px solid var(--border);background:transparent;color:var(--muted2);font-size:8px;font-weight:900;letter-spacing:0.4px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;touch-action:manipulation;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
-.assist-toggle.active{background:var(--gold);border-color:var(--gold);color:#0c0c0a;font-size:13px;}
+.set-row{display:grid;grid-template-columns:26px 1fr 36px 1fr 20px;gap:6px;align-items:center;margin-bottom:5px;}
+.assist-toggle{width:32px;height:24px;border-radius:6px;border:1.5px solid var(--red);background:transparent;color:var(--red);font-size:8px;font-weight:900;letter-spacing:0.4px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;touch-action:manipulation;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
+.assist-toggle.active{background:var(--red);border-color:var(--red);color:#fff;font-size:13px;}
 .set-row:last-child{margin-bottom:0;}
 .set-num{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);text-align:center;font-weight:600;}
 .reps-input,.weight-input{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--text);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;transition:border-color .15s;}
@@ -3082,7 +3082,7 @@ function fmtAssist(v){
   if(!v) return '';
   const n=(v===true)?1:(parseInt(v)||0);
   if(!n) return '';
-  return `<span style="color:var(--muted2);font-size:12px;font-weight:700;margin-left:3px;" title="Helped on ${n} rep${n!==1?'s':''} this set">🆘${n}</span>`;
+  return `<span style="display:inline-flex;align-items:center;gap:2px;background:var(--red);color:#fff;font-size:10px;font-weight:800;letter-spacing:0.3px;padding:2px 6px;border-radius:8px;margin-left:5px;vertical-align:middle;" title="Helped on ${n} rep${n!==1?'s':''} this set">SOS ${n}</span>`;
 }
 
 function getBodyPartForExercise(name){

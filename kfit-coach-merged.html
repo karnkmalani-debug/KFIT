@@ -56,8 +56,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .form-group{margin-bottom:14px;}
 .form-label{font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
 .form-inp{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;-webkit-appearance:none;}
-.assist-toggle{width:34px;height:34px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--muted2);font-size:9px;font-weight:900;letter-spacing:0.4px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;touch-action:manipulation;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
-.assist-toggle.active{background:var(--gold);border-color:var(--gold);color:#0c0c0a;font-size:14px;}
+.assist-toggle{width:34px;height:34px;border-radius:8px;border:1.5px solid var(--terra);background:transparent;color:var(--terra);font-size:9px;font-weight:900;letter-spacing:0.4px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;touch-action:manipulation;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
+.assist-toggle.active{background:var(--terra);border-color:var(--terra);color:#fff;font-size:14px;}
 .form-inp:focus{border-color:var(--sage);}
 .as-bp-btn{padding:5px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;text-transform:uppercase;letter-spacing:1px;}
 .as-bp-btn.active{background:var(--sage-d);border-color:var(--sage);color:var(--sage);}
@@ -825,7 +825,7 @@ function fmtAssistCoach(v){
   if(!v) return '';
   const n=(v===true)?1:(parseInt(v)||0);
   if(!n) return '';
-  return `<span style="display:inline-flex;align-items:center;gap:2px;background:rgba(212,168,67,0.15);border:1px solid var(--gold);color:var(--gold);font-size:9px;font-weight:800;letter-spacing:0.5px;padding:2px 6px;border-radius:10px;margin-left:6px;vertical-align:middle;">SOS \u00d7${n}</span>`;
+  return `<span style="display:inline-flex;align-items:center;gap:2px;background:var(--terra);color:#fff;font-size:9px;font-weight:800;letter-spacing:0.5px;padding:2px 6px;border-radius:10px;margin-left:6px;vertical-align:middle;">SOS \u00d7${n}</span>`;
 }
 
 function getBodyPartForExerciseCoach(name){
