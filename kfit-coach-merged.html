@@ -109,6 +109,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
   <!-- Dashboard view -->
   <div class="content" id="dashView">
+    <div id="pendingDeletePanel" style="display:none;margin-bottom:14px;background:var(--surf2);border:1px solid var(--terra);border-radius:10px;padding:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--terra);">⚠ Pending Delete Requests</div>
+      </div>
+      <div id="pendingDeleteList"></div>
+    </div>
     <div class="stat-grid" id="overallStats"></div>
     <div style="display:flex;gap:8px;margin-bottom:12px;">
       <button id="rosterTabClients" class="mode-btn active" style="flex:1;" onclick="setRosterView('clients')">Clients</button>
@@ -365,6 +371,71 @@ let taggedClients={fitness:{},nutrition:{}}; // canonical_key -> true, per track
 let rosterView='clients'; // 'clients' | 'all'
 let nutRosterView='clients';
 
+let pendingDeleteRequests=[];
+
+async function loadDeleteRequests(){
+  const{data,error}=await getSB().from('delete_requests').select('*').eq('status','pending').order('requested_at',{ascending:false});
+  pendingDeleteRequests=(!error&&data)?data:[];
+  renderPendingDeletePanel();
+}
+
+function renderPendingDeletePanel(){
+  const panel=document.getElementById('pendingDeletePanel');
+  const list=document.getElementById('pendingDeleteList');
+  if(!panel||!list) return;
+  if(!pendingDeleteRequests.length){ panel.style.display='none'; return; }
+  panel.style.display='block';
+  list.innerHTML=pendingDeleteRequests.map(function(r){
+    return`<div style="background:var(--surf1);border-radius:8px;padding:10px;margin-bottom:8px;">
+      <div style="font-size:14px;font-weight:700;margin-bottom:2px;">${r.client_name||'Client'}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${r.session_date||''}${r.session_time?' · '+r.session_time:''}${r.session_summary?' · '+r.session_summary:''}</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="approveDeleteRequest(${r.id})" style="flex:1;background:var(--terra);border:none;border-radius:7px;padding:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Approve Delete</button>
+        <button onclick="rejectDeleteRequest(${r.id})" style="flex:1;background:none;border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Keep Session</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function rejectDeleteRequest(id){
+  const ok=confirm('Keep this session? The request will be dismissed and nothing will be deleted.');
+  if(!ok) return;
+  await getSB().from('delete_requests').update({status:'rejected',resolved_at:new Date().toISOString()}).eq('id',id);
+  pendingDeleteRequests=pendingDeleteRequests.filter(r=>r.id!==id);
+  renderPendingDeletePanel();
+}
+
+async function approveDeleteRequest(id){
+  const req=pendingDeleteRequests.find(r=>r.id===id);
+  if(!req) return;
+  const ok=confirm('Permanently delete this session for '+(req.client_name||'this client')+'? This cannot be undone.');
+  if(!ok) return;
+
+  const mobile=(req.client_mobile||'').replace(/\D/g,'');
+  const nameKey=(req.client_name||'').toLowerCase().replace(/\s+/g,'_');
+  const clientId=mobile?nameKey+'__'+mobile:nameKey;
+
+  const{data:existing,error:fetchErr}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+  if(fetchErr){ alert('Could not load client data: '+fetchErr.message); return; }
+  let full={};
+  if(existing&&existing.length&&existing[0].data){
+    full=typeof existing[0].data==='string'?JSON.parse(existing[0].data):existing[0].data;
+  }
+  full.sessions=(full.sessions||[]).filter(s=>s.id!==req.session_id);
+  const{error:trackerErr}=await getSB().from('tracker_data').upsert({client_id:clientId,tracker:'fitness',data:JSON.stringify(full),updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
+  if(trackerErr){ alert('Could not delete session: '+trackerErr.message); return; }
+
+  if(mobile){
+    await getSB().from('attendance').delete().eq('client_mobile',mobile).eq('session_date',req.session_date||'').eq('session_time',req.session_time||'');
+  }
+  await getSB().from('delete_requests').update({status:'approved',resolved_at:new Date().toISOString()}).eq('id',id);
+
+  pendingDeleteRequests=pendingDeleteRequests.filter(r=>r.id!==id);
+  renderPendingDeletePanel();
+  loadAll();
+  alert('Session deleted ✓');
+}
+
 function canonicalClientKey(name,mobile){
   const m=(mobile||'').replace(/\D/g,'');
   if(m)return m;
@@ -454,7 +525,8 @@ async function dismissExercise(id){
 function loadAll(){
   Promise.all([
     getSB().from('attendance').select('*').order('session_date',{ascending:false}).order('logged_at',{ascending:false}),
-    loadClientTags()
+    loadClientTags(),
+    loadDeleteRequests()
   ]).then(function(results){
     const res=results[0];
     if(res.error){document.getElementById('clientList').innerHTML='<div class="empty">Error loading data.<br>'+res.error.message+'</div>';return;}
@@ -757,6 +829,43 @@ function groupClients(){
 
 let currentCoachSession=null; // {clientKey, clientId, date, time, session, attendanceId}
 
+function fillOrphanedSession(clientKey,date,time){
+  const clients=groupClients();
+  const c=Object.values(clients).find(c=>(c.mobile||c.name)===clientKey);
+  if(!c) return;
+  const attRecord=c.records.find(r=>r.session_date===date&&(r.session_time||'')===(time||''));
+  const nameKey=c.name.toLowerCase().replace(/\s+/g,'_');
+  const mobile=(c.mobile||'').replace(/\D/g,'');
+  const clientId=mobile?nameKey+'__'+mobile:nameKey;
+
+  openAddSession(clientKey);
+  document.getElementById('as-modal-title').textContent='Fill In Session';
+  document.getElementById('as-save-btn').textContent='Save Session';
+  document.getElementById('as-delete-btn').style.display='none';
+  document.getElementById('as-client').disabled=true; // this is filling in a specific existing attendance record
+
+  document.getElementById('as-date').value=date;
+  document.getElementById('as-time').value=time?to24Hour(time):'';
+
+  // Best-effort prefill from whatever the attendance record already captured --
+  // the actual exercises/sets were never saved, so those stay blank for you to fill in
+  if(attRecord){
+    if(attRecord.duration_secs) document.getElementById('as-duration').value=Math.round(attRecord.duration_secs/60);
+    if(attRecord.workout_type) document.getElementById('as-type').value=attRecord.workout_type;
+    if(attRecord.body_parts){
+      asSelectedBP=attRecord.body_parts.split(',').map(s=>s.trim()).filter(Boolean);
+      document.querySelectorAll('#as-bp-grid .as-bp-btn').forEach(btn=>{
+        if(asSelectedBP.includes(btn.textContent)) btn.classList.add('active');
+      });
+    }
+  }
+
+  // No existing session id to match -- saving will insert a brand-new session
+  // while updating (not duplicating) this same attendance row
+  editingContext={attendanceId:attRecord?attRecord.id:null,sessionId:Date.now(),clientId,origDate:date,origTime:time};
+  document.getElementById('coachSessionPanel').style.display='none';
+}
+
 function cleanupOrphanedAttendance(clientKey,date,time){
   const clients=groupClients();
   const c=Object.values(clients).find(c=>(c.mobile||c.name)===clientKey);
@@ -806,12 +915,16 @@ function openCoachSession(clientKey, date, time){
       const s=sessions.find(s=>s.date===date&&(s.timeOfDay===time||!time||!s.timeOfDay));
       if(!s){
         document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">'
-          +'Session detail not found. This usually means the client deleted the session '
-          +'(often while offline) but the attendance record was left behind.<br><br>'
+          +'Session detail not found. This usually means the session was deleted or never fully saved '
+          +'(often from a connection drop) but the attendance record was left behind.<br><br>'
+          +'<button onclick="fillOrphanedSession(\''+clientKey.replace(/'/g,"\\'")+'\',\''+date+'\',\''+(time||'').replace(/'/g,"\\'")+'\')" '
+          +'style="background:var(--sage);border:none;border-radius:8px;padding:10px 16px;color:#fff;'
+          +'font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin:4px;">'
+          +'✎ Fill In This Session</button>'
           +'<button onclick="cleanupOrphanedAttendance(\''+clientKey.replace(/'/g,"\\'")+'\',\''+date+'\',\''+(time||'').replace(/'/g,"\\'")+'\')" '
-          +'style="background:none;border:1px solid var(--terra);border-radius:8px;padding:8px 14px;color:var(--terra);'
-          +'font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px;">'
-          +'🗑 Remove this stale entry</button></div>';
+          +'style="background:none;border:1px solid var(--terra);border-radius:8px;padding:10px 16px;color:var(--terra);'
+          +'font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin:4px;">'
+          +'🗑 Remove This Entry</button></div>';
         return;
       }
       currentCoachSession={clientKey,clientId,date,time,session:s,attendanceId:attRecord?attRecord.id:null};
@@ -820,6 +933,31 @@ function openCoachSession(clientKey, date, time){
         <button onclick="deleteCoachSessionFromPanel()" style="background:none;border:1px solid var(--terra);border-radius:8px;padding:8px 14px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🗑 Delete</button>`;
       renderCoachSession(s,sessions);
     });
+}
+
+// Best {weight,reps} for this exercise from all OTHER sessions (the record that
+// stood BEFORE this session), so every set that beat it can get its own trophy.
+function calcPriorBestCoach(exKey,excludeDate,excludeTimeOfDay,allSessions){
+  var best=null;
+  (allSessions||[]).forEach(function(s){
+    if(s.date===excludeDate&&(s.timeOfDay||'')===(excludeTimeOfDay||'')) return;
+    var allEx=[...(s.exercises||[])];
+    (s.supersets||[]).forEach(function(ss){
+      (ss.exercises||[]).forEach(function(e){
+        if(e.type!=='cardio') allEx.push(e);
+      });
+    });
+    allEx.forEach(function(e){
+      if(!e.ex||e.ex.toLowerCase().trim()!==exKey) return;
+      (e.setData||[]).forEach(function(set){
+        var w=parseFloat(set.weight);
+        var r=set.reps?String(set.reps).trim():'';
+        if(!w||isNaN(w)||!r) return;
+        if(!best||w>best.weight) best={weight:w,reps:r};
+      });
+    });
+  });
+  return best;
 }
 
 function calcPersonalRecordsCoach(sessions){
@@ -865,19 +1003,28 @@ function getBodyPartForExerciseCoach(name){
 }
 
 // Returns {bodyParts:Set, count:Number} -- which body parts hit a new PR in this
-// session, and how many exercises hit one (mirrors the client-side tracker logic).
-function getSessionPRInfoCoach(s,prMap){
+// session, and how many INDIVIDUAL SETS beat their prior best.
+function getSessionPRInfoCoach(s,prMap,allSessions){
   var bodyParts=new Set();
   var count=0;
   if(!prMap) return{bodyParts:bodyParts,count:count};
   var allEx=[...(s.exercises||[])].concat((s.supersets||[]).flatMap(function(ss){return ss.exercises||[];}));
   allEx.filter(function(e){return e.type!=='cardio'&&e.ex;}).forEach(function(e){
-    var exPR=prMap[e.ex.toLowerCase().trim()];
+    var key=e.ex.toLowerCase().trim();
+    var exPR=prMap[key];
     var isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
-    if(isSessionPR){
-      count++;
-      bodyParts.add(getBodyPartForExerciseCoach(e.ex));
-    }
+    if(!isSessionPR) return;
+    var priorBest=calcPriorBestCoach(key,s.date,s.timeOfDay,allSessions);
+    (e.setData||[]).forEach(function(set){
+      var w=parseFloat(set.weight);
+      var rNum=set.reps?parseInt(set.reps):NaN;
+      if(!w||isNaN(w)||!set.reps) return;
+      var beat=!priorBest||w>priorBest.weight||(w===priorBest.weight&&!isNaN(rNum)&&rNum>parseInt(priorBest.reps));
+      if(beat){
+        count++;
+        bodyParts.add(getBodyPartForExerciseCoach(e.ex));
+      }
+    });
   });
   return{bodyParts:bodyParts,count:count};
 }
@@ -899,7 +1046,7 @@ function renderCoachSession(s,allSessions){
   const _totalReps=_realSetsForTotals.reduce((a,r)=>a+(parseInt(r.reps)||0),0);
 
   // Body parts
-  const _coachPrInfo=getSessionPRInfoCoach(s,prMap8);
+  const _coachPrInfo=getSessionPRInfoCoach(s,prMap8,allSessions);
   const _coachPrPill=_coachPrInfo.count?`<span style="padding:4px 12px;background:var(--gold);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#171200;">🏆 ${_coachPrInfo.count} P.R.</span>`:'';
   const bpHtml=(s.bodyParts&&s.bodyParts.length)?
     `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${s.bodyParts.map(b=>_coachPrInfo.bodyParts.has(b)?`<span style="padding:4px 12px;background:var(--gold);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#171200;">${b}</span>`:`<span style="padding:4px 12px;background:var(--gold-d);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold);">${b}</span>`).join('')}${_coachPrPill}${_exCount?`<span style="color:var(--muted);font-size:14px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:'' ;
@@ -935,10 +1082,8 @@ function renderCoachSession(s,allSessions){
       const ssRealSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
       const hasW=ssRealSets.some(r=>r.weight);
       const ssExPR=prMap8[e.ex.toLowerCase().trim()];
-      const ssSetWeights=ssRealSets.map(r=>parseFloat(r.weight)||0);
-      const ssSessionMax=Math.max(0,...ssSetWeights);
-      const ssIsSessionPR=ssExPR&&ssSessionMax>=ssExPR.weight;
-      let ssTrophyShown=false;
+      const ssIsSessionPR=ssExPR&&s.date===ssExPR.date&&(s.timeOfDay||'')===(ssExPR.timeOfDay||'');
+      const ssPriorBest=ssIsSessionPR?calcPriorBestCoach(e.ex.toLowerCase().trim(),s.date,s.timeOfDay,allSessions):null;
       return`<div style="border-left:3px solid var(--sage);padding-left:10px;margin-bottom:12px;">
         <div style="font-size:16px;font-weight:700;margin-bottom:6px;">${e.ex}</div>
         <table style="width:100%;border-collapse:collapse;">
@@ -949,8 +1094,9 @@ function renderCoachSession(s,allSessions){
           </tr></thead>
           <tbody>${ssRealSets.map(r=>{
             const w=parseFloat(r.weight)||0;
-            const showTrophy=ssIsSessionPR&&!ssTrophyShown&&w===ssSessionMax&&w>0;
-            if(showTrophy) ssTrophyShown=true;
+            const rNum=r.reps?parseInt(r.reps):NaN;
+            const showTrophy=ssIsSessionPR&&!r.assisted&&w>0&&r.reps&&
+              (!ssPriorBest||w>ssPriorBest.weight||(w===ssPriorBest.weight&&!isNaN(rNum)&&rNum>parseInt(ssPriorBest.reps)));
             return`<tr>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">S${r.set}</td>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${fmtAssistCoach(r.assisted)}</td>
@@ -968,10 +1114,8 @@ function renderCoachSession(s,allSessions){
       const realSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
       const hasW=realSets.some(r=>r.weight);
       const exPR=prMap8[e.ex.toLowerCase().trim()];
-      const setWeights=realSets.map(r=>parseFloat(r.weight)||0);
-      const sessionMax=Math.max(0,...setWeights);
-      const isSessionPR=exPR&&sessionMax>=exPR.weight;
-      let trophyShown=false;
+      const isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
+      const priorBest=isSessionPR?calcPriorBestCoach(e.ex.toLowerCase().trim(),s.date,s.timeOfDay,allSessions):null;
       return`<div style="margin-bottom:16px;">
         <div style="font-size:16px;font-weight:700;margin-bottom:6px;">${e.ex}</div>
         <table style="width:100%;border-collapse:collapse;">
@@ -982,8 +1126,9 @@ function renderCoachSession(s,allSessions){
           </tr></thead>
           <tbody>${realSets.map(r=>{
             const w=parseFloat(r.weight)||0;
-            const showTrophy=isSessionPR&&!trophyShown&&w===sessionMax&&w>0;
-            if(showTrophy) trophyShown=true;
+            const rNum=r.reps?parseInt(r.reps):NaN;
+            const showTrophy=isSessionPR&&!r.assisted&&w>0&&r.reps&&
+              (!priorBest||w>priorBest.weight||(w===priorBest.weight&&!isNaN(rNum)&&rNum>parseInt(priorBest.reps)));
             return`<tr>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">S${r.set}</td>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${fmtAssistCoach(r.assisted)}</td>

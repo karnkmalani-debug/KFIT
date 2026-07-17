@@ -3090,20 +3090,30 @@ function checkSetForPR(row){
 }
 
 // Returns {bodyParts:Set, count:Number} -- which body parts hit a new PR in this
-// session, and how many exercises hit one. Reuses the same prMap/date+timeOfDay
-// match already used to show individual trophy icons on set rows.
+// session, and how many INDIVIDUAL SETS beat their prior best (same rule the
+// per-set trophy icons use), not just how many exercises.
 function getSessionPRInfo(s,prMap){
   var bodyParts=new Set();
   var count=0;
   if(!prMap) return{bodyParts:bodyParts,count:count};
   var allEx=[...(s.exercises||[])].concat((s.supersets||[]).flatMap(function(ss){return ss.exercises||[];}));
   allEx.filter(function(e){return e.type!=='cardio'&&e.ex;}).forEach(function(e){
-    var exPR=prMap[e.ex.toLowerCase().trim()];
+    var key=e.ex.toLowerCase().trim();
+    var exPR=prMap[key];
     var isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
-    if(isSessionPR){
-      count++;
-      bodyParts.add(getBodyPartForExercise(e.ex));
-    }
+    if(!isSessionPR) return;
+    var priorBest=calcPriorBest(key,s.date,s.timeOfDay);
+    (e.setData||[]).forEach(function(set){
+      if(set.assisted) return;
+      var w=parseFloat(set.weight);
+      var rNum=set.reps?parseInt(set.reps):NaN;
+      if(!w||isNaN(w)||!set.reps) return;
+      var beat=!priorBest||w>priorBest.weight||(w===priorBest.weight&&!isNaN(rNum)&&rNum>parseInt(priorBest.reps));
+      if(beat){
+        count++;
+        bodyParts.add(getBodyPartForExercise(e.ex));
+      }
+    });
   });
   return{bodyParts:bodyParts,count:count};
 }
@@ -3672,11 +3682,46 @@ async function deleteSession(id){
   const s=sessions.find(x=>x.id===id);
   const ok=await showConfirm('Delete this session?','This cannot be undone.');
   if(!ok)return;
+
+  // Tagged clients ("marked as client" by the coach) can't self-delete -- their
+  // coach relies on this history for billing, so route it through approval instead.
+  var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
+  var name=localStorage.getItem('kmfit_name')||'';
+  var canonKey=mobile||name.toLowerCase().trim();
+  if(canonKey){
+    try{
+      const tagRes=await getSB().from('client_tags').select('client_key').eq('client_key',canonKey).eq('tracker','fitness');
+      if(!tagRes.error&&tagRes.data&&tagRes.data.length){
+        await getSB().from('delete_requests').insert({
+          client_name:name, client_mobile:mobile, client_key:canonKey,
+          session_id:id, session_date:s?s.date:'', session_time:s?(s.timeOfDay||''):'',
+          session_summary:s?buildSessionSummary(s):'', status:'pending'
+        });
+        toast('Delete request sent to your coach for approval');
+        closeDetail();
+        return;
+      }
+    }catch(err){
+      console.warn('Could not check client tag status, deleting locally:',err);
+      // fall through to a normal local delete if the check itself fails (e.g. offline) --
+      // a connectivity hiccup shouldn't block someone from managing their own untagged data
+    }
+  }
+
   sessions=sessions.filter(x=>x.id!==id);
   deletedSessionIds=Array.from(new Set([...deletedSessionIds,id]));
   localStorage.setItem('kmfit_deleted_ids',JSON.stringify(deletedSessionIds));
   saveSessions();closeDetail();renderHistory();renderStats();toast('Deleted');
   if(s) deleteAttendance(s.date, s.timeOfDay||'');
+}
+
+function buildSessionSummary(s){
+  var parts=[];
+  if(s.bodyParts&&s.bodyParts.length) parts.push(s.bodyParts.join(', '));
+  var exCount=(s.exercises?s.exercises.length:0)+(s.supersets?s.supersets.reduce(function(a,ss){return a+(ss.exercises?ss.exercises.length:0);},0):0);
+  if(exCount) parts.push(exCount+' exercise'+(exCount!==1?'s':''));
+  if(s.cardio&&s.cardio.length) parts.push('Cardio');
+  return parts.join(' · ');
 }
 
 function deleteAttendance(date,time,attempt){
