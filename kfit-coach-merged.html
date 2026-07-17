@@ -757,6 +757,27 @@ function groupClients(){
 
 let currentCoachSession=null; // {clientKey, clientId, date, time, session, attendanceId}
 
+function cleanupOrphanedAttendance(clientKey,date,time){
+  const clients=groupClients();
+  const c=Object.values(clients).find(c=>(c.mobile||c.name)===clientKey);
+  if(!c) return;
+  getSB().from('attendance').delete()
+    .eq('client_mobile', c.mobile||'')
+    .eq('session_date', date)
+    .eq('session_time', time)
+    .then(function(res){
+      if(res.error){
+        alert('Could not remove entry: '+res.error.message);
+        return;
+      }
+      allRecords=allRecords.filter(function(r){
+        return !((r.client_mobile||r.client_name)===clientKey&&r.session_date===date&&(r.session_time||'')===(time||''));
+      });
+      document.getElementById('coachSessionPanel').style.display='none';
+      showClient(clientKey);
+    });
+}
+
 function openCoachSession(clientKey, date, time){
   // Find the client's tracker_data
   const clients=groupClients();
@@ -784,7 +805,13 @@ function openCoachSession(clientKey, date, time){
       // Find matching session by date and time
       const s=sessions.find(s=>s.date===date&&(s.timeOfDay===time||!time||!s.timeOfDay));
       if(!s){
-        document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">Session detail not found.</div>';
+        document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">'
+          +'Session detail not found. This usually means the client deleted the session '
+          +'(often while offline) but the attendance record was left behind.<br><br>'
+          +'<button onclick="cleanupOrphanedAttendance(\''+clientKey.replace(/'/g,"\\'")+'\',\''+date+'\',\''+(time||'').replace(/'/g,"\\'")+'\')" '
+          +'style="background:none;border:1px solid var(--terra);border-radius:8px;padding:8px 14px;color:var(--terra);'
+          +'font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px;">'
+          +'🗑 Remove this stale entry</button></div>';
         return;
       }
       currentCoachSession={clientKey,clientId,date,time,session:s,attendanceId:attRecord?attRecord.id:null};

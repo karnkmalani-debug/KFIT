@@ -2901,6 +2901,36 @@ function toggleAttAll(btn){
 }
 
 // PERSONAL RECORDS
+// Best {weight,reps} for this exercise from all OTHER sessions (i.e. the record
+// that stood BEFORE this session). Used so every set that beat the old best gets
+// its own trophy, not just the single heaviest set of the session.
+function calcPriorBest(exKey,excludeDate,excludeTimeOfDay){
+  var best=null;
+  sessions.forEach(function(s){
+    if(s.date===excludeDate&&(s.timeOfDay||'')===(excludeTimeOfDay||'')) return;
+    var allEx=[...(s.exercises||[])];
+    (s.supersets||[]).forEach(function(ss){
+      (ss.exercises||[]).forEach(function(e){
+        if(e.type!=='cardio') allEx.push(e);
+      });
+    });
+    allEx.forEach(function(e){
+      if(!e.ex||e.ex.toLowerCase().trim()!==exKey) return;
+      (e.setData||[]).forEach(function(set){
+        if(set.assisted) return;
+        var w=parseFloat(set.weight);
+        var r=set.reps?String(set.reps).trim():'';
+        if(!w||isNaN(w)||!r) return;
+        var rNum=parseInt(r);
+        var isBetter=!best||w>best.weight||
+          (w===best.weight&&!isNaN(rNum)&&!isNaN(parseInt(best.reps))&&rNum>parseInt(best.reps));
+        if(isBetter) best={weight:w,reps:r};
+      });
+    });
+  });
+  return best;
+}
+
 function calcPersonalRecords(){
   // key is lowercased name, value includes original display name
   var prMap={};
@@ -3542,7 +3572,7 @@ function openDetail(id){
         const uLabel=s.unit||'kg';
         const exPR=prMap8[e.ex.toLowerCase().trim()];
         const isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
-        let trophyShown=false;
+        const priorBest=isSessionPR?calcPriorBest(e.ex.toLowerCase().trim(),s.date,s.timeOfDay):null;
         return`<div style="margin-bottom:16px;">
           <div style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--text);">${e.ex}</div>
           <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
@@ -3553,8 +3583,9 @@ function openDetail(id){
             </tr></thead>
             <tbody>${realSets.map(r=>{
               const w=parseFloat(r.weight)||0;
-              const showTrophy=isSessionPR&&!trophyShown&&w===exPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(exPR.reps);
-              if(showTrophy) trophyShown=true;
+              const rNum=r.reps?parseInt(r.reps):NaN;
+              const showTrophy=isSessionPR&&!r.assisted&&w>0&&r.reps&&
+                (!priorBest||w>priorBest.weight||(w===priorBest.weight&&!isNaN(rNum)&&rNum>parseInt(priorBest.reps)));
               return`<tr>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">S${r.set}</td>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${fmtAssist(r.assisted)}</td>
@@ -3584,7 +3615,7 @@ function openDetail(id){
         const hasWeight=ssRealSets.some(r=>r.weight);
         const ssExPR=prMap8[e.ex.toLowerCase().trim()];
         const ssIsSessionPR=ssExPR&&s.date===ssExPR.date&&(s.timeOfDay||'')===(ssExPR.timeOfDay||'');
-        let ssTrophyShown=false;
+        const ssPriorBest=ssIsSessionPR?calcPriorBest(e.ex.toLowerCase().trim(),s.date,s.timeOfDay):null;
         return`<div style="margin-bottom:16px;border-left:3px solid var(--sage);padding-left:10px;">
           <div style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--text);">${e.ex}</div>
           <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
@@ -3595,8 +3626,9 @@ function openDetail(id){
             </tr></thead>
             <tbody>${ssRealSets.map(r=>{
               const w=parseFloat(r.weight)||0;
-              const showTrophy=ssIsSessionPR&&!ssTrophyShown&&w===ssExPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(ssExPR.reps);
-              if(showTrophy) ssTrophyShown=true;
+              const rNum=r.reps?parseInt(r.reps):NaN;
+              const showTrophy=ssIsSessionPR&&!r.assisted&&w>0&&r.reps&&
+                (!ssPriorBest||w>ssPriorBest.weight||(w===ssPriorBest.weight&&!isNaN(rNum)&&rNum>parseInt(ssPriorBest.reps)));
               return`<tr>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">S${r.set}</td>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${fmtAssist(r.assisted)}</td>
@@ -3647,7 +3679,8 @@ async function deleteSession(id){
   if(s) deleteAttendance(s.date, s.timeOfDay||'');
 }
 
-function deleteAttendance(date,time){
+function deleteAttendance(date,time,attempt){
+  attempt=attempt||1;
   var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
   if(!mobile||!date) return;
   ensureAnonAuth(function(){
@@ -3657,7 +3690,12 @@ function deleteAttendance(date,time){
       .eq('session_date', date)
       .eq('session_time', time)
       .then(function(res){
-        if(res.error) console.warn('Attendance delete error:',res.error.message);
+        if(res.error){
+          console.warn('Attendance delete error (attempt '+attempt+'):',res.error.message);
+          if(attempt<3){
+            setTimeout(function(){deleteAttendance(date,time,attempt+1);},1500*attempt);
+          }
+        }
       });
   });
 }
