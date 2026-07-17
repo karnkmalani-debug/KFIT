@@ -91,16 +91,28 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="mode-toggle">
     <button class="mode-btn active" id="modeBtnFitness" onclick="switchMode('fitness')">Fitness</button>
     <button class="mode-btn" id="modeBtnNutrition" onclick="switchMode('nutrition')">Nutrition</button>
-    <button class="mode-btn" id="modeBtnExercises" onclick="switchMode('exercises')">Exercises<span id="exSuggestBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
+    <button class="mode-btn" id="modeBtnRequests" onclick="switchMode('requests')">Requests<span id="reqBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
   </div>
 
-  <!-- ══════════════ EXERCISE SUGGESTIONS SECTION ══════════════ -->
-  <div id="exSection" style="display:none;">
-    <div class="content" id="exDashView">
-      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Pending Suggestions</div>
-      <div id="exPendingList"><div class="empty">Loading...</div></div>
-      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:20px 0 10px;">Approved (Live On All Trackers)</div>
-      <div id="exApprovedList"><div class="empty">Loading...</div></div>
+  <!-- ══════════════ REQUESTS SECTION (exercise additions + session deletions) ══════════════ -->
+  <div id="reqSection" style="display:none;">
+    <div class="content" id="reqDashView">
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button id="reqTabExercises" class="mode-btn active" style="flex:1;" onclick="switchRequestsTab('exercises')">Exercise Additions<span id="exSuggestBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
+        <button id="reqTabDeletions" class="mode-btn" style="flex:1;" onclick="switchRequestsTab('deletions')">Session Deletions<span id="delReqBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
+      </div>
+
+      <div id="reqExercisesPane">
+        <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Pending Suggestions</div>
+        <div id="exPendingList"><div class="empty">Loading...</div></div>
+        <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:20px 0 10px;">Approved (Live On All Trackers)</div>
+        <div id="exApprovedList"><div class="empty">Loading...</div></div>
+      </div>
+
+      <div id="reqDeletionsPane" style="display:none;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Pending Delete Requests</div>
+        <div id="pendingDeleteList"><div class="empty">Loading...</div></div>
+      </div>
     </div>
   </div>
 
@@ -109,12 +121,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
   <!-- Dashboard view -->
   <div class="content" id="dashView">
-    <div id="pendingDeletePanel" style="display:none;margin-bottom:14px;background:var(--surf2);border:1px solid var(--terra);border-radius:10px;padding:12px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--terra);">⚠ Pending Delete Requests</div>
-      </div>
-      <div id="pendingDeleteList"></div>
-    </div>
     <div class="stat-grid" id="overallStats"></div>
     <div style="display:flex;gap:8px;margin-bottom:12px;">
       <button id="rosterTabClients" class="mode-btn active" style="flex:1;" onclick="setRosterView('clients')">Clients</button>
@@ -358,6 +364,7 @@ function checkPw(){
       if(!res.error&&res.data){
         var badge=document.getElementById('exSuggestBadge');
         if(res.data.length){ badge.style.display='inline-block'; badge.textContent=res.data.length; }
+        updateCombinedRequestsBadge();
       }
     });
   } else {
@@ -380,21 +387,40 @@ async function loadDeleteRequests(){
 }
 
 function renderPendingDeletePanel(){
-  const panel=document.getElementById('pendingDeletePanel');
   const list=document.getElementById('pendingDeleteList');
-  if(!panel||!list) return;
-  if(!pendingDeleteRequests.length){ panel.style.display='none'; return; }
-  panel.style.display='block';
+  if(!list) return;
+  const delBadge=document.getElementById('delReqBadge');
+  if(delBadge){
+    if(pendingDeleteRequests.length){ delBadge.style.display='inline-block'; delBadge.textContent=pendingDeleteRequests.length; }
+    else { delBadge.style.display='none'; }
+  }
+  updateCombinedRequestsBadge();
+  if(!pendingDeleteRequests.length){
+    list.innerHTML='<div class="empty">No pending delete requests.</div>';
+    return;
+  }
   list.innerHTML=pendingDeleteRequests.map(function(r){
-    return`<div style="background:var(--surf1);border-radius:8px;padding:10px;margin-bottom:8px;">
-      <div style="font-size:14px;font-weight:700;margin-bottom:2px;">${r.client_name||'Client'}</div>
+    const clientKey=(r.client_mobile||r.client_name||'').replace(/'/g,"\\'");
+    return`<div onclick="openCoachSession('${clientKey}','${r.session_date||''}','${(r.session_time||'').replace(/'/g,"\\'")}')" style="background:var(--surf1);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;">
+      <div style="font-size:14px;font-weight:700;margin-bottom:2px;">${r.client_name||'Client'} <span style="font-size:11px;font-weight:600;color:var(--sage);">(tap to view session)</span></div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${r.session_date||''}${r.session_time?' · '+r.session_time:''}${r.session_summary?' · '+r.session_summary:''}</div>
-      <div style="display:flex;gap:8px;">
+      <div style="display:flex;gap:8px;" onclick="event.stopPropagation();">
         <button onclick="approveDeleteRequest(${r.id})" style="flex:1;background:var(--terra);border:none;border-radius:7px;padding:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Approve Delete</button>
         <button onclick="rejectDeleteRequest(${r.id})" style="flex:1;background:none;border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Keep Session</button>
       </div>
     </div>`;
   }).join('');
+}
+
+// Combines exercise-suggestion + delete-request pending counts onto the single "Requests" nav tab
+function updateCombinedRequestsBadge(){
+  const reqBadge=document.getElementById('reqBadge');
+  if(!reqBadge) return;
+  const exCount=parseInt(document.getElementById('exSuggestBadge')?.textContent)||0;
+  const delCount=pendingDeleteRequests.length;
+  const total=exCount+delCount;
+  if(total){ reqBadge.style.display='inline-block'; reqBadge.textContent=total; }
+  else { reqBadge.style.display='none'; }
 }
 
 async function rejectDeleteRequest(id){
@@ -477,6 +503,7 @@ async function loadExerciseSuggestions(){
   const badge=document.getElementById('exSuggestBadge');
   if(pending.length){ badge.style.display='inline-block'; badge.textContent=pending.length; }
   else { badge.style.display='none'; }
+  updateCombinedRequestsBadge();
 
   document.getElementById('exPendingList').innerHTML=pending.length?pending.map(r=>`
     <div class="client-card" style="cursor:default;">
@@ -1988,21 +2015,21 @@ document.getElementById('pwInp').addEventListener('keydown',function(e){
 
 // ── Mode switcher: toggles between Fitness, Nutrition, and Exercises sections ──
 let nutDataLoaded=false;
-let exDataLoaded=false;
+let reqDataLoaded=false;
 function switchMode(mode){
   const fitBtn=document.getElementById('modeBtnFitness');
   const nutBtn=document.getElementById('modeBtnNutrition');
-  const exBtn=document.getElementById('modeBtnExercises');
+  const reqBtn=document.getElementById('modeBtnRequests');
   const fitSec=document.getElementById('fitSection');
   const nutSec=document.getElementById('nutSection');
-  const exSec=document.getElementById('exSection');
+  const reqSec=document.getElementById('reqSection');
   const pageTitle=document.getElementById('pageTitle');
   fitBtn.classList.toggle('active',mode==='fitness');
   nutBtn.classList.toggle('active',mode==='nutrition');
-  exBtn.classList.toggle('active',mode==='exercises');
+  reqBtn.classList.toggle('active',mode==='requests');
   fitSec.style.display=mode==='fitness'?'block':'none';
   nutSec.style.display=mode==='nutrition'?'block':'none';
-  exSec.style.display=mode==='exercises'?'block':'none';
+  reqSec.style.display=mode==='requests'?'block':'none';
   if(mode==='fitness'){
     pageTitle.textContent='Coach · Fitness';
   } else if(mode==='nutrition'){
@@ -2012,9 +2039,17 @@ function switchMode(mode){
       nutLoadAll();
     }
   } else {
-    pageTitle.textContent='Coach · Exercises';
+    pageTitle.textContent='Coach · Requests';
     loadExerciseSuggestions();
+    loadDeleteRequests();
   }
+}
+
+function switchRequestsTab(tab){
+  document.getElementById('reqTabExercises').classList.toggle('active',tab==='exercises');
+  document.getElementById('reqTabDeletions').classList.toggle('active',tab==='deletions');
+  document.getElementById('reqExercisesPane').style.display=tab==='exercises'?'block':'none';
+  document.getElementById('reqDeletionsPane').style.display=tab==='deletions'?'block':'none';
 }
 
 let allClients=[];
