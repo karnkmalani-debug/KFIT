@@ -94,9 +94,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .set-rows{padding:6px 8px 8px;}
 .set-header{display:grid;grid-template-columns:26px 1fr 18px 1fr 20px;gap:6px;margin-bottom:4px;}
 .set-header span{font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted2);text-align:center;}
-.set-row{display:grid;grid-template-columns:26px 1fr 36px 1fr 20px;gap:6px;align-items:center;margin-bottom:5px;}
-.assist-toggle{width:32px;height:24px;border-radius:6px;border:1.5px solid var(--red);background:transparent;color:var(--red);font-size:8px;font-weight:900;letter-spacing:0.4px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;touch-action:manipulation;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
-.assist-toggle.active{background:var(--red);border-color:var(--red);color:#fff;font-size:13px;}
+.set-row{display:grid;grid-template-columns:26px 1fr 18px 1fr 20px;gap:6px;align-items:center;margin-bottom:5px;}
+.assist-toggle{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--border);background:transparent;color:var(--muted2);font-size:11px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;}
+.assist-toggle.active{background:var(--gold);border-color:var(--gold);color:#0c0c0a;}
 .set-row:last-child{margin-bottom:0;}
 .set-num{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);text-align:center;font-weight:600;}
 .reps-input,.weight-input{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--text);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;transition:border-color .15s;}
@@ -211,7 +211,6 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .autosave-dot.saving{background:var(--gold);}
 .sess-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
 .sess-tag{padding:5px 14px;background:var(--surf2);border:1px solid var(--gold);border-radius:20px;font-size:12px;font-weight:900;color:var(--gold);letter-spacing:2px;text-transform:uppercase;}
-.sess-tag-pr{background:var(--gold);border-color:var(--gold);color:#171200;}
 
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
 .stat-box{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:15px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:148px;}
@@ -432,7 +431,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     <div class="tab" onclick="goTab(1)">HISTORY</div>
     <div class="tab" onclick="goTab(2)">STATS</div>
     <div class="tab" onclick="goTab(3)">NOTES</div>
-    <div class="tab" onclick="goTab(4)">P.R.</div>
+    <div class="tab" onclick="goTab(4)">PR</div>
   </div>
   <div id="bpNotifStack" style="position:fixed;top:112px;left:16px;right:16px;max-width:488px;margin:0 auto;z-index:350;display:flex;flex-direction:column;gap:8px;pointer-events:none;"></div>
 
@@ -604,7 +603,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 <!-- PR Flash Overlay -->
 <div id="prFlashOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(10,10,10,0.97);flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 32px;">
   <div style="font-size:72px;margin-bottom:20px;">🏆</div>
-  <div id="prFlashTitle" style="font-family:'DM Sans',sans-serif;font-size:32px;font-weight:900;color:var(--gold);letter-spacing:2px;line-height:1.15;margin-bottom:6px;">NEW P.R.</div>
+  <div id="prFlashTitle" style="font-family:'DM Sans',sans-serif;font-size:32px;font-weight:900;color:var(--gold);letter-spacing:2px;line-height:1.15;margin-bottom:6px;">NEW PR</div>
   <div style="font-family:'DM Sans',sans-serif;font-size:32px;font-weight:900;color:var(--gold);letter-spacing:2px;margin-bottom:28px;">YOU JUST GOT STRONGER</div>
   <div style="width:48px;height:2px;background:var(--gold);opacity:0.4;margin-bottom:28px;"></div>
   <div id="prFlashEx" style="font-family:'DM Sans',sans-serif;font-size:15px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:var(--sage);margin-bottom:8px;"></div>
@@ -1379,7 +1378,7 @@ function applyAssignedWorkoutIfAny(){
           if(e.setData[i]){
             row.querySelector('.reps-input').value=e.setData[i].reps||'';
             row.querySelector('.weight-input').value=e.setData[i].weight||'';
-            setAssistBtnState(row.querySelector('.assist-toggle'),e.setData[i].assisted===true?1:(e.setData[i].assisted||0));
+            if(e.setData[i].assisted) row.querySelector('.assist-toggle')?.classList.add('active');
           }
         });
       }
@@ -1429,10 +1428,6 @@ function autoFillExercisesForBodyPart(bp){
 
   relevant.forEach(e=>{
     if(existingNames.has(e.ex)) return; // already in the form, don't duplicate
-    // Re-check live DOM right before inserting -- guards against another autofill
-    // call (e.g. a second body part) having added this same exercise in the meantime
-    const liveNames=new Set([...document.querySelectorAll('#exBody .ex-select')].map(s=>s.value).filter(Boolean));
-    if(liveNames.has(e.ex)) return;
     added++;
     const block=document.createElement('div');
     block.className='ex-block';
@@ -1563,15 +1558,7 @@ function buildBpGrid(){
   document.getElementById('bpGrid').innerHTML=BODY_PARTS.map(bp=>
     `<div class="bp-btn" onclick="toggleBP(this,'${bp}')">${bp}</div>`).join('');
 }
-let _bpToggleLock=false;
 function toggleBP(el,bp){
-  // Mobile browsers occasionally fire both a touch and a click event for one tap,
-  // which would call this twice in the same instant and immediately re-toggle
-  // whatever state was just set. This lock makes a rapid double-fire a no-op.
-  if(_bpToggleLock) return;
-  _bpToggleLock=true;
-  setTimeout(()=>{_bpToggleLock=false;},350);
-
   el.classList.toggle('active');
   const isNowActive=el.classList.contains('active');
   selectedBP=isNowActive?[...selectedBP,bp]:selectedBP.filter(b=>b!==bp);
@@ -1664,14 +1651,14 @@ function generateSetRows(container, count, exName){
   }
   const existing=container.querySelectorAll('.set-row');
   const vals=[];
-  existing.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value,assisted:parseInt(r.querySelector('.assist-toggle')?.dataset.count)||0}));
+  existing.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value,assisted:r.querySelector('.assist-toggle')?.classList.contains('active')||false}));
   container.innerHTML=`<div class="set-header"><span></span><span>Reps</span><span></span><span class="wt-label">${weightUnit}</span><span></span></div>`;
   for(let i=0;i<count;i++){
     const row=document.createElement('div');
     row.className='set-row';
     row.innerHTML=`<span class="set-num">S${i+1}</span>
       <input class="reps-input" type="number" inputmode="numeric" min="0" max="999" placeholder="--" value="${vals[i]?.reps||''}" onblur="autoFixNum(this)">
-      <button type="button" class="assist-toggle${vals[i]?.assisted?' active':''}" data-count="${vals[i]?.assisted||0}" title="Tap to add a helped rep, hold to remove one">${vals[i]?.assisted||'SOS'}</button>
+      <button type="button" class="assist-toggle${vals[i]?.assisted?' active':''}" onclick="toggleAssist(this)" title="Had help with this set? Tap to mark it">i</button>
       <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" value="${vals[i]?.weight||''}" onblur="autoFixNum(this)">
       <span class="pr-badge-slot" style="font-size:14px;text-align:center;"></span>`;
     // PR check fires once you finish typing and move away from the field --
@@ -1686,7 +1673,6 @@ function generateSetRows(container, count, exName){
         if(v!==inp.value) inp.value=v;
       });
     });
-    attachAssistHandlers(row.querySelector('.assist-toggle'));
     container.appendChild(row);
   }
 }
@@ -1972,7 +1958,7 @@ function collectSupersets(){
         const setsCount=+exBlock.querySelector('.sets-select').value;
         const setData=[];
         exBlock.querySelectorAll('.set-row').forEach((row,i)=>{
-          setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0});
+          setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false});
         });
         exercises.push({ex,sets:setsCount,setData});
       }
@@ -2089,7 +2075,7 @@ function saveSession(){
         } else {
           row.style.outline='';
         }
-        setData.push({set:i+1,reps:reps,weight:weight,assisted:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0});
+        setData.push({set:i+1,reps:reps,weight:weight,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false});
       });
       exercises.push({ex,sets:setsCount,setData});
     }
@@ -2576,7 +2562,7 @@ function draftSave(){
       const sets=+block.querySelector('.sets-select').value;
       const setData=[];
       block.querySelectorAll('.set-row').forEach((row,i)=>{
-        setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0});
+        setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false});
       });
       exercises.push({ex,sets,setData,autobp:block.dataset.autobp||null});
     });
@@ -2661,7 +2647,7 @@ function draftLoad(){
             if(e.setData[i]){
               row.querySelector('.reps-input').value=e.setData[i].reps||'';
               row.querySelector('.weight-input').value=e.setData[i].weight||'';
-              setAssistBtnState(row.querySelector('.assist-toggle'),e.setData[i].assisted===true?1:(e.setData[i].assisted||0));
+              if(e.setData[i].assisted) row.querySelector('.assist-toggle')?.classList.add('active');
             }
           });
         }
@@ -2901,36 +2887,6 @@ function toggleAttAll(btn){
 }
 
 // PERSONAL RECORDS
-// Best {weight,reps} for this exercise from all OTHER sessions (i.e. the record
-// that stood BEFORE this session). Used so every set that beat the old best gets
-// its own trophy, not just the single heaviest set of the session.
-function calcPriorBest(exKey,excludeDate,excludeTimeOfDay){
-  var best=null;
-  sessions.forEach(function(s){
-    if(s.date===excludeDate&&(s.timeOfDay||'')===(excludeTimeOfDay||'')) return;
-    var allEx=[...(s.exercises||[])];
-    (s.supersets||[]).forEach(function(ss){
-      (ss.exercises||[]).forEach(function(e){
-        if(e.type!=='cardio') allEx.push(e);
-      });
-    });
-    allEx.forEach(function(e){
-      if(!e.ex||e.ex.toLowerCase().trim()!==exKey) return;
-      (e.setData||[]).forEach(function(set){
-        if(set.assisted) return;
-        var w=parseFloat(set.weight);
-        var r=set.reps?String(set.reps).trim():'';
-        if(!w||isNaN(w)||!r) return;
-        var rNum=parseInt(r);
-        var isBetter=!best||w>best.weight||
-          (w===best.weight&&!isNaN(rNum)&&!isNaN(parseInt(best.reps))&&rNum>parseInt(best.reps));
-        if(isBetter) best={weight:w,reps:r};
-      });
-    });
-  });
-  return best;
-}
-
 function calcPersonalRecords(){
   // key is lowercased name, value includes original display name
   var prMap={};
@@ -2978,57 +2934,11 @@ function showPRFlash(exName, weight, reps){
   },4500);
 }
 
-function setAssistBtnState(btn,count){
-  if(!btn) return;
-  count=Math.max(0,parseInt(count)||0);
-  btn.dataset.count=count;
-  btn.textContent=count>0?String(count):'SOS';
-  btn.classList.toggle('active',count>0);
-  btn.title=count>0?('Helped on '+count+' rep'+(count!==1?'s':'')+' this set \u2014 tap to add another'):'Had help with this set? Tap to mark it';
-}
-
-function incrementAssist(btn){
+function toggleAssist(btn){
+  btn.classList.toggle('active');
   const row=btn.closest('.set-row');
-  const repsInp=row?row.querySelector('.reps-input'):null;
-  const repsVal=repsInp&&repsInp.value?parseInt(repsInp.value):0;
-  const cap=repsVal>0?repsVal:20; // can't be helped on more reps than the set has
-  const count=parseInt(btn.dataset.count)||0;
-  setAssistBtnState(btn,count>=cap?0:count+1);
   if(row) checkSetForPR(row);
   draftSave();
-}
-
-function decrementAssist(btn){
-  const row=btn.closest('.set-row');
-  const count=parseInt(btn.dataset.count)||0;
-  setAssistBtnState(btn,Math.max(0,count-1));
-  if(row) checkSetForPR(row);
-  draftSave();
-  if(navigator.vibrate) navigator.vibrate(15); // small confirmation buzz that a hold registered
-}
-
-// Tap = +1 helped rep. Press and hold (~450ms) = -1, so a mis-tap is easy to undo
-// without needing a separate button.
-function attachAssistHandlers(btn){
-  if(!btn) return;
-  let timer=null, longFired=false;
-  const startHold=e=>{
-    e.preventDefault(); // stop iOS from treating this as a text-select/callout long-press,
-    longFired=false;    // which was swallowing the hold before our timer could fire
-    timer=setTimeout(()=>{longFired=true;decrementAssist(btn);},450);
-  };
-  const clearHold=()=>{ if(timer){clearTimeout(timer);timer=null;} };
-  const endHold=e=>{
-    e.preventDefault();
-    clearHold();
-    if(!longFired) incrementAssist(btn);
-    longFired=false;
-  };
-  btn.addEventListener('pointerdown',startHold,{passive:false});
-  btn.addEventListener('pointerup',endHold,{passive:false});
-  btn.addEventListener('pointerleave',clearHold);
-  btn.addEventListener('pointercancel',clearHold);
-  btn.addEventListener('contextmenu',e=>e.preventDefault());
 }
 
 function checkSetForPR(row){
@@ -3038,91 +2948,49 @@ function checkSetForPR(row){
   if(!block) return;
   const exSel=block.querySelector('.ex-select,.ss-ex-select');
   const exName=exSel&&exSel.value?exSel.value:'';
-  if(!exName) return;
-  const repsInp=row.querySelector('.reps-input');
-  const weightInp=row.querySelector('.weight-input');
-  const reps=repsInp&&repsInp.value?repsInp.value.trim():'';
-  const weight=weightInp&&weightInp.value?parseFloat(weightInp.value):null;
-  const isAssisted=(parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0)>0;
-  if(!reps||!weight||isNaN(weight)||isAssisted){
-    // Incomplete or assisted set -- it can't hold a valid PR, so clear any stale trophy sitting on this row
-    var staleSlot=row.querySelector('.pr-badge-slot');
-    if(staleSlot) staleSlot.textContent='';
+  if(!exName){
+    block.querySelectorAll('.pr-badge-slot').forEach(function(slot){ slot.textContent=''; });
     return;
   }
-  // Check against historical best
   const prMap=calcPersonalRecords();
   const existing=prMap[exName.toLowerCase().trim()];
-  var bestWeight=existing?existing.weight:0;
-  var bestRepsAtBestWeight=existing?parseInt(existing.reps):NaN;
-  var repsNum=parseInt(reps);
-  // Also consider other sets for this same exercise already filled in THIS session (unsaved) --
-  // otherwise a brand-new exercise has no "existing" record and every set looks like a PR,
-  // even a lighter one entered after a heavier one.
+  const histWeight=existing?existing.weight:0;
+  const histReps=existing?parseInt(existing.reps):NaN;
+
+  // Scan every set row in this block (not just the one that triggered the blur) to find
+  // the current best complete, non-assisted set -- so the trophy always reflects reality,
+  // correctly moving to another set or disappearing entirely if an edit changes things.
+  var bestRow=null, bestWeight=-1, bestReps=NaN;
   block.querySelectorAll('.set-row').forEach(function(r){
-    if(r===row) return;
-    if((parseInt(r.querySelector('.assist-toggle')?.dataset.count)||0)>0) return;
-    var wInp=r.querySelector('.weight-input');
-    var rInp=r.querySelector('.reps-input');
-    var w=wInp&&wInp.value?parseFloat(wInp.value):null;
-    var rp=rInp&&rInp.value?rInp.value.trim():'';
-    if(!rp||!w||isNaN(w)) return;
-    var rpNum=parseInt(rp);
-    if(w>bestWeight){
-      bestWeight=w; bestRepsAtBestWeight=rpNum;
-    } else if(w===bestWeight&&!isNaN(rpNum)&&(isNaN(bestRepsAtBestWeight)||rpNum>bestRepsAtBestWeight)){
-      bestRepsAtBestWeight=rpNum;
+    const repsInp=r.querySelector('.reps-input');
+    const weightInp=r.querySelector('.weight-input');
+    const reps=repsInp&&repsInp.value?repsInp.value.trim():'';
+    const weight=weightInp&&weightInp.value?parseFloat(weightInp.value):null;
+    const isAssisted=r.querySelector('.assist-toggle')?.classList.contains('active')||false;
+    if(!reps||!weight||isNaN(weight)||isAssisted) return;
+    const repsNum=parseInt(reps);
+    if(weight>bestWeight||(weight===bestWeight&&!isNaN(repsNum)&&(isNaN(bestReps)||repsNum>bestReps))){
+      bestWeight=weight; bestReps=repsNum; bestRow=r;
     }
   });
-  const isPR=weight>bestWeight||
-    (weight===bestWeight&&!isNaN(repsNum)&&!isNaN(bestRepsAtBestWeight)&&repsNum>bestRepsAtBestWeight);
+
+  // Clear every trophy slot in this block, then re-add one only where it truly belongs
+  block.querySelectorAll('.pr-badge-slot').forEach(function(slot){ slot.textContent=''; });
+  if(!bestRow) return;
+
+  const isPR=bestWeight>histWeight||
+    (bestWeight===histWeight&&!isNaN(bestReps)&&!isNaN(histReps)&&bestReps>histReps);
   if(!isPR) return;
-  // Update trophy badges across all set rows for this exercise block
-  block.querySelectorAll('.set-row').forEach(function(r){
-    var slot=r.querySelector('.pr-badge-slot');
-    if(slot) slot.textContent='';
-  });
-  // Add trophy to this row's reserved slot
-  var slot=row.querySelector('.pr-badge-slot');
+
+  var slot=bestRow.querySelector('.pr-badge-slot');
   if(slot) slot.textContent='🏆';
-  // Flash full screen
-  showPRFlash(exName, weight, reps);
-}
 
-// Returns {bodyParts:Set, count:Number} -- which body parts hit a new PR in this
-// session, and how many INDIVIDUAL SETS beat their prior best (same rule the
-// per-set trophy icons use), not just how many exercises.
-function getSessionPRInfo(s,prMap){
-  var bodyParts=new Set();
-  var count=0;
-  if(!prMap) return{bodyParts:bodyParts,count:count};
-  var allEx=[...(s.exercises||[])].concat((s.supersets||[]).flatMap(function(ss){return ss.exercises||[];}));
-  allEx.filter(function(e){return e.type!=='cardio'&&e.ex;}).forEach(function(e){
-    var key=e.ex.toLowerCase().trim();
-    var exPR=prMap[key];
-    var isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
-    if(!isSessionPR) return;
-    var priorBest=calcPriorBest(key,s.date,s.timeOfDay);
-    (e.setData||[]).forEach(function(set){
-      if(set.assisted) return;
-      var w=parseFloat(set.weight);
-      var rNum=set.reps?parseInt(set.reps):NaN;
-      if(!w||isNaN(w)||!set.reps) return;
-      var beat=!priorBest||w>priorBest.weight||(w===priorBest.weight&&!isNaN(rNum)&&rNum>parseInt(priorBest.reps));
-      if(beat){
-        count++;
-        bodyParts.add(getBodyPartForExercise(e.ex));
-      }
-    });
-  });
-  return{bodyParts:bodyParts,count:count};
-}
-
-function fmtAssist(v){
-  if(!v) return '';
-  const n=(v===true)?1:(parseInt(v)||0);
-  if(!n) return '';
-  return `<span style="display:inline-flex;align-items:center;gap:2px;background:var(--red);color:#fff;font-size:10px;font-weight:800;letter-spacing:0.3px;padding:2px 6px;border-radius:8px;margin-left:5px;vertical-align:middle;" title="Helped on ${n} rep${n!==1?'s':''} this set">SOS ${n}</span>`;
+  // Only flash full-screen if the row you just finished editing is the one now holding the
+  // trophy -- otherwise editing an unrelated set could re-trigger the flash for a PR you
+  // already saw.
+  if(bestRow===row){
+    showPRFlash(exName, bestRow.querySelector('.weight-input').value, bestRow.querySelector('.reps-input').value);
+  }
 }
 
 function getBodyPartForExercise(name){
@@ -3201,7 +3069,6 @@ function renderHistory(){
   const D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const validSessions=sessions.filter(s=>(s.exercises&&s.exercises.length>0)||(s.cardio&&s.cardio.length>0));
   if(!validSessions.length){el.innerHTML='<div class="empty"><div class="ico"></div><p>No sessions yet.<br>Log your first workout.</p></div>';return;}
-  const _histPrMap=sessions.length>=8?calcPersonalRecords():{};
   el.innerHTML=validSessions.map(s=>{
     const d=new Date(s.date+'T12:00:00');
     const avg=sessRestAvg(s);
@@ -3215,8 +3082,6 @@ function renderHistory(){
     const cardioIntensities=cardioCount?s.cardio.filter(c=>c.intensity).map(c=>c.intensity).filter((v,i,a)=>a.indexOf(v)===i):[];
     // Cardio name pills
     const cardioPills=cardioCount?s.cardio.map(c=>`<span class="sess-tag">${c.ex.toUpperCase()}</span>`).join(''):'';
-    const _histPrInfo=getSessionPRInfo(s,_histPrMap);
-    const bpPills=(s.bodyParts||[]).map(b=>`<span class="sess-tag${_histPrInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')+(!cardioCount&&_histPrInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_histPrInfo.count} P.R.</span>`:'');
     return`<div class="sess-card">
       <div onclick="openDetail(${s.id})" style="flex:1;cursor:pointer;">
         <div class="sess-date">${D[d.getDay()]} . ${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}${s.timeOfDay?' - '+s.timeOfDay:''}</div>
@@ -3225,7 +3090,7 @@ function renderHistory(){
         ${(cardioDurSecs||cardioDurMins)?`<div class="sess-dur">&#128336; ${cardioDurSecs?fmtDur(cardioDurSecs):cardioDurMins+'m'}</div>`:(s.duration?`<div class="sess-dur">&#128336; ${fmtDur(s.duration)}</div>`:'')}
         ${cardioIntensities.length?`<div class="sess-rest">Intensity: ${cardioIntensities.join(', ')}</div>`:''}
         ${!cardioCount&&avg?`<div class="sess-rest">Avg Rest ${fmtSecs(avg)}</div>`:''}
-        <div class="sess-tags">${cardioPills||bpPills}</div>
+        <div class="sess-tags">${cardioPills||(s.bodyParts||[]).map(b=>`<span class="sess-tag">${b}</span>`).join('')}</div>
       </div>
       <button onclick="editSession(${s.id})" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:600;color:var(--text);cursor:pointer;white-space:nowrap;align-self:flex-start;margin-top:4px;">Edit</button>
     </div>`;
@@ -3274,7 +3139,7 @@ function renderStats(){
   document.getElementById('statGrid').innerHTML=`
     <div class="stat-box"><div class="stat-val sv-sage">${total}</div><div class="stat-lbl">Total Sessions</div><div style="font-size:13px;font-weight:500;color:var(--text);font-style:italic;margin-top:4px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px;opacity:0.55;">‹ All time ›</div></div>
     <div class="stat-box"><div class="stat-val sv-sage">${wkS.length}<span style="font-size:17px;color:var(--muted)">/${target}</span></div><div class="stat-lbl">This Week</div><div style="font-size:13px;font-weight:500;color:var(--text);font-style:italic;margin-top:4px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px;opacity:0.55;">‹ Of weekly target ›</div></div>
-    <div class="stat-box"><div class="stat-val sv-gold">${prsSet}</div><div class="stat-lbl">Exercises P.R.'d</div><div style="font-size:13px;font-weight:500;color:var(--text);font-style:italic;margin-top:4px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px;opacity:0.55;">‹ Min. 8 sessions ›</div></div>
+    <div class="stat-box"><div class="stat-val sv-gold">${prsSet}</div><div class="stat-lbl">Exercises PR'd</div><div style="font-size:13px;font-weight:500;color:var(--text);font-style:italic;margin-top:4px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px;opacity:0.55;">‹ Min. 8 sessions ›</div></div>
     <div class="stat-box"><div class="stat-val sv-terra">${bestStreak}w</div><div class="stat-lbl">Best Streak</div><div style="font-size:13px;font-weight:500;color:var(--text);font-style:italic;margin-top:4px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px;opacity:0.55;">‹ Consecutive weeks ›</div></div>`;
 
   const last=sessions[0];
@@ -3456,7 +3321,7 @@ function editSession(id){
         var wi=row.querySelector('.weight-input');
         if(ri) ri.value=sd.reps!==undefined?sd.reps:'';
         if(wi) wi.value=sd.weight!==undefined?sd.weight:'';
-        setAssistBtnState(row.querySelector('.assist-toggle'),sd.assisted===true?1:(sd.assisted||0));
+        if(sd.assisted) row.querySelector('.assist-toggle')?.classList.add('active');
       });
     });
     toast('Session loaded -- make changes and Save Session');
@@ -3513,7 +3378,7 @@ function editSession(id){
               var wi=row.querySelector('.weight-input');
               if(ri) ri.value=sd.reps!==undefined?sd.reps:'';
               if(wi) wi.value=sd.weight!==undefined?sd.weight:'';
-              setAssistBtnState(row.querySelector('.assist-toggle'),sd.assisted===true?1:(sd.assisted||0));
+              if(sd.assisted) row.querySelector('.assist-toggle')?.classList.add('active');
             });
           }
         });
@@ -3582,7 +3447,7 @@ function openDetail(id){
         const uLabel=s.unit||'kg';
         const exPR=prMap8[e.ex.toLowerCase().trim()];
         const isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
-        const priorBest=isSessionPR?calcPriorBest(e.ex.toLowerCase().trim(),s.date,s.timeOfDay):null;
+        let trophyShown=false;
         return`<div style="margin-bottom:16px;">
           <div style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--text);">${e.ex}</div>
           <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
@@ -3593,12 +3458,11 @@ function openDetail(id){
             </tr></thead>
             <tbody>${realSets.map(r=>{
               const w=parseFloat(r.weight)||0;
-              const rNum=r.reps?parseInt(r.reps):NaN;
-              const showTrophy=isSessionPR&&!r.assisted&&w>0&&r.reps&&
-                (!priorBest||w>priorBest.weight||(w===priorBest.weight&&!isNaN(rNum)&&rNum>parseInt(priorBest.reps)));
+              const showTrophy=isSessionPR&&!trophyShown&&w===exPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(exPR.reps);
+              if(showTrophy) trophyShown=true;
               return`<tr>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">S${r.set}</td>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${fmtAssist(r.assisted)}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assisted?'<span style="color:var(--muted2);font-size:12px;font-weight:700;margin-left:3px;" title="Assisted set">ⓘ</span>':''}</td>
               ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
             </tr>`;}).join('')}</tbody>
           </table>
@@ -3625,7 +3489,7 @@ function openDetail(id){
         const hasWeight=ssRealSets.some(r=>r.weight);
         const ssExPR=prMap8[e.ex.toLowerCase().trim()];
         const ssIsSessionPR=ssExPR&&s.date===ssExPR.date&&(s.timeOfDay||'')===(ssExPR.timeOfDay||'');
-        const ssPriorBest=ssIsSessionPR?calcPriorBest(e.ex.toLowerCase().trim(),s.date,s.timeOfDay):null;
+        let ssTrophyShown=false;
         return`<div style="margin-bottom:16px;border-left:3px solid var(--sage);padding-left:10px;">
           <div style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--text);">${e.ex}</div>
           <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
@@ -3636,12 +3500,11 @@ function openDetail(id){
             </tr></thead>
             <tbody>${ssRealSets.map(r=>{
               const w=parseFloat(r.weight)||0;
-              const rNum=r.reps?parseInt(r.reps):NaN;
-              const showTrophy=ssIsSessionPR&&!r.assisted&&w>0&&r.reps&&
-                (!ssPriorBest||w>ssPriorBest.weight||(w===ssPriorBest.weight&&!isNaN(rNum)&&rNum>parseInt(ssPriorBest.reps)));
+              const showTrophy=ssIsSessionPR&&!ssTrophyShown&&w===ssExPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(ssExPR.reps);
+              if(showTrophy) ssTrophyShown=true;
               return`<tr>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">S${r.set}</td>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${fmtAssist(r.assisted)}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assisted?'<span style="color:var(--muted2);font-size:12px;font-weight:700;margin-left:3px;" title="Assisted set">ⓘ</span>':''}</td>
               ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
             </tr>`;}).join('')}</tbody>
           </table>
@@ -3651,10 +3514,8 @@ function openDetail(id){
   }).join(''):'';
   const _effectiveTags=[...(s.bodyParts||[])];
   if((s.cardio&&s.cardio.length)&&_effectiveTags.indexOf('Cardio')===-1) _effectiveTags.push('Cardio');
-  const _prInfo=getSessionPRInfo(s,prMap8);
-  const _prPillHtml=_prInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_prInfo.count} P.R.</span>`:'';
   document.getElementById('dBody').innerHTML=`
-    ${_effectiveTags.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${_effectiveTags.map(b=>`<span class="sess-tag${_prInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')}${_prPillHtml}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:''}
+    ${_effectiveTags.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${_effectiveTags.map(b=>`<span class="sess-tag">${b}</span>`).join('')}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:''}
     ${durLine}
     ${cardioSection}
     ${ssSection}
@@ -3682,32 +3543,6 @@ async function deleteSession(id){
   const s=sessions.find(x=>x.id===id);
   const ok=await showConfirm('Delete this session?','This cannot be undone.');
   if(!ok)return;
-
-  // Tagged clients ("marked as client" by the coach) can't self-delete -- their
-  // coach relies on this history for billing, so route it through approval instead.
-  var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
-  var name=localStorage.getItem('kmfit_name')||'';
-  var canonKey=mobile||name.toLowerCase().trim();
-  if(canonKey){
-    try{
-      const tagRes=await getSB().from('client_tags').select('client_key').eq('client_key',canonKey).eq('tracker','fitness');
-      if(!tagRes.error&&tagRes.data&&tagRes.data.length){
-        await getSB().from('delete_requests').insert({
-          client_name:name, client_mobile:mobile, client_key:canonKey,
-          session_id:id, session_date:s?s.date:'', session_time:s?(s.timeOfDay||''):'',
-          session_summary:s?buildSessionSummary(s):'', status:'pending'
-        });
-        toast('Delete request sent to your coach for approval');
-        closeDetail();
-        return;
-      }
-    }catch(err){
-      console.warn('Could not check client tag status, deleting locally:',err);
-      // fall through to a normal local delete if the check itself fails (e.g. offline) --
-      // a connectivity hiccup shouldn't block someone from managing their own untagged data
-    }
-  }
-
   sessions=sessions.filter(x=>x.id!==id);
   deletedSessionIds=Array.from(new Set([...deletedSessionIds,id]));
   localStorage.setItem('kmfit_deleted_ids',JSON.stringify(deletedSessionIds));
@@ -3715,17 +3550,7 @@ async function deleteSession(id){
   if(s) deleteAttendance(s.date, s.timeOfDay||'');
 }
 
-function buildSessionSummary(s){
-  var parts=[];
-  if(s.bodyParts&&s.bodyParts.length) parts.push(s.bodyParts.join(', '));
-  var exCount=(s.exercises?s.exercises.length:0)+(s.supersets?s.supersets.reduce(function(a,ss){return a+(ss.exercises?ss.exercises.length:0);},0):0);
-  if(exCount) parts.push(exCount+' exercise'+(exCount!==1?'s':''));
-  if(s.cardio&&s.cardio.length) parts.push('Cardio');
-  return parts.join(' · ');
-}
-
-function deleteAttendance(date,time,attempt){
-  attempt=attempt||1;
+function deleteAttendance(date,time){
   var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
   if(!mobile||!date) return;
   ensureAnonAuth(function(){
@@ -3735,12 +3560,7 @@ function deleteAttendance(date,time,attempt){
       .eq('session_date', date)
       .eq('session_time', time)
       .then(function(res){
-        if(res.error){
-          console.warn('Attendance delete error (attempt '+attempt+'):',res.error.message);
-          if(attempt<3){
-            setTimeout(function(){deleteAttendance(date,time,attempt+1);},1500*attempt);
-          }
-        }
+        if(res.error) console.warn('Attendance delete error:',res.error.message);
       });
   });
 }
