@@ -99,12 +99,20 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .assist-toggle.active{background:var(--gold);border-color:var(--gold);color:#0c0c0a;}
 .set-row:last-child{margin-bottom:0;}
 .set-num{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);text-align:center;font-weight:600;}
+.set-row.drop-row{position:relative;margin-left:14px;padding-left:8px;border-left:2px solid rgba(200,120,63,.35);}
+.set-num.dropset{color:var(--terra);font-weight:800;font-size:14px;}
+.drop-del-btn{background:none;border:none;color:var(--muted2);font-size:13px;cursor:pointer;padding:0;width:20px;text-align:center;}
+.add-drop-btn{display:block;width:calc(100% - 14px);margin:2px 0 4px 14px;padding:7px;background:none;border:1.5px dashed rgba(200,120,63,.4);border-radius:8px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;}
+.add-drop-btn:active{opacity:.6;}
 .reps-input,.weight-input{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--text);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;transition:border-color .15s;}
 .reps-input:focus,.weight-input:focus{border-color:var(--sage);}
 .weight-input:focus{border-color:var(--gold);}
 .del-btn{background:var(--surf3);border:1px solid var(--terra);color:var(--terra);font-size:17px;cursor:pointer;width:36px;height:36px;min-width:36px;border-radius:9px;line-height:1;transition:color .18s;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-left:10px;}
 .collapse-btn{background:var(--surf3);border:1px solid var(--border);color:var(--muted2);font-size:15px;cursor:pointer;width:36px;height:36px;min-width:36px;border-radius:9px;line-height:1;flex-shrink:0;transition:color .18s;display:flex;align-items:center;justify-content:center;}
 .collapse-btn:hover{color:var(--sage);}
+.move-btn{background:var(--surf3);border:1px solid var(--border);color:var(--muted2);font-size:12px;cursor:pointer;width:26px;height:36px;min-width:26px;border-radius:7px;line-height:1;flex-shrink:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;}
+.move-btn:active{opacity:.5;}
+.move-btn:disabled{opacity:.25;cursor:default;}
 .del-btn:hover{color:var(--terra);}
 .add-row{margin-top:10px;padding:10px;border:1px dashed var(--border);border-radius:8px;text-align:center;color:var(--muted);font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .18s;}
 .add-row:hover{border-color:var(--sage);color:var(--sage);}
@@ -1366,6 +1374,8 @@ function applyAssignedWorkoutIfAny(){
           <select class="ex-select" onchange="onExChange(this)"></select>
           <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
           <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">▲</button>
+          <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
+          <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">▼</button>
           <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
         </div>
         <div class="set-rows"></div>`;
@@ -1373,15 +1383,7 @@ function applyAssignedWorkoutIfAny(){
       populateSel(block.querySelector('.ex-select'));
       block.querySelector('.ex-select').value=e.ex;
       generateSetRows(block.querySelector('.set-rows'),e.sets||3);
-      if(e.setData){
-        block.querySelectorAll('.set-row').forEach((row,i)=>{
-          if(e.setData[i]){
-            row.querySelector('.reps-input').value=e.setData[i].reps||'';
-            row.querySelector('.weight-input').value=e.setData[i].weight||'';
-            if(e.setData[i].assisted) row.querySelector('.assist-toggle')?.classList.add('active');
-          }
-        });
-      }
+      restoreSetData(block.querySelector('.set-rows'),e.setData);
       onExChange(block.querySelector('.ex-select'));
     });
   }
@@ -1437,6 +1439,8 @@ function autoFillExercisesForBodyPart(bp){
         <select class="ex-select" onchange="onExChange(this)"></select>
         <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
         <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">▲</button>
+        <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
+        <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">▼</button>
         <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
       </div>
       <div class="set-rows"></div>`;
@@ -1649,9 +1653,11 @@ function generateSetRows(container, count, exName){
       </div>`;
     return;
   }
-  const existing=container.querySelectorAll('.set-row');
+  const existingAll=[...container.querySelectorAll('.set-row')];
+  const existingMain=existingAll.filter(r=>!r.classList.contains('drop-row'));
+  const existingDrops=existingAll.filter(r=>r.classList.contains('drop-row'));
   const vals=[];
-  existing.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value,assisted:r.querySelector('.assist-toggle')?.classList.contains('active')||false}));
+  existingMain.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value,assisted:r.querySelector('.assist-toggle')?.classList.contains('active')||false}));
   container.innerHTML=`<div class="set-header"><span></span><span>Reps</span><span></span><span class="wt-label">${weightUnit}</span><span></span></div>`;
   for(let i=0;i<count;i++){
     const row=document.createElement('div');
@@ -1675,6 +1681,80 @@ function generateSetRows(container, count, exName){
     });
     container.appendChild(row);
   }
+  // Re-attach any drop-set rows that existed before this regeneration -- they aren't
+  // governed by the sets-count dropdown, so they survive a count change untouched.
+  existingDrops.forEach(dropRow=>container.appendChild(dropRow));
+  renumberDropRows(container);
+  const addBtn=document.createElement('button');
+  addBtn.type='button';
+  addBtn.className='add-drop-btn';
+  addBtn.textContent='+ Add Drop Set';
+  addBtn.onclick=function(){ addDropSetRow(container); };
+  container.appendChild(addBtn);
+}
+
+function restoreSetData(container,setData){
+  if(!setData) return;
+  const mainRows=[...container.querySelectorAll('.set-row:not(.drop-row)')];
+  let mi=0;
+  setData.forEach(function(sd){
+    if(sd.dropset){
+      addDropSetRow(container);
+      const dropRows=container.querySelectorAll('.set-row.drop-row');
+      const dropRow=dropRows[dropRows.length-1];
+      if(dropRow){
+        dropRow.querySelector('.reps-input').value=sd.reps||'';
+        dropRow.querySelector('.weight-input').value=sd.weight||'';
+        if(sd.assisted) dropRow.querySelector('.assist-toggle')?.classList.add('active');
+      }
+    } else {
+      const row=mainRows[mi];
+      mi++;
+      if(row){
+        row.querySelector('.reps-input').value=sd.reps||'';
+        row.querySelector('.weight-input').value=sd.weight||'';
+        if(sd.assisted) row.querySelector('.assist-toggle')?.classList.add('active');
+      }
+    }
+  });
+}
+
+function addDropSetRow(container){
+  // Remove the trailing "+ Add Drop Set" button, add the row, then re-add the button at the end
+  const oldBtn=container.querySelector('.add-drop-btn');
+  if(oldBtn) oldBtn.remove();
+  const row=document.createElement('div');
+  row.className='set-row drop-row';
+  row.innerHTML=`<span class="set-num dropset">D</span>
+    <input class="reps-input" type="number" inputmode="numeric" min="0" max="999" placeholder="--" onblur="autoFixNum(this)">
+    <button type="button" class="assist-toggle" onclick="toggleAssist(this)" title="Had help with this set? Tap to mark it">i</button>
+    <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" onblur="autoFixNum(this)">
+    <button type="button" class="drop-del-btn" onclick="this.closest('.set-row').remove();draftSave();" title="Remove this drop set">&#10005;</button>`;
+  row.querySelectorAll('.reps-input,.weight-input').forEach(inp=>{
+    inp.addEventListener('blur',()=>checkSetForPR(row));
+  });
+  row.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('blur',()=>{
+      const v=inp.value.replace(/^0+(\d)/,'$1');
+      if(v!==inp.value) inp.value=v;
+    });
+  });
+  container.appendChild(row);
+  const addBtn=document.createElement('button');
+  addBtn.type='button';
+  addBtn.className='add-drop-btn';
+  addBtn.textContent='+ Add Drop Set';
+  addBtn.onclick=function(){ addDropSetRow(container); };
+  container.appendChild(addBtn);
+  draftSave();
+}
+
+function renumberDropRows(container){
+  let n=0;
+  container.querySelectorAll('.set-row.drop-row .set-num').forEach(el=>{
+    n++;
+    el.textContent=n>1?'D'+n:'D';
+  });
 }
 
 function updateSetRows(sel){
@@ -1750,6 +1830,8 @@ function addExRow(){
       <select class="ex-select" onchange="onExChange(this)"></select>
       <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(3)}</select>
       <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">▲</button>
+      <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
+      <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">▼</button>
       <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
     </div>
     <div class="set-rows"></div>`;
@@ -1958,7 +2040,7 @@ function collectSupersets(){
         const setsCount=+exBlock.querySelector('.sets-select').value;
         const setData=[];
         exBlock.querySelectorAll('.set-row').forEach((row,i)=>{
-          setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false});
+          setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false,dropset:row.classList.contains('drop-row')});
         });
         exercises.push({ex,sets:setsCount,setData});
       }
@@ -2075,7 +2157,7 @@ function saveSession(){
         } else {
           row.style.outline='';
         }
-        setData.push({set:i+1,reps:reps,weight:weight,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false});
+        setData.push({set:i+1,reps:reps,weight:weight,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false,dropset:row.classList.contains('drop-row')});
       });
       exercises.push({ex,sets:setsCount,setData});
     }
@@ -2562,7 +2644,7 @@ function draftSave(){
       const sets=+block.querySelector('.sets-select').value;
       const setData=[];
       block.querySelectorAll('.set-row').forEach((row,i)=>{
-        setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false});
+        setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false,dropset:row.classList.contains('drop-row')});
       });
       exercises.push({ex,sets,setData,autobp:block.dataset.autobp||null});
     });
@@ -2635,6 +2717,8 @@ function draftLoad(){
             <select class="ex-select" onchange="onExChange(this)"></select>
             <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
             <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">▲</button>
+            <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
+            <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">▼</button>
             <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
           </div>
           <div class="set-rows"></div>`;
@@ -2642,15 +2726,7 @@ function draftLoad(){
         populateSel(block.querySelector('.ex-select'));
         block.querySelector('.ex-select').value=e.ex;
         generateSetRows(block.querySelector('.set-rows'),e.sets||3);
-        if(e.setData){
-          block.querySelectorAll('.set-row').forEach((row,i)=>{
-            if(e.setData[i]){
-              row.querySelector('.reps-input').value=e.setData[i].reps||'';
-              row.querySelector('.weight-input').value=e.setData[i].weight||'';
-              if(e.setData[i].assisted) row.querySelector('.assist-toggle')?.classList.add('active');
-            }
-          });
-        }
+        restoreSetData(block.querySelector('.set-rows'),e.setData);
       });
     }
 
@@ -2901,7 +2977,7 @@ function calcPersonalRecords(){
       if(!e.ex) return;
       var key=e.ex.toLowerCase().trim();
       (e.setData||[]).forEach(function(set){
-        if(set.assisted) return;
+        if(set.assisted||set.dropset) return;
         var w=parseFloat(set.weight);
         var r=set.reps?String(set.reps).trim():'';
         if(!w||isNaN(w)||!r) return;
@@ -2933,6 +3009,21 @@ function showPRFlash(exName, weight, reps){
     setTimeout(function(){overlay.style.display='none';overlay.style.transition='';overlay.style.opacity='1';},500);
   },4500);
 }
+
+function moveExBlock(btn,direction){
+  const block=btn.closest('.ex-block');
+  if(!block) return;
+  const parent=block.parentElement;
+  if(direction<0){
+    const prev=block.previousElementSibling;
+    if(prev&&prev.classList.contains('ex-block')) parent.insertBefore(block,prev);
+  } else {
+    const next=block.nextElementSibling;
+    if(next&&next.classList.contains('ex-block')) parent.insertBefore(next,block);
+  }
+  draftSave();
+}
+
 
 function toggleAssist(btn){
   btn.classList.toggle('active');
@@ -2967,7 +3058,8 @@ function checkSetForPR(row){
     const reps=repsInp&&repsInp.value?repsInp.value.trim():'';
     const weight=weightInp&&weightInp.value?parseFloat(weightInp.value):null;
     const isAssisted=r.querySelector('.assist-toggle')?.classList.contains('active')||false;
-    if(!reps||!weight||isNaN(weight)||isAssisted) return;
+    const isDrop=r.classList.contains('drop-row');
+    if(!reps||!weight||isNaN(weight)||isAssisted||isDrop) return;
     const repsNum=parseInt(reps);
     if(weight>bestWeight||(weight===bestWeight&&!isNaN(repsNum)&&(isNaN(bestReps)||repsNum>bestReps))){
       bestWeight=weight; bestReps=repsNum; bestRow=r;
@@ -3293,7 +3385,7 @@ function editSession(id){
       if(!block) return;
       var sel=block.querySelector('.ex-select');
       var setsEl=block.querySelector('.sets-select');
-      var setCount=e.setData?e.setData.length:(e.sets||3);
+      var setCount=e.sets||(e.setData?e.setData.filter(function(x){return !x.dropset;}).length:3)||3;
 
       // Set exercise
       var opts=Array.from(sel.options);
@@ -3312,17 +3404,7 @@ function editSession(id){
 
       // Generate set rows
       generateSetRows(block.querySelector('.set-rows'),setCount,e.ex);
-
-      // Fill reps and weight
-      block.querySelectorAll('.set-row').forEach(function(row,j){
-        if(!e.setData||!e.setData[j]) return;
-        var sd=e.setData[j];
-        var ri=row.querySelector('.reps-input');
-        var wi=row.querySelector('.weight-input');
-        if(ri) ri.value=sd.reps!==undefined?sd.reps:'';
-        if(wi) wi.value=sd.weight!==undefined?sd.weight:'';
-        if(sd.assisted) row.querySelector('.assist-toggle')?.classList.add('active');
-      });
+      restoreSetData(block.querySelector('.set-rows'),e.setData);
     });
     toast('Session loaded -- make changes and Save Session');
 
@@ -3368,18 +3450,10 @@ function editSession(id){
             if(intSel) intSel.value=e.intensity||'';
           } else {
             var setsEl=exBlock.querySelector('.sets-select');
-            var setCount=e.setData?e.setData.length:(e.sets||3);
+            var setCount=e.sets||(e.setData?e.setData.filter(function(x){return !x.dropset;}).length:3)||3;
             if(setsEl) setsEl.value=setCount;
             generateSetRows(exBlock.querySelector('.set-rows'),setCount,e.ex);
-            exBlock.querySelectorAll('.set-row').forEach(function(row,j){
-              if(!e.setData||!e.setData[j]) return;
-              var sd=e.setData[j];
-              var ri=row.querySelector('.reps-input');
-              var wi=row.querySelector('.weight-input');
-              if(ri) ri.value=sd.reps!==undefined?sd.reps:'';
-              if(wi) wi.value=sd.weight!==undefined?sd.weight:'';
-              if(sd.assisted) row.querySelector('.assist-toggle')?.classList.add('active');
-            });
+            restoreSetData(exBlock.querySelector('.set-rows'),e.setData);
           }
         });
         // Mark this superset as done/collapsed to match saved state
@@ -3461,7 +3535,7 @@ function openDetail(id){
               const showTrophy=isSessionPR&&!trophyShown&&w===exPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(exPR.reps);
               if(showTrophy) trophyShown=true;
               return`<tr>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">S${r.set}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${r.dropset?'D':'S'+r.set}</td>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assisted?'<span style="color:var(--muted2);font-size:12px;font-weight:700;margin-left:3px;" title="Assisted set">ⓘ</span>':''}</td>
               ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
             </tr>`;}).join('')}</tbody>
@@ -3503,7 +3577,7 @@ function openDetail(id){
               const showTrophy=ssIsSessionPR&&!ssTrophyShown&&w===ssExPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(ssExPR.reps);
               if(showTrophy) ssTrophyShown=true;
               return`<tr>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">S${r.set}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${r.dropset?'D':'S'+r.set}</td>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assisted?'<span style="color:var(--muted2);font-size:12px;font-weight:700;margin-left:3px;" title="Assisted set">ⓘ</span>':''}</td>
               ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
             </tr>`;}).join('')}</tbody>

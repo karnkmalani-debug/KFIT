@@ -56,8 +56,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .form-group{margin-bottom:14px;}
 .form-label{font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
 .form-inp{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;-webkit-appearance:none;}
-.assist-toggle{width:34px;height:34px;border-radius:8px;border:1.5px solid var(--terra);background:transparent;color:var(--terra);font-size:9px;font-weight:900;letter-spacing:0.4px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;touch-action:manipulation;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;}
-.assist-toggle.active{background:var(--terra);border-color:var(--terra);color:#fff;font-size:14px;}
 .form-inp:focus{border-color:var(--sage);}
 .as-bp-btn{padding:5px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;text-transform:uppercase;letter-spacing:1px;}
 .as-bp-btn.active{background:var(--sage-d);border-color:var(--sage);color:var(--sage);}
@@ -91,28 +89,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="mode-toggle">
     <button class="mode-btn active" id="modeBtnFitness" onclick="switchMode('fitness')">Fitness</button>
     <button class="mode-btn" id="modeBtnNutrition" onclick="switchMode('nutrition')">Nutrition</button>
-    <button class="mode-btn" id="modeBtnRequests" onclick="switchMode('requests')">Requests<span id="reqBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
+    <button class="mode-btn" id="modeBtnExercises" onclick="switchMode('exercises')">Exercises<span id="exSuggestBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
   </div>
 
-  <!-- ══════════════ REQUESTS SECTION (exercise additions + session deletions) ══════════════ -->
-  <div id="reqSection" style="display:none;">
-    <div class="content" id="reqDashView">
-      <div style="display:flex;gap:8px;margin-bottom:16px;">
-        <button id="reqTabExercises" class="mode-btn active" style="flex:1;" onclick="switchRequestsTab('exercises')">Exercise Additions<span id="exSuggestBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
-        <button id="reqTabDeletions" class="mode-btn" style="flex:1;" onclick="switchRequestsTab('deletions')">Session Deletions<span id="delReqBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
-      </div>
-
-      <div id="reqExercisesPane">
-        <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Pending Suggestions</div>
-        <div id="exPendingList"><div class="empty">Loading...</div></div>
-        <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:20px 0 10px;">Approved (Live On All Trackers)</div>
-        <div id="exApprovedList"><div class="empty">Loading...</div></div>
-      </div>
-
-      <div id="reqDeletionsPane" style="display:none;">
-        <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Pending Delete Requests</div>
-        <div id="pendingDeleteList"><div class="empty">Loading...</div></div>
-      </div>
+  <!-- ══════════════ EXERCISE SUGGESTIONS SECTION ══════════════ -->
+  <div id="exSection" style="display:none;">
+    <div class="content" id="exDashView">
+      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Pending Suggestions</div>
+      <div id="exPendingList"><div class="empty">Loading...</div></div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:20px 0 10px;">Approved (Live On All Trackers)</div>
+      <div id="exApprovedList"><div class="empty">Loading...</div></div>
     </div>
   </div>
 
@@ -364,7 +350,6 @@ function checkPw(){
       if(!res.error&&res.data){
         var badge=document.getElementById('exSuggestBadge');
         if(res.data.length){ badge.style.display='inline-block'; badge.textContent=res.data.length; }
-        updateCombinedRequestsBadge();
       }
     });
   } else {
@@ -377,90 +362,6 @@ function checkPw(){
 let taggedClients={fitness:{},nutrition:{}}; // canonical_key -> true, per tracker -- fitness and nutrition rosters are independent
 let rosterView='clients'; // 'clients' | 'all'
 let nutRosterView='clients';
-
-let pendingDeleteRequests=[];
-
-async function loadDeleteRequests(){
-  const{data,error}=await getSB().from('delete_requests').select('*').eq('status','pending').order('requested_at',{ascending:false});
-  pendingDeleteRequests=(!error&&data)?data:[];
-  renderPendingDeletePanel();
-}
-
-function renderPendingDeletePanel(){
-  const list=document.getElementById('pendingDeleteList');
-  if(!list) return;
-  const delBadge=document.getElementById('delReqBadge');
-  if(delBadge){
-    if(pendingDeleteRequests.length){ delBadge.style.display='inline-block'; delBadge.textContent=pendingDeleteRequests.length; }
-    else { delBadge.style.display='none'; }
-  }
-  updateCombinedRequestsBadge();
-  if(!pendingDeleteRequests.length){
-    list.innerHTML='<div class="empty">No pending delete requests.</div>';
-    return;
-  }
-  list.innerHTML=pendingDeleteRequests.map(function(r){
-    const clientKey=(r.client_mobile||r.client_name||'').replace(/'/g,"\\'");
-    return`<div onclick="openCoachSession('${clientKey}','${r.session_date||''}','${(r.session_time||'').replace(/'/g,"\\'")}')" style="background:var(--surf1);border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;">
-      <div style="font-size:14px;font-weight:700;margin-bottom:2px;">${r.client_name||'Client'} <span style="font-size:11px;font-weight:600;color:var(--sage);">(tap to view session)</span></div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${r.session_date||''}${r.session_time?' · '+r.session_time:''}${r.session_summary?' · '+r.session_summary:''}</div>
-      <div style="display:flex;gap:8px;" onclick="event.stopPropagation();">
-        <button onclick="approveDeleteRequest(${r.id})" style="flex:1;background:var(--terra);border:none;border-radius:7px;padding:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Approve Delete</button>
-        <button onclick="rejectDeleteRequest(${r.id})" style="flex:1;background:none;border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Keep Session</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-// Combines exercise-suggestion + delete-request pending counts onto the single "Requests" nav tab
-function updateCombinedRequestsBadge(){
-  const reqBadge=document.getElementById('reqBadge');
-  if(!reqBadge) return;
-  const exCount=parseInt(document.getElementById('exSuggestBadge')?.textContent)||0;
-  const delCount=pendingDeleteRequests.length;
-  const total=exCount+delCount;
-  if(total){ reqBadge.style.display='inline-block'; reqBadge.textContent=total; }
-  else { reqBadge.style.display='none'; }
-}
-
-async function rejectDeleteRequest(id){
-  const ok=confirm('Keep this session? The request will be dismissed and nothing will be deleted.');
-  if(!ok) return;
-  await getSB().from('delete_requests').update({status:'rejected',resolved_at:new Date().toISOString()}).eq('id',id);
-  pendingDeleteRequests=pendingDeleteRequests.filter(r=>r.id!==id);
-  renderPendingDeletePanel();
-}
-
-async function approveDeleteRequest(id){
-  const req=pendingDeleteRequests.find(r=>r.id===id);
-  if(!req) return;
-  const ok=confirm('Permanently delete this session for '+(req.client_name||'this client')+'? This cannot be undone.');
-  if(!ok) return;
-
-  const mobile=(req.client_mobile||'').replace(/\D/g,'');
-  const nameKey=(req.client_name||'').toLowerCase().replace(/\s+/g,'_');
-  const clientId=mobile?nameKey+'__'+mobile:nameKey;
-
-  const{data:existing,error:fetchErr}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
-  if(fetchErr){ alert('Could not load client data: '+fetchErr.message); return; }
-  let full={};
-  if(existing&&existing.length&&existing[0].data){
-    full=typeof existing[0].data==='string'?JSON.parse(existing[0].data):existing[0].data;
-  }
-  full.sessions=(full.sessions||[]).filter(s=>s.id!==req.session_id);
-  const{error:trackerErr}=await getSB().from('tracker_data').upsert({client_id:clientId,tracker:'fitness',data:JSON.stringify(full),updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
-  if(trackerErr){ alert('Could not delete session: '+trackerErr.message); return; }
-
-  if(mobile){
-    await getSB().from('attendance').delete().eq('client_mobile',mobile).eq('session_date',req.session_date||'').eq('session_time',req.session_time||'');
-  }
-  await getSB().from('delete_requests').update({status:'approved',resolved_at:new Date().toISOString()}).eq('id',id);
-
-  pendingDeleteRequests=pendingDeleteRequests.filter(r=>r.id!==id);
-  renderPendingDeletePanel();
-  loadAll();
-  alert('Session deleted ✓');
-}
 
 function canonicalClientKey(name,mobile){
   const m=(mobile||'').replace(/\D/g,'');
@@ -503,7 +404,6 @@ async function loadExerciseSuggestions(){
   const badge=document.getElementById('exSuggestBadge');
   if(pending.length){ badge.style.display='inline-block'; badge.textContent=pending.length; }
   else { badge.style.display='none'; }
-  updateCombinedRequestsBadge();
 
   document.getElementById('exPendingList').innerHTML=pending.length?pending.map(r=>`
     <div class="client-card" style="cursor:default;">
@@ -552,8 +452,7 @@ async function dismissExercise(id){
 function loadAll(){
   Promise.all([
     getSB().from('attendance').select('*').order('session_date',{ascending:false}).order('logged_at',{ascending:false}),
-    loadClientTags(),
-    loadDeleteRequests()
+    loadClientTags()
   ]).then(function(results){
     const res=results[0];
     if(res.error){document.getElementById('clientList').innerHTML='<div class="empty">Error loading data.<br>'+res.error.message+'</div>';return;}
@@ -782,7 +681,7 @@ async function editAssignedWorkout(clientKey,dateStr){
 
   asExercises=(w.exercises||[]).map(e=>({
     id:Date.now()+Math.random(), ex:e.ex, sets:(e.setData&&e.setData.length)||e.sets||3,
-    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assisted:r.assisted===true?1:(r.assisted||0)})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||''})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
   }));
   renderAsExercises();
 
@@ -790,7 +689,7 @@ async function editAssignedWorkout(clientKey,dateStr){
     id:Date.now()+Math.random(),
     exercises:(ss.exercises||[]).map(e=>({
       id:Date.now()+Math.random(), ex:e.ex, sets:(e.setData&&e.setData.length)||e.sets||3,
-      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assisted:r.assisted===true?1:(r.assisted||0)})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||''})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
     }))
   }));
   renderAsSupersets();
@@ -856,64 +755,6 @@ function groupClients(){
 
 let currentCoachSession=null; // {clientKey, clientId, date, time, session, attendanceId}
 
-function fillOrphanedSession(clientKey,date,time){
-  const clients=groupClients();
-  const c=Object.values(clients).find(c=>(c.mobile||c.name)===clientKey);
-  if(!c) return;
-  const attRecord=c.records.find(r=>r.session_date===date&&(r.session_time||'')===(time||''));
-  const nameKey=c.name.toLowerCase().replace(/\s+/g,'_');
-  const mobile=(c.mobile||'').replace(/\D/g,'');
-  const clientId=mobile?nameKey+'__'+mobile:nameKey;
-
-  openAddSession(clientKey);
-  document.getElementById('as-modal-title').textContent='Fill In Session';
-  document.getElementById('as-save-btn').textContent='Save Session';
-  document.getElementById('as-delete-btn').style.display='none';
-  document.getElementById('as-client').disabled=true; // this is filling in a specific existing attendance record
-
-  document.getElementById('as-date').value=date;
-  document.getElementById('as-time').value=time?to24Hour(time):'';
-
-  // Best-effort prefill from whatever the attendance record already captured --
-  // the actual exercises/sets were never saved, so those stay blank for you to fill in
-  if(attRecord){
-    if(attRecord.duration_secs) document.getElementById('as-duration').value=Math.round(attRecord.duration_secs/60);
-    if(attRecord.workout_type) document.getElementById('as-type').value=attRecord.workout_type;
-    if(attRecord.body_parts){
-      asSelectedBP=attRecord.body_parts.split(',').map(s=>s.trim()).filter(Boolean);
-      document.querySelectorAll('#as-bp-grid .as-bp-btn').forEach(btn=>{
-        if(asSelectedBP.includes(btn.textContent)) btn.classList.add('active');
-      });
-    }
-  }
-
-  // No existing session id to match -- saving will insert a brand-new session
-  // while updating (not duplicating) this same attendance row
-  editingContext={attendanceId:attRecord?attRecord.id:null,sessionId:Date.now(),clientId,origDate:date,origTime:time};
-  document.getElementById('coachSessionPanel').style.display='none';
-}
-
-function cleanupOrphanedAttendance(clientKey,date,time){
-  const clients=groupClients();
-  const c=Object.values(clients).find(c=>(c.mobile||c.name)===clientKey);
-  if(!c) return;
-  getSB().from('attendance').delete()
-    .eq('client_mobile', c.mobile||'')
-    .eq('session_date', date)
-    .eq('session_time', time)
-    .then(function(res){
-      if(res.error){
-        alert('Could not remove entry: '+res.error.message);
-        return;
-      }
-      allRecords=allRecords.filter(function(r){
-        return !((r.client_mobile||r.client_name)===clientKey&&r.session_date===date&&(r.session_time||'')===(time||''));
-      });
-      document.getElementById('coachSessionPanel').style.display='none';
-      showClient(clientKey);
-    });
-}
-
 function openCoachSession(clientKey, date, time){
   // Find the client's tracker_data
   const clients=groupClients();
@@ -941,17 +782,7 @@ function openCoachSession(clientKey, date, time){
       // Find matching session by date and time
       const s=sessions.find(s=>s.date===date&&(s.timeOfDay===time||!time||!s.timeOfDay));
       if(!s){
-        document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">'
-          +'Session detail not found. This usually means the session was deleted or never fully saved '
-          +'(often from a connection drop) but the attendance record was left behind.<br><br>'
-          +'<button onclick="fillOrphanedSession(\''+clientKey.replace(/'/g,"\\'")+'\',\''+date+'\',\''+(time||'').replace(/'/g,"\\'")+'\')" '
-          +'style="background:var(--sage);border:none;border-radius:8px;padding:10px 16px;color:#fff;'
-          +'font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin:4px;">'
-          +'✎ Fill In This Session</button>'
-          +'<button onclick="cleanupOrphanedAttendance(\''+clientKey.replace(/'/g,"\\'")+'\',\''+date+'\',\''+(time||'').replace(/'/g,"\\'")+'\')" '
-          +'style="background:none;border:1px solid var(--terra);border-radius:8px;padding:10px 16px;color:var(--terra);'
-          +'font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin:4px;">'
-          +'🗑 Remove This Entry</button></div>';
+        document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">Session detail not found.</div>';
         return;
       }
       currentCoachSession={clientKey,clientId,date,time,session:s,attendanceId:attRecord?attRecord.id:null};
@@ -960,31 +791,6 @@ function openCoachSession(clientKey, date, time){
         <button onclick="deleteCoachSessionFromPanel()" style="background:none;border:1px solid var(--terra);border-radius:8px;padding:8px 14px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🗑 Delete</button>`;
       renderCoachSession(s,sessions);
     });
-}
-
-// Best {weight,reps} for this exercise from all OTHER sessions (the record that
-// stood BEFORE this session), so every set that beat it can get its own trophy.
-function calcPriorBestCoach(exKey,excludeDate,excludeTimeOfDay,allSessions){
-  var best=null;
-  (allSessions||[]).forEach(function(s){
-    if(s.date===excludeDate&&(s.timeOfDay||'')===(excludeTimeOfDay||'')) return;
-    var allEx=[...(s.exercises||[])];
-    (s.supersets||[]).forEach(function(ss){
-      (ss.exercises||[]).forEach(function(e){
-        if(e.type!=='cardio') allEx.push(e);
-      });
-    });
-    allEx.forEach(function(e){
-      if(!e.ex||e.ex.toLowerCase().trim()!==exKey) return;
-      (e.setData||[]).forEach(function(set){
-        var w=parseFloat(set.weight);
-        var r=set.reps?String(set.reps).trim():'';
-        if(!w||isNaN(w)||!r) return;
-        if(!best||w>best.weight) best={weight:w,reps:r};
-      });
-    });
-  });
-  return best;
 }
 
 function calcPersonalRecordsCoach(sessions){
@@ -1000,60 +806,21 @@ function calcPersonalRecordsCoach(sessions){
       if(!e.ex) return;
       var key=e.ex.toLowerCase().trim();
       (e.setData||[]).forEach(function(set){
+        if(set.assisted||set.dropset) return;
         var w=parseFloat(set.weight);
         var r=set.reps?String(set.reps).trim():'';
         if(!w||isNaN(w)||!r) return;
         var existing=prMap[key];
-        if(!existing||w>existing.weight){
+        var rNum=parseInt(r);
+        var isBetter=!existing||w>existing.weight||
+          (w===existing.weight&&!isNaN(rNum)&&!isNaN(parseInt(existing.reps))&&rNum>parseInt(existing.reps));
+        if(isBetter){
           prMap[key]={weight:w,reps:set.reps||'',date:s.date,timeOfDay:s.timeOfDay||'',displayName:e.ex};
         }
       });
     });
   });
   return prMap;
-}
-
-function fmtAssistCoach(v){
-  if(!v) return '';
-  const n=(v===true)?1:(parseInt(v)||0);
-  if(!n) return '';
-  return `<span style="display:inline-flex;align-items:center;gap:2px;background:var(--terra);color:#fff;font-size:9px;font-weight:800;letter-spacing:0.5px;padding:2px 6px;border-radius:10px;margin-left:6px;vertical-align:middle;">SOS \u00d7${n}</span>`;
-}
-
-function getBodyPartForExerciseCoach(name){
-  if(!name) return 'Other';
-  var lower=name.toLowerCase().trim();
-  for(var bp in EX_LIB){
-    if((EX_LIB[bp]||[]).some(function(e){return e.toLowerCase().trim()===lower;})) return bp;
-  }
-  return 'Other';
-}
-
-// Returns {bodyParts:Set, count:Number} -- which body parts hit a new PR in this
-// session, and how many INDIVIDUAL SETS beat their prior best.
-function getSessionPRInfoCoach(s,prMap,allSessions){
-  var bodyParts=new Set();
-  var count=0;
-  if(!prMap) return{bodyParts:bodyParts,count:count};
-  var allEx=[...(s.exercises||[])].concat((s.supersets||[]).flatMap(function(ss){return ss.exercises||[];}));
-  allEx.filter(function(e){return e.type!=='cardio'&&e.ex;}).forEach(function(e){
-    var key=e.ex.toLowerCase().trim();
-    var exPR=prMap[key];
-    var isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
-    if(!isSessionPR) return;
-    var priorBest=calcPriorBestCoach(key,s.date,s.timeOfDay,allSessions);
-    (e.setData||[]).forEach(function(set){
-      var w=parseFloat(set.weight);
-      var rNum=set.reps?parseInt(set.reps):NaN;
-      if(!w||isNaN(w)||!set.reps) return;
-      var beat=!priorBest||w>priorBest.weight||(w===priorBest.weight&&!isNaN(rNum)&&rNum>parseInt(priorBest.reps));
-      if(beat){
-        count++;
-        bodyParts.add(getBodyPartForExerciseCoach(e.ex));
-      }
-    });
-  });
-  return{bodyParts:bodyParts,count:count};
 }
 
 function closeCoachSession(){
@@ -1073,10 +840,8 @@ function renderCoachSession(s,allSessions){
   const _totalReps=_realSetsForTotals.reduce((a,r)=>a+(parseInt(r.reps)||0),0);
 
   // Body parts
-  const _coachPrInfo=getSessionPRInfoCoach(s,prMap8,allSessions);
-  const _coachPrPill=_coachPrInfo.count?`<span style="padding:4px 12px;background:var(--gold);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#171200;">🏆 ${_coachPrInfo.count} P.R.</span>`:'';
   const bpHtml=(s.bodyParts&&s.bodyParts.length)?
-    `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${s.bodyParts.map(b=>_coachPrInfo.bodyParts.has(b)?`<span style="padding:4px 12px;background:var(--gold);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#171200;">${b}</span>`:`<span style="padding:4px 12px;background:var(--gold-d);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold);">${b}</span>`).join('')}${_coachPrPill}${_exCount?`<span style="color:var(--muted);font-size:14px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:'' ;
+    `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${s.bodyParts.map(b=>`<span style="padding:4px 12px;background:var(--gold-d);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold);">${b}</span>`).join('')}${_exCount?`<span style="color:var(--muted);font-size:14px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:'' ;
 
   // Duration
   const sessDur=s.duration||(s.cardio&&s.cardio.length?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60:0);
@@ -1110,7 +875,7 @@ function renderCoachSession(s,allSessions){
       const hasW=ssRealSets.some(r=>r.weight);
       const ssExPR=prMap8[e.ex.toLowerCase().trim()];
       const ssIsSessionPR=ssExPR&&s.date===ssExPR.date&&(s.timeOfDay||'')===(ssExPR.timeOfDay||'');
-      const ssPriorBest=ssIsSessionPR?calcPriorBestCoach(e.ex.toLowerCase().trim(),s.date,s.timeOfDay,allSessions):null;
+      let ssTrophyShown=false;
       return`<div style="border-left:3px solid var(--sage);padding-left:10px;margin-bottom:12px;">
         <div style="font-size:16px;font-weight:700;margin-bottom:6px;">${e.ex}</div>
         <table style="width:100%;border-collapse:collapse;">
@@ -1121,12 +886,11 @@ function renderCoachSession(s,allSessions){
           </tr></thead>
           <tbody>${ssRealSets.map(r=>{
             const w=parseFloat(r.weight)||0;
-            const rNum=r.reps?parseInt(r.reps):NaN;
-            const showTrophy=ssIsSessionPR&&!r.assisted&&w>0&&r.reps&&
-              (!ssPriorBest||w>ssPriorBest.weight||(w===ssPriorBest.weight&&!isNaN(rNum)&&rNum>parseInt(ssPriorBest.reps)));
+            const showTrophy=ssIsSessionPR&&!ssTrophyShown&&w===ssExPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(ssExPR.reps);
+            if(showTrophy) ssTrophyShown=true;
             return`<tr>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">S${r.set}</td>
-            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${fmtAssistCoach(r.assisted)}</td>
+            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}</td>
             ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
           </tr>`;}).join('')}</tbody>
         </table>
@@ -1142,7 +906,7 @@ function renderCoachSession(s,allSessions){
       const hasW=realSets.some(r=>r.weight);
       const exPR=prMap8[e.ex.toLowerCase().trim()];
       const isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
-      const priorBest=isSessionPR?calcPriorBestCoach(e.ex.toLowerCase().trim(),s.date,s.timeOfDay,allSessions):null;
+      let trophyShown=false;
       return`<div style="margin-bottom:16px;">
         <div style="font-size:16px;font-weight:700;margin-bottom:6px;">${e.ex}</div>
         <table style="width:100%;border-collapse:collapse;">
@@ -1153,12 +917,11 @@ function renderCoachSession(s,allSessions){
           </tr></thead>
           <tbody>${realSets.map(r=>{
             const w=parseFloat(r.weight)||0;
-            const rNum=r.reps?parseInt(r.reps):NaN;
-            const showTrophy=isSessionPR&&!r.assisted&&w>0&&r.reps&&
-              (!priorBest||w>priorBest.weight||(w===priorBest.weight&&!isNaN(rNum)&&rNum>parseInt(priorBest.reps)));
+            const showTrophy=isSessionPR&&!trophyShown&&w===exPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(exPR.reps);
+            if(showTrophy) trophyShown=true;
             return`<tr>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">S${r.set}</td>
-            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${fmtAssistCoach(r.assisted)}</td>
+            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}</td>
             ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
           </tr>`;}).join('')}</tbody>
         </table>
@@ -1539,61 +1302,16 @@ function renderAsSupersets(){
           ${lastPerfHtml(e.ex)}
           <div style="display:flex;flex-direction:column;gap:6px;">
             <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);"><span></span><span>Reps</span><span>${asUnit}</span></div>
-            ${e.setData.map((r,i2)=>`<div style="display:grid;grid-template-columns:30px 1fr 34px 1fr;gap:8px;align-items:center;">
+            ${e.setData.map((r,i2)=>`<div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;align-items:center;">
               <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);text-align:center;">S${r.set}</span>
               <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${r.reps}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${i2},'reps',this.value)">
-              <button type="button" class="assist-toggle as-assist-btn${r.assisted?' active':''}" data-count="${r.assisted||0}" data-kind="ss" data-ss="${ss.id}" data-ex="${e.id}" data-idx="${i2}" title="Tap to add a helped rep, hold to remove one">${r.assisted||'SOS'}</button>
               <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${r.weight}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${i2},'weight',this.value)">
             </div>`).join('')}
           </div>
         </div>`).join('')}
       <div onclick="addAsSupersetEx('${ss.id}')" style="padding:6px;border:1px dashed var(--sage);border-radius:8px;text-align:center;color:var(--sage);font-size:12px;font-weight:700;cursor:pointer;">+ Add Exercise to Superset</div>
     </div>`).join('');
-  document.querySelectorAll('#as-superset-blocks .as-assist-btn').forEach(attachAsAssistHandlers);
   autoDetectAsType();
-}
-
-function attachAsAssistHandlers(btn){
-  if(!btn) return;
-  let timer=null, longFired=false;
-  const getRow=()=>{
-    if(btn.dataset.kind==='ex'){
-      const b=asExercises.find(x=>x.id==btn.dataset.id);
-      return b?b.setData[+btn.dataset.idx]:null;
-    } else {
-      const ss=asSupersets.find(x=>x.id==btn.dataset.ss);
-      const e=ss?ss.exercises.find(x=>x.id==btn.dataset.ex):null;
-      return e?e.setData[+btn.dataset.idx]:null;
-    }
-  };
-  const apply=delta=>{
-    const row=getRow(); if(!row) return;
-    if(delta>0){
-      const cap=row.reps?parseInt(row.reps):20;
-      const v=(parseInt(row.assisted)||0)+1;
-      row.assisted=v>cap?0:v;
-    } else {
-      row.assisted=Math.max(0,(parseInt(row.assisted)||0)-1);
-    }
-    if(btn.dataset.kind==='ex') renderAsExercises(); else renderAsSupersets();
-  };
-  const startHold=e=>{
-    e.preventDefault();
-    longFired=false;
-    timer=setTimeout(()=>{longFired=true;apply(-1);},450);
-  };
-  const clearHold=()=>{ if(timer){clearTimeout(timer);timer=null;} };
-  const endHold=e=>{
-    e.preventDefault();
-    clearHold();
-    if(!longFired) apply(1);
-    longFired=false;
-  };
-  btn.addEventListener('pointerdown',startHold,{passive:false});
-  btn.addEventListener('pointerup',endHold,{passive:false});
-  btn.addEventListener('pointerleave',clearHold);
-  btn.addEventListener('pointercancel',clearHold);
-  btn.addEventListener('contextmenu',e=>e.preventDefault());
 }
 
 function addAsExercise(){
@@ -1602,9 +1320,16 @@ function addAsExercise(){
 }
 
 function renderAsExercises(){
-  document.getElementById('as-ex-blocks').innerHTML=asExercises.map(b=>`
+  document.getElementById('as-ex-blocks').innerHTML=asExercises.map((b,bi)=>{
+    const mainSets=b.setData.filter(r=>!r.dropset);
+    const dropSets=b.setData.filter(r=>r.dropset);
+    return`
     <div class="as-cardio-block">
-      <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-bottom:8px;align-items:center;">
+      <div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;margin-bottom:8px;align-items:center;">
+        <div style="display:flex;gap:2px;">
+          <button onclick="moveAsExercise('${b.id}',-1)" ${bi===0?'disabled':''} style="background:var(--surf3);border:1px solid var(--border);color:var(--muted2);font-size:11px;width:24px;height:32px;border-radius:6px;cursor:pointer;${bi===0?'opacity:.25;':''}">\u25b2</button>
+          <button onclick="moveAsExercise('${b.id}',1)" ${bi===asExercises.length-1?'disabled':''} style="background:var(--surf3);border:1px solid var(--border);color:var(--muted2);font-size:11px;width:24px;height:32px;border-radius:6px;cursor:pointer;${bi===asExercises.length-1?'opacity:.25;':''}">\u25bc</button>
+        </div>
         ${exSelectHtml(b.id,b.ex,`updateAsExercise('${b.id}','ex',this.value)`)}
         <select class="form-inp" onchange="updateAsExSets('${b.id}',this.value)" style="font-size:14px;width:64px;">
           ${Array.from({length:25},(_,i)=>i+1).map(n=>`<option value="${n}"${n===b.sets?' selected':''}>${n} set${n>1?'s':''}</option>`).join('')}
@@ -1614,16 +1339,46 @@ function renderAsExercises(){
       ${lastPerfHtml(b.ex)}
       <div style="display:flex;flex-direction:column;gap:6px;">
         <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);"><span></span><span>Reps</span><span>${asUnit}</span></div>
-        ${b.setData.map((r,i)=>`<div style="display:grid;grid-template-columns:30px 1fr 34px 1fr;gap:8px;align-items:center;">
-          <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);text-align:center;">S${r.set}</span>
+        ${mainSets.map((r,i)=>`<div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;align-items:center;">
+          <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);text-align:center;">S${i+1}</span>
           <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${r.reps}" oninput="updateAsExSetData('${b.id}',${i},'reps',this.value)">
-          <button type="button" class="assist-toggle as-assist-btn${r.assisted?' active':''}" data-count="${r.assisted||0}" data-kind="ex" data-id="${b.id}" data-idx="${i}" title="Tap to add a helped rep, hold to remove one">${r.assisted||'SOS'}</button>
           <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${r.weight}" oninput="updateAsExSetData('${b.id}',${i},'weight',this.value)">
         </div>`).join('')}
+        ${dropSets.map((r,di)=>{
+          const realIdx=b.setData.indexOf(r);
+          return`<div style="display:grid;grid-template-columns:30px 1fr 1fr auto;gap:8px;align-items:center;margin-left:14px;padding-left:8px;border-left:2px solid rgba(200,120,63,.35);">
+          <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--terra);font-weight:800;text-align:center;">${di>0?'D'+(di+1):'D'}</span>
+          <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${r.reps}" oninput="updateAsExSetData('${b.id}',${realIdx},'reps',this.value)">
+          <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${r.weight}" oninput="updateAsExSetData('${b.id}',${realIdx},'weight',this.value)">
+          <button onclick="removeAsDropSet('${b.id}',${realIdx})" title="Remove this drop set" style="background:none;border:none;color:var(--muted2);font-size:13px;cursor:pointer;padding:0;">✕</button>
+        </div>`;}).join('')}
+        <button type="button" onclick="addAsDropSet('${b.id}')" style="display:block;width:calc(100% - 14px);margin:2px 0 0 14px;padding:7px;background:none;border:1.5px dashed rgba(200,120,63,.4);border-radius:8px;color:var(--terra);font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer;">+ Add Drop Set</button>
       </div>
-    </div>`).join('');
-  document.querySelectorAll('#as-ex-blocks .as-assist-btn').forEach(attachAsAssistHandlers);
+    </div>`;}).join('');
   autoDetectAsType();
+}
+
+function moveAsExercise(id,direction){
+  const idx=asExercises.findIndex(b=>b.id==id);
+  if(idx<0) return;
+  const swapIdx=idx+direction;
+  if(swapIdx<0||swapIdx>=asExercises.length) return;
+  [asExercises[idx],asExercises[swapIdx]]=[asExercises[swapIdx],asExercises[idx]];
+  renderAsExercises();
+}
+
+function addAsDropSet(id){
+  const b=asExercises.find(b=>b.id==id);
+  if(!b) return;
+  b.setData.push({set:b.setData.length+1,reps:'',weight:'',dropset:true});
+  renderAsExercises();
+}
+
+function removeAsDropSet(id,idx){
+  const b=asExercises.find(b=>b.id==id);
+  if(!b) return;
+  b.setData.splice(idx,1);
+  renderAsExercises();
 }
 
 function updateAsExercise(id,field,val){
@@ -1636,12 +1391,15 @@ function updateAsExSets(id,newCount){
   const b=asExercises.find(b=>b.id==id);
   if(!b)return;
   newCount=parseInt(newCount);
-  const cur=b.setData.length;
+  const mainSets=b.setData.filter(r=>!r.dropset);
+  const dropSets=b.setData.filter(r=>r.dropset);
+  const cur=mainSets.length;
   if(newCount>cur){
-    for(let i=cur;i<newCount;i++)b.setData.push({set:i+1,reps:'',weight:''});
+    for(let i=cur;i<newCount;i++)mainSets.push({set:i+1,reps:'',weight:''});
   } else {
-    b.setData=b.setData.slice(0,newCount);
+    mainSets.length=newCount;
   }
+  b.setData=mainSets.concat(dropSets);
   b.sets=newCount;
   renderAsExercises();
 }
@@ -1683,7 +1441,7 @@ function editCoachSession(){
     id:Date.now()+Math.random(),
     ex:e.ex,
     sets:(e.setData&&e.setData.length)||e.sets||3,
-    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assisted:r.assisted===true?1:(r.assisted||0)})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||''})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
   }));
   renderAsExercises();
 
@@ -1694,7 +1452,7 @@ function editCoachSession(){
       id:Date.now()+Math.random(),
       ex:e.ex,
       sets:(e.setData&&e.setData.length)||e.sets||3,
-      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assisted:r.assisted===true?1:(r.assisted||0)})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||''})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
     }))
   }));
   renderAsSupersets();
@@ -1774,9 +1532,8 @@ async function saveAssignedWorkout(){
     clientName=opt.dataset.name||clientSel.value;
     clientMobile=opt.dataset.mobile||clientSel.value;
   }
-  const startDate=document.getElementById('as-date-start').value;
-  const endDate=document.getElementById('as-date-end').value;
-  if(!startDate||!endDate){alert('Select a date range');return;}
+  const startDate=document.getElementById('as-date-start').value||localDateStr();
+  const endDate=document.getElementById('as-date-end').value||localDateStr();
   const dateList=getDateRangeList(startDate,endDate,asSelectedDOW);
   if(!dateList.length){alert('No matching days in that range -- check your day-of-week selection.');return;}
 
@@ -2015,21 +1772,21 @@ document.getElementById('pwInp').addEventListener('keydown',function(e){
 
 // ── Mode switcher: toggles between Fitness, Nutrition, and Exercises sections ──
 let nutDataLoaded=false;
-let reqDataLoaded=false;
+let exDataLoaded=false;
 function switchMode(mode){
   const fitBtn=document.getElementById('modeBtnFitness');
   const nutBtn=document.getElementById('modeBtnNutrition');
-  const reqBtn=document.getElementById('modeBtnRequests');
+  const exBtn=document.getElementById('modeBtnExercises');
   const fitSec=document.getElementById('fitSection');
   const nutSec=document.getElementById('nutSection');
-  const reqSec=document.getElementById('reqSection');
+  const exSec=document.getElementById('exSection');
   const pageTitle=document.getElementById('pageTitle');
   fitBtn.classList.toggle('active',mode==='fitness');
   nutBtn.classList.toggle('active',mode==='nutrition');
-  reqBtn.classList.toggle('active',mode==='requests');
+  exBtn.classList.toggle('active',mode==='exercises');
   fitSec.style.display=mode==='fitness'?'block':'none';
   nutSec.style.display=mode==='nutrition'?'block':'none';
-  reqSec.style.display=mode==='requests'?'block':'none';
+  exSec.style.display=mode==='exercises'?'block':'none';
   if(mode==='fitness'){
     pageTitle.textContent='Coach · Fitness';
   } else if(mode==='nutrition'){
@@ -2039,17 +1796,9 @@ function switchMode(mode){
       nutLoadAll();
     }
   } else {
-    pageTitle.textContent='Coach · Requests';
+    pageTitle.textContent='Coach · Exercises';
     loadExerciseSuggestions();
-    loadDeleteRequests();
   }
-}
-
-function switchRequestsTab(tab){
-  document.getElementById('reqTabExercises').classList.toggle('active',tab==='exercises');
-  document.getElementById('reqTabDeletions').classList.toggle('active',tab==='deletions');
-  document.getElementById('reqExercisesPane').style.display=tab==='exercises'?'block':'none';
-  document.getElementById('reqDeletionsPane').style.display=tab==='deletions'?'block':'none';
 }
 
 let allClients=[];
