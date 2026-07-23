@@ -806,7 +806,7 @@ function calcPersonalRecordsCoach(sessions){
       if(!e.ex) return;
       var key=e.ex.toLowerCase().trim();
       (e.setData||[]).forEach(function(set){
-        if(set.assisted||set.dropset) return;
+        if((set.assistedReps>0)||set.dropset) return;
         var w=parseFloat(set.weight);
         var r=set.reps?String(set.reps).trim():'';
         if(!w||isNaN(w)||!r) return;
@@ -884,15 +884,16 @@ function renderCoachSession(s,allSessions){
             <th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;">Reps</th>
             ${hasW?`<th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;">${uLabel}</th><th style="width:20px;"></th>`:''}
           </tr></thead>
-          <tbody>${ssRealSets.map(r=>{
+          <tbody>${(()=>{let dropN=0;return ssRealSets.map(r=>{
             const w=parseFloat(r.weight)||0;
             const showTrophy=ssIsSessionPR&&!ssTrophyShown&&w===ssExPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(ssExPR.reps);
             if(showTrophy) ssTrophyShown=true;
+            const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
             return`<tr>
-            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">S${r.set}</td>
-            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}</td>
+            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${r.dropset?'var(--terra)':'inherit'};border-bottom:1px solid var(--border);padding:6px 0;">${dropLabel}</td>
+            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="color:var(--gold);font-size:10px;font-weight:800;margin-left:3px;">\u24d8'+r.assistedReps+'</span>':''}</td>
             ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
-          </tr>`;}).join('')}</tbody>
+          </tr>`;}).join('')})()}</tbody>
         </table>
       </div>`;
     }).join('')}
@@ -915,15 +916,16 @@ function renderCoachSession(s,allSessions){
             <th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;">Reps</th>
             ${hasW?`<th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;">${uLabel}</th><th style="width:20px;"></th>`:''}
           </tr></thead>
-          <tbody>${realSets.map(r=>{
+          <tbody>${(()=>{let dropN=0;return realSets.map(r=>{
             const w=parseFloat(r.weight)||0;
             const showTrophy=isSessionPR&&!trophyShown&&w===exPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(exPR.reps);
             if(showTrophy) trophyShown=true;
+            const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
             return`<tr>
-            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">S${r.set}</td>
-            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}</td>
+            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${r.dropset?'var(--terra)':'inherit'};border-bottom:1px solid var(--border);padding:6px 0;">${dropLabel}</td>
+            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="color:var(--gold);font-size:10px;font-weight:800;margin-left:3px;">\u24d8'+r.assistedReps+'</span>':''}</td>
             ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
-          </tr>`;}).join('')}</tbody>
+          </tr>`;}).join('')})()}</tbody>
         </table>
       </div>`;
     }).join('')}
@@ -1321,8 +1323,17 @@ function addAsExercise(){
 
 function renderAsExercises(){
   document.getElementById('as-ex-blocks').innerHTML=asExercises.map((b,bi)=>{
-    const mainSets=b.setData.filter(r=>!r.dropset);
-    const dropSets=b.setData.filter(r=>r.dropset);
+    // Group setData into {main set, its own drops} chunks, in true array order
+    let mainIdx=-1;
+    const groups=[];
+    b.setData.forEach((item,realIdx)=>{
+      if(!item.dropset){
+        mainIdx++;
+        groups.push({mainIdx,mainRealIdx:realIdx,mainItem:item,drops:[]});
+      } else if(groups.length){
+        groups[groups.length-1].drops.push({item,realIdx});
+      }
+    });
     return`
     <div class="as-cardio-block">
       <div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;margin-bottom:8px;align-items:center;">
@@ -1339,20 +1350,20 @@ function renderAsExercises(){
       ${lastPerfHtml(b.ex)}
       <div style="display:flex;flex-direction:column;gap:6px;">
         <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);"><span></span><span>Reps</span><span>${asUnit}</span></div>
-        ${mainSets.map((r,i)=>`<div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;align-items:center;">
-          <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);text-align:center;">S${i+1}</span>
-          <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${r.reps}" oninput="updateAsExSetData('${b.id}',${i},'reps',this.value)">
-          <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${r.weight}" oninput="updateAsExSetData('${b.id}',${i},'weight',this.value)">
-        </div>`).join('')}
-        ${dropSets.map((r,di)=>{
-          const realIdx=b.setData.indexOf(r);
-          return`<div style="display:grid;grid-template-columns:30px 1fr 1fr auto;gap:8px;align-items:center;margin-left:14px;padding-left:8px;border-left:2px solid rgba(200,120,63,.35);">
-          <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--terra);font-weight:800;text-align:center;">${di>0?'D'+(di+1):'D'}</span>
-          <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${r.reps}" oninput="updateAsExSetData('${b.id}',${realIdx},'reps',this.value)">
-          <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${r.weight}" oninput="updateAsExSetData('${b.id}',${realIdx},'weight',this.value)">
-          <button onclick="removeAsDropSet('${b.id}',${realIdx})" title="Remove this drop set" style="background:none;border:none;color:var(--muted2);font-size:13px;cursor:pointer;padding:0;">✕</button>
-        </div>`;}).join('')}
-        <button type="button" onclick="addAsDropSet('${b.id}')" style="display:block;width:calc(100% - 14px);margin:2px 0 0 14px;padding:7px;background:none;border:1.5px dashed rgba(200,120,63,.4);border-radius:8px;color:var(--terra);font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer;">+ Add Drop Set</button>
+        ${groups.map(g=>`
+          <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;align-items:center;">
+            <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);text-align:center;">S${g.mainIdx+1}</span>
+            <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${g.mainItem.reps}" oninput="updateAsExSetData('${b.id}',${g.mainRealIdx},'reps',this.value)">
+            <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${g.mainItem.weight}" oninput="updateAsExSetData('${b.id}',${g.mainRealIdx},'weight',this.value)">
+          </div>
+          ${g.drops.map((d,di)=>`<div style="display:grid;grid-template-columns:30px 1fr 1fr auto;gap:8px;align-items:center;margin-left:14px;padding-left:8px;border-left:2px solid rgba(200,120,63,.35);">
+            <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--terra);font-weight:800;text-align:center;">${di>0?'D'+(di+1):'D'}</span>
+            <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${d.item.reps}" oninput="updateAsExSetData('${b.id}',${d.realIdx},'reps',this.value)">
+            <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${d.item.weight}" oninput="updateAsExSetData('${b.id}',${d.realIdx},'weight',this.value)">
+            <button onclick="removeAsDropSet('${b.id}',${d.realIdx})" title="Remove this drop set" style="background:none;border:none;color:var(--muted2);font-size:13px;cursor:pointer;padding:0;">✕</button>
+          </div>`).join('')}
+          <button type="button" onclick="addAsDropSet('${b.id}',${g.mainIdx})" style="display:block;width:auto;margin:0 0 4px 38px;padding:2px 0;background:none;border:none;color:var(--terra);font-family:inherit;font-size:.7rem;font-weight:700;cursor:pointer;text-align:left;opacity:.75;">+ Drop set</button>
+        `).join('')}
       </div>
     </div>`;}).join('');
   autoDetectAsType();
@@ -1367,10 +1378,24 @@ function moveAsExercise(id,direction){
   renderAsExercises();
 }
 
-function addAsDropSet(id){
+function addAsDropSet(id,afterMain){
   const b=asExercises.find(b=>b.id==id);
   if(!b) return;
-  b.setData.push({set:b.setData.length+1,reps:'',weight:'',dropset:true});
+  // Insert right after the last existing item (main set or one of its own drops) in that group
+  let insertAt=-1,mainSeen=-1;
+  for(let i=0;i<b.setData.length;i++){
+    const item=b.setData[i];
+    if(!item.dropset){
+      mainSeen++;
+      if(mainSeen===afterMain) insertAt=i;
+    } else if(mainSeen===afterMain){
+      insertAt=i;
+    } else if(mainSeen>afterMain){
+      break;
+    }
+  }
+  if(insertAt<0) insertAt=b.setData.length-1;
+  b.setData.splice(insertAt+1,0,{reps:'',weight:'',dropset:true,afterMain});
   renderAsExercises();
 }
 
@@ -1398,8 +1423,16 @@ function updateAsExSets(id,newCount){
     for(let i=cur;i<newCount;i++)mainSets.push({set:i+1,reps:'',weight:''});
   } else {
     mainSets.length=newCount;
+    // Reattach any drops whose main set no longer exists to the last remaining set
+    dropSets.forEach(d=>{ if(d.afterMain>=newCount) d.afterMain=newCount-1; });
   }
-  b.setData=mainSets.concat(dropSets);
+  // Rebuild setData interleaved so mains and their drops stay grouped correctly
+  const rebuilt=[];
+  mainSets.forEach((m,mi)=>{
+    rebuilt.push(m);
+    dropSets.filter(d=>d.afterMain===mi).forEach(d=>rebuilt.push(d));
+  });
+  b.setData=rebuilt;
   b.sets=newCount;
   renderAsExercises();
 }

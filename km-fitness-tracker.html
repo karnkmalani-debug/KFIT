@@ -95,15 +95,15 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .set-header{display:grid;grid-template-columns:26px 1fr 18px 1fr 20px;gap:6px;margin-bottom:4px;}
 .set-header span{font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted2);text-align:center;}
 .set-row{display:grid;grid-template-columns:26px 1fr 18px 1fr 20px;gap:6px;align-items:center;margin-bottom:5px;}
-.assist-toggle{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--border);background:transparent;color:var(--muted2);font-size:11px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;}
+.assist-toggle{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border);background:transparent;color:var(--muted2);font-size:11px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
 .assist-toggle.active{background:var(--gold);border-color:var(--gold);color:#0c0c0a;}
 .set-row:last-child{margin-bottom:0;}
 .set-num{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);text-align:center;font-weight:600;}
 .set-row.drop-row{position:relative;margin-left:14px;padding-left:8px;border-left:2px solid rgba(200,120,63,.35);}
 .set-num.dropset{color:var(--terra);font-weight:800;font-size:14px;}
 .drop-del-btn{background:none;border:none;color:var(--muted2);font-size:13px;cursor:pointer;padding:0;width:20px;text-align:center;}
-.add-drop-btn{display:block;width:calc(100% - 14px);margin:2px 0 4px 14px;padding:7px;background:none;border:1.5px dashed rgba(200,120,63,.4);border-radius:8px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;}
-.add-drop-btn:active{opacity:.6;}
+.add-drop-link{display:block;width:auto;margin:0 0 6px 40px;padding:2px 0;background:none;border:none;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:700;cursor:pointer;text-align:left;opacity:.75;}
+.add-drop-link:active{opacity:.4;}
 .reps-input,.weight-input{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--text);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;transition:border-color .15s;}
 .reps-input:focus,.weight-input:focus{border-color:var(--sage);}
 .weight-input:focus{border-color:var(--gold);}
@@ -1657,22 +1657,28 @@ function generateSetRows(container, count, exName){
   const existingMain=existingAll.filter(r=>!r.classList.contains('drop-row'));
   const existingDrops=existingAll.filter(r=>r.classList.contains('drop-row'));
   const vals=[];
-  existingMain.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value,assisted:r.querySelector('.assist-toggle')?.classList.contains('active')||false}));
+  existingMain.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value,assistedReps:parseInt(r.querySelector('.assist-toggle')?.dataset.count)||0}));
+  // Group existing drop rows by which main set they were attached to, so resizing the
+  // sets-count dropdown doesn't lose them or dump them all at the end.
+  const dropsByMain={};
+  existingDrops.forEach(d=>{
+    const am=Math.min(parseInt(d.dataset.afterMain)||0,count-1);
+    (dropsByMain[am]=dropsByMain[am]||[]).push(d);
+  });
   container.innerHTML=`<div class="set-header"><span></span><span>Reps</span><span></span><span class="wt-label">${weightUnit}</span><span></span></div>`;
   for(let i=0;i<count;i++){
     const row=document.createElement('div');
     row.className='set-row';
+    const startCount=vals[i]?.assistedReps||0;
     row.innerHTML=`<span class="set-num">S${i+1}</span>
       <input class="reps-input" type="number" inputmode="numeric" min="0" max="999" placeholder="--" value="${vals[i]?.reps||''}" onblur="autoFixNum(this)">
-      <button type="button" class="assist-toggle${vals[i]?.assisted?' active':''}" onclick="toggleAssist(this)" title="Had help with this set? Tap to mark it">i</button>
+      <button type="button" class="assist-toggle${startCount>0?' active':''}" data-count="${startCount}" title="Tap: +1 rep needed help. Hold: -1">${startCount>0?startCount:'i'}</button>
       <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" value="${vals[i]?.weight||''}" onblur="autoFixNum(this)">
       <span class="pr-badge-slot" style="font-size:14px;text-align:center;"></span>`;
-    // PR check fires once you finish typing and move away from the field --
-    // not on every keystroke, so it doesn't flash mid-type
+    wireAssistButton(row.querySelector('.assist-toggle'));
     row.querySelectorAll('.reps-input,.weight-input').forEach(inp=>{
       inp.addEventListener('blur',()=>checkSetForPR(row));
     });
-    // Auto-correct leading zeros
     row.querySelectorAll('input').forEach(inp=>{
       inp.addEventListener('blur',()=>{
         const v=inp.value.replace(/^0+(\d)/,'$1');
@@ -1680,56 +1686,61 @@ function generateSetRows(container, count, exName){
       });
     });
     container.appendChild(row);
+    const link=document.createElement('button');
+    link.type='button';
+    link.className='add-drop-link';
+    link.textContent='+ Drop set';
+    link.dataset.afterMain=i;
+    link.onclick=function(){ addDropSetRow(this); };
+    container.appendChild(link);
+    (dropsByMain[i]||[]).forEach(d=>{ d.dataset.afterMain=i; link.insertAdjacentElement('beforebegin',d); });
+    renumberDropGroup(container,i);
   }
-  // Re-attach any drop-set rows that existed before this regeneration -- they aren't
-  // governed by the sets-count dropdown, so they survive a count change untouched.
-  existingDrops.forEach(dropRow=>container.appendChild(dropRow));
-  renumberDropRows(container);
-  const addBtn=document.createElement('button');
-  addBtn.type='button';
-  addBtn.className='add-drop-btn';
-  addBtn.textContent='+ Add Drop Set';
-  addBtn.onclick=function(){ addDropSetRow(container); };
-  container.appendChild(addBtn);
 }
 
-function restoreSetData(container,setData){
-  if(!setData) return;
-  const mainRows=[...container.querySelectorAll('.set-row:not(.drop-row)')];
-  let mi=0;
-  setData.forEach(function(sd){
-    if(sd.dropset){
-      addDropSetRow(container);
-      const dropRows=container.querySelectorAll('.set-row.drop-row');
-      const dropRow=dropRows[dropRows.length-1];
-      if(dropRow){
-        dropRow.querySelector('.reps-input').value=sd.reps||'';
-        dropRow.querySelector('.weight-input').value=sd.weight||'';
-        if(sd.assisted) dropRow.querySelector('.assist-toggle')?.classList.add('active');
-      }
-    } else {
-      const row=mainRows[mi];
-      mi++;
-      if(row){
-        row.querySelector('.reps-input').value=sd.reps||'';
-        row.querySelector('.weight-input').value=sd.weight||'';
-        if(sd.assisted) row.querySelector('.assist-toggle')?.classList.add('active');
-      }
-    }
+function wireAssistButton(btn){
+  if(!btn) return;
+  let pressTimer=null;
+  let didLongPress=false;
+  const clearTimer=()=>{ if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } };
+  btn.addEventListener('pointerdown',(e)=>{
+    e.preventDefault();
+    didLongPress=false;
+    pressTimer=setTimeout(()=>{
+      didLongPress=true;
+      changeAssistCount(btn,-1);
+    },550);
+  });
+  btn.addEventListener('pointerup',clearTimer);
+  btn.addEventListener('pointerleave',clearTimer);
+  btn.addEventListener('pointercancel',clearTimer);
+  btn.addEventListener('click',()=>{
+    if(didLongPress){ didLongPress=false; return; }
+    changeAssistCount(btn,1);
   });
 }
 
-function addDropSetRow(container){
-  // Remove the trailing "+ Add Drop Set" button, add the row, then re-add the button at the end
-  const oldBtn=container.querySelector('.add-drop-btn');
-  if(oldBtn) oldBtn.remove();
+function changeAssistCount(btn,delta){
+  let n=(parseInt(btn.dataset.count)||0)+delta;
+  if(n<0) n=0;
+  btn.dataset.count=n;
+  btn.textContent=n>0?n:'i';
+  btn.classList.toggle('active',n>0);
+  const row=btn.closest('.set-row');
+  if(row) checkSetForPR(row);
+  draftSave();
+}
+
+function buildDropRowElement(afterMain){
   const row=document.createElement('div');
   row.className='set-row drop-row';
+  row.dataset.afterMain=afterMain;
   row.innerHTML=`<span class="set-num dropset">D</span>
     <input class="reps-input" type="number" inputmode="numeric" min="0" max="999" placeholder="--" onblur="autoFixNum(this)">
-    <button type="button" class="assist-toggle" onclick="toggleAssist(this)" title="Had help with this set? Tap to mark it">i</button>
+    <button type="button" class="assist-toggle" data-count="0" title="Tap: +1 rep needed help. Hold: -1">i</button>
     <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" onblur="autoFixNum(this)">
-    <button type="button" class="drop-del-btn" onclick="this.closest('.set-row').remove();draftSave();" title="Remove this drop set">&#10005;</button>`;
+    <button type="button" class="drop-del-btn" title="Remove this drop set">&#10005;</button>`;
+  wireAssistButton(row.querySelector('.assist-toggle'));
   row.querySelectorAll('.reps-input,.weight-input').forEach(inp=>{
     inp.addEventListener('blur',()=>checkSetForPR(row));
   });
@@ -1739,22 +1750,65 @@ function addDropSetRow(container){
       if(v!==inp.value) inp.value=v;
     });
   });
-  container.appendChild(row);
-  const addBtn=document.createElement('button');
-  addBtn.type='button';
-  addBtn.className='add-drop-btn';
-  addBtn.textContent='+ Add Drop Set';
-  addBtn.onclick=function(){ addDropSetRow(container); };
-  container.appendChild(addBtn);
+  row.querySelector('.drop-del-btn').onclick=function(){
+    const container=row.closest('.set-rows');
+    const am=row.dataset.afterMain;
+    row.remove();
+    if(container) renumberDropGroup(container,am);
+    draftSave();
+  };
+  return row;
+}
+
+function addDropSetRow(linkEl){
+  const container=linkEl.closest('.set-rows');
+  const afterMain=linkEl.dataset.afterMain;
+  const row=buildDropRowElement(afterMain);
+  linkEl.insertAdjacentElement('beforebegin',row);
+  renumberDropGroup(container,afterMain);
   draftSave();
 }
 
-function renumberDropRows(container){
-  let n=0;
-  container.querySelectorAll('.set-row.drop-row .set-num').forEach(el=>{
-    n++;
-    el.textContent=n>1?'D'+n:'D';
+function restoreSetData(container,setData){
+  if(!setData) return;
+  const mainRows=[...container.querySelectorAll('.set-row:not(.drop-row)')];
+  let mi=0;
+  setData.forEach(function(sd){
+    const n=sd.assistedReps||0;
+    if(sd.dropset){
+      const afterMain=sd.afterMain!=null?Math.min(sd.afterMain,mainRows.length-1):Math.max(mi-1,0);
+      const link=container.querySelector(`.add-drop-link[data-after-main="${afterMain}"]`);
+      if(link){
+        const dropRow=buildDropRowElement(afterMain);
+        link.insertAdjacentElement('beforebegin',dropRow);
+        dropRow.querySelector('.reps-input').value=sd.reps||'';
+        dropRow.querySelector('.weight-input').value=sd.weight||'';
+        if(n>0){ const btn=dropRow.querySelector('.assist-toggle'); btn.dataset.count=n; btn.textContent=n; btn.classList.add('active'); }
+        renumberDropGroup(container,afterMain);
+      }
+    } else {
+      const row=mainRows[mi];
+      mi++;
+      if(row){
+        row.querySelector('.reps-input').value=sd.reps||'';
+        row.querySelector('.weight-input').value=sd.weight||'';
+        if(n>0){ const btn=row.querySelector('.assist-toggle'); btn.dataset.count=n; btn.textContent=n; btn.classList.add('active'); }
+      }
+    }
   });
+}
+
+function renumberDropGroup(container,afterMain){
+  const link=container.querySelector(`.add-drop-link[data-after-main="${afterMain}"]`);
+  if(!link) return;
+  let n=0;
+  let el=link.previousElementSibling;
+  const nums=[];
+  while(el&&el.classList&&el.classList.contains('drop-row')&&el.dataset.afterMain==afterMain){
+    nums.unshift(el.querySelector('.set-num'));
+    el=el.previousElementSibling;
+  }
+  nums.forEach(numEl=>{ n++; numEl.textContent=n>1?'D'+n:'D'; });
 }
 
 function updateSetRows(sel){
@@ -2040,7 +2094,7 @@ function collectSupersets(){
         const setsCount=+exBlock.querySelector('.sets-select').value;
         const setData=[];
         exBlock.querySelectorAll('.set-row').forEach((row,i)=>{
-          setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false,dropset:row.classList.contains('drop-row')});
+          setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
         });
         exercises.push({ex,sets:setsCount,setData});
       }
@@ -2157,7 +2211,7 @@ function saveSession(){
         } else {
           row.style.outline='';
         }
-        setData.push({set:i+1,reps:reps,weight:weight,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false,dropset:row.classList.contains('drop-row')});
+        setData.push({set:i+1,reps:reps,weight:weight,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
       });
       exercises.push({ex,sets:setsCount,setData});
     }
@@ -2644,7 +2698,7 @@ function draftSave(){
       const sets=+block.querySelector('.sets-select').value;
       const setData=[];
       block.querySelectorAll('.set-row').forEach((row,i)=>{
-        setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assisted:row.querySelector('.assist-toggle')?.classList.contains('active')||false,dropset:row.classList.contains('drop-row')});
+        setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
       });
       exercises.push({ex,sets,setData,autobp:block.dataset.autobp||null});
     });
@@ -2977,7 +3031,7 @@ function calcPersonalRecords(){
       if(!e.ex) return;
       var key=e.ex.toLowerCase().trim();
       (e.setData||[]).forEach(function(set){
-        if(set.assisted||set.dropset) return;
+        if((set.assistedReps>0)||set.dropset) return;
         var w=parseFloat(set.weight);
         var r=set.reps?String(set.reps).trim():'';
         if(!w||isNaN(w)||!r) return;
@@ -3024,13 +3078,6 @@ function moveExBlock(btn,direction){
   draftSave();
 }
 
-
-function toggleAssist(btn){
-  btn.classList.toggle('active');
-  const row=btn.closest('.set-row');
-  if(row) checkSetForPR(row);
-  draftSave();
-}
 
 function checkSetForPR(row){
   // Only fire after 8 logged sessions
@@ -3530,15 +3577,16 @@ function openDetail(id){
               <th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;width:${hasWeight?'40%':'auto'};">Reps</th>
               ${hasWeight?`<th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;width:40%;">${uLabel}</th><th style="width:22px;padding-bottom:6px;"></th>`:''}
             </tr></thead>
-            <tbody>${realSets.map(r=>{
+            <tbody>${(()=>{let dropN=0;return realSets.map(r=>{
               const w=parseFloat(r.weight)||0;
               const showTrophy=isSessionPR&&!trophyShown&&w===exPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(exPR.reps);
               if(showTrophy) trophyShown=true;
+              const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
               return`<tr>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${r.dropset?'D':'S'+r.set}</td>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assisted?'<span style="color:var(--muted2);font-size:12px;font-weight:700;margin-left:3px;" title="Assisted set">ⓘ</span>':''}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${dropLabel}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assistedReps>0?'<span style="color:var(--gold);font-size:11px;font-weight:800;margin-left:3px;" title="'+r.assistedReps+' rep(s) needed help">ⓘ'+r.assistedReps+'</span>':''}</td>
               ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
-            </tr>`;}).join('')}</tbody>
+            </tr>`;}).join('')})()}</tbody>
           </table>
         </div>`;
       }).join('')}
@@ -3572,15 +3620,16 @@ function openDetail(id){
               <th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;width:${hasWeight?'40%':'auto'};">Reps</th>
               ${hasWeight?`<th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;width:40%;">${uLabel}</th><th style="width:22px;padding-bottom:6px;"></th>`:''}
             </tr></thead>
-            <tbody>${ssRealSets.map(r=>{
+            <tbody>${(()=>{let dropN=0;return ssRealSets.map(r=>{
               const w=parseFloat(r.weight)||0;
               const showTrophy=ssIsSessionPR&&!ssTrophyShown&&w===ssExPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(ssExPR.reps);
               if(showTrophy) ssTrophyShown=true;
+              const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
               return`<tr>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${r.dropset?'D':'S'+r.set}</td>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assisted?'<span style="color:var(--muted2);font-size:12px;font-weight:700;margin-left:3px;" title="Assisted set">ⓘ</span>':''}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${dropLabel}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assistedReps>0?'<span style="color:var(--gold);font-size:11px;font-weight:800;margin-left:3px;" title="'+r.assistedReps+' rep(s) needed help">ⓘ'+r.assistedReps+'</span>':''}</td>
               ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
-            </tr>`;}).join('')}</tbody>
+            </tr>`;}).join('')})()}</tbody>
           </table>
         </div>`;
       }).join('')}
@@ -3713,6 +3762,20 @@ function cancelRest(){
 
 // Resync rest timer when user returns to screen
 document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden){
+    // Returning to the app after being backgrounded -- silently refresh session/attendance
+    // data from Supabase so any coach-side edit (time, reps, notes, anything) shows up
+    // immediately instead of requiring a full close-and-reopen to notice.
+    loadFitnessFromSupabase(function(){
+      const activePanelEl=document.querySelector('.panel.active');
+      if(activePanelEl){
+        const idx=[...document.querySelectorAll('.panel')].indexOf(activePanelEl);
+        if(idx===1){renderHistory();renderAttendance();}
+        else if(idx===2){renderStats();}
+        else if(idx===4){loadData();renderPRTab();}
+      }
+    });
+  }
   if(!document.hidden && restEndTime){
     // Unlock audio immediately on return
     if(sharedAC&&sharedAC.state==='suspended') sharedAC.resume();
