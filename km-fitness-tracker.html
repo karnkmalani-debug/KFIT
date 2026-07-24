@@ -95,8 +95,8 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .set-header{display:grid;grid-template-columns:26px 1fr 18px 1fr 20px;gap:6px;margin-bottom:4px;}
 .set-header span{font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted2);text-align:center;}
 .set-row{display:grid;grid-template-columns:26px 1fr 18px 1fr 20px;gap:6px;align-items:center;margin-bottom:5px;}
-.assist-toggle{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border);background:transparent;color:var(--muted2);font-size:11px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
-.assist-toggle.active{background:var(--gold);border-color:var(--gold);color:#0c0c0a;}
+.assist-toggle{width:32px;height:24px;border-radius:6px;border:1.5px solid var(--red);background:transparent;color:var(--red);font-size:8px;font-weight:900;letter-spacing:0.4px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+.assist-toggle.active{background:var(--red);border-color:var(--red);color:#fff;font-size:13px;}
 .set-row:last-child{margin-bottom:0;}
 .set-num{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);text-align:center;font-weight:600;}
 .set-row.drop-row{position:relative;margin-left:14px;padding-left:8px;border-left:2px solid rgba(200,120,63,.35);}
@@ -219,6 +219,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .autosave-dot.saving{background:var(--gold);}
 .sess-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
 .sess-tag{padding:5px 14px;background:var(--surf2);border:1px solid var(--gold);border-radius:20px;font-size:12px;font-weight:900;color:var(--gold);letter-spacing:2px;text-transform:uppercase;}
+.sess-tag-pr{background:var(--gold);border-color:var(--gold);color:#171200;}
 
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
 .stat-box{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:15px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:148px;}
@@ -234,7 +235,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .note-block{margin-bottom:13px;}
 .note-block label{display:block;font-size:17px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px;}
 
-.detail-panel{position:fixed;inset:0;z-index:200;background:var(--bg);overflow-y:auto;transform:translateX(100%);transition:transform .28s ease;padding-top:env(safe-area-inset-top,0px);}
+.detail-panel{position:fixed;inset:0;z-index:200;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;transform:translateX(100%);transition:transform .28s ease;padding-top:env(safe-area-inset-top,0px);}
 .detail-panel.open{transform:translateX(0);}
 .detail-hdr{display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:201;}
 .back-btn{background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:10px 16px;color:var(--text);font-size:20px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;}
@@ -1373,8 +1374,8 @@ function applyAssignedWorkoutIfAny(){
         <div class="ex-top-row">
           <select class="ex-select" onchange="onExChange(this)"></select>
           <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
-          <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">▲</button>
-          <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
+          <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">⌃</button>
+          <button class="move-btn" style="margin-left:6px;" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
           <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">▼</button>
           <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
         </div>
@@ -1438,8 +1439,8 @@ function autoFillExercisesForBodyPart(bp){
       <div class="ex-top-row">
         <select class="ex-select" onchange="onExChange(this)"></select>
         <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
-        <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">▲</button>
-        <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
+        <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">⌃</button>
+        <button class="move-btn" style="margin-left:6px;" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
         <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">▼</button>
         <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
       </div>
@@ -1837,7 +1838,7 @@ function toggleExBlock(btn){
     }
     const summaryEl=block.querySelector('.ex-collapsed-summary');
     if(summaryEl)summaryEl.remove();
-    btn.textContent='▲';
+    btn.textContent='⌃';
     btn.title='Collapse';
   } else {
     // Collapse — build summary text
@@ -1870,7 +1871,7 @@ function toggleExBlock(btn){
       if(topRow)topRow.insertBefore(summaryEl,topRow.firstChild);
     }
     summaryEl.textContent=summary;
-    btn.textContent='▼';
+    btn.textContent='⌄';
     btn.title='Expand';
   }
 }
@@ -1883,8 +1884,8 @@ function addExRow(){
     <div class="ex-top-row">
       <select class="ex-select" onchange="onExChange(this)"></select>
       <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(3)}</select>
-      <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">▲</button>
-      <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
+      <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">⌃</button>
+      <button class="move-btn" style="margin-left:6px;" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
       <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">▼</button>
       <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
     </div>
@@ -1961,7 +1962,7 @@ function addSupersetEx(ssId){
         <option value="">-- Select Exercise --</option>
       </select>
       <select class="sets-select" onchange="updateSupersetSetRows(this)">${setsOpts(3)}</select>
-      <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">▲</button>
+      <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">⌃</button>
       <button class="del-btn" onclick="this.closest('.superset-ex-block').remove()">&#10005;</button>
     </div>
     <div class="set-rows" style="padding:4px 8px 8px;"></div>`;
@@ -2276,7 +2277,8 @@ function saveSession(){
     avgRestManual: currentRestTimes.length===0?manualAvgRest:null,
     duration: finalDur||null,
     unit: weightUnit,
-    notes:document.getElementById('sessNotes').value
+    notes:document.getElementById('sessNotes').value,
+    updatedAt: Date.now()
   });
   saveSessions();
   toast('Session saved v');
@@ -2445,14 +2447,38 @@ function syncFitnessToSupabase(){
     // a stale full-object overwrite.
     getSB().from('tracker_data').select('data').eq('client_id',key).eq('tracker','fitness').then(function(fres){
       var serverAssigned={};
+      var serverSessions=[];
       try{
         if(!fres.error&&fres.data&&fres.data.length&&fres.data[0].data){
           var fd=typeof fres.data[0].data==='string'?JSON.parse(fres.data[0].data):fres.data[0].data;
           serverAssigned=fd.assignedWorkouts||{};
+          serverSessions=fd.sessions||[];
         }
       }catch(e){}
       var mergedAssigned=Object.assign({},serverAssigned,assignedWorkouts);
       assignedWorkouts=mergedAssigned;
+
+      // Sessions: merge by id instead of blindly overwriting with this device's local copy.
+      // Without this, a coach edit (or an edit from another device) made after this device
+      // last loaded gets silently clobbered the next time this device syncs anything at all --
+      // whichever side has the newer updatedAt wins per session id; anything only the server
+      // knows about (and isn't in this device's own delete list) is kept too.
+      var localById={};
+      sessions.forEach(function(s){ localById[s.id]=s; });
+      var mergedById={};
+      serverSessions.forEach(function(s){ mergedById[s.id]=s; });
+      sessions.forEach(function(s){
+        var srv=mergedById[s.id];
+        if(!srv||(s.updatedAt||0)>=(srv.updatedAt||0)) mergedById[s.id]=s;
+      });
+      // Drop anything this device explicitly deleted
+      (deletedSessionIds||[]).forEach(function(id){ delete mergedById[id]; });
+      var mergedSessions=Object.values(mergedById).sort(function(a,b){
+        return (b.updatedAt||0)-(a.updatedAt||0);
+      });
+      sessions=mergedSessions;
+      try{localStorage.setItem('kmfit_sessions',JSON.stringify(sessions));}catch(e){}
+
       var payload={
         user_id:uid,
         client_id:key,
@@ -2474,6 +2500,9 @@ function syncFitnessToSupabase(){
         if(res.error){
           console.error('Supabase write error:', JSON.stringify(res.error));
           toast('Sync error: '+(res.error.message||res.error.code||JSON.stringify(res.error)));
+        } else {
+          renderHistory();
+          renderStats();
         }
       });
     });
@@ -2770,8 +2799,8 @@ function draftLoad(){
           <div class="ex-top-row">
             <select class="ex-select" onchange="onExChange(this)"></select>
             <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
-            <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">▲</button>
-            <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
+            <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">⌃</button>
+            <button class="move-btn" style="margin-left:6px;" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
             <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">▼</button>
             <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
           </div>
@@ -3017,6 +3046,65 @@ function toggleAttAll(btn){
 }
 
 // PERSONAL RECORDS
+// Best {weight,reps} for this exercise from all OTHER sessions (the record that
+// stood BEFORE this session), so every set that beat it can get its own trophy,
+// not just the single literal best set.
+function calcPriorBest(exKey,excludeDate,excludeTimeOfDay){
+  var best=null;
+  sessions.forEach(function(s){
+    if(s.date===excludeDate&&(s.timeOfDay||'')===(excludeTimeOfDay||'')) return;
+    var allEx=[...(s.exercises||[])];
+    (s.supersets||[]).forEach(function(ss){
+      (ss.exercises||[]).forEach(function(e){
+        if(e.type!=='cardio') allEx.push(e);
+      });
+    });
+    allEx.forEach(function(e){
+      if(!e.ex||e.ex.toLowerCase().trim()!==exKey) return;
+      (e.setData||[]).forEach(function(set){
+        if((set.assistedReps>0)||set.dropset) return;
+        var w=parseFloat(set.weight);
+        var r=set.reps?String(set.reps).trim():'';
+        if(!w||isNaN(w)||!r) return;
+        var rNum=parseInt(r);
+        var isBetter=!best||w>best.weight||
+          (w===best.weight&&!isNaN(rNum)&&!isNaN(parseInt(best.reps))&&rNum>parseInt(best.reps));
+        if(isBetter) best={weight:w,reps:r};
+      });
+    });
+  });
+  return best;
+}
+
+// Returns {bodyParts:Set, count:Number} -- which body parts hit a new PR in this
+// session, and how many INDIVIDUAL SETS beat their prior best (matches the
+// per-set trophy display, not just a single exercise-level flag).
+function getSessionPRInfo(s,prMap){
+  var bodyParts=new Set();
+  var count=0;
+  if(!prMap) return{bodyParts:bodyParts,count:count};
+  var allEx=[...(s.exercises||[])].concat((s.supersets||[]).flatMap(function(ss){return ss.exercises||[];}));
+  allEx.filter(function(e){return e.type!=='cardio'&&e.ex;}).forEach(function(e){
+    var key=e.ex.toLowerCase().trim();
+    var exPR=prMap[key];
+    var isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
+    if(!isSessionPR) return;
+    var priorBest=calcPriorBest(key,s.date,s.timeOfDay);
+    (e.setData||[]).forEach(function(set){
+      if((set.assistedReps>0)||set.dropset) return;
+      var w=parseFloat(set.weight);
+      var rNum=set.reps?parseInt(set.reps):NaN;
+      if(!w||isNaN(w)||!set.reps) return;
+      var beat=!priorBest||w>priorBest.weight||(w===priorBest.weight&&!isNaN(rNum)&&rNum>parseInt(priorBest.reps));
+      if(beat){
+        count++;
+        bodyParts.add(getBodyPartForExercise(e.ex));
+      }
+    });
+  });
+  return{bodyParts:bodyParts,count:count};
+}
+
 function calcPersonalRecords(){
   // key is lowercased name, value includes original display name
   var prMap={};
@@ -3208,6 +3296,7 @@ function renderHistory(){
   const D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const validSessions=sessions.filter(s=>(s.exercises&&s.exercises.length>0)||(s.cardio&&s.cardio.length>0));
   if(!validSessions.length){el.innerHTML='<div class="empty"><div class="ico"></div><p>No sessions yet.<br>Log your first workout.</p></div>';return;}
+  const _histPrMap=sessions.length>=8?calcPersonalRecords():{};
   el.innerHTML=validSessions.map(s=>{
     const d=new Date(s.date+'T12:00:00');
     const avg=sessRestAvg(s);
@@ -3221,6 +3310,8 @@ function renderHistory(){
     const cardioIntensities=cardioCount?s.cardio.filter(c=>c.intensity).map(c=>c.intensity).filter((v,i,a)=>a.indexOf(v)===i):[];
     // Cardio name pills
     const cardioPills=cardioCount?s.cardio.map(c=>`<span class="sess-tag">${c.ex.toUpperCase()}</span>`).join(''):'';
+    const _histPrInfo=getSessionPRInfo(s,_histPrMap);
+    const bpPills=(s.bodyParts||[]).map(b=>`<span class="sess-tag${_histPrInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')+(!cardioCount&&_histPrInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_histPrInfo.count} P.R.</span>`:'');
     return`<div class="sess-card">
       <div onclick="openDetail(${s.id})" style="flex:1;cursor:pointer;">
         <div class="sess-date">${D[d.getDay()]} . ${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}${s.timeOfDay?' - '+s.timeOfDay:''}</div>
@@ -3229,7 +3320,7 @@ function renderHistory(){
         ${(cardioDurSecs||cardioDurMins)?`<div class="sess-dur">&#128336; ${cardioDurSecs?fmtDur(cardioDurSecs):cardioDurMins+'m'}</div>`:(s.duration?`<div class="sess-dur">&#128336; ${fmtDur(s.duration)}</div>`:'')}
         ${cardioIntensities.length?`<div class="sess-rest">Intensity: ${cardioIntensities.join(', ')}</div>`:''}
         ${!cardioCount&&avg?`<div class="sess-rest">Avg Rest ${fmtSecs(avg)}</div>`:''}
-        <div class="sess-tags">${cardioPills||(s.bodyParts||[]).map(b=>`<span class="sess-tag">${b}</span>`).join('')}</div>
+        <div class="sess-tags">${cardioPills||bpPills}</div>
       </div>
       <button onclick="editSession(${s.id})" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:600;color:var(--text);cursor:pointer;white-space:nowrap;align-self:flex-start;margin-top:4px;">Edit</button>
     </div>`;
@@ -3568,7 +3659,7 @@ function openDetail(id){
         const uLabel=s.unit||'kg';
         const exPR=prMap8[e.ex.toLowerCase().trim()];
         const isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
-        let trophyShown=false;
+        const priorBest=isSessionPR?calcPriorBest(e.ex.toLowerCase().trim(),s.date,s.timeOfDay):null;
         return`<div style="margin-bottom:16px;">
           <div style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--text);">${e.ex}</div>
           <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
@@ -3579,12 +3670,13 @@ function openDetail(id){
             </tr></thead>
             <tbody>${(()=>{let dropN=0;return realSets.map(r=>{
               const w=parseFloat(r.weight)||0;
-              const showTrophy=isSessionPR&&!trophyShown&&w===exPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(exPR.reps);
-              if(showTrophy) trophyShown=true;
+              const rNum=r.reps?parseInt(r.reps):NaN;
+              const showTrophy=isSessionPR&&!(r.assistedReps>0)&&!r.dropset&&w>0&&r.reps&&
+                (!priorBest||w>priorBest.weight||(w===priorBest.weight&&!isNaN(rNum)&&rNum>parseInt(priorBest.reps)));
               const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
               return`<tr>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${dropLabel}</td>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assistedReps>0?'<span style="color:var(--gold);font-size:11px;font-weight:800;margin-left:3px;" title="'+r.assistedReps+' rep(s) needed help">ⓘ'+r.assistedReps+'</span>':''}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">SOS '+r.assistedReps+'</span>':''}</td>
               ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
             </tr>`;}).join('')})()}</tbody>
           </table>
@@ -3611,7 +3703,7 @@ function openDetail(id){
         const hasWeight=ssRealSets.some(r=>r.weight);
         const ssExPR=prMap8[e.ex.toLowerCase().trim()];
         const ssIsSessionPR=ssExPR&&s.date===ssExPR.date&&(s.timeOfDay||'')===(ssExPR.timeOfDay||'');
-        let ssTrophyShown=false;
+        const ssPriorBest=ssIsSessionPR?calcPriorBest(e.ex.toLowerCase().trim(),s.date,s.timeOfDay):null;
         return`<div style="margin-bottom:16px;border-left:3px solid var(--sage);padding-left:10px;">
           <div style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--text);">${e.ex}</div>
           <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
@@ -3622,12 +3714,13 @@ function openDetail(id){
             </tr></thead>
             <tbody>${(()=>{let dropN=0;return ssRealSets.map(r=>{
               const w=parseFloat(r.weight)||0;
-              const showTrophy=ssIsSessionPR&&!ssTrophyShown&&w===ssExPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(ssExPR.reps);
-              if(showTrophy) ssTrophyShown=true;
+              const rNum=r.reps?parseInt(r.reps):NaN;
+              const showTrophy=ssIsSessionPR&&!(r.assistedReps>0)&&!r.dropset&&w>0&&r.reps&&
+                (!ssPriorBest||w>ssPriorBest.weight||(w===ssPriorBest.weight&&!isNaN(rNum)&&rNum>parseInt(ssPriorBest.reps)));
               const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
               return`<tr>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${dropLabel}</td>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assistedReps>0?'<span style="color:var(--gold);font-size:11px;font-weight:800;margin-left:3px;" title="'+r.assistedReps+' rep(s) needed help">ⓘ'+r.assistedReps+'</span>':''}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">SOS '+r.assistedReps+'</span>':''}</td>
               ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
             </tr>`;}).join('')})()}</tbody>
           </table>
@@ -3637,8 +3730,10 @@ function openDetail(id){
   }).join(''):'';
   const _effectiveTags=[...(s.bodyParts||[])];
   if((s.cardio&&s.cardio.length)&&_effectiveTags.indexOf('Cardio')===-1) _effectiveTags.push('Cardio');
+  const _prInfo=getSessionPRInfo(s,prMap8);
+  const _prPillHtml=_prInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_prInfo.count} P.R.</span>`:'';
   document.getElementById('dBody').innerHTML=`
-    ${_effectiveTags.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${_effectiveTags.map(b=>`<span class="sess-tag">${b}</span>`).join('')}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:''}
+    ${_effectiveTags.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${_effectiveTags.map(b=>`<span class="sess-tag${_prInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')}${_prPillHtml}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:''}
     ${durLine}
     ${cardioSection}
     ${ssSection}

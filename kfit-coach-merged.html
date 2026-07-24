@@ -681,7 +681,7 @@ async function editAssignedWorkout(clientKey,dateStr){
 
   asExercises=(w.exercises||[]).map(e=>({
     id:Date.now()+Math.random(), ex:e.ex, sets:(e.setData&&e.setData.length)||e.sets||3,
-    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||''})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',dropset:r.dropset||false,afterMain:r.afterMain!=null?r.afterMain:null})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
   }));
   renderAsExercises();
 
@@ -689,7 +689,7 @@ async function editAssignedWorkout(clientKey,dateStr){
     id:Date.now()+Math.random(),
     exercises:(ss.exercises||[]).map(e=>({
       id:Date.now()+Math.random(), ex:e.ex, sets:(e.setData&&e.setData.length)||e.sets||3,
-      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||''})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',dropset:r.dropset||false,afterMain:r.afterMain!=null?r.afterMain:null})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
     }))
   }));
   renderAsSupersets();
@@ -755,6 +755,60 @@ function groupClients(){
 
 let currentCoachSession=null; // {clientKey, clientId, date, time, session, attendanceId}
 
+function fillOrphanedSession(clientKey,date,time){
+  const clients=groupClients();
+  const c=Object.values(clients).find(c=>(c.mobile||c.name)===clientKey);
+  if(!c) return;
+  const attRecord=c.records.find(r=>r.session_date===date&&(r.session_time||'')===(time||''));
+  const nameKey=c.name.toLowerCase().replace(/\s+/g,'_');
+  const mobile=(c.mobile||'').replace(/\D/g,'');
+  const clientId=mobile?nameKey+'__'+mobile:nameKey;
+
+  openAddSession(clientKey);
+  document.getElementById('as-modal-title').textContent='Fill In Session';
+  document.getElementById('as-save-btn').textContent='Save Session';
+  document.getElementById('as-delete-btn').style.display='none';
+  document.getElementById('as-client').disabled=true;
+
+  document.getElementById('as-date').value=date;
+  document.getElementById('as-time').value=time?to24Hour(time):'';
+
+  if(attRecord){
+    if(attRecord.duration_secs) document.getElementById('as-duration').value=Math.round(attRecord.duration_secs/60);
+    if(attRecord.workout_type) document.getElementById('as-type').value=attRecord.workout_type;
+    if(attRecord.body_parts){
+      asSelectedBP=attRecord.body_parts.split(',').map(s=>s.trim()).filter(Boolean);
+      document.querySelectorAll('#as-bp-grid .as-bp-btn').forEach(btn=>{
+        if(asSelectedBP.includes(btn.textContent)) btn.classList.add('active');
+      });
+    }
+  }
+
+  editingContext={attendanceId:attRecord?attRecord.id:null,sessionId:Date.now(),clientId,origDate:date,origTime:time};
+  document.getElementById('coachSessionPanel').style.display='none';
+}
+
+function cleanupOrphanedAttendance(clientKey,date,time){
+  const clients=groupClients();
+  const c=Object.values(clients).find(c=>(c.mobile||c.name)===clientKey);
+  if(!c) return;
+  getSB().from('attendance').delete()
+    .eq('client_mobile', c.mobile||'')
+    .eq('session_date', date)
+    .eq('session_time', time)
+    .then(function(res){
+      if(res.error){
+        alert('Could not remove entry: '+res.error.message);
+        return;
+      }
+      allRecords=allRecords.filter(function(r){
+        return !((r.client_mobile||r.client_name)===clientKey&&r.session_date===date&&(r.session_time||'')===(time||''));
+      });
+      document.getElementById('coachSessionPanel').style.display='none';
+      showClient(clientKey);
+    });
+}
+
 function openCoachSession(clientKey, date, time){
   // Find the client's tracker_data
   const clients=groupClients();
@@ -780,9 +834,26 @@ function openCoachSession(clientKey, date, time){
       const d=typeof res.data[0].data==='string'?JSON.parse(res.data[0].data):res.data[0].data;
       const sessions=d.sessions||[];
       // Find matching session by date and time
-      const s=sessions.find(s=>s.date===date&&(s.timeOfDay===time||!time||!s.timeOfDay));
+      let s=sessions.find(s=>s.date===date&&(s.timeOfDay===time||!time||!s.timeOfDay));
       if(!s){
-        document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">Session detail not found.</div>';
+        // Fallback: if there's exactly one session on this date, open it anyway --
+        // a lingering time mismatch (e.g. from an edit made before a sync reconciled)
+        // shouldn't block access to a session that clearly exists.
+        const sameDateSessions=sessions.filter(x=>x.date===date);
+        if(sameDateSessions.length===1) s=sameDateSessions[0];
+      }
+      if(!s){
+        document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">'
+          +'Session detail not found. This usually means the session was deleted or never fully saved '
+          +'(often from a connection drop) but the attendance record was left behind.<br><br>'
+          +'<button onclick="fillOrphanedSession(\''+clientKey.replace(/'/g,"\\'")+'\',\''+date+'\',\''+(time||'').replace(/'/g,"\\'")+'\')" '
+          +'style="background:var(--sage);border:none;border-radius:8px;padding:10px 16px;color:#fff;'
+          +'font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin:4px;">'
+          +'✎ Fill In This Session</button>'
+          +'<button onclick="cleanupOrphanedAttendance(\''+clientKey.replace(/'/g,"\\'")+'\',\''+date+'\',\''+(time||'').replace(/'/g,"\\'")+'\')" '
+          +'style="background:none;border:1px solid var(--terra);border-radius:8px;padding:10px 16px;color:var(--terra);'
+          +'font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin:4px;">'
+          +'🗑 Remove This Entry</button></div>';
         return;
       }
       currentCoachSession={clientKey,clientId,date,time,session:s,attendanceId:attRecord?attRecord.id:null};
@@ -823,6 +894,67 @@ function calcPersonalRecordsCoach(sessions){
   return prMap;
 }
 
+function calcPriorBestCoach(exKey,excludeDate,excludeTimeOfDay,allSessions){
+  var best=null;
+  (allSessions||[]).forEach(function(s){
+    if(s.date===excludeDate&&(s.timeOfDay||'')===(excludeTimeOfDay||'')) return;
+    var allEx=[...(s.exercises||[])];
+    (s.supersets||[]).forEach(function(ss){
+      (ss.exercises||[]).forEach(function(e){
+        if(e.type!=='cardio') allEx.push(e);
+      });
+    });
+    allEx.forEach(function(e){
+      if(!e.ex||e.ex.toLowerCase().trim()!==exKey) return;
+      (e.setData||[]).forEach(function(set){
+        if((set.assistedReps>0)||set.dropset) return;
+        var w=parseFloat(set.weight);
+        var r=set.reps?String(set.reps).trim():'';
+        if(!w||isNaN(w)||!r) return;
+        var rNum=parseInt(r);
+        var isBetter=!best||w>best.weight||(w===best.weight&&!isNaN(rNum)&&!isNaN(parseInt(best.reps))&&rNum>parseInt(best.reps));
+        if(isBetter) best={weight:w,reps:r};
+      });
+    });
+  });
+  return best;
+}
+
+function getBodyPartForExerciseCoach(name){
+  if(!name) return 'Other';
+  var lower=name.toLowerCase().trim();
+  for(var bp in EX_LIB){
+    if((EX_LIB[bp]||[]).some(function(e){return e.toLowerCase().trim()===lower;})) return bp;
+  }
+  return 'Other';
+}
+
+function getSessionPRInfoCoach(s,prMap,allSessions){
+  var bodyParts=new Set();
+  var count=0;
+  if(!prMap) return{bodyParts:bodyParts,count:count};
+  var allEx=[...(s.exercises||[])].concat((s.supersets||[]).flatMap(function(ss){return ss.exercises||[];}));
+  allEx.filter(function(e){return e.type!=='cardio'&&e.ex;}).forEach(function(e){
+    var key=e.ex.toLowerCase().trim();
+    var exPR=prMap[key];
+    var isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
+    if(!isSessionPR) return;
+    var priorBest=calcPriorBestCoach(key,s.date,s.timeOfDay,allSessions);
+    (e.setData||[]).forEach(function(set){
+      if((set.assistedReps>0)||set.dropset) return;
+      var w=parseFloat(set.weight);
+      var rNum=set.reps?parseInt(set.reps):NaN;
+      if(!w||isNaN(w)||!set.reps) return;
+      var beat=!priorBest||w>priorBest.weight||(w===priorBest.weight&&!isNaN(rNum)&&rNum>parseInt(priorBest.reps));
+      if(beat){
+        count++;
+        bodyParts.add(getBodyPartForExerciseCoach(e.ex));
+      }
+    });
+  });
+  return{bodyParts:bodyParts,count:count};
+}
+
 function closeCoachSession(){
   currentCoachSession=null;
   document.getElementById('coachSessionPanel').style.display='none';
@@ -840,8 +972,10 @@ function renderCoachSession(s,allSessions){
   const _totalReps=_realSetsForTotals.reduce((a,r)=>a+(parseInt(r.reps)||0),0);
 
   // Body parts
+  const _coachPrInfo=getSessionPRInfoCoach(s,prMap8,allSessions);
+  const _coachPrPill=_coachPrInfo.count?`<span style="padding:4px 12px;background:var(--gold);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#171200;">🏆 ${_coachPrInfo.count} P.R.</span>`:'';
   const bpHtml=(s.bodyParts&&s.bodyParts.length)?
-    `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${s.bodyParts.map(b=>`<span style="padding:4px 12px;background:var(--gold-d);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold);">${b}</span>`).join('')}${_exCount?`<span style="color:var(--muted);font-size:14px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:'' ;
+    `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${s.bodyParts.map(b=>_coachPrInfo.bodyParts.has(b)?`<span style="padding:4px 12px;background:var(--gold);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#171200;">${b}</span>`:`<span style="padding:4px 12px;background:var(--gold-d);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold);">${b}</span>`).join('')}${_coachPrPill}${_exCount?`<span style="color:var(--muted);font-size:14px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:'' ;
 
   // Duration
   const sessDur=s.duration||(s.cardio&&s.cardio.length?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60:0);
@@ -875,7 +1009,7 @@ function renderCoachSession(s,allSessions){
       const hasW=ssRealSets.some(r=>r.weight);
       const ssExPR=prMap8[e.ex.toLowerCase().trim()];
       const ssIsSessionPR=ssExPR&&s.date===ssExPR.date&&(s.timeOfDay||'')===(ssExPR.timeOfDay||'');
-      let ssTrophyShown=false;
+      const ssPriorBest=ssIsSessionPR?calcPriorBestCoach(e.ex.toLowerCase().trim(),s.date,s.timeOfDay,allSessions):null;
       return`<div style="border-left:3px solid var(--sage);padding-left:10px;margin-bottom:12px;">
         <div style="font-size:16px;font-weight:700;margin-bottom:6px;">${e.ex}</div>
         <table style="width:100%;border-collapse:collapse;">
@@ -886,12 +1020,13 @@ function renderCoachSession(s,allSessions){
           </tr></thead>
           <tbody>${(()=>{let dropN=0;return ssRealSets.map(r=>{
             const w=parseFloat(r.weight)||0;
-            const showTrophy=ssIsSessionPR&&!ssTrophyShown&&w===ssExPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(ssExPR.reps);
-            if(showTrophy) ssTrophyShown=true;
+            const rNum=r.reps?parseInt(r.reps):NaN;
+            const showTrophy=ssIsSessionPR&&!(r.assistedReps>0)&&!r.dropset&&w>0&&r.reps&&
+              (!ssPriorBest||w>ssPriorBest.weight||(w===ssPriorBest.weight&&!isNaN(rNum)&&rNum>parseInt(ssPriorBest.reps)));
             const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
             return`<tr>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${r.dropset?'var(--terra)':'inherit'};border-bottom:1px solid var(--border);padding:6px 0;">${dropLabel}</td>
-            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="color:var(--gold);font-size:10px;font-weight:800;margin-left:3px;">\u24d8'+r.assistedReps+'</span>':''}</td>
+            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">SOS '+r.assistedReps+'</span>':''}</td>
             ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
           </tr>`;}).join('')})()}</tbody>
         </table>
@@ -907,7 +1042,7 @@ function renderCoachSession(s,allSessions){
       const hasW=realSets.some(r=>r.weight);
       const exPR=prMap8[e.ex.toLowerCase().trim()];
       const isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
-      let trophyShown=false;
+      const priorBest=isSessionPR?calcPriorBestCoach(e.ex.toLowerCase().trim(),s.date,s.timeOfDay,allSessions):null;
       return`<div style="margin-bottom:16px;">
         <div style="font-size:16px;font-weight:700;margin-bottom:6px;">${e.ex}</div>
         <table style="width:100%;border-collapse:collapse;">
@@ -918,12 +1053,13 @@ function renderCoachSession(s,allSessions){
           </tr></thead>
           <tbody>${(()=>{let dropN=0;return realSets.map(r=>{
             const w=parseFloat(r.weight)||0;
-            const showTrophy=isSessionPR&&!trophyShown&&w===exPR.weight&&w>0&&r.reps&&parseInt(r.reps)===parseInt(exPR.reps);
-            if(showTrophy) trophyShown=true;
+            const rNum=r.reps?parseInt(r.reps):NaN;
+            const showTrophy=isSessionPR&&!(r.assistedReps>0)&&!r.dropset&&w>0&&r.reps&&
+              (!priorBest||w>priorBest.weight||(w===priorBest.weight&&!isNaN(rNum)&&rNum>parseInt(priorBest.reps)));
             const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
             return`<tr>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${r.dropset?'var(--terra)':'inherit'};border-bottom:1px solid var(--border);padding:6px 0;">${dropLabel}</td>
-            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="color:var(--gold);font-size:10px;font-weight:800;margin-left:3px;">\u24d8'+r.assistedReps+'</span>':''}</td>
+            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">SOS '+r.assistedReps+'</span>':''}</td>
             ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
           </tr>`;}).join('')})()}</tbody>
         </table>
@@ -1273,9 +1409,21 @@ function updateAsSupersetExSets(ssId,exId,newCount){
   const ss=asSupersets.find(s=>s.id==ssId); if(!ss)return;
   const e=ss.exercises.find(e=>e.id==exId); if(!e)return;
   newCount=parseInt(newCount);
-  const cur=e.setData.length;
-  if(newCount>cur){for(let i=cur;i<newCount;i++)e.setData.push({set:i+1,reps:'',weight:''});}
-  else{e.setData=e.setData.slice(0,newCount);}
+  const mainSets=e.setData.filter(r=>!r.dropset);
+  const dropSets=e.setData.filter(r=>r.dropset);
+  const cur=mainSets.length;
+  if(newCount>cur){
+    for(let i=cur;i<newCount;i++)mainSets.push({set:i+1,reps:'',weight:''});
+  } else {
+    mainSets.length=newCount;
+    dropSets.forEach(d=>{ if(d.afterMain>=newCount) d.afterMain=newCount-1; });
+  }
+  const rebuilt=[];
+  mainSets.forEach((m,mi)=>{
+    rebuilt.push(m);
+    dropSets.filter(d=>d.afterMain===mi).forEach(d=>rebuilt.push(d));
+  });
+  e.setData=rebuilt;
   e.sets=newCount;
   renderAsSupersets();
 }
@@ -1292,7 +1440,18 @@ function renderAsSupersets(){
         <span style="font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--sage);">Superset ${ssIdx+1}</span>
         <button onclick="removeAsSuperset('${ss.id}')" style="background:none;border:none;color:var(--muted2);font-size:16px;cursor:pointer;">✕ Remove</button>
       </div>
-      ${ss.exercises.map((e,i)=>`
+      ${ss.exercises.map((e,i)=>{
+        let mainIdx=-1;
+        const groups=[];
+        e.setData.forEach((item,realIdx)=>{
+          if(!item.dropset){
+            mainIdx++;
+            groups.push({mainIdx,mainRealIdx:realIdx,mainItem:item,drops:[]});
+          } else if(groups.length){
+            groups[groups.length-1].drops.push({item,realIdx});
+          }
+        });
+        return`
         <div class="as-cardio-block" style="background:var(--surf);">
           <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-bottom:8px;align-items:center;">
             ${exSelectHtml(e.id,e.ex,`updateAsSupersetEx('${ss.id}','${e.id}','ex',this.value)`)}
@@ -1304,13 +1463,22 @@ function renderAsSupersets(){
           ${lastPerfHtml(e.ex)}
           <div style="display:flex;flex-direction:column;gap:6px;">
             <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);"><span></span><span>Reps</span><span>${asUnit}</span></div>
-            ${e.setData.map((r,i2)=>`<div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;align-items:center;">
-              <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);text-align:center;">S${r.set}</span>
-              <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${r.reps}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${i2},'reps',this.value)">
-              <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${r.weight}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${i2},'weight',this.value)">
-            </div>`).join('')}
+            ${groups.map(g=>`
+              <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;align-items:center;">
+                <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);text-align:center;">S${g.mainIdx+1}</span>
+                <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${g.mainItem.reps}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${g.mainRealIdx},'reps',this.value)">
+                <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${g.mainItem.weight}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${g.mainRealIdx},'weight',this.value)">
+              </div>
+              ${g.drops.map((d,di)=>`<div style="display:grid;grid-template-columns:30px 1fr 1fr auto;gap:8px;align-items:center;margin-left:14px;padding-left:8px;border-left:2px solid rgba(200,120,63,.35);">
+                <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--terra);font-weight:800;text-align:center;">${di>0?'D'+(di+1):'D'}</span>
+                <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${d.item.reps}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${d.realIdx},'reps',this.value)">
+                <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${d.item.weight}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${d.realIdx},'weight',this.value)">
+                <button onclick="removeAsSupersetDropSet('${ss.id}','${e.id}',${d.realIdx})" title="Remove this drop set" style="background:none;border:none;color:var(--muted2);font-size:13px;cursor:pointer;padding:0;">✕</button>
+              </div>`).join('')}
+              <button type="button" onclick="addAsSupersetDropSet('${ss.id}','${e.id}',${g.mainIdx})" style="display:block;width:auto;margin:0 0 4px 38px;padding:2px 0;background:none;border:none;color:var(--terra);font-family:inherit;font-size:.7rem;font-weight:700;cursor:pointer;text-align:left;opacity:.75;">+ Drop set</button>
+            `).join('')}
           </div>
-        </div>`).join('')}
+        </div>`;}).join('')}
       <div onclick="addAsSupersetEx('${ss.id}')" style="padding:6px;border:1px dashed var(--sage);border-radius:8px;text-align:center;color:var(--sage);font-size:12px;font-weight:700;cursor:pointer;">+ Add Exercise to Superset</div>
     </div>`).join('');
   autoDetectAsType();
@@ -1376,6 +1544,35 @@ function moveAsExercise(id,direction){
   if(swapIdx<0||swapIdx>=asExercises.length) return;
   [asExercises[idx],asExercises[swapIdx]]=[asExercises[swapIdx],asExercises[idx]];
   renderAsExercises();
+}
+
+function addAsSupersetDropSet(ssId,exId,afterMain){
+  const ss=asSupersets.find(s=>s.id==ssId);
+  const e=ss&&ss.exercises.find(e=>e.id==exId);
+  if(!e) return;
+  let insertAt=-1,mainSeen=-1;
+  for(let i=0;i<e.setData.length;i++){
+    const item=e.setData[i];
+    if(!item.dropset){
+      mainSeen++;
+      if(mainSeen===afterMain) insertAt=i;
+    } else if(mainSeen===afterMain){
+      insertAt=i;
+    } else if(mainSeen>afterMain){
+      break;
+    }
+  }
+  if(insertAt<0) insertAt=e.setData.length-1;
+  e.setData.splice(insertAt+1,0,{reps:'',weight:'',dropset:true,afterMain});
+  renderAsSupersets();
+}
+
+function removeAsSupersetDropSet(ssId,exId,idx){
+  const ss=asSupersets.find(s=>s.id==ssId);
+  const e=ss&&ss.exercises.find(e=>e.id==exId);
+  if(!e) return;
+  e.setData.splice(idx,1);
+  renderAsSupersets();
 }
 
 function addAsDropSet(id,afterMain){
@@ -1474,7 +1671,7 @@ function editCoachSession(){
     id:Date.now()+Math.random(),
     ex:e.ex,
     sets:(e.setData&&e.setData.length)||e.sets||3,
-    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||''})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assistedReps:r.assistedReps||0,dropset:r.dropset||false,afterMain:r.afterMain!=null?r.afterMain:null})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
   }));
   renderAsExercises();
 
@@ -1485,7 +1682,7 @@ function editCoachSession(){
       id:Date.now()+Math.random(),
       ex:e.ex,
       sets:(e.setData&&e.setData.length)||e.sets||3,
-      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||''})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assistedReps:r.assistedReps||0,dropset:r.dropset||false,afterMain:r.afterMain!=null?r.afterMain:null})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
     }))
   }));
   renderAsSupersets();
@@ -1694,7 +1891,7 @@ async function saveAdminSession(){
       id:sessionId, client:clientName, date, timeOfDay:timeStr,
       bodyParts:asSelectedBP, exercises:exercisesPayload, supersets:supersetsPayload,
       cardio:cardioPayload, restTimes:[], avgRestManual:avgRestVal, duration:durationSecs, unit:asUnit,
-      notes:notesVal, adminAdded:true
+      notes:notesVal, adminAdded:true, updatedAt:Date.now()
     };
     if(idx>=0) sessions[idx]=updatedSession; else sessions.unshift(updatedSession);
     full.sessions=sessions;
@@ -1755,7 +1952,7 @@ async function saveAdminSession(){
     duration:durationSecs,
     unit:asUnit,
     notes:notesVal||'Added by coach',
-    adminAdded:true
+    adminAdded:true, updatedAt:Date.now()
   };
 
   const {data:existing,error:fetchErr}=await getSB().from('tracker_data').select('data').eq('client_id',clientKey).eq('tracker','fitness');
