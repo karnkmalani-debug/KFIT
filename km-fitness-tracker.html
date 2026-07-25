@@ -116,6 +116,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .reorder-stack{display:flex;flex-direction:column;gap:1px;flex-shrink:0;border:1.5px solid var(--muted2);border-radius:8px;overflow:hidden;}
 .reorder-stack .move-btn{width:32px;height:21px;min-width:32px;font-size:14px;font-weight:700;border-radius:0;border:none;border-bottom:1px solid var(--muted2);color:var(--muted2);}
 .reorder-stack .move-btn:last-child{border-bottom:none;}
+.move-btn-down{transform:rotate(180deg);}
 .action-group{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:4px;padding-left:8px;border-left:1px solid var(--border);}
 .action-group .collapse-btn,.action-group .del-btn{margin-left:0;}
 .del-btn:hover{color:var(--terra);}
@@ -1379,7 +1380,7 @@ function applyAssignedWorkoutIfAny(){
         <div class="ex-top-row">
           <div class="reorder-stack">
             <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">⇧</button>
-            <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">⇩</button>
+            <button class="move-btn move-btn-down" onclick="moveExBlock(this,1)" title="Move down">⇧</button>
           </div>
           <select class="ex-select" onchange="onExChange(this)"></select>
           <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
@@ -1448,7 +1449,7 @@ function autoFillExercisesForBodyPart(bp){
       <div class="ex-top-row">
         <div class="reorder-stack">
           <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">⇧</button>
-          <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">⇩</button>
+          <button class="move-btn move-btn-down" onclick="moveExBlock(this,1)" title="Move down">⇧</button>
         </div>
         <select class="ex-select" onchange="onExChange(this)"></select>
         <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
@@ -1899,7 +1900,7 @@ function addExRow(){
     <div class="ex-top-row">
       <div class="reorder-stack">
         <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">⇧</button>
-        <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">⇩</button>
+        <button class="move-btn move-btn-down" onclick="moveExBlock(this,1)" title="Move down">⇧</button>
       </div>
       <select class="ex-select" onchange="onExChange(this)"></select>
       <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(3)}</select>
@@ -2845,7 +2846,7 @@ function draftLoad(){
           <div class="ex-top-row">
             <div class="reorder-stack">
               <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">⇧</button>
-              <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">⇩</button>
+              <button class="move-btn move-btn-down" onclick="moveExBlock(this,1)" title="Move down">⇧</button>
             </div>
             <select class="ex-select" onchange="onExChange(this)"></select>
             <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>

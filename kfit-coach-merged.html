@@ -59,6 +59,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .reorder-stack{display:flex;flex-direction:column;gap:1px;flex-shrink:0;border:1.5px solid var(--muted2);border-radius:8px;overflow:hidden;}
 .reorder-stack button{width:32px;height:21px;min-width:32px;font-size:14px;font-weight:700;border-radius:0;border:none;border-bottom:1px solid var(--muted2);background:var(--surf3);color:var(--muted2);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
 .reorder-stack button:last-child{border-bottom:none;}
+.move-btn-down{transform:rotate(180deg);}
 .reorder-stack button:disabled{opacity:.25;cursor:default;}
 .del-btn{background:var(--surf3);border:2px solid var(--terra);color:var(--terra);font-size:22px;font-weight:900;cursor:pointer;width:42px;height:42px;min-width:42px;border-radius:9px;line-height:1;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
 .form-inp:focus{border-color:var(--sage);}
@@ -1433,7 +1434,17 @@ function removeAsSupersetEx(ssId,exId){
 function updateAsSupersetEx(ssId,exId,field,val){
   const ss=asSupersets.find(s=>s.id==ssId); if(!ss)return;
   const e=ss.exercises.find(e=>e.id==exId); if(e)e[field]=val;
-  if(field==='ex')renderAsSupersets();
+  if(field==='ex'){
+    const perf=findLastPerf(val);
+    if(perf&&e){
+      const lastMains=(perf.ex.setData||[]).filter(r=>!r.dropset&&(r.reps||r.weight));
+      const mySets=e.setData.filter(r=>!r.dropset);
+      mySets.forEach((r,i)=>{
+        if(lastMains[i]){ r.reps=lastMains[i].reps||''; r.weight=lastMains[i].weight||''; }
+      });
+    }
+    renderAsSupersets();
+  }
 }
 
 function updateAsSupersetExSets(ssId,exId,newCount){
@@ -1538,7 +1549,7 @@ function renderAsExercises(){
       <div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;margin-bottom:8px;align-items:center;">
         <div class="reorder-stack">
           <button onclick="moveAsExercise('${b.id}',-1,this)" ${bi===0?'disabled':''} title="Move up">⇧</button>
-          <button onclick="moveAsExercise('${b.id}',1,this)" ${bi===asExercises.length-1?'disabled':''} title="Move down">⇩</button>
+          <button class="move-btn-down" onclick="moveAsExercise('${b.id}',1,this)" ${bi===asExercises.length-1?'disabled':''} title="Move down">⇧</button>
         </div>
         ${exSelectHtml(b.id,b.ex,`updateAsExercise('${b.id}','ex',this.value)`)}
         <select class="form-inp" onchange="updateAsExSets('${b.id}',this.value)" style="font-size:14px;width:64px;">
@@ -1647,7 +1658,17 @@ function removeAsDropSet(id,idx){
 function updateAsExercise(id,field,val){
   const b=asExercises.find(b=>b.id==id);
   if(b)b[field]=val;
-  if(field==='ex')renderAsExercises();
+  if(field==='ex'){
+    const perf=findLastPerf(val);
+    if(perf){
+      const lastMains=(perf.ex.setData||[]).filter(r=>!r.dropset&&(r.reps||r.weight));
+      const mySets=b.setData.filter(r=>!r.dropset);
+      mySets.forEach((r,i)=>{
+        if(lastMains[i]){ r.reps=lastMains[i].reps||''; r.weight=lastMains[i].weight||''; }
+      });
+    }
+    renderAsExercises();
+  }
 }
 
 function updateAsExSets(id,newCount){
