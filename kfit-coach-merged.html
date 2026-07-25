@@ -579,10 +579,12 @@ function showClient(key){
   const now=new Date();
   const thisMonth=localDateStr(now).slice(0,7);
   const monthSessions=c.records.filter(r=>r.session_date&&r.session_date.slice(0,7)===thisMonth).length;
-  const unpaidCount=c.records.filter(r=>!r.paid).length;
+  const isTaggedClient=!!taggedClients.fitness[canonicalClientKey(c.name,c.mobile)];
+  const unpaidCount=isTaggedClient?c.records.filter(r=>!r.paid).length:0;
   const rows=c.records.map(r=>{
     const d=new Date(r.session_date+'T12:00:00');
     const label=r.activity&&r.activity.trim()?r.activity:r.body_parts&&r.body_parts.trim()?r.body_parts:r.workout_type||'Session';
+    const paidBtn=isTaggedClient?`<button onclick="event.stopPropagation();togglePaid('${(c.mobile||'').replace(/'/g,"\\'")}','${r.session_date}','${(r.session_time||'').replace(/'/g,"\\'")}',${!!r.paid})" style="padding:4px 10px;border-radius:12px;border:1px solid ${r.paid?'var(--sage)':'var(--terra)'};background:${r.paid?'var(--sage)':'transparent'};color:${r.paid?'#fff':'var(--terra)'};font-family:'DM Sans',sans-serif;font-size:10px;font-weight:800;letter-spacing:0.5px;cursor:pointer;white-space:nowrap;">${r.paid?'PAID':'UNPAID'}</button>`:'';
     return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
       <div onclick="openCoachSession('${(c.mobile||c.name).replace(/'/g,"\\'")}','${r.session_date}','${(r.session_time||'').replace(/'/g,"\\'")}')" style="cursor:pointer;flex:1;">
         <div style="font-size:15px;font-weight:600;">${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}</div>
@@ -593,7 +595,7 @@ function showClient(key){
           <div style="font-size:12px;font-weight:700;color:var(--sage);">${label}</div>
           ${r.duration_secs?`<div style="font-size:12px;color:var(--muted);">${Math.round(r.duration_secs/60)}m</div>`:''}
         </div>
-        <button onclick="event.stopPropagation();togglePaid('${(c.mobile||'').replace(/'/g,"\\'")}','${r.session_date}','${(r.session_time||'').replace(/'/g,"\\'")}',${!!r.paid})" style="padding:4px 10px;border-radius:12px;border:1px solid ${r.paid?'var(--sage)':'var(--terra)'};background:${r.paid?'var(--sage)':'transparent'};color:${r.paid?'#fff':'var(--terra)'};font-family:'DM Sans',sans-serif;font-size:10px;font-weight:800;letter-spacing:0.5px;cursor:pointer;white-space:nowrap;">${r.paid?'PAID':'UNPAID'}</button>
+        ${paidBtn}
       </div>
     </div>`;
   }).join('');
@@ -841,9 +843,10 @@ function openCoachSession(clientKey, date, time){
   const mobile=(c.mobile||'').replace(/\D/g,'');
   const clientId=mobile?name+'__'+mobile:name;
   const attRecord=c.records.find(r=>r.session_date===date&&(r.session_time||'')===(time||''));
+  const isTaggedClient=!!taggedClients.fitness[canonicalClientKey(c.name,c.mobile)];
 
   document.getElementById('coachSessHeader').textContent=c.name+' · '+date+(time?' · '+time:'');
-  document.getElementById('coachSessActions').innerHTML=attRecord?
+  document.getElementById('coachSessActions').innerHTML=(attRecord&&isTaggedClient)?
     `<button onclick="togglePaid('${(c.mobile||'').replace(/'/g,"\\'")}','${date}','${(time||'').replace(/'/g,"\\'")}',${!!attRecord.paid})" style="padding:5px 12px;border-radius:12px;border:1px solid ${attRecord.paid?'var(--sage)':'var(--terra)'};background:${attRecord.paid?'var(--sage)':'transparent'};color:${attRecord.paid?'#fff':'var(--terra)'};font-family:'DM Sans',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.5px;cursor:pointer;">${attRecord.paid?'PAID':'UNPAID'}</button>`:'';
   document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">Loading...</div>';
   document.getElementById('coachSessionPanel').style.display='block';
@@ -1023,7 +1026,7 @@ function renderCoachSession(s,allSessions){
   // Supersets
   const ssHtml=(s.supersets&&s.supersets.length)?s.supersets.map(ss=>`<div class="card" style="border-color:var(--sage);">
     <div class="card-title" style="color:var(--sage);">Superset ${ss.num}</div>
-    ${ss.exercises.map(e=>{
+    ${ss.exercises.filter(e=>e.type==='cardio'||(e.setData||[]).some(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()))).map(e=>{
       if(e.type==='cardio') return`<div style="border-left:3px solid var(--sage);padding-left:10px;margin-bottom:12px;">
         <div style="font-size:16px;font-weight:700;margin-bottom:4px;">${e.ex}</div>
         <div style="font-size:14px;color:var(--sage);">${e.duration?e.duration+' min':''} ${e.intensity?'· Intensity: '+e.intensity:''}</div>
@@ -1060,7 +1063,7 @@ function renderCoachSession(s,allSessions){
   // Exercises
   const exHtml=(s.exercises&&s.exercises.length)?`<div class="card">
     <div class="card-title">Exercises</div>
-    ${s.exercises.map(e=>{
+    ${s.exercises.filter(e=>(e.setData||[]).some(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()))).map(e=>{
       const realSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
       const hasW=realSets.some(r=>r.weight);
       const exPR=prMap8[e.ex.toLowerCase().trim()];

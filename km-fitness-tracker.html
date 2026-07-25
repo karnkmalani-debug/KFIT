@@ -3699,7 +3699,7 @@ function openDetail(id){
   const exSection=(s.exercises&&s.exercises.length)?`
     <div class="card">
       <div class="card-title">Exercises</div>
-      ${s.exercises.map(e=>{
+      ${s.exercises.filter(e=>(e.setData||[]).some(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()))).map(e=>{
         const realSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
         const hasWeight=realSets.some(r=>r.weight);
         const uLabel=s.unit||'kg';
@@ -3735,7 +3735,7 @@ function openDetail(id){
     const uLabel=s.unit||'kg';
     return`<div class="card" style="border-color:var(--sage);">
       <div style="font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--sage);margin-bottom:12px;">Superset ${ss.num}</div>
-      ${ss.exercises.map(e=>{
+      ${ss.exercises.filter(e=>e.type==='cardio'||(e.setData||[]).some(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()))).map(e=>{
         if(e.type==='cardio'){
           return`<div style="margin-bottom:16px;border-left:3px solid var(--sage);padding-left:10px;">
             <div style="font-size:17px;font-weight:700;margin-bottom:6px;color:var(--text);">${e.ex}</div>
