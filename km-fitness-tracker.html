@@ -107,14 +107,14 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .reps-input,.weight-input{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--text);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;transition:border-color .15s;}
 .reps-input:focus,.weight-input:focus{border-color:var(--sage);}
 .weight-input:focus{border-color:var(--gold);}
-.del-btn{background:var(--surf3);border:1px solid var(--terra);color:var(--terra);font-size:17px;cursor:pointer;width:36px;height:36px;min-width:36px;border-radius:9px;line-height:1;transition:color .18s;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-left:10px;}
-.collapse-btn{background:var(--surf3);border:1.5px solid var(--sage);color:var(--sage);font-size:20px;font-weight:900;cursor:pointer;width:38px;height:38px;min-width:38px;border-radius:9px;line-height:1;flex-shrink:0;transition:color .18s;display:flex;align-items:center;justify-content:center;}
+.del-btn{background:var(--surf3);border:2px solid var(--terra);color:var(--terra);font-size:22px;font-weight:900;cursor:pointer;width:42px;height:42px;min-width:42px;border-radius:9px;line-height:1;transition:color .18s;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-left:10px;}
+.collapse-btn{background:var(--surf3);border:2px solid var(--sage);color:var(--sage);font-size:22px;font-weight:900;cursor:pointer;width:42px;height:42px;min-width:42px;border-radius:9px;line-height:1;flex-shrink:0;transition:color .18s;display:flex;align-items:center;justify-content:center;}
 .collapse-btn:hover{color:var(--sage);}
 .move-btn{background:var(--surf3);border:1px solid var(--border);color:var(--muted2);font-size:12px;cursor:pointer;width:26px;height:36px;min-width:26px;border-radius:7px;line-height:1;flex-shrink:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;}
 .move-btn:active{opacity:.5;}
 .move-btn:disabled{opacity:.25;cursor:default;}
-.reorder-stack{display:flex;flex-direction:column;gap:1px;flex-shrink:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
-.reorder-stack .move-btn{width:30px;height:19px;min-width:30px;font-size:11px;border-radius:0;border:none;border-bottom:1px solid var(--border);}
+.reorder-stack{display:flex;flex-direction:column;gap:1px;flex-shrink:0;border:1.5px solid var(--muted2);border-radius:8px;overflow:hidden;}
+.reorder-stack .move-btn{width:32px;height:21px;min-width:32px;font-size:14px;font-weight:700;border-radius:0;border:none;border-bottom:1px solid var(--muted2);color:var(--muted2);}
 .reorder-stack .move-btn:last-child{border-bottom:none;}
 .action-group{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:4px;padding-left:8px;border-left:1px solid var(--border);}
 .action-group .collapse-btn,.action-group .del-btn{margin-left:0;}
@@ -1378,8 +1378,8 @@ function applyAssignedWorkoutIfAny(){
       block.innerHTML=`
         <div class="ex-top-row">
           <div class="reorder-stack">
-            <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
-            <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">▼</button>
+            <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">⇧</button>
+            <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">⇩</button>
           </div>
           <select class="ex-select" onchange="onExChange(this)"></select>
           <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
@@ -1447,8 +1447,8 @@ function autoFillExercisesForBodyPart(bp){
     block.innerHTML=`
       <div class="ex-top-row">
         <div class="reorder-stack">
-          <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
-          <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">▼</button>
+          <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">⇧</button>
+          <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">⇩</button>
         </div>
         <select class="ex-select" onchange="onExChange(this)"></select>
         <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
@@ -1898,8 +1898,8 @@ function addExRow(){
   block.innerHTML=`
     <div class="ex-top-row">
       <div class="reorder-stack">
-        <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
-        <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">▼</button>
+        <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">⇧</button>
+        <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">⇩</button>
       </div>
       <select class="ex-select" onchange="onExChange(this)"></select>
       <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(3)}</select>
@@ -2843,12 +2843,16 @@ function draftLoad(){
         if(e.autobp) block.dataset.autobp=e.autobp;
         block.innerHTML=`
           <div class="ex-top-row">
+            <div class="reorder-stack">
+              <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">⇧</button>
+              <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">⇩</button>
+            </div>
             <select class="ex-select" onchange="onExChange(this)"></select>
             <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
-            <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">⌃</button>
-            <button class="move-btn" style="margin-left:6px;" onclick="moveExBlock(this,-1)" title="Move up">▲</button>
-            <button class="move-btn" onclick="moveExBlock(this,1)" title="Move down">▼</button>
-            <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
+            <div class="action-group">
+              <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">⌃</button>
+              <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
+            </div>
           </div>
           <div class="set-rows"></div>`;
         document.getElementById('exBody').appendChild(block);
@@ -3201,6 +3205,7 @@ function showPRFlash(exName, weight, reps){
 function moveExBlock(btn,direction){
   const block=btn.closest('.ex-block');
   if(!block) return;
+  const beforeTop=btn.getBoundingClientRect().top;
   const parent=block.parentElement;
   if(direction<0){
     const prev=block.previousElementSibling;
@@ -3209,6 +3214,10 @@ function moveExBlock(btn,direction){
     const next=block.nextElementSibling;
     if(next&&next.classList.contains('ex-block')) parent.insertBefore(next,block);
   }
+  // Keep the block (and the finger that tapped it) anchored at the same screen
+  // position instead of the page jumping -- reordering shouldn't require rescrolling.
+  const afterTop=btn.getBoundingClientRect().top;
+  window.scrollBy(0,afterTop-beforeTop);
   draftSave();
 }
 
