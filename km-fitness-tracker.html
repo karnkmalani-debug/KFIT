@@ -108,13 +108,14 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .reps-input:focus,.weight-input:focus{border-color:var(--sage);}
 .weight-input:focus{border-color:var(--gold);}
 .del-btn{background:var(--surf3);border:1px solid var(--terra);color:var(--terra);font-size:17px;cursor:pointer;width:36px;height:36px;min-width:36px;border-radius:9px;line-height:1;transition:color .18s;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-left:10px;}
-.collapse-btn{background:var(--surf3);border:1px solid var(--border);color:var(--muted2);font-size:15px;cursor:pointer;width:36px;height:36px;min-width:36px;border-radius:9px;line-height:1;flex-shrink:0;transition:color .18s;display:flex;align-items:center;justify-content:center;}
+.collapse-btn{background:var(--surf3);border:1.5px solid var(--sage);color:var(--sage);font-size:20px;font-weight:900;cursor:pointer;width:38px;height:38px;min-width:38px;border-radius:9px;line-height:1;flex-shrink:0;transition:color .18s;display:flex;align-items:center;justify-content:center;}
 .collapse-btn:hover{color:var(--sage);}
 .move-btn{background:var(--surf3);border:1px solid var(--border);color:var(--muted2);font-size:12px;cursor:pointer;width:26px;height:36px;min-width:26px;border-radius:7px;line-height:1;flex-shrink:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;}
 .move-btn:active{opacity:.5;}
 .move-btn:disabled{opacity:.25;cursor:default;}
-.reorder-stack{display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
-.reorder-stack .move-btn{width:22px;height:17px;min-width:22px;font-size:9px;border-radius:4px;}
+.reorder-stack{display:flex;flex-direction:column;gap:1px;flex-shrink:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.reorder-stack .move-btn{width:30px;height:19px;min-width:30px;font-size:11px;border-radius:0;border:none;border-bottom:1px solid var(--border);}
+.reorder-stack .move-btn:last-child{border-bottom:none;}
 .action-group{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:4px;padding-left:8px;border-left:1px solid var(--border);}
 .action-group .collapse-btn,.action-group .del-btn{margin-left:0;}
 .del-btn:hover{color:var(--terra);}
@@ -1880,7 +1881,9 @@ function toggleExBlock(btn){
       summaryEl=document.createElement('div');
       summaryEl.className='ex-collapsed-summary';
       summaryEl.style.cssText='flex:1;font-size:15px;font-weight:600;color:var(--muted);padding:4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-      if(topRow)topRow.insertBefore(summaryEl,topRow.firstChild);
+      const reorderStack=topRow?topRow.querySelector('.reorder-stack'):null;
+      if(reorderStack) reorderStack.insertAdjacentElement('afterend',summaryEl);
+      else if(topRow) topRow.insertBefore(summaryEl,topRow.firstChild);
     }
     summaryEl.textContent=summary;
     btn.textContent='⌄';

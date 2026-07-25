@@ -534,7 +534,7 @@ function renderDash(){
     const recencyBadge=daysSince===null?'':daysSince<=7?`<span class="badge badge-sage">Active</span>`:daysSince<=14?`<span class="badge badge-gold">${daysSince}d ago</span>`:`<span class="badge badge-terra">${daysSince}d ago</span>`;
     const isTagged=!!taggedClients.fitness[canonicalClientKey(c.name,c.mobile)];
     const tagBtn=`<button onclick="toggleClientTag('${canonicalClientKey(c.name,c.mobile).replace(/'/g,"\\'")}','${(c.name||'').replace(/'/g,"\\'")}','${(c.mobile||'').replace(/'/g,"\\'")}',event,'fitness')" style="padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${isTagged?'var(--sage)':'var(--border)'};background:${isTagged?'var(--sage)':'transparent'};color:${isTagged?'#fff':'var(--muted)'};">${isTagged?'★ Client':'☆ Mark as Client'}</button>`;
-    const unpaidN=c.records.filter(r=>!r.paid).length;
+    const unpaidN=isTagged?c.records.filter(r=>!r.paid).length:0;
     const unpaidBadge=unpaidN?`<span class="badge" style="background:var(--terra);color:#fff;">${unpaidN} unpaid</span>`:'';
     return`<div class="client-card" onclick="showClient('${key.replace(/'/g,"\\'")}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
@@ -551,20 +551,21 @@ function renderDash(){
   }).join('');
 }
 
-function togglePaid(recordId,currentPaid){
+function togglePaid(mobile,date,time,currentPaid){
   const newPaid=!currentPaid;
-  getSB().from('attendance').update({paid:newPaid}).eq('id',recordId).then(function(res){
+  getSB().from('attendance').update({paid:newPaid}).eq('client_mobile',mobile||'').eq('session_date',date||'').eq('session_time',time||'').then(function(res){
     if(res.error){
       alert('Could not update payment status: '+res.error.message);
       return;
     }
-    const rec=allRecords.find(r=>r.id===recordId);
+    const rec=allRecords.find(r=>(r.client_mobile||'')===(mobile||'')&&r.session_date===date&&(r.session_time||'')===(time||''));
     if(rec) rec.paid=newPaid;
     const actionsEl=document.getElementById('coachSessActions');
-    if(actionsEl&&actionsEl.innerHTML.includes('togglePaid('+recordId+',')){
-      actionsEl.innerHTML=`<button onclick="togglePaid(${recordId},${newPaid})" style="padding:5px 12px;border-radius:12px;border:1px solid ${newPaid?'var(--sage)':'var(--terra)'};background:${newPaid?'var(--sage)':'transparent'};color:${newPaid?'#fff':'var(--terra)'};font-family:'DM Sans',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.5px;cursor:pointer;">${newPaid?'PAID':'UNPAID'}</button>`;
+    if(actionsEl&&actionsEl.innerHTML.includes("togglePaid('"+(mobile||'')+"','"+date+"'")){
+      actionsEl.innerHTML=`<button onclick="togglePaid('${(mobile||'').replace(/'/g,"\\'")}','${date}','${(time||'').replace(/'/g,"\\'")}',${newPaid})" style="padding:5px 12px;border-radius:12px;border:1px solid ${newPaid?'var(--sage)':'var(--terra)'};background:${newPaid?'var(--sage)':'transparent'};color:${newPaid?'#fff':'var(--terra)'};font-family:'DM Sans',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.5px;cursor:pointer;">${newPaid?'PAID':'UNPAID'}</button>`;
     }
     if(currentClientKey) showClient(currentClientKey);
+    renderDash(); // keep the roster's unpaid badge correct even though it's hidden behind clientView right now
   });
 }
 
@@ -592,7 +593,7 @@ function showClient(key){
           <div style="font-size:12px;font-weight:700;color:var(--sage);">${label}</div>
           ${r.duration_secs?`<div style="font-size:12px;color:var(--muted);">${Math.round(r.duration_secs/60)}m</div>`:''}
         </div>
-        <button onclick="event.stopPropagation();togglePaid(${r.id},${!!r.paid})" style="padding:4px 10px;border-radius:12px;border:1px solid ${r.paid?'var(--sage)':'var(--terra)'};background:${r.paid?'var(--sage)':'transparent'};color:${r.paid?'#fff':'var(--terra)'};font-family:'DM Sans',sans-serif;font-size:10px;font-weight:800;letter-spacing:0.5px;cursor:pointer;white-space:nowrap;">${r.paid?'PAID':'UNPAID'}</button>
+        <button onclick="event.stopPropagation();togglePaid('${(c.mobile||'').replace(/'/g,"\\'")}','${r.session_date}','${(r.session_time||'').replace(/'/g,"\\'")}',${!!r.paid})" style="padding:4px 10px;border-radius:12px;border:1px solid ${r.paid?'var(--sage)':'var(--terra)'};background:${r.paid?'var(--sage)':'transparent'};color:${r.paid?'#fff':'var(--terra)'};font-family:'DM Sans',sans-serif;font-size:10px;font-weight:800;letter-spacing:0.5px;cursor:pointer;white-space:nowrap;">${r.paid?'PAID':'UNPAID'}</button>
       </div>
     </div>`;
   }).join('');
@@ -843,7 +844,7 @@ function openCoachSession(clientKey, date, time){
 
   document.getElementById('coachSessHeader').textContent=c.name+' · '+date+(time?' · '+time:'');
   document.getElementById('coachSessActions').innerHTML=attRecord?
-    `<button onclick="togglePaid(${attRecord.id},${!!attRecord.paid})" style="padding:5px 12px;border-radius:12px;border:1px solid ${attRecord.paid?'var(--sage)':'var(--terra)'};background:${attRecord.paid?'var(--sage)':'transparent'};color:${attRecord.paid?'#fff':'var(--terra)'};font-family:'DM Sans',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.5px;cursor:pointer;">${attRecord.paid?'PAID':'UNPAID'}</button>`:'';
+    `<button onclick="togglePaid('${(c.mobile||'').replace(/'/g,"\\'")}','${date}','${(time||'').replace(/'/g,"\\'")}',${!!attRecord.paid})" style="padding:5px 12px;border-radius:12px;border:1px solid ${attRecord.paid?'var(--sage)':'var(--terra)'};background:${attRecord.paid?'var(--sage)':'transparent'};color:${attRecord.paid?'#fff':'var(--terra)'};font-family:'DM Sans',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.5px;cursor:pointer;">${attRecord.paid?'PAID':'UNPAID'}</button>`:'';
   document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">Loading...</div>';
   document.getElementById('coachSessionPanel').style.display='block';
 
