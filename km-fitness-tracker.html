@@ -2155,13 +2155,32 @@ function onExChange(sel){
 
   const lastEx=lastSess?(lastSess.exercises||[]).find(e=>e.ex===exName):null;
 
-  // Match the sets dropdown to this exercise's own last-session set count
-  // (not whatever was left over from the previously-selected exercise) before
-  // generating the rows, so switching exercises adjusts sets correctly.
+  // Match the sets dropdown to this exercise's own last-session MAIN set count
+  // (drops don't count as separate sets) before generating rows, so switching
+  // exercises adjusts sets correctly instead of flattening drop sets into plain ones.
   if(!isC&&lastEx&&lastEx.type!=='cardio'&&(lastEx.setData||[]).length){
-    setsEl.value=String(Math.min(lastEx.setData.length,+setsEl.querySelector('option:last-child')?.value||lastEx.setData.length));
+    const mainCount=lastEx.setData.filter(sd=>!sd.dropset).length||lastEx.setData.length;
+    setsEl.value=String(Math.min(mainCount,+setsEl.querySelector('option:last-child')?.value||mainCount));
   }
   generateSetRows(block.querySelector('.set-rows'),+setsEl.value,exName);
+
+  // Recreate the drop-set structure (rows only, left blank) from last session --
+  // otherwise a main+drops exercise reloads as N separate plain sets with no
+  // drop grouping at all.
+  if(lastEx&&(lastEx.setData||[]).some(sd=>sd.dropset)){
+    const dsContainer=block.querySelector('.set-rows');
+    lastEx.setData.forEach(function(sd){
+      if(!sd.dropset) return;
+      const mainRows=dsContainer.querySelectorAll('.set-row:not(.drop-row)');
+      const afterMain=sd.afterMain!=null?Math.min(sd.afterMain,mainRows.length-1):0;
+      const link=dsContainer.querySelector(`.add-drop-link[data-after-main="${afterMain}"]`);
+      if(link){
+        const dropRow=buildDropRowElement(afterMain);
+        link.insertAdjacentElement('beforebegin',dropRow);
+        renumberDropGroup(dsContainer,afterMain);
+      }
+    });
+  }
 
   if(!lastSess){histEl.innerHTML='';return;}
   if(!lastEx){histEl.innerHTML='';return;}
@@ -2180,9 +2199,11 @@ function onExChange(sel){
   } else {
     const setData=(lastEx.setData||[]).filter(r=>r.reps||r.weight);
     const unit=lastSess.unit||'kg';
-    innerHtml=setData.map(function(r,i){
-      return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;">'
-        +'<span style="font-family:\'DM Mono\',monospace;font-size:17px;color:var(--muted2);width:36px;flex-shrink:0;text-transform:uppercase;">Set '+(i+1)+'</span>'
+    let dsN=0, mainN=0;
+    innerHtml=setData.map(function(r){
+      const label=r.dropset?(++dsN>1?'D'+dsN:'D'):(dsN=0,mainN++,'Set '+mainN);
+      return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;'+(r.dropset?'margin-left:16px;border-left:2px solid var(--red);':'')+'">'
+        +'<span style="font-family:\'DM Mono\',monospace;font-size:17px;color:'+(r.dropset?'var(--red)':'var(--muted2)')+';width:42px;flex-shrink:0;text-transform:uppercase;">'+label+'</span>'
         +(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps</span>':'<span style="flex:1;"></span>')
         +(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:17px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
         +'</div>';
