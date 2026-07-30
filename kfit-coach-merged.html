@@ -232,7 +232,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           <option value="Superset">Superset</option>
           <option value="Strength + Cardio">Strength + Cardio</option>
           <option value="Superset + Cardio">Superset + Cardio</option>
-          <option value="Session">Session</option>
         </select>
       </div>
 
@@ -1187,11 +1186,12 @@ async function loadAsClientSessions(clientId){
 
 function findLastPerf(exName){
   if(!exName||!asClientSessions.length)return null;
+  const hasData=e=>(e.setData||[]).some(r=>r.reps||r.weight);
   for(const s of asClientSessions){
-    const e=(s.exercises||[]).find(e=>e.ex===exName);
+    const e=(s.exercises||[]).find(e=>e.ex===exName&&hasData(e));
     if(e)return{session:s,ex:e};
     for(const ss of(s.supersets||[])){
-      const e2=(ss.exercises||[]).find(e=>e.ex===exName);
+      const e2=(ss.exercises||[]).find(e=>e.ex===exName&&hasData(e));
       if(e2)return{session:s,ex:e2};
     }
   }
@@ -1221,7 +1221,7 @@ function detectWorkoutTypeCoach(){
   if(hasEx&&hasCardio)return'Strength + Cardio';
   if(hasEx)return'Strength';
   if(hasCardio)return'Cardio';
-  return'Session';
+  return'Strength';
 }
 
 function autoDetectAsType(){
@@ -1546,18 +1546,19 @@ function renderAsExercises(){
     });
     return`
     <div class="as-cardio-block">
-      <div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;margin-bottom:8px;align-items:center;">
+      <div style="display:grid;grid-template-columns:auto 1fr auto auto auto;gap:8px;margin-bottom:8px;align-items:center;">
         <div class="reorder-stack">
           <button onclick="moveAsExercise('${b.id}',-1,this)" ${bi===0?'disabled':''} title="Move up">⇧</button>
           <button class="move-btn-down" onclick="moveAsExercise('${b.id}',1,this)" ${bi===asExercises.length-1?'disabled':''} title="Move down">⇧</button>
         </div>
-        ${exSelectHtml(b.id,b.ex,`updateAsExercise('${b.id}','ex',this.value)`)}
-        <select class="form-inp" onchange="updateAsExSets('${b.id}',this.value)" style="font-size:14px;width:64px;">
+        ${b.collapsed?`<div style="flex:1;font-size:15px;font-weight:600;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${b.ex||'-- Exercise --'} · ${b.sets} set${b.sets>1?'s':''}</div>`:exSelectHtml(b.id,b.ex,`updateAsExercise('${b.id}','ex',this.value)`)}
+        ${b.collapsed?'':`<select class="form-inp" onchange="updateAsExSets('${b.id}',this.value)" style="font-size:14px;width:64px;">
           ${Array.from({length:25},(_,i)=>i+1).map(n=>`<option value="${n}"${n===b.sets?' selected':''}>${n} set${n>1?'s':''}</option>`).join('')}
-        </select>
+        </select>`}
+        <button class="collapse-btn" onclick="toggleAsExCollapse('${b.id}')" title="${b.collapsed?'Expand':'Collapse'}">${b.collapsed?'⌄':'⌃'}</button>
         <button class="del-btn" onclick="removeAsExercise('${b.id}')">&#10005;</button>
       </div>
-      ${lastPerfHtml(b.ex)}
+      ${b.collapsed?'':`${lastPerfHtml(b.ex)}
       <div style="display:flex;flex-direction:column;gap:6px;">
         <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);"><span></span><span>Reps</span><span>${asUnit}</span></div>
         ${groups.map(g=>`
@@ -1574,9 +1575,15 @@ function renderAsExercises(){
           </div>`).join('')}
           <button type="button" onclick="addAsDropSet('${b.id}',${g.mainIdx})" style="display:block;width:auto;margin:0 0 4px 38px;padding:2px 0;background:none;border:none;color:var(--terra);font-family:inherit;font-size:.7rem;font-weight:700;cursor:pointer;text-align:left;opacity:.75;">+ Drop set</button>
         `).join('')}
-      </div>
+      </div>`}
     </div>`;}).join('');
   autoDetectAsType();
+}
+
+function toggleAsExCollapse(id){
+  const b=asExercises.find(b=>b.id==id);
+  if(b) b.collapsed=!b.collapsed;
+  renderAsExercises();
 }
 
 function moveAsExercise(id,direction,btn){
