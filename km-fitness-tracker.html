@@ -2110,7 +2110,15 @@ function removeSuperset(ssId){
   }
 }
 
-function collectSupersets(){
+function getExBodyOrder(){
+  const order=new Map();
+  [...document.querySelectorAll('#exBody > .ex-block, #exBody > .superset-block')].forEach((el,i)=>{
+    order.set(el,i);
+  });
+  return order;
+}
+
+function collectSupersets(exOrder){
   const supersets=[];
   document.querySelectorAll('#exBody .superset-block').forEach(ssBlock=>{
     const ssNum=+ssBlock.dataset.ssnum;
@@ -2131,7 +2139,7 @@ function collectSupersets(){
         exercises.push({ex,sets:setsCount,setData});
       }
     });
-    if(exercises.length)supersets.push({num:ssNum,exercises});
+    if(exercises.length)supersets.push({num:ssNum,exercises,order:exOrder?exOrder.get(ssBlock):undefined});
   });
   return supersets;
 }
@@ -2240,6 +2248,7 @@ function saveSession(){
   if(!date){toast('Set a date first');return;}
   const exercises=[];
   let incompleteMsg=null;
+  const _exOrder=getExBodyOrder();
   // Bodyweight/freehand exercises don't need a weight entered -- reps alone is a complete set for these
   const BODYWEIGHT_EX=['Pull-Ups','Chin-Ups','Push-Ups','Deficit Push Ups','Nordic Curl','Plank','Side Plank','Hanging Leg Raise','Dragon Flag','Hollow Body Hold','Dips (Chest Focus)','Dips (Tricep Focus)','Crunches','Decline Crunches','Dead Bug','Reverse Crunch'];
   document.querySelectorAll('#exBody .ex-block').forEach(block=>{
@@ -2250,7 +2259,7 @@ function saveSession(){
       const dur=block.querySelector('.cardio-input')?.value||'';
       const dist=block.querySelectorAll('.cardio-input')[1]?.value||'';
       const intensity=block.querySelector('.intensity-sel')?.value||'';
-      exercises.push({ex,type:'cardio',duration:dur,distance:dist,intensity});
+      exercises.push({ex,type:'cardio',duration:dur,distance:dist,intensity,order:_exOrder.get(block)});
     } else {
       const isBodyweight=BODYWEIGHT_EX.includes(ex);
       const setData=[];
@@ -2266,7 +2275,7 @@ function saveSession(){
         }
         setData.push({set:i+1,reps:reps,weight:weight,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
       });
-      exercises.push({ex,sets:setsCount,setData});
+      exercises.push({ex,sets:setsCount,setData,order:_exOrder.get(block)});
     }
   });
   if(incompleteMsg){showBlockingAlert(incompleteMsg);return;}
@@ -2323,7 +2332,7 @@ function saveSession(){
     client:document.getElementById('clientName').value.trim()||'Client',
     date, timeOfDay:_timeStr,
     bodyParts:[...selectedBP], exercises,
-    supersets:collectSupersets(),
+    supersets:collectSupersets(_exOrder),
     cardio:[...cardioBlocks],
     restTimes:[...currentRestTimes],
     avgRestManual: currentRestTimes.length===0?manualAvgRest:null,
@@ -2340,7 +2349,7 @@ function saveSession(){
     mobile: localStorage.getItem('kmfit_mobile')||'',
     date, time: _timeStr,
     duration: finalDur||null,
-    workoutType: detectWorkoutType(exercises, collectSupersets(), cardioBlocks),
+    workoutType: detectWorkoutType(exercises, collectSupersets(_exOrder), cardioBlocks),
     bodyParts: [...selectedBP],
     activity: cardioBlocks.length?cardioBlocks.map(c=>c.ex).filter(Boolean).join(', '):''
   };
@@ -2526,6 +2535,8 @@ function syncFitnessToSupabase(){
       // Drop anything this device explicitly deleted
       (deletedSessionIds||[]).forEach(function(id){ delete mergedById[id]; });
       var mergedSessions=Object.values(mergedById).sort(function(a,b){
+        var dateDiff=new Date(b.date)-new Date(a.date);
+        if(dateDiff!==0) return dateDiff;
         return (b.updatedAt||0)-(a.updatedAt||0);
       });
       sessions=mergedSessions;
@@ -2636,7 +2647,14 @@ function _applyFitnessData(d){
   var sessionMap={};
   remoteSessions.forEach(function(s){if(s.id)sessionMap[s.id]=s;});
   localSessions.forEach(function(s){if(s.id&&!sessionMap[s.id])sessionMap[s.id]=s;});
-  var merged=Object.values(sessionMap).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+  var merged=Object.values(sessionMap).sort(function(a,b){
+    var dateDiff=new Date(b.date)-new Date(a.date);
+    if(dateDiff!==0) return dateDiff;
+    // Same calendar date -- break the tie by which was actually saved/edited more
+    // recently, so a session the coach just added doesn't lose to an older same-day
+    // entry due to arbitrary array order.
+    return (b.updatedAt||0)-(a.updatedAt||0);
+  });
   sessions=merged.length>0?merged:remoteSessions;
   if(d.notes)notes=d.notes;
   if(d.assignedWorkouts)assignedWorkouts=d.assignedWorkouts;
@@ -3734,19 +3752,18 @@ function openDetail(id){
         </div>`).join('')}
     </div>`:'';
 
-  // Exercises section (weight training only)
+  // Exercises + Supersets, interleaved in the order they were actually logged.
+  // Older sessions saved before order-tracking existed fall back to the old
+  // fixed layout (supersets first) since there's no real position to sort by.
   const prMap8=sessions.length>=8?calcPersonalRecords():{};
-  const exSection=(s.exercises&&s.exercises.length)?`
-    <div class="card">
-      <div class="card-title">Exercises</div>
-      ${s.exercises.filter(e=>(e.setData||[]).some(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()))).map(e=>{
-        const realSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
-        const hasWeight=realSets.some(r=>r.weight);
-        const uLabel=s.unit||'kg';
-        const exPR=prMap8[e.ex.toLowerCase().trim()];
-        const isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
-        const priorBest=isSessionPR?calcPriorBest(e.ex.toLowerCase().trim(),s.date,s.timeOfDay):null;
-        return`<div style="margin-bottom:16px;">
+  const _exItems=(s.exercises||[]).filter(e=>(e.setData||[]).some(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()))).map((e,i)=>{
+    const realSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
+    const hasWeight=realSets.some(r=>r.weight);
+    const uLabel=s.unit||'kg';
+    const exPR=prMap8[e.ex.toLowerCase().trim()];
+    const isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
+    const priorBest=isSessionPR?calcPriorBest(e.ex.toLowerCase().trim(),s.date,s.timeOfDay):null;
+    const html=`<div style="margin-bottom:16px;">
           <div style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--text);">${e.ex}</div>
           <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
             <thead><tr>
@@ -3767,54 +3784,72 @@ function openDetail(id){
             </tr>`;}).join('')})()}</tbody>
           </table>
         </div>`;
-      }).join('')}
-    </div>`:'';
+    return{order:e.order!=null?e.order:100000+i, html};
+  });
 
   // Supersets section
-  const ssSection=(s.supersets&&s.supersets.length)?s.supersets.map(ss=>{
+  const _ssItems=(s.supersets||[]).map((ss,i)=>{
     const uLabel=s.unit||'kg';
-    return`<div class="card" style="border-color:var(--sage);">
-      <div style="font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--sage);margin-bottom:12px;">Superset ${ss.num}</div>
-      ${ss.exercises.filter(e=>e.type==='cardio'||(e.setData||[]).some(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()))).map(e=>{
-        if(e.type==='cardio'){
-          return`<div style="margin-bottom:16px;border-left:3px solid var(--sage);padding-left:10px;">
-            <div style="font-size:17px;font-weight:700;margin-bottom:6px;color:var(--text);">${e.ex}</div>
-            <div style="display:flex;gap:16px;font-family:'DM Mono',monospace;font-size:15px;">
-              ${e.duration?`<span style="color:var(--sage)">${e.duration} min</span>`:''}
-              ${e.intensity?`<span style="color:var(--terra)">Intensity: ${e.intensity}</span>`:''}
-            </div>
-          </div>`;
-        }
-        const ssRealSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
-        const hasWeight=ssRealSets.some(r=>r.weight);
-        const ssExPR=prMap8[e.ex.toLowerCase().trim()];
-        const ssIsSessionPR=ssExPR&&s.date===ssExPR.date&&(s.timeOfDay||'')===(ssExPR.timeOfDay||'');
-        const ssPriorBest=ssIsSessionPR?calcPriorBest(e.ex.toLowerCase().trim(),s.date,s.timeOfDay):null;
-        return`<div style="margin-bottom:16px;border-left:3px solid var(--sage);padding-left:10px;">
-          <div style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--text);">${e.ex}</div>
-          <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
-            <thead><tr>
-              <th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;width:30px;text-transform:uppercase;">Set</th>
-              <th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;width:${hasWeight?'40%':'auto'};">Reps</th>
-              ${hasWeight?`<th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;width:40%;">${uLabel}</th><th style="width:22px;padding-bottom:6px;"></th>`:''}
-            </tr></thead>
-            <tbody>${(()=>{let dropN=0;return ssRealSets.map(r=>{
-              const w=parseFloat(r.weight)||0;
-              const rNum=r.reps?parseInt(r.reps):NaN;
-              const showTrophy=ssIsSessionPR&&!(r.assistedReps>0)&&!r.dropset&&w>0&&r.reps&&
-                (!ssPriorBest||w>ssPriorBest.weight||(w===ssPriorBest.weight&&!isNaN(rNum)&&rNum>parseInt(ssPriorBest.reps)));
-              const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
-              return`<tr>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${dropLabel}</td>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">SOS '+r.assistedReps+'</span>':''}</td>
-              ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
-            </tr>`;}).join('')})()}</tbody>
-          </table>
-        </div>`;
-      }).join('')}
+    const html=`<div class="card" style="border-color:var(--sage);">
+        <div style="font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--sage);margin-bottom:12px;">Superset ${ss.num}</div>
+        ${ssBodyHtml(ss,uLabel,prMap8,s)}
+      </div>`;
+    return{order:ss.order!=null?ss.order:i, html};
+  });
+
+  const _combined=[..._exItems.map(x=>({order:x.order,html:x.html,kind:'ex'})),..._ssItems.map(x=>({order:x.order,html:x.html,kind:'ss'}))]
+    .sort((a,b)=>a.order-b.order);
+
+  const exSection=_exItems.length?`
+    <div class="card">
+      <div class="card-title">Exercises</div>
+      ${_combined.filter(i=>i.kind==='ex').map(i=>i.html).join('')}
+    </div>`:'';
+
+  const ssSection=_combined.filter(i=>i.kind==='ss').map(i=>i.html).join('');
+  // When both exist and we have real order data, render one single interleaved
+  // stream instead of exercises-card-then-supersets so true chronological order shows.
+  const _hasRealOrder=(s.exercises||[]).some(e=>e.order!=null)||(s.supersets||[]).some(ss=>ss.order!=null);
+  const _interleavedSection=_hasRealOrder?_combined.map(i=>i.kind==='ex'?`<div class="card">${i.html}</div>`:i.html).join(''):'';
+function ssBodyHtml(ss,uLabel,prMap8,s){
+  return ss.exercises.filter(e=>e.type==='cardio'||(e.setData||[]).some(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()))).map(e=>{
+    if(e.type==='cardio'){
+      return`<div style="margin-bottom:16px;border-left:3px solid var(--sage);padding-left:10px;">
+        <div style="font-size:17px;font-weight:700;margin-bottom:6px;color:var(--text);">${e.ex}</div>
+        <div style="display:flex;gap:16px;font-family:'DM Mono',monospace;font-size:15px;">
+          ${e.duration?`<span style="color:var(--sage)">${e.duration} min</span>`:''}
+          ${e.intensity?`<span style="color:var(--terra)">Intensity: ${e.intensity}</span>`:''}
+        </div>
+      </div>`;
+    }
+    const ssRealSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
+    const hasWeight=ssRealSets.some(r=>r.weight);
+    const ssExPR=prMap8[e.ex.toLowerCase().trim()];
+    const ssIsSessionPR=ssExPR&&s.date===ssExPR.date&&(s.timeOfDay||'')===(ssExPR.timeOfDay||'');
+    const ssPriorBest=ssIsSessionPR?calcPriorBest(e.ex.toLowerCase().trim(),s.date,s.timeOfDay):null;
+    return`<div style="margin-bottom:16px;border-left:3px solid var(--sage);padding-left:10px;">
+      <div style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--text);">${e.ex}</div>
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
+        <thead><tr>
+          <th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;width:30px;text-transform:uppercase;">Set</th>
+          <th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;width:${hasWeight?'40%':'auto'};">Reps</th>
+          ${hasWeight?`<th style="text-align:center;font-size:12px;font-weight:800;letter-spacing:1.5px;color:var(--text);padding-bottom:6px;text-transform:uppercase;width:40%;">${uLabel}</th><th style="width:22px;padding-bottom:6px;"></th>`:''}
+        </tr></thead>
+        <tbody>${(()=>{let dropN=0;return ssRealSets.map(r=>{
+          const w=parseFloat(r.weight)||0;
+          const rNum=r.reps?parseInt(r.reps):NaN;
+          const showTrophy=ssIsSessionPR&&!(r.assistedReps>0)&&!r.dropset&&w>0&&r.reps&&
+            (!ssPriorBest||w>ssPriorBest.weight||(w===ssPriorBest.weight&&!isNaN(rNum)&&rNum>parseInt(ssPriorBest.reps)));
+          const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
+          return`<tr>
+          <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${dropLabel}</td>
+          <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">SOS '+r.assistedReps+'</span>':''}</td>
+          ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
+        </tr>`;}).join('')})()}</tbody>
+      </table>
     </div>`;
-  }).join(''):'';
-  const _effectiveTags=[...(s.bodyParts||[])];
+  }).join('');
+}
   if((s.cardio&&s.cardio.length)&&_effectiveTags.indexOf('Cardio')===-1) _effectiveTags.push('Cardio');
   const _prInfo=getSessionPRInfo(s,prMap8);
   const _prPillHtml=_prInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_prInfo.count} P.R.</span>`:'';
@@ -3822,8 +3857,7 @@ function openDetail(id){
     ${_effectiveTags.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${_effectiveTags.map(b=>`<span class="sess-tag${_prInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')}${_prPillHtml}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:''}
     ${durLine}
     ${cardioSection}
-    ${ssSection}
-    ${exSection}
+    ${_hasRealOrder?_interleavedSection:ssSection+exSection}
     ${restSec}
     ${s.notes?`<div class="card"><div class="card-title">Notes</div><p style="font-size:17px;line-height:1.65;color:var(--muted)">${s.notes}</p></div>`:''}
     <div style="display:flex;gap:8px;margin-top:12px;">

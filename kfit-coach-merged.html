@@ -991,6 +991,43 @@ function closeCoachSession(){
   document.getElementById('coachSessionPanel').style.display='none';
 }
 
+function ssBodyHtmlCoach(ss,uLabel,prMap8,s,allSessions){
+  return ss.exercises.filter(e=>e.type==='cardio'||(e.setData||[]).some(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()))).map(e=>{
+    if(e.type==='cardio'){
+      return`<div style="border-left:3px solid var(--sage);padding-left:10px;margin-bottom:12px;">
+        <div style="font-size:16px;font-weight:700;margin-bottom:4px;">${e.ex}</div>
+        <div style="font-size:14px;color:var(--sage);">${e.duration?e.duration+' min':''} ${e.intensity?'· Intensity: '+e.intensity:''}</div>
+      </div>`;
+    }
+    const ssRealSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
+    const hasW=ssRealSets.some(r=>r.weight);
+    const ssExPR=prMap8[e.ex.toLowerCase().trim()];
+    const ssIsSessionPR=ssExPR&&s.date===ssExPR.date&&(s.timeOfDay||'')===(ssExPR.timeOfDay||'');
+    const ssPriorBest=ssIsSessionPR?calcPriorBestCoach(e.ex.toLowerCase().trim(),s.date,s.timeOfDay,allSessions):null;
+    return`<div style="border-left:3px solid var(--sage);padding-left:10px;margin-bottom:12px;">
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px;">${e.ex}</div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr>
+          <th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;width:30px;">Set</th>
+          <th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;">Reps</th>
+          ${hasW?`<th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;">${uLabel}</th><th style="width:20px;"></th>`:''}
+        </tr></thead>
+        <tbody>${(()=>{let dropN=0;return ssRealSets.map(r=>{
+          const w=parseFloat(r.weight)||0;
+          const rNum=r.reps?parseInt(r.reps):NaN;
+          const showTrophy=ssIsSessionPR&&!(r.assistedReps>0)&&!r.dropset&&w>0&&r.reps&&
+            (!ssPriorBest||w>ssPriorBest.weight||(w===ssPriorBest.weight&&!isNaN(rNum)&&rNum>parseInt(ssPriorBest.reps)));
+          const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
+          return`<tr>
+          <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${r.dropset?'var(--terra)':'inherit'};border-bottom:1px solid var(--border);padding:6px 0;">${dropLabel}</td>
+          <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">SOS '+r.assistedReps+'</span>':''}</td>
+          ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
+        </tr>`;}).join('')})()}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+}
+
 function renderCoachSession(s,allSessions){
   const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const uLabel=s.unit||'kg';
@@ -1029,52 +1066,22 @@ function renderCoachSession(s,allSessions){
   </div>`:'';
 
   // Supersets
-  const ssHtml=(s.supersets&&s.supersets.length)?s.supersets.map(ss=>`<div class="card" style="border-color:var(--sage);">
+  const _ssItemsCoach=(s.supersets||[]).map((ss,i)=>{
+    const html=`<div class="card" style="border-color:var(--sage);">
     <div class="card-title" style="color:var(--sage);">Superset ${ss.num}</div>
-    ${ss.exercises.filter(e=>e.type==='cardio'||(e.setData||[]).some(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()))).map(e=>{
-      if(e.type==='cardio') return`<div style="border-left:3px solid var(--sage);padding-left:10px;margin-bottom:12px;">
-        <div style="font-size:16px;font-weight:700;margin-bottom:4px;">${e.ex}</div>
-        <div style="font-size:14px;color:var(--sage);">${e.duration?e.duration+' min':''} ${e.intensity?'· Intensity: '+e.intensity:''}</div>
-      </div>`;
-      const ssRealSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
-      const hasW=ssRealSets.some(r=>r.weight);
-      const ssExPR=prMap8[e.ex.toLowerCase().trim()];
-      const ssIsSessionPR=ssExPR&&s.date===ssExPR.date&&(s.timeOfDay||'')===(ssExPR.timeOfDay||'');
-      const ssPriorBest=ssIsSessionPR?calcPriorBestCoach(e.ex.toLowerCase().trim(),s.date,s.timeOfDay,allSessions):null;
-      return`<div style="border-left:3px solid var(--sage);padding-left:10px;margin-bottom:12px;">
-        <div style="font-size:16px;font-weight:700;margin-bottom:6px;">${e.ex}</div>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead><tr>
-            <th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;width:30px;">Set</th>
-            <th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;">Reps</th>
-            ${hasW?`<th style="text-align:center;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);padding-bottom:4px;text-transform:uppercase;">${uLabel}</th><th style="width:20px;"></th>`:''}
-          </tr></thead>
-          <tbody>${(()=>{let dropN=0;return ssRealSets.map(r=>{
-            const w=parseFloat(r.weight)||0;
-            const rNum=r.reps?parseInt(r.reps):NaN;
-            const showTrophy=ssIsSessionPR&&!(r.assistedReps>0)&&!r.dropset&&w>0&&r.reps&&
-              (!ssPriorBest||w>ssPriorBest.weight||(w===ssPriorBest.weight&&!isNaN(rNum)&&rNum>parseInt(ssPriorBest.reps)));
-            const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
-            return`<tr>
-            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${r.dropset?'var(--terra)':'inherit'};border-bottom:1px solid var(--border);padding:6px 0;">${dropLabel}</td>
-            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">SOS '+r.assistedReps+'</span>':''}</td>
-            ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
-          </tr>`;}).join('')})()}</tbody>
-        </table>
-      </div>`;
-    }).join('')}
-  </div>`).join(''):'';
+    ${ssBodyHtmlCoach(ss,uLabel,prMap8,s,allSessions)}
+  </div>`;
+    return{order:ss.order!=null?ss.order:i, html};
+  });
 
   // Exercises
-  const exHtml=(s.exercises&&s.exercises.length)?`<div class="card">
-    <div class="card-title">Exercises</div>
-    ${s.exercises.filter(e=>(e.setData||[]).some(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()))).map(e=>{
-      const realSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
-      const hasW=realSets.some(r=>r.weight);
-      const exPR=prMap8[e.ex.toLowerCase().trim()];
-      const isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
-      const priorBest=isSessionPR?calcPriorBestCoach(e.ex.toLowerCase().trim(),s.date,s.timeOfDay,allSessions):null;
-      return`<div style="margin-bottom:16px;">
+  const _exItemsCoach=(s.exercises||[]).filter(e=>(e.setData||[]).some(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()))).map((e,i)=>{
+    const realSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
+    const hasW=realSets.some(r=>r.weight);
+    const exPR=prMap8[e.ex.toLowerCase().trim()];
+    const isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'');
+    const priorBest=isSessionPR?calcPriorBestCoach(e.ex.toLowerCase().trim(),s.date,s.timeOfDay,allSessions):null;
+    const html=`<div style="margin-bottom:16px;">
         <div style="font-size:16px;font-weight:700;margin-bottom:6px;">${e.ex}</div>
         <table style="width:100%;border-collapse:collapse;">
           <thead><tr>
@@ -1095,8 +1102,20 @@ function renderCoachSession(s,allSessions){
           </tr>`;}).join('')})()}</tbody>
         </table>
       </div>`;
-    }).join('')}
+    return{order:e.order!=null?e.order:100000+i, html};
+  });
+
+  const _combinedCoach=[..._exItemsCoach.map(x=>({order:x.order,html:x.html,kind:'ex'})),..._ssItemsCoach.map(x=>({order:x.order,html:x.html,kind:'ss'}))]
+    .sort((a,b)=>a.order-b.order);
+
+  const exHtml=_exItemsCoach.length?`<div class="card">
+    <div class="card-title">Exercises</div>
+    ${_combinedCoach.filter(i=>i.kind==='ex').map(i=>i.html).join('')}
   </div>`:'';
+
+  const ssHtml=_combinedCoach.filter(i=>i.kind==='ss').map(i=>i.html).join('');
+  const _hasRealOrderCoach=(s.exercises||[]).some(e=>e.order!=null)||(s.supersets||[]).some(ss=>ss.order!=null);
+  const _interleavedCoach=_hasRealOrderCoach?_combinedCoach.map(i=>i.kind==='ex'?`<div class="card">${i.html}</div>`:i.html).join(''):'';
 
   // Rest times
   const restArr=s.restTimes&&s.restTimes.length?s.restTimes:[];
@@ -1114,7 +1133,7 @@ function renderCoachSession(s,allSessions){
   // Notes
   const notesHtml=s.notes?`<div class="card"><div class="card-title">Notes</div><p style="font-size:15px;line-height:1.65;color:var(--muted);">${s.notes}</p></div>`:'';
 
-  document.getElementById('coachSessBody').innerHTML=bpHtml+durHtml+cardioHtml+ssHtml+exHtml+restHtml+notesHtml;
+  document.getElementById('coachSessBody').innerHTML=bpHtml+durHtml+cardioHtml+(_hasRealOrderCoach?_interleavedCoach:ssHtml+exHtml)+restHtml+notesHtml;
 }
 
 function fmtDurCoach(secs){
