@@ -320,11 +320,11 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
 
 
-.print-fab{position:fixed;bottom:22px;right:16px;z-index:250;width:48px;height:48px;border-radius:50%;background:var(--sage);color:#fff;border:none;box-shadow:0 4px 14px rgba(0,0,0,.4);font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.print-inline{width:100%;padding:13px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-top:14px;}
 #printReportArea{display:none;}
 .hist-filter-pill{padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;display:inline-block;}
 @media print{
-  .header,.tabs,.print-fab,.rest-bar,#bpNotifStack,#headerRestTimer,
+  .header,.tabs,.print-inline,.rest-bar,#bpNotifStack,#headerRestTimer,
   button,.add-row,.quick-add-header,.unit-toggle,input[type="file"],
   #pwGate,#mobilePromptModal,#installModal,#appLoader,.toast,
   .confirm-overlay,.modal-overlay,#snapModal,#moveOverlay,#confirmOverlay,
@@ -345,7 +345,6 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 </head>
 <body>
 
-<button class="print-fab" onclick="window.print()" title="Print this screen">&#128424;</button>
 <div id="printReportArea"></div>
 
 <div id="pwGate">
@@ -586,6 +585,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
       <button class="btn btn-ghost btn-sm" onclick="clearLog()">Clear</button>
       <button class="btn btn-accent" id="saveSessionBtn" onclick="saveSession()">Save Session</button>
     </div>
+    <div style="padding:0 14px 90px;">
+      <button class="print-inline" onclick="window.print()">&#128424; Print This Screen</button>
+    </div>
   </div>
 
   <!-- HISTORY -->
@@ -598,7 +600,10 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
         <input type="date" id="histToDate" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
         <button class="btn btn-sm" onclick="applyHistCustomRange()">Apply</button>
       </div>
-      <button onclick="printHistoryReport()" style="width:100%;padding:11px;background:var(--gold-d);border:1px solid var(--gold);border-radius:8px;color:var(--gold);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">&#128424; Print Full Report (with exercise detail)</button>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button onclick="window.print()" style="width:100%;padding:11px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">&#128424; Print Summary View</button>
+        <button onclick="printHistoryReport()" style="width:100%;padding:11px;background:var(--gold-d);border:1px solid var(--gold);border-radius:8px;color:var(--gold);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">&#128424; Print Full Report (with exercise detail)</button>
+      </div>
     </div>
     <div id="attendanceSection" style="margin-bottom:16px;"></div>
     <div id="histList" style="display:none;"></div>
@@ -611,6 +616,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     <div id="statDetail"></div>
     <div style="padding:0 14px 16px;">
       <button onclick="shareAllSessions()" style="width:100%;padding:13px;background:var(--sage);color:#0c0c0a;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:.3px;">📤 Share Progress Report</button>
+      <button class="print-inline" onclick="window.print()">&#128424; Print This Screen</button>
     </div>
   </div>
 
@@ -635,6 +641,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
       <div class="card-title">📱 Mobile Login</div>
       <div id="mobileCardContent"></div>
     </div>
+    <div style="padding:0 14px 16px;">
+      <button class="print-inline" onclick="window.print()">&#128424; Print This Screen</button>
+    </div>
   </div>
 
   <!-- PR -->
@@ -645,6 +654,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
         <option value="">-- Select Exercise --</option>
       </select>
       <div id="prResult" style="font-size:15px;color:var(--muted);"></div>
+    </div>
+    <div style="padding:0 14px 16px;">
+      <button class="print-inline" onclick="window.print()">&#128424; Print This Screen</button>
     </div>
   </div>
 
@@ -665,6 +677,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     <div class="card">
       <div class="card-title">History</div>
       <div id="measHistList"></div>
+    </div>
+    <div style="padding:0 14px 16px;">
+      <button class="print-inline" onclick="window.print()">&#128424; Print This Screen</button>
     </div>
   </div>
 </div>
@@ -3706,7 +3721,7 @@ function printHistoryReport(){
   var area=document.getElementById('printReportArea');
   area.innerHTML=html;
   document.body.classList.add('printing-report');
-  setTimeout(function(){window.print();},60);
+  window.print();
 }
 window.addEventListener('afterprint',function(){
   document.body.classList.remove('printing-report');
