@@ -3850,6 +3850,7 @@ function ssBodyHtml(ss,uLabel,prMap8,s){
     </div>`;
   }).join('');
 }
+  const _effectiveTags=[...(s.bodyParts||[])];
   if((s.cardio&&s.cardio.length)&&_effectiveTags.indexOf('Cardio')===-1) _effectiveTags.push('Cardio');
   const _prInfo=getSessionPRInfo(s,prMap8);
   const _prPillHtml=_prInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_prInfo.count} P.R.</span>`:'';
