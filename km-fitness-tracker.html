@@ -320,10 +320,33 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
 
 
+.print-fab{position:fixed;bottom:22px;right:16px;z-index:250;width:48px;height:48px;border-radius:50%;background:var(--sage);color:#fff;border:none;box-shadow:0 4px 14px rgba(0,0,0,.4);font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+#printReportArea{display:none;}
+.hist-filter-pill{padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;display:inline-block;}
+@media print{
+  .header,.tabs,.print-fab,.rest-bar,#bpNotifStack,#headerRestTimer,
+  button,.add-row,.quick-add-header,.unit-toggle,input[type="file"],
+  #pwGate,#mobilePromptModal,#installModal,#appLoader,.toast,
+  .confirm-overlay,.modal-overlay,#snapModal,#moveOverlay,#confirmOverlay,
+  #blockingAlert,#prFlashOverlay,.quick-add-body,.custom-ex-add-row,
+  #histFilterCard{
+    display:none!important;
+  }
+  html,body{background:#fff!important;}
+  * {color:#000!important;background:transparent!important;box-shadow:none!important;text-shadow:none!important;}
+  .panel{display:none!important;}
+  .panel.active{display:block!important;padding:0!important;}
+  .card{border:1px solid #ccc!important;margin-bottom:12px!important;page-break-inside:avoid;}
+  body.printing-report .panel.active{display:none!important;}
+  body.printing-report #printReportArea{display:block!important;}
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
+
+<button class="print-fab" onclick="window.print()" title="Print this screen">&#128424;</button>
+<div id="printReportArea"></div>
 
 <div id="pwGate">
   <div class="pw-logo">K<span class="g">F</span><span class="t">it</span></div>
@@ -432,8 +455,10 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
       <div class="logo">K<span class="g">F</span><span class="t">it</span></div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
-      <div class="date-chip" id="headerDate" onclick="openDatePicker()" style="cursor:pointer;" title="Tap to change date"></div>
-      <input type="date" id="datePicker" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;" onchange="onDatePicked(this.value)">
+      <div style="position:relative;display:inline-block;">
+        <div class="date-chip" id="headerDate" style="cursor:pointer;pointer-events:none;" title="Tap to change date"></div>
+        <input type="date" id="datePicker" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;padding:0;border:none;cursor:pointer;-webkit-appearance:none;" onchange="onDatePicked(this.value)" onpointerdown="return guardDatePicker(event)">
+      </div>
       <a href="https://kfit.pages.dev" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;text-decoration:none;">🏠 Home</a>
       <button onclick="logout()" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;color:var(--muted);cursor:pointer;">Log Out</button>
     </div>
@@ -447,6 +472,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     <div class="tab" onclick="goTab(2)">STATS</div>
     <div class="tab" onclick="goTab(3)">NOTES</div>
     <div class="tab" onclick="goTab(4)">PR</div>
+    <div class="tab" onclick="goTab(5)">BODY</div>
   </div>
   <div id="bpNotifStack" style="position:fixed;top:112px;left:16px;right:16px;max-width:488px;margin:0 auto;z-index:350;display:flex;flex-direction:column;gap:8px;pointer-events:none;"></div>
 
@@ -564,6 +590,16 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
   <!-- HISTORY -->
   <div class="panel" id="panel1">
+    <div class="card" id="histFilterCard">
+      <div id="histFilterPills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
+      <div id="histCustomRange" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <input type="date" id="histFromDate" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
+        <span style="color:var(--muted);font-size:13px;">to</span>
+        <input type="date" id="histToDate" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
+        <button class="btn btn-sm" onclick="applyHistCustomRange()">Apply</button>
+      </div>
+      <button onclick="printHistoryReport()" style="width:100%;padding:11px;background:var(--gold-d);border:1px solid var(--gold);border-radius:8px;color:var(--gold);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">&#128424; Print Full Report (with exercise detail)</button>
+    </div>
     <div id="attendanceSection" style="margin-bottom:16px;"></div>
     <div id="histList" style="display:none;"></div>
   </div>
@@ -609,6 +645,26 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
         <option value="">-- Select Exercise --</option>
       </select>
       <div id="prResult" style="font-size:15px;color:var(--muted);"></div>
+    </div>
+  </div>
+
+  <!-- MEASUREMENTS -->
+  <div class="panel" id="panel5">
+    <div class="card">
+      <div class="card-title">Log Measurements</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <span style="font-size:14px;color:var(--muted);">Date</span>
+        <input type="date" id="measDate" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;">
+      </div>
+      <div id="measInputGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:10px;">Leave any field blank to skip it. Only fields you fill in are saved.</div>
+      <div class="flex-end" style="margin-top:14px;">
+        <button class="btn btn-accent" onclick="saveMeasurement()">Save Entry</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">History</div>
+      <div id="measHistList"></div>
     </div>
   </div>
 </div>
@@ -735,7 +791,19 @@ const EX_LIB = {
 const ALL_EX = Object.values(EX_LIB).flat();
 const CARDIO_EX = new Set(EX_LIB['Cardio']);
 
-let selectedBP=[], sessions=[], notes={}, assignedWorkouts={}, deletedSessionIds=[];
+let selectedBP=[], sessions=[], notes={}, assignedWorkouts={}, deletedSessionIds=[], measurements=[];
+const MEAS_FIELDS=[
+  {key:'weight',label:'Weight (kg)'},
+  {key:'height',label:'Height (cm)'},
+  {key:'chest',label:'Chest (cm)'},
+  {key:'waist',label:'Waist (cm)'},
+  {key:'hips',label:'Hips (cm)'},
+  {key:'arm',label:'Arm (cm)'},
+  {key:'thigh',label:'Thigh (cm)'},
+  {key:'calf',label:'Calf (cm)'},
+  {key:'shoulder',label:'Shoulder (cm)'},
+  {key:'neck',label:'Neck (cm)'}
+];
 let restTmr=null, restLeft=0, restStartSecs=0, restEndTime=0, currentRestTimes=[];
 let durTmr=null, durStart=null, durElapsed=0, durRunning=false;
 let autoSaveTmr=null;
@@ -1501,16 +1569,34 @@ function updateDateChip(){
   var dateVal=document.getElementById('sessDate').value||localDateStr();
   const d=new Date(dateVal+'T12:00:00');
   document.getElementById('headerDate').textContent=D[d.getDay()]+' '+d.getDate()+' '+M[d.getMonth()];
+  // Keep the real (invisible, overlaid) date input's value in sync so whenever the user's
+  // tap opens the native picker -- a genuine tap, not a JS-triggered one, which is the only
+  // way iOS Safari reliably opens it -- it starts on the currently selected date.
+  var dp=document.getElementById('datePicker');
+  if(dp) dp.value=dateVal;
+}
+
+// Runs on the real tap that opens the native picker (before the OS UI shows), so we can
+// block it while a session is being edited. Returning false here cancels the tap itself,
+// which also prevents the picker from opening at all.
+function guardDatePicker(e){
+  if(window._editingSessionId){
+    toast('Date cannot be changed while editing a session');
+    if(e&&e.preventDefault) e.preventDefault();
+    return false;
+  }
+  return true;
 }
 
 function openDatePicker(){
+  // Kept for any old callers; the date input is now tapped directly by the user (required
+  // for the native picker to open reliably on iOS Safari), so this just focuses it as a fallback.
   if(window._editingSessionId){toast('Date cannot be changed while editing a session');return;}
   var dp=document.getElementById('datePicker');
-  var today=localDateStr();
-  dp.value=document.getElementById('sessDate').value||today;
-  dp.style.pointerEvents='auto';
-  if(dp.showPicker){try{dp.showPicker();}catch(e){dp.click();}}else{dp.click();}
-  setTimeout(function(){dp.style.pointerEvents='none';},500);
+  if(!dp) return;
+  dp.value=document.getElementById('sessDate').value||localDateStr();
+  if(dp.showPicker){try{dp.showPicker();return;}catch(e){}}
+  dp.focus();
 }
 
 function onDatePicked(val){
@@ -1568,6 +1654,7 @@ function goTab(i){
   if(i===2)renderStats();
   if(i===3)renderNotesTab();
   if(i===4){loadFitnessFromSupabase(function(){loadData();renderPRTab();});}
+  if(i===5){renderMeasInputs();renderMeasHistory();var md=document.getElementById('measDate');if(md&&!md.value)md.value=localDateStr();}
 }
 
 // BODY PARTS
@@ -2497,7 +2584,7 @@ function dismissMoveOverlay(){
 function syncFitnessToSupabase(){
   var key=getFitClientKey();
   if(key==='unknown')return;
-  if((!sessions||sessions.length===0)&&(!deletedSessionIds||deletedSessionIds.length===0))return;
+  if((!sessions||sessions.length===0)&&(!deletedSessionIds||deletedSessionIds.length===0)&&(!measurements||measurements.length===0))return;
   ensureAnonAuth(function(uid){
     if(!uid)return;
     // assignedWorkouts is coach-authored and can change on the server between when this
@@ -2509,15 +2596,29 @@ function syncFitnessToSupabase(){
     getSB().from('tracker_data').select('data').eq('client_id',key).eq('tracker','fitness').then(function(fres){
       var serverAssigned={};
       var serverSessions=[];
+      var serverMeasurements=[];
       try{
         if(!fres.error&&fres.data&&fres.data.length&&fres.data[0].data){
           var fd=typeof fres.data[0].data==='string'?JSON.parse(fres.data[0].data):fres.data[0].data;
           serverAssigned=fd.assignedWorkouts||{};
           serverSessions=fd.sessions||[];
+          serverMeasurements=fd.measurements||[];
         }
       }catch(e){}
       var mergedAssigned=Object.assign({},serverAssigned,assignedWorkouts);
       assignedWorkouts=mergedAssigned;
+
+      // Measurements: merge by id the same way sessions are merged -- newest updatedAt wins.
+      var measById={};
+      serverMeasurements.forEach(function(m){ if(m.id) measById[m.id]=m; });
+      (measurements||[]).forEach(function(m){
+        if(!m.id) return;
+        var srv=measById[m.id];
+        if(!srv||(m.updatedAt||0)>=(srv.updatedAt||0)) measById[m.id]=m;
+      });
+      var mergedMeasurements=Object.values(measById).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+      measurements=mergedMeasurements;
+      try{localStorage.setItem('kmfit_measurements',JSON.stringify(measurements));}catch(e){}
 
       // Sessions: merge by id instead of blindly overwriting with this device's local copy.
       // Without this, a coach edit (or an edit from another device) made after this device
@@ -2551,6 +2652,7 @@ function syncFitnessToSupabase(){
           notes:notes,
           assignedWorkouts:mergedAssigned,
           deletedSessionIds:deletedSessionIds,
+          measurements:measurements,
           name:localStorage.getItem('kmfit_name'),
           mobile:localStorage.getItem('kmfit_mobile'),
           email:localStorage.getItem('kmfit_email'),
@@ -2658,12 +2760,20 @@ function _applyFitnessData(d){
   sessions=merged.length>0?merged:remoteSessions;
   if(d.notes)notes=d.notes;
   if(d.assignedWorkouts)assignedWorkouts=d.assignedWorkouts;
+  if(d.measurements){
+    var localM=measurements||[];
+    var mMap={};
+    (d.measurements||[]).forEach(function(m){if(m.id)mMap[m.id]=m;});
+    localM.forEach(function(m){if(m.id&&(!mMap[m.id]||(m.updatedAt||0)>(mMap[m.id].updatedAt||0)))mMap[m.id]=m;});
+    measurements=Object.values(mMap).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+  }
   if(d.name)localStorage.setItem('kmfit_name',d.name);
   if(d.target)localStorage.setItem('kmfit_target',d.target);
   if(d.unit)localStorage.setItem('kmfit_unit',d.unit);
   localStorage.setItem('kmfit_sessions',JSON.stringify(sessions));
   localStorage.setItem('kmfit_notes',JSON.stringify(notes));
   localStorage.setItem('kmfit_deleted_ids',JSON.stringify(deletedSessionIds));
+  localStorage.setItem('kmfit_measurements',JSON.stringify(measurements));
   syncFitnessToSupabase();
 }
 
@@ -2671,6 +2781,7 @@ function _applyFitnessData(d){
 function loadData(){
   try{sessions=JSON.parse(localStorage.getItem('kmfit_sessions')||'[]');}catch(e){sessions=[];}
   try{notes=JSON.parse(localStorage.getItem('kmfit_notes')||'{}');}catch(e){notes={};}
+  try{measurements=JSON.parse(localStorage.getItem('kmfit_measurements')||'[]');}catch(e){measurements=[];}
 }
 function detectWorkoutType(exercises, supersets, cardio){
   const hasWeights=exercises&&exercises.length>0;
@@ -2801,6 +2912,67 @@ function saveNotes(){
   localStorage.setItem('kmfit_notes',JSON.stringify(notes));
   syncFitnessToSupabase();
   toast('Notes saved v');
+}
+
+// MEASUREMENTS
+function renderMeasInputs(){
+  var grid=document.getElementById('measInputGrid');
+  if(!grid) return;
+  grid.innerHTML=MEAS_FIELDS.map(function(f){
+    return '<div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">'+f.label+'</label>'+
+      '<input type="number" step="0.1" inputmode="decimal" id="meas_'+f.key+'" placeholder="--" '+
+      'style="width:100%;padding:9px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:15px;">'+
+      '</div>';
+  }).join('');
+}
+function saveMeasurements(){
+  localStorage.setItem('kmfit_measurements',JSON.stringify(measurements));
+  syncFitnessToSupabase();
+}
+function saveMeasurement(){
+  var dateEl=document.getElementById('measDate');
+  var date=(dateEl&&dateEl.value)||localDateStr();
+  var entry={date:date,updatedAt:Date.now()};
+  var any=false;
+  MEAS_FIELDS.forEach(function(f){
+    var el=document.getElementById('meas_'+f.key);
+    var v=el?el.value:'';
+    if(v!==''&&v!=null&&!isNaN(parseFloat(v))){entry[f.key]=parseFloat(v);any=true;}
+  });
+  if(!any){toast('Enter at least one measurement');return;}
+  var idx=measurements.findIndex(function(m){return m.date===date;});
+  if(idx>-1){entry.id=measurements[idx].id;measurements[idx]=entry;}
+  else{entry.id='m_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);measurements.push(entry);}
+  measurements.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+  saveMeasurements();
+  renderMeasHistory();
+  MEAS_FIELDS.forEach(function(f){var el=document.getElementById('meas_'+f.key);if(el)el.value='';});
+  toast('Measurements saved ✓');
+}
+function renderMeasHistory(){
+  var el=document.getElementById('measHistList');
+  if(!el) return;
+  if(!measurements.length){
+    el.innerHTML='<div style="font-size:14px;color:var(--muted);padding:8px 0;">No entries yet.</div>';
+    return;
+  }
+  var sorted=measurements.slice().sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+  el.innerHTML=sorted.map(function(m,i){
+    var prev=sorted[i+1];
+    var rows=MEAS_FIELDS.filter(function(f){return m[f.key]!=null;}).map(function(f){
+      var delta='';
+      if(prev&&prev[f.key]!=null){
+        var d=(m[f.key]-prev[f.key]);
+        if(Math.abs(d)>0.01) delta=' <span style="color:var(--muted);font-size:12px;">('+(d>0?'+':'')+d.toFixed(1)+')</span>';
+      }
+      return '<div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0;"><span style="color:var(--muted);">'+f.label+'</span><span style="color:var(--text);font-weight:600;">'+m[f.key]+delta+'</span></div>';
+    }).join('');
+    var d2=new Date(m.date+'T12:00:00');
+    var dstr=d2.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+    return '<div style="border-bottom:1px solid var(--border);padding:10px 0;">'+
+      '<div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:6px;">'+dstr+'</div>'+rows+
+      '</div>';
+  }).join('');
 }
 
 // == AUTO-SAVE DRAFT ==
@@ -3393,13 +3565,59 @@ function renderPR(){
 }
 
 // HISTORY
+var histFilterMode='all', histFilterFrom=null, histFilterTo=null;
+function getFilteredHistSessions(){
+  const validSessions=sessions.filter(s=>(s.exercises&&s.exercises.length>0)||(s.cardio&&s.cardio.length>0)||(s.supersets&&s.supersets.length>0));
+  if(histFilterMode==='all') return validSessions;
+  var now=new Date(), start, end;
+  if(histFilterMode==='week'){
+    var dow=now.getDay()===0?6:now.getDay()-1;
+    start=new Date(now); start.setDate(now.getDate()-dow); start.setHours(0,0,0,0);
+    end=new Date(start); end.setDate(start.getDate()+6); end.setHours(23,59,59,999);
+  } else if(histFilterMode==='month'){
+    start=new Date(now.getFullYear(),now.getMonth(),1);
+    end=new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59);
+  } else if(histFilterMode==='custom'){
+    if(!histFilterFrom||!histFilterTo) return validSessions;
+    start=new Date(histFilterFrom+'T00:00:00');
+    end=new Date(histFilterTo+'T23:59:59');
+  } else {
+    return validSessions;
+  }
+  return validSessions.filter(function(s){var d=new Date(s.date+'T12:00:00');return d>=start&&d<=end;});
+}
+function renderHistFilterPills(){
+  var el=document.getElementById('histFilterPills');
+  if(!el) return;
+  var pills=[{key:'week',label:'This Week'},{key:'month',label:'This Month'},{key:'all',label:'All Time'},{key:'custom',label:'Custom'}];
+  el.innerHTML=pills.map(function(p){
+    var active=histFilterMode===p.key;
+    return '<div class="hist-filter-pill" onclick="setHistFilter(\''+p.key+'\')" style="border:1px solid '+(active?'var(--sage)':'var(--border)')+';background:'+(active?'var(--sage-d)':'transparent')+';color:'+(active?'var(--sage)':'var(--muted)')+';">'+p.label+'</div>';
+  }).join('');
+}
+function setHistFilter(mode){
+  histFilterMode=mode;
+  var cr=document.getElementById('histCustomRange');
+  if(cr) cr.style.display=mode==='custom'?'flex':'none';
+  renderHistFilterPills();
+  if(mode!=='custom') renderHistory();
+}
+function applyHistCustomRange(){
+  var f=document.getElementById('histFromDate').value;
+  var t=document.getElementById('histToDate').value;
+  if(!f||!t){toast('Pick both a from and to date');return;}
+  histFilterFrom=f; histFilterTo=t;
+  renderHistory();
+}
+
 function renderHistory(){
   const el=document.getElementById('histList');
+  renderHistFilterPills();
   if(!sessions.length){el.innerHTML='<div class="empty"><div class="ico"></div><p>No sessions yet.<br>Log your first workout.</p></div>';return;}
   const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const validSessions=sessions.filter(s=>(s.exercises&&s.exercises.length>0)||(s.cardio&&s.cardio.length>0));
-  if(!validSessions.length){el.innerHTML='<div class="empty"><div class="ico"></div><p>No sessions yet.<br>Log your first workout.</p></div>';return;}
+  const validSessions=getFilteredHistSessions();
+  if(!validSessions.length){el.innerHTML='<div class="empty"><div class="ico"></div><p>No sessions in this range.</p></div>';return;}
   const _histPrMap=sessions.length>=8?calcPersonalRecords():{};
   el.innerHTML=validSessions.map(s=>{
     const d=new Date(s.date+'T12:00:00');
@@ -3430,6 +3648,71 @@ function renderHistory(){
     </div>`;
   }).join('');
 }
+
+// FULL DETAIL PRINT REPORT (per-session, one workout per printed page)
+function buildSessionPrintBlock(s){
+  const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const d=new Date(s.date+'T12:00:00');
+  const uLabel=s.unit||'kg';
+  function exTable(e){
+    var realSets=(e.setData||[]).filter(function(r){return (r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim());});
+    if(!realSets.length) return '';
+    var hasWeight=realSets.some(function(r){return r.weight;});
+    var rows=realSets.map(function(r){
+      return '<tr><td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">S'+r.set+(r.dropset?' (drop)':'')+'</td>'+
+        '<td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">'+(r.reps||'--')+(r.assistedReps>0?' (SOS '+r.assistedReps+')':'')+'</td>'+
+        (hasWeight?'<td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">'+(r.weight||'--')+' '+uLabel+'</td>':'')+'</tr>';
+    }).join('');
+    return '<div style="margin-bottom:10px;"><div style="font-size:14px;font-weight:700;margin-bottom:4px;">'+e.ex+'</div>'+
+      '<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr>'+
+      '<th style="text-align:center;padding:4px 8px;">Set</th><th style="text-align:center;padding:4px 8px;">Reps</th>'+(hasWeight?'<th style="text-align:center;padding:4px 8px;">Weight</th>':'')+
+      '</tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }
+  var out='<div style="font-size:18px;font-weight:800;margin-bottom:2px;">'+D[d.getDay()]+', '+d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear()+(s.timeOfDay?' - '+s.timeOfDay:'')+'</div>';
+  out+='<div style="font-size:13px;margin-bottom:12px;">'+(s.client||'')+((s.bodyParts&&s.bodyParts.length)?' &middot; '+s.bodyParts.join(', '):'')+'</div>';
+  var dur=s.duration||((s.cardio&&s.cardio.length)?s.cardio.reduce(function(a,c){return a+(parseInt(c.duration)||0);},0)*60:0);
+  if(dur) out+='<div style="font-size:13px;margin-bottom:6px;">Duration: '+fmtDur(dur)+'</div>';
+  var avg=sessRestAvg(s);
+  if(avg) out+='<div style="font-size:13px;margin-bottom:12px;">Average rest: '+fmtSecs(avg)+'</div>';
+  var exHtml=(s.exercises||[]).map(exTable).join('');
+  if(exHtml) out+='<div style="margin-bottom:14px;">'+exHtml+'</div>';
+  var ssHtml=(s.supersets||[]).map(function(ss){
+    var inner=(ss.exercises||[]).map(function(e){
+      if(e.type==='cardio'){
+        return '<div style="font-size:14px;font-weight:700;margin-bottom:4px;">'+e.ex+(e.duration?' — '+e.duration+' min':'')+(e.intensity?' — '+e.intensity:'')+'</div>';
+      }
+      return exTable(e);
+    }).join('');
+    return '<div style="border-left:3px solid #666;padding-left:10px;margin-bottom:14px;"><div style="font-size:13px;font-weight:800;text-transform:uppercase;margin-bottom:6px;">Superset '+ss.num+'</div>'+inner+'</div>';
+  }).join('');
+  if(ssHtml) out+=ssHtml;
+  var cardioHtml=(s.cardio||[]).map(function(c){
+    return '<div style="font-size:14px;font-weight:700;margin-bottom:4px;">'+c.ex+(c.duration?' — '+c.duration+' min':'')+(c.intensity?' — Intensity: '+c.intensity:'')+(c.distance?' — '+c.distance+'km':'')+'</div>';
+  }).join('');
+  if(cardioHtml) out+='<div style="margin-bottom:10px;">'+cardioHtml+'</div>';
+  if(s.notes) out+='<div style="font-size:13px;margin-top:10px;border-top:1px solid #ccc;padding-top:8px;"><b>Notes:</b> '+s.notes+'</div>';
+  return out;
+}
+function printHistoryReport(){
+  var list=getFilteredHistSessions();
+  if(!list.length){toast('No sessions to print in this range');return;}
+  var sorted=list.slice().sort(function(a,b){return new Date(a.date)-new Date(b.date);});
+  var label=histFilterMode==='week'?'This Week':histFilterMode==='month'?'This Month':histFilterMode==='custom'?(histFilterFrom+' to '+histFilterTo):'All Time';
+  var html='<div style="padding:14px 0 20px;border-bottom:2px solid #000;margin-bottom:20px;"><div style="font-size:22px;font-weight:800;">Workout History Report</div><div style="font-size:13px;margin-top:4px;">Range: '+label+' &middot; '+sorted.length+' session(s)</div></div>';
+  sorted.forEach(function(s,i){
+    html+='<div style="'+(i<sorted.length-1?'page-break-after:always;':'')+'padding:10px 0;">'+buildSessionPrintBlock(s)+'</div>';
+  });
+  var area=document.getElementById('printReportArea');
+  area.innerHTML=html;
+  document.body.classList.add('printing-report');
+  setTimeout(function(){window.print();},60);
+}
+window.addEventListener('afterprint',function(){
+  document.body.classList.remove('printing-report');
+  var area=document.getElementById('printReportArea');
+  if(area) area.innerHTML='';
+});
 
 // STATS
 function renderStats(){
