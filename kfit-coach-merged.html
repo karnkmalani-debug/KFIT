@@ -70,6 +70,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .mode-toggle{display:flex;gap:8px;background:var(--surf2);border-radius:10px;padding:4px;margin:0 18px 8px;max-width:520px;margin-left:auto;margin-right:auto;}
 .mode-btn{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;cursor:pointer;color:var(--muted);background:transparent;border:none;}
 .mode-btn.active{background:var(--sage);color:#fff;}
+.print-inline{width:100%;padding:13px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;}
+@media print{
+  .topbar,.mode-toggle,button,input[type="file"],
+  #pwGate,#addSessionModal,#mealPlanModal,#planCompareModal{
+    display:none!important;
+  }
+  html,body{background:#fff!important;}
+  * {color:#000!important;background:transparent!important;box-shadow:none!important;text-shadow:none!important;}
+  .client-card{border:1px solid #ccc!important;margin-bottom:12px!important;page-break-inside:avoid;}
+}
 </style>
 </head>
 <body>
@@ -90,12 +100,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="topbar">
     <div class="logo">K<span>F</span>it</div>
     <div class="page-title" id="pageTitle">Coach</div>
+    <button onclick="window.print()" title="Print this screen" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">&#128424;</button>
   </div>
 
   <div class="mode-toggle">
     <button class="mode-btn active" id="modeBtnFitness" onclick="switchMode('fitness')">Fitness</button>
     <button class="mode-btn" id="modeBtnNutrition" onclick="switchMode('nutrition')">Nutrition</button>
     <button class="mode-btn" id="modeBtnExercises" onclick="switchMode('exercises')">Exercises<span id="exSuggestBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
+    <button class="mode-btn" id="modeBtnFeedback" onclick="switchMode('feedback')">Feedback<span id="fbBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
   </div>
 
   <!-- ══════════════ EXERCISE SUGGESTIONS SECTION ══════════════ -->
@@ -105,6 +117,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       <div id="exPendingList"><div class="empty">Loading...</div></div>
       <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:20px 0 10px;">Approved (Live On All Trackers)</div>
       <div id="exApprovedList"><div class="empty">Loading...</div></div>
+    </div>
+  </div>
+
+  <!-- ══════════════ FEEDBACK SECTION ══════════════ -->
+  <div id="fbSection" style="display:none;">
+    <div class="content" id="fbDashView">
+      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">New Feedback</div>
+      <div id="fbNewList"><div class="empty">Loading...</div></div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:20px 0 10px;">Reviewed</div>
+      <div id="fbReviewedList"><div class="empty">Loading...</div></div>
     </div>
   </div>
 
@@ -357,6 +379,12 @@ function checkPw(){
         if(res.data.length){ badge.style.display='inline-block'; badge.textContent=res.data.length; }
       }
     });
+    getSB().from('app_feedback').select('id').eq('status','new').then(function(res){
+      if(!res.error&&res.data){
+        var badge=document.getElementById('fbBadge');
+        if(res.data.length){ badge.style.display='inline-block'; badge.textContent=res.data.length; }
+      }
+    });
   } else {
     document.getElementById('pwErr').textContent='Incorrect password';
     document.getElementById('pwInp').value='';
@@ -452,6 +480,61 @@ async function dismissExercise(id){
   const {error}=await getSB().from('custom_exercises').delete().eq('id',id);
   if(error){alert('Error dismissing: '+error.message);return;}
   loadExerciseSuggestions();
+}
+
+// FEEDBACK -- mirrors the exercise-suggestion review pattern above
+function fmtFbDate(iso){
+  if(!iso)return'';
+  const d=new Date(iso);
+  const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let h=d.getHours(),ap=h>=12?'PM':'AM'; h=h%12||12;
+  const m=String(d.getMinutes()).padStart(2,'0');
+  return `${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}, ${h}:${m} ${ap}`;
+}
+async function loadFeedback(){
+  const {data,error}=await getSB().from('app_feedback').select('*').order('created_at',{ascending:false});
+  if(error){
+    document.getElementById('fbNewList').innerHTML='<div class="empty">Error loading feedback.<br>'+error.message+'</div>';
+    document.getElementById('fbReviewedList').innerHTML='';
+    return;
+  }
+  const rows=data||[];
+  const fresh=rows.filter(r=>r.status==='new');
+  const reviewed=rows.filter(r=>r.status==='reviewed');
+
+  const badge=document.getElementById('fbBadge');
+  if(fresh.length){ badge.style.display='inline-block'; badge.textContent=fresh.length; }
+  else { badge.style.display='none'; }
+
+  function card(r,isNew){
+    return `
+    <div class="client-card" style="cursor:default;">
+      <div class="client-meta" style="margin-bottom:6px;display:flex;justify-content:space-between;gap:8px;">
+        <span>${r.submitted_by||'A client'}${r.tab?' · '+r.tab+' tab':''}</span>
+        <span style="white-space:nowrap;">${fmtFbDate(r.created_at)}</span>
+      </div>
+      <div style="font-size:14px;color:var(--text);line-height:1.5;margin-bottom:10px;white-space:pre-wrap;">${(r.message||'').replace(/</g,'&lt;')}</div>
+      <div style="display:flex;gap:8px;">
+        ${isNew?`<button onclick="markFeedbackReviewed(${r.id})" style="flex:1;padding:9px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:#fff;cursor:pointer;">✓ Mark Reviewed</button>`:''}
+        <button onclick="deleteFeedback(${r.id})" style="${isNew?'':'flex:1;'}padding:9px 14px;background:none;border:1px solid var(--terra);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--terra);cursor:pointer;">✕ Delete</button>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('fbNewList').innerHTML=fresh.length?fresh.map(r=>card(r,true)).join(''):'<div class="empty">No new feedback.</div>';
+  document.getElementById('fbReviewedList').innerHTML=reviewed.length?reviewed.map(r=>card(r,false)).join(''):'<div class="empty">Nothing reviewed yet.</div>';
+}
+async function markFeedbackReviewed(id){
+  const {error}=await getSB().from('app_feedback').update({status:'reviewed'}).eq('id',id);
+  if(error){alert('Error updating: '+error.message);return;}
+  loadFeedback();
+}
+async function deleteFeedback(id){
+  const ok=confirm('Delete this feedback permanently?');
+  if(!ok)return;
+  const {error}=await getSB().from('app_feedback').delete().eq('id',id);
+  if(error){alert('Error deleting: '+error.message);return;}
+  loadFeedback();
 }
 
 function loadAll(){
@@ -2095,16 +2178,20 @@ function switchMode(mode){
   const fitBtn=document.getElementById('modeBtnFitness');
   const nutBtn=document.getElementById('modeBtnNutrition');
   const exBtn=document.getElementById('modeBtnExercises');
+  const fbBtn=document.getElementById('modeBtnFeedback');
   const fitSec=document.getElementById('fitSection');
   const nutSec=document.getElementById('nutSection');
   const exSec=document.getElementById('exSection');
+  const fbSec=document.getElementById('fbSection');
   const pageTitle=document.getElementById('pageTitle');
   fitBtn.classList.toggle('active',mode==='fitness');
   nutBtn.classList.toggle('active',mode==='nutrition');
   exBtn.classList.toggle('active',mode==='exercises');
+  fbBtn.classList.toggle('active',mode==='feedback');
   fitSec.style.display=mode==='fitness'?'block':'none';
   nutSec.style.display=mode==='nutrition'?'block':'none';
   exSec.style.display=mode==='exercises'?'block':'none';
+  fbSec.style.display=mode==='feedback'?'block':'none';
   if(mode==='fitness'){
     pageTitle.textContent='Coach · Fitness';
   } else if(mode==='nutrition'){
@@ -2113,6 +2200,9 @@ function switchMode(mode){
       nutDataLoaded=true;
       nutLoadAll();
     }
+  } else if(mode==='feedback'){
+    pageTitle.textContent='Coach · Feedback';
+    loadFeedback();
   } else {
     pageTitle.textContent='Coach · Exercises';
     loadExerciseSuggestions();
