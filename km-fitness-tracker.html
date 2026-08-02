@@ -3619,7 +3619,7 @@ function getFilteredHistSessions(){
 function renderHistFilterPills(){
   var el=document.getElementById('histFilterPills');
   if(!el) return;
-  var pills=[{key:'week',label:'This Week'},{key:'month',label:'This Month'},{key:'all',label:'All Time'},{key:'custom',label:'Custom'}];
+  var pills=[{key:'all',label:'All Time'},{key:'month',label:'This Month'},{key:'week',label:'This Week'},{key:'custom',label:'Custom'}];
   el.innerHTML=pills.map(function(p){
     var active=histFilterMode===p.key;
     return '<div class="hist-filter-pill" onclick="setHistFilter(\''+p.key+'\')" style="border:1px solid '+(active?'var(--sage)':'var(--border)')+';background:'+(active?'var(--sage-d)':'transparent')+';color:'+(active?'var(--sage)':'var(--muted)')+';">'+p.label+'</div>';
@@ -4884,7 +4884,7 @@ window.addEventListener('DOMContentLoaded',function(){
   // Service worker for offline
   if('serviceWorker' in navigator){
     const sw=`
-      const V='kmfit-v3';
+      const V='kmfit-v4';
       self.addEventListener('install',e=>{self.skipWaiting();});
       self.addEventListener('activate',e=>e.waitUntil(
         caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim())
