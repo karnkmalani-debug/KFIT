@@ -327,6 +327,22 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     </div>
   </div>
 
+  <!-- BODY MEASUREMENT ENTRY (shared by fitness + nutrition client views) -->
+  <div id="measModal" style="display:none;position:fixed;inset:0;z-index:502;background:rgba(0,0,0,.65);align-items:flex-end;justify-content:center;">
+    <div style="max-width:480px;width:100%;max-height:85vh;overflow-y:auto;background:var(--bg);border-radius:16px 16px 0 0;padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div id="measModalTitle" style="font-size:16px;font-weight:800;">Add Entry</div>
+        <button onclick="closeMeasModal()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Date</label>
+        <input type="date" id="measModalDate" style="width:100%;padding:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;">
+      </div>
+      <div id="measModalGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;"></div>
+      <button onclick="saveMeasurementModal()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;color:#fff;cursor:pointer;">Save</button>
+    </div>
+  </div>
+
   <div class="content" id="nutClientView" style="display:none;">
     <div style="margin-bottom:14px;">
       <button class="back-btn" onclick="nutShowDash()">← All Clients</button>
@@ -700,6 +716,12 @@ function showClient(key){
       <div class="stat-box"><div class="stat-val" style="color:${unpaidCount?'var(--terra)':'var(--sage)'};">${unpaidCount}</div><div class="stat-lbl">Unpaid</div></div>
     </div>
     <div class="card" style="margin-bottom:14px;">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📏 Body Measurements
+        <button onclick="openMeasurementModal('${buildClientId(c.name,c.mobile).replace(/'/g,"\\'")}','fitness','fitMeasList',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button>
+      </div>
+      <div id="fitMeasList">Loading...</div>
+    </div>
+    <div class="card" style="margin-bottom:14px;">
       <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📋 Assigned Workouts
         <button onclick="openAddSession('${key.replace(/'/g,"\\'")}');setAsMode('assign');" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Assign Another Workout</button>
       </div>
@@ -710,6 +732,7 @@ function showClient(key){
       ${rows||'<div style="color:var(--muted);">No sessions yet.</div>'}
     </div>`;
   loadAssignedWorkoutsForClient(key,c);
+  loadMeasurementsForClient(buildClientId(c.name,c.mobile),'fitness','fitMeasList');
 }
 
 async function loadAssignedWorkoutsForClient(key,c){
@@ -1345,6 +1368,135 @@ function buildClientId(name,mobile){
   const n=(name||'').toLowerCase().replace(/\s+/g,'_');
   const m=(mobile||'').replace(/\D/g,'');
   return m?n+'__'+m:n;
+}
+
+// ===== BODY MEASUREMENTS (coach can view + add/edit/delete for either tracker) =====
+// Fitness stores this list under data.measurements; Nutrition stores it under data.bodyMeasurements --
+// matching whatever key each client-facing tracker itself writes, so entries round-trip correctly.
+const MEAS_FIELDS_COACH=[
+  {key:'weight',label:'Weight (kg)'},
+  {key:'height',label:'Height (cm)'},
+  {key:'chest',label:'Chest (cm)'},
+  {key:'waist',label:'Waist (cm)'},
+  {key:'hips',label:'Hips (cm)'},
+  {key:'arm',label:'Arm (cm)'},
+  {key:'thigh',label:'Thigh (cm)'},
+  {key:'calf',label:'Calf (cm)'},
+  {key:'shoulder',label:'Shoulder (cm)'},
+  {key:'neck',label:'Neck (cm)'}
+];
+function measKeyForTracker(tracker){ return tracker==='fitness'?'measurements':'bodyMeasurements'; }
+let _measCache={};
+let measModalCtx=null;
+
+async function loadMeasurementsForClient(clientId,tracker,listElId){
+  const listEl=document.getElementById(listElId);
+  if(!listEl)return;
+  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker',tracker);
+  const useKey=measKeyForTracker(tracker);
+  if(error||!data||!data.length||!data[0].data){
+    _measCache[listElId]=[];
+    listEl.innerHTML='<div style="color:var(--muted);">No entries yet.</div>';
+    return;
+  }
+  const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
+  const list=(d[useKey]||[]).slice().sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+  _measCache[listElId]=list;
+  if(!list.length){
+    listEl.innerHTML='<div style="color:var(--muted);">No entries yet.</div>';
+    return;
+  }
+  const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  listEl.innerHTML=list.map(function(m,i){
+    const prev=list[i+1];
+    const rows=MEAS_FIELDS_COACH.filter(function(f){return m[f.key]!=null;}).map(function(f){
+      let delta='';
+      if(prev&&prev[f.key]!=null){
+        const dd=m[f.key]-prev[f.key];
+        if(Math.abs(dd)>0.01) delta=' <span style="color:var(--muted2);font-size:11px;">('+(dd>0?'+':'')+dd.toFixed(1)+')</span>';
+      }
+      return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0;"><span style="color:var(--muted);">'+f.label+'</span><span style="font-weight:600;">'+m[f.key]+delta+'</span></div>';
+    }).join('');
+    const dt=new Date(m.date+'T12:00:00');
+    return '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+      +'<div style="font-size:13px;font-weight:700;color:var(--gold);">'+dt.getDate()+' '+M[dt.getMonth()]+' '+dt.getFullYear()+'</div>'
+      +'<div style="display:flex;gap:6px;">'
+      +'<button onclick="openMeasurementModal(\''+clientId.replace(/'/g,"\\'")+'\',\''+tracker+'\',\''+listElId+'\',\''+m.id+'\')" style="padding:4px 9px;background:none;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted);cursor:pointer;">Edit</button>'
+      +'<button onclick="deleteMeasurementForClient(\''+clientId.replace(/'/g,"\\'")+'\',\''+tracker+'\',\''+listElId+'\',\''+m.id+'\')" style="padding:4px 9px;background:none;border:1px solid var(--terra);border-radius:6px;font-size:11px;color:var(--terra);cursor:pointer;">Delete</button>'
+      +'</div></div>'+rows+'</div>';
+  }).join('');
+}
+
+function openMeasurementModal(clientId,tracker,listElId,entryId){
+  const list=_measCache[listElId]||[];
+  const entry=entryId?list.find(function(m){return m.id===entryId;}):null;
+  measModalCtx={clientId:clientId,tracker:tracker,listElId:listElId,editId:entryId||null};
+  document.getElementById('measModalTitle').textContent=entry?'Edit Entry':'Add Entry';
+  document.getElementById('measModalDate').value=entry?entry.date:localDateStr();
+  const grid=document.getElementById('measModalGrid');
+  grid.innerHTML=MEAS_FIELDS_COACH.map(function(f){
+    const v=(entry&&entry[f.key]!=null)?entry[f.key]:'';
+    return '<div><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">'+f.label+'</label>'
+      +'<input type="number" step="0.1" inputmode="decimal" id="measModal_'+f.key+'" value="'+v+'" placeholder="--" style="width:100%;padding:9px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:14px;">'
+      +'</div>';
+  }).join('');
+  document.getElementById('measModal').style.display='flex';
+}
+function closeMeasModal(){
+  document.getElementById('measModal').style.display='none';
+  measModalCtx=null;
+}
+async function saveMeasurementModal(){
+  if(!measModalCtx)return;
+  const date=document.getElementById('measModalDate').value;
+  if(!date){alert('Pick a date');return;}
+  const entry={date:date,updatedAt:Date.now()};
+  let any=false;
+  MEAS_FIELDS_COACH.forEach(function(f){
+    const el=document.getElementById('measModal_'+f.key);
+    const v=el?el.value:'';
+    if(v!==''&&v!=null&&!isNaN(parseFloat(v))){entry[f.key]=parseFloat(v);any=true;}
+  });
+  if(!any){alert('Enter at least one measurement');return;}
+  const {clientId,tracker,listElId,editId}=measModalCtx;
+  const useKey=measKeyForTracker(tracker);
+  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker',tracker);
+  if(error){alert('Error loading: '+error.message);return;}
+  let d={};
+  if(data&&data.length&&data[0].data){
+    d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
+  }
+  const list=d[useKey]||[];
+  if(editId){
+    const idx=list.findIndex(function(m){return m.id===editId;});
+    entry.id=editId;
+    if(idx>-1){list[idx]=entry;} else {list.push(entry);}
+  } else {
+    entry.id='m_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+    list.push(entry);
+  }
+  d[useKey]=list;
+  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+    client_id:clientId, tracker:tracker, data:JSON.stringify(d), updated_at:new Date().toISOString()
+  },{onConflict:'client_id,tracker'});
+  if(saveErr){alert('Error saving: '+saveErr.message);return;}
+  closeMeasModal();
+  loadMeasurementsForClient(clientId,tracker,listElId);
+}
+async function deleteMeasurementForClient(clientId,tracker,listElId,entryId){
+  const ok=confirm('Delete this measurement entry?');
+  if(!ok)return;
+  const useKey=measKeyForTracker(tracker);
+  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker',tracker);
+  if(error||!data||!data.length||!data[0].data){alert('Could not load this client\'s data.');return;}
+  const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
+  d[useKey]=(d[useKey]||[]).filter(function(m){return m.id!==entryId;});
+  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+    client_id:clientId, tracker:tracker, data:JSON.stringify(d), updated_at:new Date().toISOString()
+  },{onConflict:'client_id,tracker'});
+  if(saveErr){alert('Error deleting: '+saveErr.message);return;}
+  loadMeasurementsForClient(clientId,tracker,listElId);
 }
 
 function openAddSession(clientKey){
@@ -2889,6 +3041,12 @@ function nutShowClient(clientId){
       +(cw.mobile?'<div style="font-size:13px;color:var(--muted);">📱 '+cw.mobile+'</div>':'')
     +'</div>'
     +'<div class="card" style="margin-bottom:14px;">'
+      +'<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📏 Body Measurements'
+        +'<button onclick="openMeasurementModal(\''+clientId+'\',\'nutrition\',\'nutMeasList\',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button>'
+      +'</div>'
+      +'<div id="nutMeasList">Loading...</div>'
+    +'</div>'
+    +'<div class="card" style="margin-bottom:14px;">'
       +'<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📋 Assigned by You'
         +'<button onclick="openMealPlan(\''+clientId+'\')" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Assign Another Day</button>'
       +'</div>'
@@ -2932,6 +3090,7 @@ function nutShowClient(clientId){
         </div>`;
       }).join(''):'<div style="color:var(--muted);">No logged days yet.</div>')
     +'</div>';
+  loadMeasurementsForClient(clientId,'nutrition','nutMeasList');
 }
 
 function nutShowDash(){
