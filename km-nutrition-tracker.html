@@ -457,6 +457,20 @@ var appSetup=null; // {startDate, clientName, totalMonths}
 var data=[];       // [month][week][day]
 var weekNotes=[];  // [month][week]
 var ui={activeMonth:0,activeWeek:0,activeDay:0,expandedWeeks:{}};
+var bodyMeasurements=[]; // [{id,date,weight,height,chest,waist,hips,arm,thigh,calf,shoulder,neck,updatedAt}]
+var LS_MEAS='km_nut_measurements';
+const MEAS_FIELDS_NUT=[
+  {key:'weight',label:'Weight (kg)'},
+  {key:'height',label:'Height (cm)'},
+  {key:'chest',label:'Chest (cm)'},
+  {key:'waist',label:'Waist (cm)'},
+  {key:'hips',label:'Hips (cm)'},
+  {key:'arm',label:'Arm (cm)'},
+  {key:'thigh',label:'Thigh (cm)'},
+  {key:'calf',label:'Calf (cm)'},
+  {key:'shoulder',label:'Shoulder (cm)'},
+  {key:'neck',label:'Neck (cm)'}
+];
 
 // -- SUPABASE CONFIG --
 var SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
@@ -611,14 +625,14 @@ function viceRow(dateStr,field,val,label,unit){
 
 function syncToSupabase(){
   if(!appSetup||!appSetup.clientName)return;
-  if(!data||data.length===0)return;
+  if((!data||data.length===0)&&(!bodyMeasurements||bodyMeasurements.length===0))return;
   ensureAnonAuth(function(uid){
     if(!uid)return;
     var payload={
       user_id:uid,
       client_id:getClientKey(),
       tracker:'nutrition',
-      data:{setup:appSetup,data:data,weekNotes:weekNotes,ui:ui,mealPlan:mealPlan,mobile:localStorage.getItem('kmnut_mobile'),email:localStorage.getItem('kmnut_email'),vices:getVicesData()},
+      data:{setup:appSetup,data:data,weekNotes:weekNotes,ui:ui,mealPlan:mealPlan,bodyMeasurements:bodyMeasurements,mobile:localStorage.getItem('kmnut_mobile'),email:localStorage.getItem('kmnut_email'),vices:getVicesData()},
       updated_at:new Date().toISOString()
     };
     getSB().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(res){
@@ -684,6 +698,18 @@ function _applyNutData(d){
     localStorage.setItem('kmnut_vices',JSON.stringify(remoteVices));
     localStorage.setItem('kmnut_vices_backup',JSON.stringify(remoteVices));
   }
+  // Restore body measurements -- merge by id, newest updatedAt wins (same pattern as fitness)
+  if(d.bodyMeasurements){
+    var measById={};
+    (d.bodyMeasurements||[]).forEach(function(m){ if(m.id) measById[m.id]=m; });
+    (bodyMeasurements||[]).forEach(function(m){
+      if(!m.id) return;
+      var srv=measById[m.id];
+      if(!srv||(m.updatedAt||0)>=(srv.updatedAt||0)) measById[m.id]=m;
+    });
+    bodyMeasurements=Object.values(measById).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+    localStorage.setItem(LS_MEAS,JSON.stringify(bodyMeasurements));
+  }
   localStorage.setItem(LS_SETUP,JSON.stringify(appSetup));
   localStorage.setItem(LS_DATA,JSON.stringify(data));
   localStorage.setItem(LS_NOTES,JSON.stringify({weekNotes:weekNotes,ui:ui}));
@@ -696,6 +722,7 @@ function autoSave(){
     localStorage.setItem(LS_SETUP,JSON.stringify(appSetup));
     localStorage.setItem(LS_DATA,JSON.stringify(data));
     localStorage.setItem(LS_NOTES,JSON.stringify({weekNotes:weekNotes,ui:ui}));
+    localStorage.setItem(LS_MEAS,JSON.stringify(bodyMeasurements));
   }catch(e){}
   syncToSupabase();
   var p=document.getElementById('savePill');
@@ -711,10 +738,12 @@ function loadState(){
     var d=localStorage.getItem(LS_DATA);
     var n=localStorage.getItem(LS_NOTES);
     var mp=localStorage.getItem(LS_MEALPLAN);
+    var bm=localStorage.getItem(LS_MEAS);
     if(s)appSetup=JSON.parse(s);
     if(d)data=JSON.parse(d);
     if(n){var nn=JSON.parse(n);weekNotes=nn.weekNotes||[];ui=nn.ui||ui;}
     if(mp)mealPlan=JSON.parse(mp);
+    if(bm)bodyMeasurements=JSON.parse(bm);
   }catch(e){}
 }
 
@@ -1055,7 +1084,7 @@ const HELP_TEXT_NUT={
     '<b>4. Everything saves automatically</b><br>You don\'t need to hit a separate save button for most things -- look for the "Saved" pill at the top confirming it went through.<br><br>'+
     '<b>5. Vices</b><br>If you had something outside your plan (a cheat meal, a drink, etc.), log it in the Vices tab rather than trying to force it into a regular meal slot -- it\'s tracked separately so your coach can see the full picture.'},
   analytics:{title:'Analytics',body:'A breakdown of your nutrition over time -- average calories, protein, carbs and fat across the days you\'ve logged. Use this to spot patterns, like whether you\'re consistently under on protein.'},
-  progress:{title:'Progress',body:'Your weight and photo progress over time, if you\'ve been logging it. This is separate from daily meal tracking -- it\'s for the bigger-picture trend, not day-to-day numbers.'},
+  progress:{title:'Progress',body:'Your diet adherence trend over time -- how consistently you\'ve hit your plan week by week.<br><br>Further down, Body Measurements lets you log your weight, height and body measurements whenever you want to check in. This is tracked separately here in Nutrition and isn\'t linked to any measurements logged in the Fitness tracker.'},
   vices:{title:'Vices',body:'Log anything outside your regular eating plan here -- a dessert, a drink, a cheat meal. Keeping these separate from your normal meals gives your coach an honest, complete picture without messing up your daily meal totals.'},
   account:{title:'Account',body:'Your profile details -- name, mobile number, and programme settings. This is also where you can log out or update your login details if you switch devices.'}
 };
@@ -1339,6 +1368,8 @@ function renderProgressView(cal){
     html+='</div>';
   }
 
+  html+=renderBodyMeasurementsCard();
+
   // Mobile login card
   var mobile=localStorage.getItem('kmnut_mobile');
   html+='<div style="margin:16px 12px 0;">';
@@ -1358,6 +1389,77 @@ function renderProgressView(cal){
 
   html+='</div>';
   return html;
+}
+
+// BODY MEASUREMENTS -- same feature as the fitness tracker's BODY tab, kept as its own
+// separate log here per Karan's call (not shared/merged with the fitness tracker's data).
+function renderBodyMeasurementsCard(){
+  var todayStr=new Date().toISOString().slice(0,10);
+  var html='<div style="margin:16px 12px 0;">';
+  html+='<div style="background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;">';
+  html+='<div style="font-size:17px;font-weight:700;color:var(--txt);margin-bottom:12px;">Body Measurements</div>';
+  html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">';
+  html+='<span style="font-size:14px;color:var(--txt2);">Date</span>';
+  html+='<input type="date" id="measDateNut" value="'+todayStr+'" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--txt);font-family:\'DM Sans\',sans-serif;font-size:15px;">';
+  html+='</div>';
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">';
+  MEAS_FIELDS_NUT.forEach(function(f){
+    html+='<div><label style="font-size:12px;color:var(--txt3);display:block;margin-bottom:4px;">'+f.label+'</label>'
+      +'<input type="number" step="0.1" inputmode="decimal" id="measNut_'+f.key+'" placeholder="--" style="width:100%;padding:9px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--txt);font-family:\'DM Sans\',sans-serif;font-size:15px;">'
+      +'</div>';
+  });
+  html+='</div>';
+  html+='<div style="font-size:12px;color:var(--txt3);margin-top:10px;">Leave any field blank to skip it. Only fields you fill in are saved.</div>';
+  html+='<button onclick="saveMeasurementNut()" style="width:100%;margin-top:14px;padding:12px;background:var(--sage);border:none;border-radius:10px;font-family:\'DM Sans\',sans-serif;font-size:15px;font-weight:700;color:#fff;cursor:pointer;">Save Entry</button>';
+  html+='</div>';
+
+  html+='<div style="background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;">';
+  html+='<div style="font-size:17px;font-weight:700;color:var(--txt);margin-bottom:10px;">Measurement History</div>';
+  if(!bodyMeasurements.length){
+    html+='<div style="font-size:14px;color:var(--txt3);padding:8px 0;">No entries yet.</div>';
+  } else {
+    var sorted=bodyMeasurements.slice().sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+    sorted.forEach(function(m,i){
+      var prev=sorted[i+1];
+      var rows='';
+      MEAS_FIELDS_NUT.forEach(function(f){
+        if(m[f.key]==null) return;
+        var delta='';
+        if(prev&&prev[f.key]!=null){
+          var d=m[f.key]-prev[f.key];
+          if(Math.abs(d)>0.01) delta=' <span style="color:var(--txt3);font-size:12px;">('+(d>0?'+':'')+d.toFixed(1)+')</span>';
+        }
+        rows+='<div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0;"><span style="color:var(--txt3);">'+f.label+'</span><span style="color:var(--txt);font-weight:600;">'+m[f.key]+delta+'</span></div>';
+      });
+      var d2=new Date(m.date+'T12:00:00');
+      var MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      var dstr=d2.getDate()+' '+MN[d2.getMonth()]+' '+d2.getFullYear();
+      html+='<div style="border-bottom:1px solid var(--border);padding:10px 0;">'
+        +'<div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:6px;">'+dstr+'</div>'+rows
+        +'</div>';
+    });
+  }
+  html+='</div></div>';
+  return html;
+}
+function saveMeasurementNut(){
+  var dateEl=document.getElementById('measDateNut');
+  var date=(dateEl&&dateEl.value)||new Date().toISOString().slice(0,10);
+  var entry={date:date,updatedAt:Date.now()};
+  var any=false;
+  MEAS_FIELDS_NUT.forEach(function(f){
+    var el=document.getElementById('measNut_'+f.key);
+    var v=el?el.value:'';
+    if(v!==''&&v!=null&&!isNaN(parseFloat(v))){entry[f.key]=parseFloat(v);any=true;}
+  });
+  if(!any){showToast('Enter at least one measurement');return;}
+  var idx=bodyMeasurements.findIndex(function(m){return m.date===date;});
+  if(idx>-1){entry.id=bodyMeasurements[idx].id;bodyMeasurements[idx]=entry;}
+  else{entry.id='m_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);bodyMeasurements.push(entry);}
+  bodyMeasurements.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+  autoSave();
+  showToast('Measurements saved ✓');
+  render();
 }
 
 function saveNutMobile(){
