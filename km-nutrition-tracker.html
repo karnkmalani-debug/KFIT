@@ -180,6 +180,17 @@ body{overflow-x:hidden;}
 .pw-btn{width:100%;padding:14px;background:var(--sage);color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;transition:opacity .2s;}
 .pw-btn:active{opacity:.82;}
 .pw-error{color:var(--terra);font-size:16px;text-align:center;margin-top:10px;min-height:18px;}
+.help-strip{display:flex;justify-content:flex-end;gap:8px;padding:8px 20px 4px;background:var(--bg);border-bottom:1px solid var(--border);}
+.help-btn{width:28px;height:28px;border-radius:50%;background:var(--gold);border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.15);}
+.feedback-btn{width:28px;height:28px;border-radius:50%;background:var(--sage);border:none;color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.15);}
+@media print{
+  .topbar,.help-strip,.month-tabs,.nav-tabs,button,input[type="file"],
+  #pwGate,#appLoader,#mobilePromptModal,#installModal,#helpOverlay,#feedbackOverlay,#snapModal{
+    display:none!important;
+  }
+  html,body{background:#fff!important;}
+  * {color:#000!important;background:transparent!important;box-shadow:none!important;text-shadow:none!important;}
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
@@ -250,11 +261,34 @@ body{overflow-x:hidden;}
   </div>
 </div>
 
+<!-- HELP -->
+<div id="helpOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.6);align-items:flex-end;justify-content:center;">
+  <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;max-height:78vh;display:flex;flex-direction:column;">
+    <div id="helpTitle" style="font-size:17px;font-weight:800;margin-bottom:10px;color:var(--txt);flex-shrink:0;"></div>
+    <div id="helpBody" style="font-size:15px;color:var(--txt2);line-height:1.6;margin-bottom:20px;overflow-y:auto;flex:1;"></div>
+    <button onclick="closeHelp()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#fff;cursor:pointer;flex-shrink:0;">Got it</button>
+  </div>
+</div>
+
+<!-- FEEDBACK -->
+<div id="feedbackOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.6);align-items:flex-end;justify-content:center;">
+  <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;">
+    <div style="font-size:17px;font-weight:800;margin-bottom:6px;color:var(--txt);">Send Feedback</div>
+    <div style="font-size:13px;color:var(--txt2);margin-bottom:14px;">Something not working, or an idea for the app? Goes straight to your coach.</div>
+    <textarea id="feedbackText" rows="5" placeholder="Type your feedback here..." style="width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:15px;resize:vertical;margin-bottom:14px;"></textarea>
+    <div style="display:flex;gap:8px;">
+      <button onclick="closeFeedback()" style="flex:1;padding:13px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:var(--txt);cursor:pointer;">Cancel</button>
+      <button onclick="submitFeedback()" style="flex:1;padding:13px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#fff;cursor:pointer;">Send</button>
+    </div>
+  </div>
+</div>
+
 <div id="mainContent" style="display:none;">
 <div class="topbar">
   <div class="brand">K<span class="g">F</span><span class="t">it</span> Nutrition</div>
   <div style="display:flex;align-items:center;gap:8px;">
     <div class="save-pill" id="savePill">✓ Saved</div>
+    <button onclick="window.print()" title="Print this screen" style="width:28px;height:28px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--txt2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;">&#128424;</button>
     <a href="https://kfit.pages.dev" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;color:var(--txt3);cursor:pointer;white-space:nowrap;text-decoration:none;">🏠 Home</a>
     <button onclick="logout()" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;color:var(--txt3);cursor:pointer;white-space:nowrap;">Log Out</button>
   </div>
@@ -905,6 +939,10 @@ function renderTracker(){
     +'<div class="ntab'+(activeView==='vices'?' active':'')+'" onclick="setView(\'vices\')">Vices</div>'
     +'<div class="ntab'+(activeView==='account'?' active':'')+'" onclick="setView(\'account\')">Account</div>'
     +'</div>';
+  html+='<div class="help-strip">'
+    +'<button class="feedback-btn" onclick="openFeedback()" title="Send feedback">&#128172;</button>'
+    +'<button class="help-btn" onclick="showHelp(\''+activeView+'\')" title="What is this page?">?</button>'
+    +'</div>';
 
   if(activeView==='analytics'){
     html+=renderAnalyticsView(cal);
@@ -1007,6 +1045,58 @@ function renderTracker(){
 }
 
 function setView(v){ui.activeView=v;autoSave();render();}
+
+// HELP -- short explainer per view; Track gets the detailed one since it's the main page
+const HELP_TEXT_NUT={
+  track:{title:'Track',body:
+    '<b>1. Pick a day</b><br>Use the calendar/week strip to select the day you want to log. You can move between months using the tabs at the top.<br><br>'+
+    '<b>2. Log each meal</b><br>Tap a meal (Breakfast, Morning Snack, Lunch, Evening Snack, Dinner) to add what you ate. You can type it in, or use the photo option to snap a picture of your plate -- it analyses the meal and estimates calories, protein, carbs and fat for you automatically.<br><br>'+
+    '<b>3. Review the estimate</b><br>Always double-check the numbers it gives you before saving -- photo analysis is a good starting estimate, not a lab measurement. Adjust anything that looks off.<br><br>'+
+    '<b>4. Everything saves automatically</b><br>You don\'t need to hit a separate save button for most things -- look for the "Saved" pill at the top confirming it went through.<br><br>'+
+    '<b>5. Vices</b><br>If you had something outside your plan (a cheat meal, a drink, etc.), log it in the Vices tab rather than trying to force it into a regular meal slot -- it\'s tracked separately so your coach can see the full picture.'},
+  analytics:{title:'Analytics',body:'A breakdown of your nutrition over time -- average calories, protein, carbs and fat across the days you\'ve logged. Use this to spot patterns, like whether you\'re consistently under on protein.'},
+  progress:{title:'Progress',body:'Your weight and photo progress over time, if you\'ve been logging it. This is separate from daily meal tracking -- it\'s for the bigger-picture trend, not day-to-day numbers.'},
+  vices:{title:'Vices',body:'Log anything outside your regular eating plan here -- a dessert, a drink, a cheat meal. Keeping these separate from your normal meals gives your coach an honest, complete picture without messing up your daily meal totals.'},
+  account:{title:'Account',body:'Your profile details -- name, mobile number, and programme settings. This is also where you can log out or update your login details if you switch devices.'}
+};
+function showHelp(view){
+  var h=HELP_TEXT_NUT[view]||HELP_TEXT_NUT.track;
+  document.getElementById('helpTitle').textContent=h.title;
+  document.getElementById('helpBody').innerHTML=h.body;
+  document.getElementById('helpOverlay').style.display='flex';
+}
+function closeHelp(){
+  document.getElementById('helpOverlay').style.display='none';
+}
+
+// FEEDBACK -- plain text, sent to the same app_feedback table the fitness tracker uses
+function openFeedback(){
+  document.getElementById('feedbackText').value='';
+  document.getElementById('feedbackOverlay').style.display='flex';
+}
+function closeFeedback(){
+  document.getElementById('feedbackOverlay').style.display='none';
+}
+function submitFeedback(){
+  var msg=document.getElementById('feedbackText').value.trim();
+  if(!msg){showToast('Type something first');return;}
+  var view=(ui&&ui.activeView)||'track';
+  var tabLabel='Nutrition - '+view.charAt(0).toUpperCase()+view.slice(1);
+  getSB().from('app_feedback').insert({
+    message:msg,
+    tab:tabLabel,
+    submitted_by:(appSetup&&appSetup.clientName)||'Client',
+    submitted_by_mobile:localStorage.getItem('kmnut_mobile')||null,
+    status:'new'
+  }).then(function(res){
+    closeFeedback();
+    if(res.error){
+      showToast('Could not send feedback -- try again later');
+    } else {
+      showToast('Feedback sent, thank you! ✓');
+    }
+  });
+}
 
 function renderMealPlan(){
   var html='<div style="padding:0 0 80px;">';
