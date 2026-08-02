@@ -383,6 +383,55 @@ function localDateStr(d){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 
+// Coach-side history filter for a client's Session History list (mirrors the client tracker's
+// History filter pills: All Time / This Month / This Week / Custom)
+let coachHistFilterMode='all', coachHistFilterFrom=null, coachHistFilterTo=null;
+function getCoachHistRange(){
+  if(coachHistFilterMode==='all') return null;
+  var now=new Date(), start, end;
+  if(coachHistFilterMode==='week'){
+    var dow=now.getDay()===0?6:now.getDay()-1;
+    start=new Date(now); start.setDate(now.getDate()-dow); start.setHours(0,0,0,0);
+    end=new Date(start); end.setDate(start.getDate()+6); end.setHours(23,59,59,999);
+  } else if(coachHistFilterMode==='month'){
+    start=new Date(now.getFullYear(),now.getMonth(),1);
+    end=new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59);
+  } else if(coachHistFilterMode==='custom'){
+    if(!coachHistFilterFrom||!coachHistFilterTo) return null;
+    start=new Date(coachHistFilterFrom+'T00:00:00');
+    end=new Date(coachHistFilterTo+'T23:59:59');
+  } else {
+    return null;
+  }
+  return {start:start,end:end};
+}
+function setCoachHistFilter(mode){
+  coachHistFilterMode=mode;
+  if(mode!=='custom') showClient(currentClientKey);
+  else{
+    // Just re-render the pill row + reveal the custom range inputs without rebuilding
+    // the whole client view (which would wipe whatever the coach typed).
+    const pillsEl=document.getElementById('coachHistPills');
+    if(pillsEl) renderCoachHistPills();
+    const cr=document.getElementById('coachHistCustomRange');
+    if(cr) cr.style.display='flex';
+  }
+}
+function applyCoachHistCustomRange(){
+  const f=document.getElementById('coachHistFromDate').value;
+  const t=document.getElementById('coachHistToDate').value;
+  if(!f||!t){alert('Pick both a from and to date');return;}
+  coachHistFilterFrom=f; coachHistFilterTo=t;
+  showClient(currentClientKey);
+}
+function renderCoachHistPills(){
+  const pills=[{key:'all',label:'All Time'},{key:'month',label:'This Month'},{key:'week',label:'This Week'},{key:'custom',label:'Custom'}];
+  return pills.map(function(p){
+    const active=coachHistFilterMode===p.key;
+    return '<div onclick="setCoachHistFilter(\''+p.key+'\')" style="padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;display:inline-block;margin:0 6px 6px 0;border:1px solid '+(active?'var(--sage)':'var(--border)')+';background:'+(active?'var(--sage)':'transparent')+';color:'+(active?'#fff':'var(--muted)')+';">'+p.label+'</div>';
+  }).join('');
+}
+
 function getSB(){
   if(!sb)sb=supabase.createClient(SB_URL,SB_KEY);
   return sb;
@@ -691,7 +740,13 @@ function showClient(key){
   const monthSessions=c.records.filter(r=>r.session_date&&r.session_date.slice(0,7)===thisMonth).length;
   const isTaggedClient=!!taggedClients.fitness[canonicalClientKey(c.name,c.mobile)];
   const unpaidCount=isTaggedClient?c.records.filter(r=>!r.paid).length:0;
-  const rows=c.records.map(r=>{
+  const fitClientId=buildClientId(c.name,c.mobile).replace(/'/g,"\\'");
+  const histRange=getCoachHistRange();
+  const filteredRecords=histRange?c.records.filter(function(r){
+    var d=new Date(r.session_date+'T12:00:00');
+    return d>=histRange.start&&d<=histRange.end;
+  }):c.records;
+  const rows=filteredRecords.map(r=>{
     const d=new Date(r.session_date+'T12:00:00');
     const label=r.activity&&r.activity.trim()?r.activity:r.body_parts&&r.body_parts.trim()?r.body_parts:r.workout_type||'Session';
     const paidBtn=isTaggedClient?`<button onclick="event.stopPropagation();togglePaid('${(c.mobile||'').replace(/'/g,"\\'")}','${r.session_date}','${(r.session_time||'').replace(/'/g,"\\'")}',${!!r.paid})" style="padding:4px 10px;border-radius:12px;border:1px solid ${r.paid?'var(--sage)':'var(--terra)'};background:${r.paid?'var(--sage)':'transparent'};color:${r.paid?'#fff':'var(--terra)'};font-family:'DM Sans',sans-serif;font-size:10px;font-weight:800;letter-spacing:0.5px;cursor:pointer;white-space:nowrap;">${r.paid?'PAID':'UNPAID'}</button>`:'';
@@ -723,7 +778,7 @@ function showClient(key){
     </div>
     <div class="card" style="margin-bottom:14px;">
       <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📏 Body Measurements
-        <button onclick="openMeasurementModal('${buildClientId(c.name,c.mobile).replace(/'/g,"\\'")}','fitness','fitMeasList',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button>
+        <button onclick="openMeasurementModal('${fitClientId}','fitness','fitMeasList',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button>
       </div>
       <div id="fitMeasList">Loading...</div>
     </div>
@@ -735,7 +790,14 @@ function showClient(key){
     </div>
     <div class="card">
       <div class="card-title">Session History</div>
-      ${rows||'<div style="color:var(--muted);">No sessions yet.</div>'}
+      <div id="coachHistPills" style="margin-bottom:4px;">${renderCoachHistPills()}</div>
+      <div id="coachHistCustomRange" style="display:${coachHistFilterMode==='custom'?'flex':'none'};gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+        <input type="date" id="coachHistFromDate" value="${coachHistFilterFrom||''}" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
+        <span style="color:var(--muted);font-size:13px;">to</span>
+        <input type="date" id="coachHistToDate" value="${coachHistFilterTo||''}" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
+        <button onclick="applyCoachHistCustomRange()" style="padding:8px 14px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Apply</button>
+      </div>
+      ${rows||'<div style="color:var(--muted);">No sessions in this range.</div>'}
     </div>`;
   loadAssignedWorkoutsForClient(key,c);
   loadMeasurementsForClient(buildClientId(c.name,c.mobile),'fitness','fitMeasList');
@@ -1443,23 +1505,28 @@ async function loadMeasurementsForClient(clientId,tracker,listElId){
 
 let measModalScans=[];
 function openMeasurementModal(clientId,tracker,listElId,entryId){
-  const list=_measCache[listElId]||[];
-  const entry=entryId?list.find(function(m){return m.id===entryId;}):null;
-  measModalCtx={clientId:clientId,tracker:tracker,listElId:listElId,editId:entryId||null};
-  measModalScans=(entry&&entry.scans)?entry.scans.slice():[];
-  document.getElementById('measModalTitle').textContent=entry?'Edit Entry':'Add Entry';
-  document.getElementById('measModalDate').value=entry?entry.date:localDateStr();
-  document.getElementById('measModalScanInput').value='';
-  document.getElementById('measModalScanPending').textContent='';
-  const grid=document.getElementById('measModalGrid');
-  grid.innerHTML=MEAS_FIELDS_COACH.map(function(f){
-    const v=(entry&&entry[f.key]!=null)?entry[f.key]:'';
-    return '<div><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">'+f.label+'</label>'
-      +'<input type="number" step="0.1" inputmode="decimal" id="measModal_'+f.key+'" value="'+v+'" placeholder="--" style="width:100%;padding:9px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:14px;">'
-      +'</div>';
-  }).join('');
-  renderMeasModalScans();
-  document.getElementById('measModal').style.display='flex';
+  try{
+    const list=_measCache[listElId]||[];
+    const entry=entryId?list.find(function(m){return m.id===entryId;}):null;
+    measModalCtx={clientId:clientId,tracker:tracker,listElId:listElId,editId:entryId||null};
+    measModalScans=(entry&&entry.scans)?entry.scans.slice():[];
+    document.getElementById('measModalTitle').textContent=entry?'Edit Entry':'Add Entry';
+    document.getElementById('measModalDate').value=entry?entry.date:localDateStr();
+    document.getElementById('measModalScanInput').value='';
+    document.getElementById('measModalScanPending').textContent='';
+    const grid=document.getElementById('measModalGrid');
+    grid.innerHTML=MEAS_FIELDS_COACH.map(function(f){
+      const v=(entry&&entry[f.key]!=null)?entry[f.key]:'';
+      return '<div><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">'+f.label+'</label>'
+        +'<input type="number" step="0.1" inputmode="decimal" id="measModal_'+f.key+'" value="'+v+'" placeholder="--" style="width:100%;padding:9px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:14px;">'
+        +'</div>';
+    }).join('');
+    renderMeasModalScans();
+    document.getElementById('measModal').style.display='flex';
+  }catch(err){
+    console.error('openMeasurementModal failed:',err);
+    alert('Could not open the entry form: '+err.message);
+  }
 }
 function renderMeasModalScans(){
   const el=document.getElementById('measModalExistingScans');

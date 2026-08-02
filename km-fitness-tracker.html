@@ -27,6 +27,8 @@
   --terra-d:rgba(196,105,74,.13);
   --gold:   #d4a843;
   --gold-d: rgba(212,168,67,.13);
+  --flame:  #e0793f;
+  --flame-d:rgba(224,121,63,.16);
 
   --accent: var(--sage);
   --red:    var(--terra);
@@ -327,7 +329,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 #printReportArea{display:none;}
 .hist-filter-pill{padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;display:inline-block;}
 @media print{
-  .header,.tabs,.print-inline,.help-btn,.feedback-btn,#helpOverlay,#feedbackOverlay,.rest-bar,#bpNotifStack,#headerRestTimer,
+  .header,.tabs,.print-inline,.help-btn,.feedback-btn,#helpOverlay,#feedbackOverlay,#sessionPickerOverlay,.rest-bar,#bpNotifStack,#headerRestTimer,
   button,.add-row,.quick-add-header,.unit-toggle,input[type="file"],
   #pwGate,#mobilePromptModal,#installModal,#appLoader,.toast,
   .confirm-overlay,.modal-overlay,#snapModal,#moveOverlay,#confirmOverlay,
@@ -505,7 +507,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
         <button onclick="cancelAssignedWorkout()" style="padding:6px 12px;background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Cancel</button>
       </div>
       <div id="exBody"></div>
-      <div class="add-row" onclick="addExRow()">+ Add Exercise</div>
+      <div class="add-row" onclick="addExRow()" style="background:var(--flame);border-style:solid;border-color:var(--flame);color:#1a0d05;font-weight:800;">+ Add Exercise</div>
       <div class="add-row" onclick="addSupersetBlock()" style="color:var(--sage);border-color:var(--sage);margin-top:6px;">+ Superset</div>
       <div class="add-row" onclick="window.location.href='https://kfit.pages.dev/kfit-voice'" style="color:var(--gold);border-color:var(--gold);margin-top:6px;">&#127897; Voice Log Session</div>
       <div style="margin-top:10px;">
@@ -800,6 +802,17 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     <div id="helpTitle" style="font-size:17px;font-weight:800;margin-bottom:10px;color:var(--text);flex-shrink:0;"></div>
     <div id="helpBody" style="font-size:15px;color:var(--muted);line-height:1.6;margin-bottom:20px;overflow-y:auto;flex:1;"></div>
     <button onclick="closeHelp()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#0c0c0a;cursor:pointer;flex-shrink:0;">Got it</button>
+  </div>
+</div>
+
+<!-- SESSION PICKER (shown when picking a date that already has one or more sessions) -->
+<div id="sessionPickerOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center;">
+  <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 32px;width:100%;max-width:520px;max-height:78vh;display:flex;flex-direction:column;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <div id="sessionPickerTitle" style="font-size:17px;font-weight:800;color:var(--text);"></div>
+      <button onclick="closeSessionPicker()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div id="sessionPickerBody" style="overflow-y:auto;flex:1;margin-top:8px;"></div>
   </div>
 </div>
 
@@ -1680,17 +1693,50 @@ function onDatePicked(val){
     }
     return;
   }
-  var existing=sessions.find(function(s){return s.date===val;});
-  if(existing){
-    if(confirm('A session exists for this date. Load it for editing?')){
-      editSession(existing.id);
-      return;
-    }
+  var existingForDate=sessions.filter(function(s){return s.date===val;});
+  if(existingForDate.length){
+    showSessionPicker(val,existingForDate);
+    return;
   }
   document.getElementById('sessDate').value=val;
   updateDateChip();
   goTab(0);
   toast('Date set to '+new Date(val+'T12:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}));
+}
+
+// When a picked date already has one or more sessions logged, offer a clear choice instead of
+// a vague yes/no confirm() -- edit any of the existing sessions by name, or log a new one
+// alongside them (people training twice a day is common enough that this needs to be explicit).
+function showSessionPicker(dateVal,existingSessions){
+  var dstr=new Date(dateVal+'T12:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+  var listHtml=existingSessions.map(function(s){
+    var label=(s.bodyParts&&s.bodyParts.length)?s.bodyParts.join(', '):((s.exercises&&s.exercises.length)?s.exercises.length+' exercise(s)':'Session');
+    var timeLabel=s.timeOfDay?(' &middot; '+s.timeOfDay):'';
+    return '<button onclick="pickExistingSession(\''+s.id+'\')" style="width:100%;text-align:left;padding:13px 14px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;font-family:\'DM Sans\',sans-serif;cursor:pointer;">'+
+      '<div style="font-size:15px;font-weight:700;color:var(--text);">'+label+'</div>'+
+      '<div style="font-size:12px;color:var(--muted);margin-top:2px;">Tap to edit'+timeLabel+'</div>'+
+      '</button>';
+  }).join('');
+  var body='<div style="font-size:13px;color:var(--muted);margin-bottom:14px;">'+existingSessions.length+' session'+(existingSessions.length>1?'s':'')+' already logged on '+dstr+'. Edit one, or log another.</div>'+
+    listHtml+
+    '<button onclick="pickNewSessionForDate(\''+dateVal+'\')" style="width:100%;padding:13px;background:var(--flame);border:none;border-radius:10px;font-family:\'DM Sans\',sans-serif;font-size:15px;font-weight:800;color:#1a0d05;cursor:pointer;margin-top:6px;">+ Log Another Session</button>';
+  document.getElementById('sessionPickerTitle').textContent='Sessions on '+dstr;
+  document.getElementById('sessionPickerBody').innerHTML=body;
+  document.getElementById('sessionPickerOverlay').style.display='flex';
+}
+function closeSessionPicker(){
+  document.getElementById('sessionPickerOverlay').style.display='none';
+}
+function pickExistingSession(id){
+  closeSessionPicker();
+  editSession(id);
+}
+function pickNewSessionForDate(dateVal){
+  closeSessionPicker();
+  document.getElementById('sessDate').value=dateVal;
+  updateDateChip();
+  goTab(0);
+  toast('Logging a new session for '+new Date(dateVal+'T12:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}));
 }
 
 
@@ -3384,7 +3430,6 @@ function renderAttendance(){
     if(!records.length){inner.innerHTML='<span style="color:var(--muted2);">No attendance records yet.</span>';return;}
     const total=records.length;
     const now=new Date();
-    const thisMonth=records.filter(r=>r.session_date&&r.session_date.slice(0,7)===localDateStr(now).slice(0,7)).length;
     const weeks=new Set(records.map(r=>{
       const d=new Date(r.session_date+'T12:00:00');
       const jan1=new Date(d.getFullYear(),0,1);
@@ -3402,14 +3447,16 @@ function renderAttendance(){
     }
     const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-    // The Total/This Month/Streak numbers above always reflect lifetime attendance --
-    // but the list of records below should match whichever range is selected up top
-    // (This Week / This Month / All Time / Custom), same as the printable history list.
+    // Total and Days Trained now track whichever range is selected up top (This Week / This
+    // Month / All Time / Custom) so the numbers always match what's actually listed below.
+    // Streak stays lifetime always -- it's a running achievement, not a view of a date range.
     const range=getHistFilterRange();
     const filteredRecords=range?records.filter(function(r){
       var d=new Date(r.session_date+'T12:00:00');
       return d>=range.start&&d<=range.end;
     }):records;
+    const rangeLabel=histFilterMode==='week'?'This Week':histFilterMode==='month'?'This Month':histFilterMode==='custom'?'In Range':'Total';
+    const daysTrained=new Set(filteredRecords.map(function(r){return r.session_date;})).size;
 
     function buildLabel(r){
       // Activity takes priority for cardio
@@ -3453,12 +3500,12 @@ function renderAttendance(){
     inner.innerHTML=`
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
         <div style="background:var(--surf2);border-radius:8px;padding:10px;text-align:center;">
-          <div style="font-size:22px;font-weight:800;color:var(--sage);">${total}</div>
-          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Total</div>
+          <div style="font-size:22px;font-weight:800;color:var(--sage);">${filteredRecords.length}</div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">${rangeLabel}</div>
         </div>
         <div style="background:var(--surf2);border-radius:8px;padding:10px;text-align:center;">
-          <div style="font-size:22px;font-weight:800;color:var(--gold);">${thisMonth}</div>
-          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">This Month</div>
+          <div style="font-size:22px;font-weight:800;color:var(--gold);">${daysTrained}</div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Days Trained</div>
         </div>
         <div style="background:var(--surf2);border-radius:8px;padding:10px;text-align:center;">
           <div style="font-size:22px;font-weight:800;color:var(--terra);">${streak}w</div>
