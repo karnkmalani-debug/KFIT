@@ -321,10 +321,12 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
 
 .print-inline{width:100%;padding:13px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-top:14px;}
+.help-row{display:flex;justify-content:flex-end;padding:10px 14px 2px;}
+.help-btn{width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;}
 #printReportArea{display:none;}
 .hist-filter-pill{padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;display:inline-block;}
 @media print{
-  .header,.tabs,.print-inline,.rest-bar,#bpNotifStack,#headerRestTimer,
+  .header,.tabs,.print-inline,.help-row,.help-btn,#helpOverlay,.rest-bar,#bpNotifStack,#headerRestTimer,
   button,.add-row,.quick-add-header,.unit-toggle,input[type="file"],
   #pwGate,#mobilePromptModal,#installModal,#appLoader,.toast,
   .confirm-overlay,.modal-overlay,#snapModal,#moveOverlay,#confirmOverlay,
@@ -477,6 +479,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
   <!-- LOG -->
   <div class="panel active" id="panel0">
+    <div class="help-row"><button class="help-btn" onclick="showHelp(0)" title="What is this page?">?</button></div>
     <input type="hidden" id="clientName">
     <input type="hidden" id="sessDate">
 
@@ -592,6 +595,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
   <!-- HISTORY -->
   <div class="panel" id="panel1">
+    <div class="help-row"><button class="help-btn" onclick="showHelp(1)" title="What is this page?">?</button></div>
     <div class="card" id="histFilterCard">
       <div id="histFilterPills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
       <div id="histCustomRange" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
@@ -611,6 +615,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
   <!-- STATS -->
   <div class="panel" id="panel2">
+    <div class="help-row"><button class="help-btn" onclick="showHelp(2)" title="What is this page?">?</button></div>
     <div class="stat-grid" id="statGrid"></div>
     <div id="restStatsSection"></div>
     <div id="statDetail"></div>
@@ -622,6 +627,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
   <!-- NOTES -->
   <div class="panel" id="panel3">
+    <div class="help-row"><button class="help-btn" onclick="showHelp(3)" title="What is this page?">?</button></div>
     <div class="card">
       <div class="card-title">Coach Notes</div>
       <div class="note-block">
@@ -648,6 +654,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
   <!-- PR -->
   <div class="panel" id="panel4">
+    <div class="help-row"><button class="help-btn" onclick="showHelp(4)" title="What is this page?">?</button></div>
     <div class="card">
       <div class="card-title">Personal Records</div>
       <select id="prExSelect" onchange="renderPR()" style="width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:11px 32px 11px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;margin-bottom:14px;outline:none;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%278%27 viewBox=%270 0 12 8%27%3E%3Cpath d=%27M1 1l5 5 5-5%27 stroke=%27%23c9a84c%27 stroke-width=%271.8%27 fill=%27none%27 stroke-linecap=%27round%27/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 12px center;">
@@ -662,6 +669,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
   <!-- MEASUREMENTS -->
   <div class="panel" id="panel5">
+    <div class="help-row"><button class="help-btn" onclick="showHelp(5)" title="What is this page?">?</button></div>
     <div class="card">
       <div class="card-title">Log Measurements</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
@@ -779,6 +787,15 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
       <button onclick="confirmResolve(false)" style="flex:1;padding:13px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:var(--text);cursor:pointer;">Cancel</button>
       <button onclick="confirmResolve(true)" style="flex:1;padding:13px;background:var(--terra);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#fff;cursor:pointer;">Confirm</button>
     </div>
+  </div>
+</div>
+
+<!-- HELP -->
+<div id="helpOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center;">
+  <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 44px;width:100%;max-width:520px;">
+    <div id="helpTitle" style="font-size:17px;font-weight:800;margin-bottom:10px;color:var(--text);"></div>
+    <div id="helpBody" style="font-size:15px;color:var(--muted);line-height:1.6;margin-bottom:20px;"></div>
+    <button onclick="closeHelp()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#0c0c0a;cursor:pointer;">Got it</button>
   </div>
 </div>
 
@@ -4384,6 +4401,26 @@ function showConfirm(title,sub){
 function confirmResolve(val){
   document.getElementById('confirmOverlay').style.display='none';
   if(_confirmResolve){_confirmResolve(val);_confirmResolve=null;}
+}
+
+// HELP -- short, plain-language explainer for whichever tab the "?" was tapped on
+const HELP_TEXT=[
+  {title:'Log a Workout',body:'Tap a body part below to load exercises for it, then fill in your sets, reps and weight as you go. Everything saves as a draft automatically, so it\'s fine to close the app mid-workout. When you\'re done, hit Save Session at the bottom.<br><br>Tap the date at the top if you forgot to log a past workout -- you can go back and add it retroactively.'},
+  {title:'History',body:'Every workout you\'ve saved shows up here. Use This Week / This Month / All Time / Custom above to narrow the list down -- it filters everything on this page, including both print options.<br><br>Print Summary View prints the compact list you see. Print Full Report prints every exercise, set and rep for each workout in the selected range, one workout per page.'},
+  {title:'Stats',body:'A quick look at how your training is trending -- rest times over time, and the exercises you do most often. Tap Share Progress Report to send a summary straight to your coach.'},
+  {title:'Notes',body:'Write a short note about how a week or month went, in your own words. Your coach reads these to understand what\'s working and what isn\'t, beyond just the numbers.'},
+  {title:'Personal Records (PR)',body:'Pick an exercise from the dropdown to see your best-ever set for it -- the heaviest weight or most reps you\'ve logged so far. This updates automatically every time you beat it.'},
+  {title:'Body Measurements',body:'Log your weight, height, and body measurements here whenever you want to check in -- not every session, just when it\'s useful. Leave any field blank if you don\'t want to track it. Each new entry shows how it\'s changed since your last one.'}
+];
+function showHelp(i){
+  var h=HELP_TEXT[i];
+  if(!h) return;
+  document.getElementById('helpTitle').textContent=h.title;
+  document.getElementById('helpBody').innerHTML=h.body;
+  document.getElementById('helpOverlay').style.display='flex';
+}
+function closeHelp(){
+  document.getElementById('helpOverlay').style.display='none';
 }
 
 function loadApprovedExercises(){
