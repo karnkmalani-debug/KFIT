@@ -339,6 +339,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <input type="date" id="measModalDate" style="width:100%;padding:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;">
       </div>
       <div id="measModalGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;"></div>
+      <div id="measModalExistingScans" style="margin-bottom:12px;"></div>
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Attach a scan/report (optional)</label>
+        <input type="file" id="measModalScanInput" style="width:100%;font-size:13px;color:var(--muted);">
+        <div id="measModalScanPending" style="font-size:12px;color:var(--sage);margin-top:4px;"></div>
+      </div>
       <button onclick="saveMeasurementModal()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;color:#fff;cursor:pointer;">Save</button>
     </div>
   </div>
@@ -1376,6 +1382,8 @@ function buildClientId(name,mobile){
 const MEAS_FIELDS_COACH=[
   {key:'weight',label:'Weight (kg)'},
   {key:'height',label:'Height (cm)'},
+  {key:'bodyFat',label:'Body Fat (%)'},
+  {key:'muscleMass',label:'Muscle Mass (kg)'},
   {key:'chest',label:'Chest (cm)'},
   {key:'waist',label:'Waist (cm)'},
   {key:'hips',label:'Hips (cm)'},
@@ -1417,6 +1425,11 @@ async function loadMeasurementsForClient(clientId,tracker,listElId){
       }
       return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0;"><span style="color:var(--muted);">'+f.label+'</span><span style="font-weight:600;">'+m[f.key]+delta+'</span></div>';
     }).join('');
+    const scansHtml=(m.scans&&m.scans.length)?('<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);">'
+      +m.scans.map(function(s){
+        return '<a href="'+s.url+'" target="_blank" style="display:block;font-size:12px;color:var(--gold);text-decoration:underline;margin-bottom:2px;">📎 '+(s.name||'Scan report')+'</a>';
+      }).join('')
+      +'</div>'):'';
     const dt=new Date(m.date+'T12:00:00');
     return '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
@@ -1424,16 +1437,20 @@ async function loadMeasurementsForClient(clientId,tracker,listElId){
       +'<div style="display:flex;gap:6px;">'
       +'<button onclick="openMeasurementModal(\''+clientId.replace(/'/g,"\\'")+'\',\''+tracker+'\',\''+listElId+'\',\''+m.id+'\')" style="padding:4px 9px;background:none;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted);cursor:pointer;">Edit</button>'
       +'<button onclick="deleteMeasurementForClient(\''+clientId.replace(/'/g,"\\'")+'\',\''+tracker+'\',\''+listElId+'\',\''+m.id+'\')" style="padding:4px 9px;background:none;border:1px solid var(--terra);border-radius:6px;font-size:11px;color:var(--terra);cursor:pointer;">Delete</button>'
-      +'</div></div>'+rows+'</div>';
+      +'</div></div>'+rows+scansHtml+'</div>';
   }).join('');
 }
 
+let measModalScans=[];
 function openMeasurementModal(clientId,tracker,listElId,entryId){
   const list=_measCache[listElId]||[];
   const entry=entryId?list.find(function(m){return m.id===entryId;}):null;
   measModalCtx={clientId:clientId,tracker:tracker,listElId:listElId,editId:entryId||null};
+  measModalScans=(entry&&entry.scans)?entry.scans.slice():[];
   document.getElementById('measModalTitle').textContent=entry?'Edit Entry':'Add Entry';
   document.getElementById('measModalDate').value=entry?entry.date:localDateStr();
+  document.getElementById('measModalScanInput').value='';
+  document.getElementById('measModalScanPending').textContent='';
   const grid=document.getElementById('measModalGrid');
   grid.innerHTML=MEAS_FIELDS_COACH.map(function(f){
     const v=(entry&&entry[f.key]!=null)?entry[f.key]:'';
@@ -1441,11 +1458,28 @@ function openMeasurementModal(clientId,tracker,listElId,entryId){
       +'<input type="number" step="0.1" inputmode="decimal" id="measModal_'+f.key+'" value="'+v+'" placeholder="--" style="width:100%;padding:9px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:14px;">'
       +'</div>';
   }).join('');
+  renderMeasModalScans();
   document.getElementById('measModal').style.display='flex';
+}
+function renderMeasModalScans(){
+  const el=document.getElementById('measModalExistingScans');
+  if(!measModalScans.length){el.innerHTML='';return;}
+  el.innerHTML='<label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">Attached files</label>'
+    +measModalScans.map(function(s,i){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">'
+        +'<a href="'+s.url+'" target="_blank" style="font-size:13px;color:var(--gold);text-decoration:underline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:75%;">📎 '+(s.name||'Scan report')+'</a>'
+        +'<button onclick="removeScanFromModal('+i+')" style="background:none;border:none;color:var(--terra);font-size:12px;cursor:pointer;">Remove</button>'
+        +'</div>';
+    }).join('');
+}
+function removeScanFromModal(i){
+  measModalScans.splice(i,1);
+  renderMeasModalScans();
 }
 function closeMeasModal(){
   document.getElementById('measModal').style.display='none';
   measModalCtx=null;
+  measModalScans=[];
 }
 async function saveMeasurementModal(){
   if(!measModalCtx)return;
@@ -1458,31 +1492,62 @@ async function saveMeasurementModal(){
     const v=el?el.value:'';
     if(v!==''&&v!=null&&!isNaN(parseFloat(v))){entry[f.key]=parseFloat(v);any=true;}
   });
-  if(!any){alert('Enter at least one measurement');return;}
+  const fileInput=document.getElementById('measModalScanInput');
+  const hasNewFile=fileInput&&fileInput.files&&fileInput.files[0];
+  if(!any&&!hasNewFile&&!measModalScans.length){alert('Enter at least one measurement or attach a file');return;}
   const {clientId,tracker,listElId,editId}=measModalCtx;
   const useKey=measKeyForTracker(tracker);
-  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker',tracker);
-  if(error){alert('Error loading: '+error.message);return;}
-  let d={};
-  if(data&&data.length&&data[0].data){
-    d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
+
+  function finishSave(scansArr){
+    if(scansArr.length) entry.scans=scansArr;
+    (async function(){
+      const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker',tracker);
+      if(error){alert('Error loading: '+error.message);return;}
+      let d={};
+      if(data&&data.length&&data[0].data){
+        d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
+      }
+      const list=d[useKey]||[];
+      if(editId){
+        const idx=list.findIndex(function(m){return m.id===editId;});
+        entry.id=editId;
+        if(idx>-1){list[idx]=entry;} else {list.push(entry);}
+      } else {
+        entry.id='m_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+        list.push(entry);
+      }
+      d[useKey]=list;
+      const {error:saveErr}=await getSB().from('tracker_data').upsert({
+        client_id:clientId, tracker:tracker, data:JSON.stringify(d), updated_at:new Date().toISOString()
+      },{onConflict:'client_id,tracker'});
+      if(saveErr){alert('Error saving: '+saveErr.message);return;}
+      closeMeasModal();
+      loadMeasurementsForClient(clientId,tracker,listElId);
+    })();
   }
-  const list=d[useKey]||[];
-  if(editId){
-    const idx=list.findIndex(function(m){return m.id===editId;});
-    entry.id=editId;
-    if(idx>-1){list[idx]=entry;} else {list.push(entry);}
+
+  if(hasNewFile){
+    const file=fileInput.files[0];
+    const MAX_BYTES=20*1024*1024;
+    if(file.size>MAX_BYTES){alert('File too large (max 20MB)');return;}
+    document.getElementById('measModalScanPending').textContent='Uploading...';
+    const safeName=file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
+    const filename=clientId+'_scan_'+Date.now()+'_'+safeName;
+    const fr=new FileReader();
+    fr.onload=function(e){
+      getSB().storage.from('body-scans').upload(filename,e.target.result,{
+        contentType:file.type||'application/octet-stream', upsert:true
+      }).then(function(res){
+        if(res.error){alert('Upload failed: '+res.error.message);document.getElementById('measModalScanPending').textContent='';return;}
+        const urlRes=getSB().storage.from('body-scans').getPublicUrl(filename);
+        const newScan={id:'s_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),url:urlRes.data.publicUrl,name:file.name,uploadedAt:Date.now()};
+        finishSave(measModalScans.concat([newScan]));
+      });
+    };
+    fr.readAsArrayBuffer(file);
   } else {
-    entry.id='m_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-    list.push(entry);
+    finishSave(measModalScans);
   }
-  d[useKey]=list;
-  const {error:saveErr}=await getSB().from('tracker_data').upsert({
-    client_id:clientId, tracker:tracker, data:JSON.stringify(d), updated_at:new Date().toISOString()
-  },{onConflict:'client_id,tracker'});
-  if(saveErr){alert('Error saving: '+saveErr.message);return;}
-  closeMeasModal();
-  loadMeasurementsForClient(clientId,tracker,listElId);
 }
 async function deleteMeasurementForClient(clientId,tracker,listElId,entryId){
   const ok=confirm('Delete this measurement entry?');

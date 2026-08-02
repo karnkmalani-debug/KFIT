@@ -680,6 +680,11 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
       <div class="flex-end" style="margin-top:14px;">
         <button class="btn btn-accent" onclick="saveMeasurement()">Save Entry</button>
       </div>
+      <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">Have a DEXA or InBody scan report? Attach it to this date's entry.</div>
+        <input type="file" id="scanFileInput" style="display:none;" onchange="onScanFileSelected()">
+        <button onclick="triggerScanUpload()" style="width:100%;padding:11px;background:transparent;border:1px solid var(--gold);border-radius:8px;color:var(--gold);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">📎 Upload Scan / Report</button>
+      </div>
     </div>
     <div class="card">
       <div class="card-title">History</div>
@@ -839,6 +844,8 @@ let selectedBP=[], sessions=[], notes={}, assignedWorkouts={}, deletedSessionIds
 const MEAS_FIELDS=[
   {key:'weight',label:'Weight (kg)'},
   {key:'height',label:'Height (cm)'},
+  {key:'bodyFat',label:'Body Fat (%)'},
+  {key:'muscleMass',label:'Muscle Mass (kg)'},
   {key:'chest',label:'Chest (cm)'},
   {key:'waist',label:'Waist (cm)'},
   {key:'hips',label:'Hips (cm)'},
@@ -3013,12 +3020,111 @@ function renderMeasHistory(){
       }
       return '<div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0;"><span style="color:var(--muted);">'+f.label+'</span><span style="color:var(--text);font-weight:600;">'+m[f.key]+delta+'</span></div>';
     }).join('');
+    var scansHtml='';
+    if(m.scans&&m.scans.length){
+      scansHtml='<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);">'+
+        m.scans.map(function(s){
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;">'+
+            '<a href="'+s.url+'" target="_blank" style="font-size:13px;color:var(--gold);text-decoration:underline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:75%;">📎 '+(s.name||'Scan report')+'</a>'+
+            '<button onclick="deleteScan(\''+m.id+'\',\''+s.id+'\')" style="background:none;border:none;color:var(--terra);font-size:12px;cursor:pointer;">Remove</button>'+
+            '</div>';
+        }).join('')+
+        '</div>';
+    }
     var d2=new Date(m.date+'T12:00:00');
     var dstr=d2.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
     return '<div style="border-bottom:1px solid var(--border);padding:10px 0;">'+
-      '<div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:6px;">'+dstr+'</div>'+rows+
+      '<div style="font-size:13px;font-weight:700;color:var(--gold);margin-bottom:6px;">'+dstr+'</div>'+rows+scansHtml+
       '</div>';
   }).join('');
+}
+
+// SCAN UPLOAD -- DEXA / InBody reports, any file type, attached to whichever date is
+// currently set in the measurement date field. Uses the same 'body-scans' Supabase Storage
+// bucket pattern already working for meal photos elsewhere in the app.
+// Generic image compressor -- shrinks large photos before upload so a phone-camera shot of
+// a scan report doesn't cost multiple MB of storage. Non-image files (PDFs, etc.) skip this
+// and upload as-is, since canvas-based compression only works on images.
+function compressImage(file, maxW, quality, callback){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var img=new Image();
+    img.onload=function(){
+      var scale=Math.min(1, maxW/img.width);
+      var w=Math.round(img.width*scale);
+      var h=Math.round(img.height*scale);
+      var canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      canvas.toBlob(function(blob){ callback(blob); },'image/jpeg',quality);
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function triggerScanUpload(){
+  document.getElementById('scanFileInput').click();
+}
+function onScanFileSelected(){
+  var input=document.getElementById('scanFileInput');
+  if(!input.files||!input.files[0])return;
+  var file=input.files[0];
+  var MAX_BYTES=20*1024*1024; // 20MB hard cap so nobody accidentally uploads something huge
+  if(file.size>MAX_BYTES){
+    toast('File too large (max 20MB) -- try a smaller file or photo');
+    input.value='';
+    return;
+  }
+  var dateEl=document.getElementById('measDate');
+  var date=(dateEl&&dateEl.value)||localDateStr();
+  toast('Uploading...');
+  var clientKey=(typeof getFitClientKey==='function')?getFitClientKey():'client';
+  var isImage=/^image\//.test(file.type);
+  function doUpload(blobOrFile,ext,contentType){
+    var safeName=file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
+    var filename=clientKey+'_scan_'+Date.now()+'_'+safeName;
+    var fr=new FileReader();
+    fr.onload=function(e){
+      getSB().storage.from('body-scans').upload(filename,e.target.result,{
+        contentType:contentType||file.type||'application/octet-stream', upsert:true
+      }).then(function(res){
+        input.value='';
+        if(res.error){toast('Upload failed: '+res.error.message);return;}
+        var urlRes=getSB().storage.from('body-scans').getPublicUrl(filename);
+        var fileUrl=urlRes.data.publicUrl;
+        var idx=measurements.findIndex(function(m){return m.date===date;});
+        var scanEntry={id:'s_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),url:fileUrl,name:file.name,uploadedAt:Date.now()};
+        if(idx>-1){
+          if(!measurements[idx].scans) measurements[idx].scans=[];
+          measurements[idx].scans.push(scanEntry);
+          measurements[idx].updatedAt=Date.now();
+        } else {
+          measurements.push({id:'m_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),date:date,updatedAt:Date.now(),scans:[scanEntry]});
+        }
+        measurements.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+        saveMeasurements();
+        renderMeasHistory();
+        toast('Scan uploaded ✓');
+      });
+    };
+    fr.readAsArrayBuffer(blobOrFile);
+  }
+  if(isImage){
+    // Compress to max 1600px / 80% quality -- generous enough to keep printed numbers legible,
+    // still a fraction of a raw phone-camera photo's size.
+    compressImage(file,1600,0.8,function(blob){ doUpload(blob); });
+  } else {
+    doUpload(file);
+  }
+}
+function deleteScan(measId,scanId){
+  var m=measurements.find(function(x){return x.id===measId;});
+  if(!m||!m.scans)return;
+  m.scans=m.scans.filter(function(s){return s.id!==scanId;});
+  m.updatedAt=Date.now();
+  saveMeasurements();
+  renderMeasHistory();
+  toast('Scan removed');
 }
 
 // == AUTO-SAVE DRAFT ==
