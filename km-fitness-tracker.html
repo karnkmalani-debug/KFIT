@@ -3265,6 +3265,15 @@ function renderAttendance(){
     }
     const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+    // The Total/This Month/Streak numbers above always reflect lifetime attendance --
+    // but the list of records below should match whichever range is selected up top
+    // (This Week / This Month / All Time / Custom), same as the printable history list.
+    const range=getHistFilterRange();
+    const filteredRecords=range?records.filter(function(r){
+      var d=new Date(r.session_date+'T12:00:00');
+      return d>=range.start&&d<=range.end;
+    }):records;
+
     function buildLabel(r){
       // Activity takes priority for cardio
       if(r.activity&&r.activity.trim()) return r.activity;
@@ -3295,13 +3304,14 @@ function renderAttendance(){
     }
 
     const SHOW=7;
-    const visible=records.slice(0,SHOW);
-    const hidden=records.slice(SHOW);
+    const visible=filteredRecords.slice(0,SHOW);
+    const hidden=filteredRecords.slice(SHOW);
     const visibleRows=visible.map(buildRow).join('');
     const hiddenRows=hidden.length?`
       <div id="attHidden" style="display:none;">${hidden.map(buildRow).join('')}</div>
       <div onclick="toggleAttAll(this)" style="padding:9px 0;text-align:center;font-size:13px;font-weight:700;color:var(--sage);cursor:pointer;">See All (${hidden.length} more)</div>
     `:'';
+    const noneInRangeMsg=(!filteredRecords.length)?`<div style="padding:14px 0;text-align:center;font-size:13px;color:var(--muted);">No sessions in this range.</div>`:'';
 
     inner.innerHTML=`
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
@@ -3318,7 +3328,7 @@ function renderAttendance(){
           <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Streak</div>
         </div>
       </div>
-      ${visibleRows}
+      ${noneInRangeMsg}${visibleRows}
       ${hiddenRows}`;
   });
 }
@@ -3581,9 +3591,8 @@ function renderPR(){
 
 // HISTORY
 var histFilterMode='all', histFilterFrom=null, histFilterTo=null;
-function getFilteredHistSessions(){
-  const validSessions=sessions.filter(s=>(s.exercises&&s.exercises.length>0)||(s.cardio&&s.cardio.length>0)||(s.supersets&&s.supersets.length>0));
-  if(histFilterMode==='all') return validSessions;
+function getHistFilterRange(){
+  if(histFilterMode==='all') return null;
   var now=new Date(), start, end;
   if(histFilterMode==='week'){
     var dow=now.getDay()===0?6:now.getDay()-1;
@@ -3593,13 +3602,19 @@ function getFilteredHistSessions(){
     start=new Date(now.getFullYear(),now.getMonth(),1);
     end=new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59);
   } else if(histFilterMode==='custom'){
-    if(!histFilterFrom||!histFilterTo) return validSessions;
+    if(!histFilterFrom||!histFilterTo) return null;
     start=new Date(histFilterFrom+'T00:00:00');
     end=new Date(histFilterTo+'T23:59:59');
   } else {
-    return validSessions;
+    return null;
   }
-  return validSessions.filter(function(s){var d=new Date(s.date+'T12:00:00');return d>=start&&d<=end;});
+  return {start:start,end:end};
+}
+function getFilteredHistSessions(){
+  const validSessions=sessions.filter(s=>(s.exercises&&s.exercises.length>0)||(s.cardio&&s.cardio.length>0)||(s.supersets&&s.supersets.length>0));
+  var range=getHistFilterRange();
+  if(!range) return validSessions;
+  return validSessions.filter(function(s){var d=new Date(s.date+'T12:00:00');return d>=range.start&&d<=range.end;});
 }
 function renderHistFilterPills(){
   var el=document.getElementById('histFilterPills');
@@ -3615,7 +3630,7 @@ function setHistFilter(mode){
   var cr=document.getElementById('histCustomRange');
   if(cr) cr.style.display=mode==='custom'?'flex':'none';
   renderHistFilterPills();
-  if(mode!=='custom') renderHistory();
+  if(mode!=='custom'){renderHistory();renderAttendance();}
 }
 function applyHistCustomRange(){
   var f=document.getElementById('histFromDate').value;
@@ -3623,6 +3638,7 @@ function applyHistCustomRange(){
   if(!f||!t){toast('Pick both a from and to date');return;}
   histFilterFrom=f; histFilterTo=t;
   renderHistory();
+  renderAttendance();
 }
 
 function renderHistory(){
