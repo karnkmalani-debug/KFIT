@@ -1080,21 +1080,31 @@ function setView(v){ui.activeView=v;autoSave();render();}
 // HELP -- short explainer per view; Track gets the detailed one since it's the main page
 const HELP_TEXT_NUT={
   track:{title:'Track',body:
-    '<b>1. Pick a day</b><br>Use the calendar/week strip to select the day you want to log. Move between months using the tabs at the top.<br><br>'+
-    '<b>2. Log each meal</b><br>Tap a meal (Breakfast, Morning Snack, Lunch, Evening Snack, Dinner) to add what you ate -- type it in, tap a common food shortcut, or snap a photo and use "Analyse Macros with AI" for an estimated calorie/protein/carb/fat breakdown. The photo analysis is optional extra detail -- it\'s not required to score the meal.<br><br>'+
-    '<b>3. Rate the plate (1-3)</b><br>This is the core of tracking here, and it\'s based on the Ideal Plate: roughly <b>half vegetables, a quarter protein</b>, with the rest split between carbs and fat. After logging a meal, rate how close it came:<br>'+
-    '<b style="color:var(--terra);">1 = Poor</b> -- barely matched the plate<br>'+
-    '<b style="color:var(--gold);">2 = OK</b> -- roughly balanced, room to improve<br>'+
-    '<b style="color:var(--sage);">3 = Good plate</b> -- matched the ideal split well<br>'+
-    'If you skipped a meal entirely, leave it unscored rather than forcing a rating.<br><br>'+
-    '<b>4. Protein First</b><br>Each meal also has a "Protein First" toggle -- mark it on if you ate protein (or fibre/veg) before carbs, following the Eating Order fundamental (protein &rarr; fibre &rarr; carbs, fat flexible). This isn\'t just a note -- it directly adds to your day score alongside the plate rating.<br><br>'+
-    '<b>5. Daily habits</b><br>Below your meals, two habit checks also count toward your day score: having dinner close to sunset/early evening, and keeping a 12-hour overnight fast (e.g. finish dinner by 8pm, breakfast after 8am).<br><br>'+
-    '<b>6. Your day score</b><br>Your daily percentage combines all of it -- plate quality, Protein First, and habits -- into one number. A day where you ate but scored everything low still shows as logged, just with a lower score, so the history stays honest rather than blank.<br><br>'+
-    '<b>7. See the trend</b><br>Head to the Analytics tab for your calorie/protein/carb/fat averages and score trends over time.'},
-  analytics:{title:'Analytics',body:'A breakdown of your nutrition over time -- average calories, protein, carbs and fat across the days you\'ve logged. Use this to spot patterns, like whether you\'re consistently under on protein.'},
-  progress:{title:'Progress',body:'Your diet adherence trend over time -- how consistently you\'ve hit your plan week by week.<br><br>Further down, Body Measurements lets you log your weight, height and body measurements whenever you want to check in. This is tracked separately here in Nutrition and isn\'t linked to any measurements logged in the Fitness tracker.'},
-  vices:{title:'Vices',body:'Log anything outside your regular eating plan here -- a dessert, a drink, a cheat meal. Keeping these separate from your normal meals gives your coach an honest, complete picture without messing up your daily meal totals.'},
-  account:{title:'Account',body:'Your profile details -- name, mobile number, and programme settings. This is also where you can log out or update your login details if you switch devices.'}
+    '<b>1. Pick a day</b><br>Use the calendar or week strip near the top to choose which day you want to log. Use the arrows/tabs to move to a different week or month.<br><br>'+
+    '<b>2. Tap a meal to log it</b><br>You\'ll see meal slots like Breakfast, Lunch, Dinner, and snacks in between. Tap one and type in what you ate. You can also snap a photo and tap "Analyse Macros with AI" to get an estimated calorie/protein/carb/fat breakdown -- this is a nice extra, not something you have to do every time.<br><br>'+
+    '<b>3. There\'s no calorie counting and no fixed ratios to memorise</b><br>Just one rule that matters more than anything else: <b>protein claims its share of the plate first, every single meal, no exceptions.</b> Everything else builds around it, in this order:<br>'+
+    '&nbsp;&nbsp;1️⃣ <b>Protein first</b> -- fish, chicken, eggs, paneer, Greek yogurt<br>'+
+    '&nbsp;&nbsp;2️⃣ <b>Veggies &amp; fibre next</b> -- broccoli, spinach, peppers, bhindi, carrots<br>'+
+    '&nbsp;&nbsp;3️⃣ <b>Carbs fill whatever\'s left</b> -- brown rice, oats, sweet potato, roti, rajma<br>'+
+    '&nbsp;&nbsp;4️⃣ <b>Fat is flexible</b> -- fits in anywhere (avocado, nuts, olive oil) -- except if a meal has no protein or fibre at all, then fat gets priority over carbs<br><br>'+
+    '<b>4. Rate the plate (1-3)</b><br>After logging a meal, rate how well it actually followed that order:<br>'+
+    '<b style="color:var(--terra);">1 = Poor</b> -- protein wasn\'t the priority<br>'+
+    '<b style="color:var(--gold);">2 = OK</b> -- decent, room to improve<br>'+
+    '<b style="color:var(--sage);">3 = Good plate</b> -- protein and veggies clearly led the plate<br>'+
+    'Skipped a meal entirely? Leave it unscored rather than forcing a rating on nothing.<br><br>'+
+    '<b>5. The "Protein First" toggle</b><br>Each meal also has its own Protein First toggle -- switch it on if that meal genuinely followed the order above (protein and veggies before carbs). This adds to your day score too, separately from the plate rating.<br><br>'+
+    '<b>6. Two golden habits, every day</b><br>Below your meals: having dinner close to sunset/early evening, and keeping a 12-hour overnight gap between dinner and breakfast (e.g. finish dinner by 8pm, eat breakfast after 8am). Both count toward your day score.<br><br>'+
+    '<b>7. Your day score</b><br>One percentage combining all of the above -- plate quality, Protein First, and your two daily habits. A day where you ate but scored low on everything still counts as logged, just with a lower score -- it stays honest rather than blank.<br><br>'+
+    '<b>8. Two things that matter more than any number</b><br>Eat slowly and stop when you\'re comfortably full -- not stuffed. And choose whole, minimally processed food whenever you can. These two habits alone do more than any amount of precise tracking.<br><br>'+
+    '<b>9. See your trend</b><br>Head to the Analytics tab for your averages and score trends over time.'},
+  analytics:{title:'Analytics',body:'A look at your averages over time -- calories, protein, carbs and fat across every day you\'ve logged. Use this to spot patterns you might not notice day-to-day, like whether you\'re consistently falling short on protein most days.'},
+  progress:{title:'Progress',body:
+    '<b>Overall Progress</b><br>Shows how consistently you\'ve been hitting your plan, week by week -- your average score, your best week, and your current day streak. Tap "Share Progress Report" to send this straight to your coach.<br><br>'+
+    '<b>Body Measurements</b><br>Further down, log your weight, height, body measurements, Body Fat %, and Muscle Mass whenever you want to check in -- not every day, just when it\'s useful. Leave any box blank if you don\'t want to track it.<br><br>'+
+    '<b>Got a DEXA or InBody scan?</b><br>Tap "Upload Scan / Report" to attach the photo or PDF to that date\'s entry -- it\'s saved here so you and your coach can look back on it any time.<br><br>'+
+    '<b>Heads up</b><br>This measurements log is separate from the one in the Fitness tracker -- logging your weight here won\'t show up there, and vice versa.'},
+  vices:{title:'Vices',body:'Log anything outside your regular eating plan here -- a dessert, a drink, a cheat meal, whatever it was. This isn\'t about guilt -- keeping it separate from your normal meals just gives your coach the full, honest picture without throwing off your daily meal scores.'},
+  account:{title:'Account',body:'Your profile details -- your name, mobile number, and programme settings. This is also where you go to log out, or to update your login details if you switch to a new phone.'}
 };
 function showHelp(view){
   var h=HELP_TEXT_NUT[view]||HELP_TEXT_NUT.track;
