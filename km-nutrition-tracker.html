@@ -113,7 +113,7 @@ body{overflow-x:hidden;}
 .extend-btn{display:block;width:calc(100% - 32px);margin:16px 16px 0;padding:14px;border-radius:12px;border:1px dashed var(--border);background:transparent;font-size:.85rem;font-weight:600;color:var(--txt3);cursor:pointer;}
 .extend-btn:active{background:var(--surf2);}
 .sec-pad{padding:0 0 120px;}
-.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--txt);border-radius:20px;padding:9px 18px;font-size:.78rem;color:var(--white);opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;z-index:70;}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--txt);border-radius:20px;padding:9px 18px;font-size:.78rem;color:var(--white);opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;z-index:700;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .chevron{transition:transform .2s;display:inline-block;color:var(--txt3);font-size:.8rem;}
 .chevron.open{transform:rotate(90deg);}
@@ -1129,6 +1129,14 @@ function submitFeedback(){
   if(!msg){showToast('Type something first');return;}
   var view=(ui&&ui.activeView)||'track';
   var tabLabel='Nutrition - '+view.charAt(0).toUpperCase()+view.slice(1);
+  var btn=document.querySelector('#feedbackOverlay button[onclick="submitFeedback()"]');
+  if(btn){btn.disabled=true;btn.textContent='Sending...';}
+  var timedOut=false;
+  var timeoutId=setTimeout(function(){
+    timedOut=true;
+    showToast('This is taking too long -- check your connection and try again');
+    if(btn){btn.disabled=false;btn.textContent='Send';}
+  },8000);
   getSB().from('app_feedback').insert({
     message:msg,
     tab:tabLabel,
@@ -1136,12 +1144,22 @@ function submitFeedback(){
     submitted_by_mobile:localStorage.getItem('kmnut_mobile')||null,
     status:'new'
   }).then(function(res){
-    closeFeedback();
+    clearTimeout(timeoutId);
+    if(timedOut) return;
+    if(btn){btn.disabled=false;btn.textContent='Send';}
     if(res.error){
-      showToast('Could not send feedback -- try again later');
+      console.error('Feedback insert failed:',res.error);
+      showToast('Could not send: '+(res.error.message||'unknown error'));
     } else {
+      closeFeedback();
       showToast('Feedback sent, thank you! ✓');
     }
+  }).catch(function(err){
+    clearTimeout(timeoutId);
+    if(btn){btn.disabled=false;btn.textContent='Send';}
+    if(timedOut) return;
+    console.error('Feedback insert threw:',err);
+    showToast('Could not send: '+(err&&err.message?err.message:'network/connection error'));
   });
 }
 

@@ -309,7 +309,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
 @keyframes bpSlideIn{from{opacity:0;transform:translateY(-10px);}to{opacity:1;transform:translateY(0);}}
 @keyframes bpCountdown{from{width:100%;}to{width:0%;}}
-.toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%);background:var(--surf3);border:1px solid var(--border);border-radius:8px;padding:9px 18px;font-size:17px;font-weight:600;color:var(--text);opacity:0;transition:opacity .25s;pointer-events:none;z-index:300;white-space:nowrap;}
+.toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%);background:var(--surf3);border:1px solid var(--border);border-radius:8px;padding:9px 18px;font-size:17px;font-weight:600;color:var(--text);opacity:0;transition:opacity .25s;pointer-events:none;z-index:700;white-space:nowrap;}
 .toast.show{opacity:1;}
 
 .empty{text-align:center;padding:52px 20px;color:var(--muted);}
@@ -1713,7 +1713,7 @@ function showSessionPicker(dateVal,existingSessions){
   var listHtml=existingSessions.map(function(s){
     var label=(s.bodyParts&&s.bodyParts.length)?s.bodyParts.join(', '):((s.exercises&&s.exercises.length)?s.exercises.length+' exercise(s)':'Session');
     var timeLabel=s.timeOfDay?(' &middot; '+s.timeOfDay):'';
-    return '<button onclick="pickExistingSession(\''+s.id+'\')" style="width:100%;text-align:left;padding:13px 14px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;font-family:\'DM Sans\',sans-serif;cursor:pointer;">'+
+    return '<button onclick="pickExistingSession('+s.id+')" style="width:100%;text-align:left;padding:13px 14px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;font-family:\'DM Sans\',sans-serif;cursor:pointer;">'+
       '<div style="font-size:15px;font-weight:700;color:var(--text);">'+label+'</div>'+
       '<div style="font-size:12px;color:var(--muted);margin-top:2px;">Tap to edit'+timeLabel+'</div>'+
       '</button>';
@@ -4089,8 +4089,11 @@ function updateMobileNumber(){
 
 // DETAIL
 function editSession(id){
-  const s=sessions.find(x=>x.id===id);
-  if(!s) return;
+  const s=sessions.find(x=>x.id===id)||sessions.find(x=>String(x.id)===String(id));
+  if(!s){
+    toast('Could not find that session -- please try again');
+    return;
+  }
   closeDetail();
   goTab(0);
   // Capture original date/time so attendance update targets the right row even if user changes date/time while editing
