@@ -4635,6 +4635,14 @@ function submitFeedback(){
   var msg=document.getElementById('feedbackText').value.trim();
   if(!msg){toast('Type something first');return;}
   var tabNames=['Log','History','Stats','Notes','PR','Body'];
+  var btn=document.querySelector('#feedbackOverlay button[onclick="submitFeedback()"]');
+  if(btn){btn.disabled=true;btn.textContent='Sending...';}
+  var timedOut=false;
+  var timeoutId=setTimeout(function(){
+    timedOut=true;
+    toast('This is taking too long -- check your connection and try again');
+    if(btn){btn.disabled=false;btn.textContent='Send';}
+  },8000);
   getSB().from('app_feedback').insert({
     message:msg,
     tab:tabNames[currentTab]||null,
@@ -4642,9 +4650,10 @@ function submitFeedback(){
     submitted_by_mobile:localStorage.getItem('kmfit_mobile')||null,
     status:'new'
   }).then(function(res){
+    clearTimeout(timeoutId);
+    if(timedOut) return; // already told the user it timed out -- don't also show a stale success
+    if(btn){btn.disabled=false;btn.textContent='Send';}
     if(res.error){
-      // Don't close the modal or wipe what they typed on failure -- log the real reason to
-      // console so it's actually debuggable instead of a dead-end "try again later."
       console.error('Feedback insert failed:',res.error);
       toast('Could not send: '+(res.error.message||'unknown error'));
     } else {
@@ -4652,6 +4661,9 @@ function submitFeedback(){
       toast('Feedback sent, thank you! ✓');
     }
   }).catch(function(err){
+    clearTimeout(timeoutId);
+    if(btn){btn.disabled=false;btn.textContent='Send';}
+    if(timedOut) return;
     console.error('Feedback insert threw:',err);
     toast('Could not send: '+(err&&err.message?err.message:'network/connection error'));
   });
