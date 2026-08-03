@@ -407,14 +407,30 @@ function getCoachHistRange(){
 }
 function setCoachHistFilter(mode){
   coachHistFilterMode=mode;
-  if(mode!=='custom') showClient(currentClientKey);
-  else{
-    // Just re-render the pill row + reveal the custom range inputs without rebuilding
-    // the whole client view (which would wipe whatever the coach typed).
+  if(mode!=='custom'){
+    coachHistFilterFrom=null; coachHistFilterTo=null;
+    showClient(currentClientKey);
+  } else {
+    // Same as the client tracker: don't leave the previous filter's list showing once Custom
+    // is picked -- there's nothing valid yet until a range is actually applied.
+    coachHistFilterFrom=null; coachHistFilterTo=null;
     const pillsEl=document.getElementById('coachHistPills');
-    if(pillsEl) renderCoachHistPills();
+    if(pillsEl) pillsEl.innerHTML=renderCoachHistPills();
     const cr=document.getElementById('coachHistCustomRange');
     if(cr) cr.style.display='flex';
+    const list=document.querySelector('#coachHistPills').closest('.card');
+    if(list){
+      const existingRows=list.querySelectorAll('.client-card');
+      existingRows.forEach(function(r){r.remove();});
+      const emptyMsg=list.querySelector('.coach-hist-empty');
+      if(!emptyMsg){
+        const p=document.createElement('div');
+        p.className='coach-hist-empty';
+        p.style.color='var(--muted)';
+        p.textContent='Pick a date range and hit Apply.';
+        list.appendChild(p);
+      }
+    }
   }
 }
 function applyCoachHistCustomRange(){
@@ -798,6 +814,11 @@ function showClient(key){
         <button onclick="applyCoachHistCustomRange()" style="padding:8px 14px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Apply</button>
       </div>
       ${rows||'<div style="color:var(--muted);">No sessions in this range.</div>'}
+    </div>
+    <div class="card" style="border-color:var(--terra);">
+      <div class="card-title" style="color:var(--terra);">⚠️ Danger Zone</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Permanently deletes this client's fitness history and attendance record. Cannot be undone.</div>
+      <button onclick="deleteClientFitness('${key.replace(/'/g,"\\'")}')" style="width:100%;padding:11px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Delete Fitness Data for ${c.name}</button>
     </div>`;
   loadAssignedWorkoutsForClient(key,c);
   loadMeasurementsForClient(buildClientId(c.name,c.mobile),'fitness','fitMeasList');
@@ -954,6 +975,38 @@ function groupClients(){
     clients[key].records.push(r);
   });
   return clients;
+}
+
+// DELETE CLIENT -- permanently removes a client's data for one tracker. Fitness deletion also
+// clears their attendance history (that table only exists for fitness); nutrition deletion
+// only touches tracker_data since nutrition has no separate attendance table. Requires two
+// separate confirms given this is irreversible and wipes real history.
+async function deleteClientFitness(clientKey){
+  const clients=groupClients();
+  const c=Object.values(clients).find(function(cl){return (cl.mobile||cl.name)===clientKey;});
+  if(!c){alert('Client not found.');return;}
+  if(!confirm('Delete ALL fitness data for '+c.name+'? This removes their entire session history and attendance record permanently.')) return;
+  if(!confirm('This cannot be undone. Really delete '+c.name+'\'s fitness data?')) return;
+  const fitId=buildClientId(c.name,c.mobile);
+  const {error:attErr}=await getSB().from('attendance').delete().eq('client_mobile',c.mobile||'');
+  const {error:tdErr}=await getSB().from('tracker_data').delete().eq('client_id',fitId).eq('tracker','fitness');
+  if(attErr||tdErr){alert('Error deleting: '+((attErr&&attErr.message)||(tdErr&&tdErr.message)));return;}
+  allRecords=allRecords.filter(function(r){return (r.client_mobile||r.client_name)!==clientKey;});
+  alert(c.name+"'s fitness data has been deleted.");
+  showDash();
+  renderDash();
+}
+async function deleteClientNutrition(clientId){
+  const cw=allClients.find(function(c){return c.client_id===clientId;});
+  const name=cw?cw.name:clientId;
+  if(!confirm('Delete ALL nutrition data for '+name+'? This removes their entire meal log history permanently.')) return;
+  if(!confirm('This cannot be undone. Really delete '+name+"'s nutrition data?")) return;
+  const {error}=await getSB().from('tracker_data').delete().eq('client_id',clientId).eq('tracker','nutrition');
+  if(error){alert('Error deleting: '+error.message);return;}
+  allClients=allClients.filter(function(c){return c.client_id!==clientId;});
+  alert(name+"'s nutrition data has been deleted.");
+  nutShowDash();
+  nutRenderDash();
 }
 
 let currentCoachSession=null; // {clientKey, clientId, date, time, session, attendanceId}
@@ -3221,6 +3274,11 @@ function nutShowClient(clientId){
           </div>
         </div>`;
       }).join(''):'<div style="color:var(--muted);">No logged days yet.</div>')
+    +'</div>'
+    +'<div class="card" style="border-color:var(--terra);">'
+      +'<div class="card-title" style="color:var(--terra);">⚠️ Danger Zone</div>'
+      +'<div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Permanently deletes this client\'s nutrition history. Cannot be undone.</div>'
+      +'<button onclick="deleteClientNutrition(\''+clientId+'\')" style="width:100%;padding:11px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Delete Nutrition Data for '+(cw?cw.name:'this client')+'</button>'
     +'</div>';
   loadMeasurementsForClient(clientId,'nutrition','nutMeasList');
 }

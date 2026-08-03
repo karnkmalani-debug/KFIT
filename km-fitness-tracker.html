@@ -810,7 +810,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
   <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 32px;width:100%;max-width:520px;max-height:78vh;display:flex;flex-direction:column;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
       <div id="sessionPickerTitle" style="font-size:17px;font-weight:800;color:var(--text);"></div>
-      <button onclick="closeSessionPicker()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+      <button id="sessionPickerCloseBtn" onclick="closeSessionPicker()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
     </div>
     <div id="sessionPickerBody" style="overflow-y:auto;flex:1;margin-top:8px;"></div>
   </div>
@@ -1625,6 +1625,7 @@ function cancelAssignedWorkout(){
 
 function setTodayDate(){
   document.getElementById('sessDate').value=localDateStr();
+  updateDateChip();
 }
 
 function updateDateChip(){
@@ -1722,6 +1723,10 @@ function showSessionPicker(dateVal,existingSessions){
     '<button onclick="pickNewSessionForDate(\''+dateVal+'\')" style="width:100%;padding:13px;background:var(--flame);border:none;border-radius:10px;font-family:\'DM Sans\',sans-serif;font-size:15px;font-weight:800;color:#1a0d05;cursor:pointer;margin-top:6px;">+ Log Another Session</button>';
   document.getElementById('sessionPickerTitle').textContent='Sessions on '+dstr;
   document.getElementById('sessionPickerBody').innerHTML=body;
+  // The X button intentionally does the same thing as "Log Another Session" rather than a plain
+  // dismiss -- closing this picker with no action would otherwise leave the date chip stuck on
+  // whatever date was showing before, silently ignoring the date the person just picked.
+  document.getElementById('sessionPickerCloseBtn').setAttribute('onclick','pickNewSessionForDate(\''+dateVal+'\')');
   document.getElementById('sessionPickerOverlay').style.display='flex';
 }
 function closeSessionPicker(){
@@ -2583,6 +2588,10 @@ function clearLog(){
   document.querySelectorAll('.bp-btn').forEach(b=>b.classList.remove('active'));
   var headerDate=document.getElementById('headerDate');
   if(headerDate){headerDate.style.opacity='';headerDate.title='Tap to change date';headerDate.style.cursor='pointer';}
+  // Clear is meant to abandon whatever was in progress, including an in-progress edit --
+  // without this, the date picker stays silently locked (guardDatePicker keeps blocking it)
+  // until the app is fully restarted, since only saveSession() used to clear this flag.
+  window._editingSessionId=null;
   draftClear();
 }
 
@@ -3814,7 +3823,18 @@ function setHistFilter(mode){
   var cr=document.getElementById('histCustomRange');
   if(cr) cr.style.display=mode==='custom'?'flex':'none';
   renderHistFilterPills();
-  if(mode!=='custom'){renderHistory();renderAttendance();}
+  if(mode!=='custom'){
+    renderHistory();renderAttendance();
+  } else {
+    // Selecting Custom shouldn't keep showing whatever the previous filter had -- until an
+    // actual range is applied there's nothing valid to show yet, so clear both lists rather
+    // than leaving stale/misleading data on screen.
+    histFilterFrom=null; histFilterTo=null;
+    var hl=document.getElementById('histList');
+    if(hl) hl.innerHTML='<div class="empty"><div class="ico"></div><p>Pick a date range and hit Apply.</p></div>';
+    var att=document.getElementById('attendanceInner');
+    if(att) att.innerHTML='<span style="color:var(--muted2);">Pick a date range and hit Apply.</span>';
+  }
 }
 function applyHistCustomRange(){
   var f=document.getElementById('histFromDate').value;
@@ -4119,6 +4139,7 @@ function editSession(id){
 
   // Then populate after DOM settles
   setTimeout(function(){
+   try{
     var blocks=exBody.querySelectorAll('.ex-block');
     exList.forEach(function(e,i){
       var block=blocks[i];
@@ -4200,6 +4221,10 @@ function editSession(id){
         doneSuperset(ssId);
       });
     }
+   }catch(err){
+    console.error('editSession population failed:',err);
+    toast('Could not fully load this session -- please try again or tell your coach');
+   }
   },400);
 
   window._editingSessionId=id;
@@ -4617,12 +4642,18 @@ function submitFeedback(){
     submitted_by_mobile:localStorage.getItem('kmfit_mobile')||null,
     status:'new'
   }).then(function(res){
-    closeFeedback();
     if(res.error){
-      toast('Could not send feedback -- try again later');
+      // Don't close the modal or wipe what they typed on failure -- log the real reason to
+      // console so it's actually debuggable instead of a dead-end "try again later."
+      console.error('Feedback insert failed:',res.error);
+      toast('Could not send: '+(res.error.message||'unknown error'));
     } else {
+      closeFeedback();
       toast('Feedback sent, thank you! ✓');
     }
+  }).catch(function(err){
+    console.error('Feedback insert threw:',err);
+    toast('Could not send: '+(err&&err.message?err.message:'network/connection error'));
   });
 }
 
