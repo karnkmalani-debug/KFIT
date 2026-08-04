@@ -4659,7 +4659,7 @@ function submitFeedback(){
   },8000);
   getSB().from('app_feedback').insert({
     message:msg,
-    tab:tabNames[currentTab]||null,
+    tab:'Fitness - '+(tabNames[currentTab]||'Unknown'),
     submitted_by:localStorage.getItem('kmfit_name')||'Client',
     submitted_by_mobile:localStorage.getItem('kmfit_mobile')||null,
     status:'new'
