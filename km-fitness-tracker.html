@@ -1546,6 +1546,77 @@ function applyAssignedWorkoutIfAny(){
   if(banner) banner.style.display='flex';
 }
 
+// Finds the most recent session where this body part was trained as part of a superset
+// (rather than as a standalone exercise), so selecting either half of a past pairing can
+// bring the whole pairing back, not just the matching exercise on its own.
+function findMostRecentSupersetForBP(bp){
+  const bpExerciseNames=new Set(EX_LIB[bp]||[]);
+  const sorted=[...sessions].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  for(const s of sorted){
+    const supersets=s.supersets||[];
+    for(const ss of supersets){
+      const exs=ss.exercises||[];
+      const hasBpEx=exs.some(e=>bpExerciseNames.has(e.ex)&&(
+        (e.setData||[]).some(r=>r.reps||r.weight) || (e.type==='cardio'&&(e.duration||e.distance))
+      ));
+      if(hasBpEx) return {session:s,superset:ss};
+    }
+  }
+  return null;
+}
+
+// Checks whether a superset with this exact exercise pairing is already sitting in the
+// form -- guards against adding it twice when both of its body parts get toggled on.
+function supersetAlreadyInForm(exNames){
+  const blocks=[...document.querySelectorAll('#exBody .superset-block')];
+  return blocks.some(block=>{
+    const names=[...block.querySelectorAll('.ss-ex-select')].map(s=>s.value).filter(Boolean);
+    if(!names.length||names.length!==exNames.length) return false;
+    const setB=new Set(exNames);
+    return names.every(n=>setB.has(n));
+  });
+}
+
+// Rebuilds a past superset (all of its exercises, spanning whichever body parts it originally
+// covered) as a real superset block in the current session. Returns false without doing
+// anything if that same pairing is already present.
+function reconstructSuperset(session,superset){
+  const exNames=(superset.exercises||[]).map(e=>e.ex);
+  if(supersetAlreadyInForm(exNames)) return false;
+
+  addSupersetBlock();
+  const ssBlocks=document.querySelectorAll('#exBody .superset-block');
+  const block=ssBlocks[ssBlocks.length-1];
+  const ssId=block.dataset.ssid;
+
+  const allBps=Object.keys(EX_LIB).filter(k=>k!=='Cardio');
+  const bpsNeeded=new Set();
+  (superset.exercises||[]).forEach(e=>{
+    allBps.forEach(bp=>{ if((EX_LIB[bp]||[]).includes(e.ex)) bpsNeeded.add(bp); });
+  });
+  const row=document.getElementById('ssBpRow_'+ssId);
+  if(row){
+    row.querySelectorAll('.ss-bp-btn').forEach(btn=>{
+      if(bpsNeeded.has(btn.dataset.bp)) btn.classList.add('ss-bp-active');
+    });
+  }
+
+  const container=document.getElementById('ssExBody_'+ssId);
+  (superset.exercises||[]).forEach((e,i)=>{
+    let exBlock=container.querySelectorAll('.superset-ex-block')[i];
+    if(!exBlock){
+      addSupersetEx(ssId);
+      exBlock=container.querySelectorAll('.superset-ex-block')[i];
+    }
+    const sel=exBlock.querySelector('.ss-ex-select');
+    populateSupersetExSel(sel,[...bpsNeeded]);
+    sel.value=e.ex;
+    onSupersetExChange(sel);
+  });
+
+  return true;
+}
+
 function autoFillExercisesForBodyPart(bp){
   // Don't do this while an assigned workout is loaded -- that already has its own exercises
   if(currentAssignedDate) return;
@@ -1554,6 +1625,25 @@ function autoFillExercisesForBodyPart(bp){
   // Most recent session that actually trained this body part
   const last=[...sessions].sort((a,b)=>new Date(b.date)-new Date(a.date))
     .find(s=>s.bodyParts&&s.bodyParts.includes(bp)&&s.exercises&&s.exercises.length);
+
+  const ssMatch=findMostRecentSupersetForBP(bp);
+  const lastDate=last?new Date(last.date):null;
+  const ssDate=ssMatch?new Date(ssMatch.session.date):null;
+
+  // If the last time this body part was actually trained, it was paired in a superset,
+  // bring back the whole pairing rather than pulling in just the matching half as its
+  // own standalone exercise.
+  if(ssMatch&&(!lastDate||ssDate>=lastDate)){
+    const added=reconstructSuperset(ssMatch.session,ssMatch.superset);
+    const daysAgo=Math.round((new Date(dateStr)-new Date(ssMatch.session.date))/86400000);
+    if(added){
+      showBpNotif(bp,'💪','Loaded the superset <b style="color:var(--gold);">'+bp+'</b> was paired with '+(daysAgo>0?'<b style="color:var(--gold);">'+daysAgo+' day'+(daysAgo===1?'':'s')+' ago</b>':'last time'));
+    } else {
+      showBpNotif(bp,'✓','<b style="color:var(--gold);">'+bp+'</b> is already loaded as part of a superset');
+    }
+    return;
+  }
+
   if(!last){
     showBpNotif(bp,'🔍','No previous <b style="color:var(--gold);">'+bp+'</b> session found');
     return;
@@ -2336,6 +2426,23 @@ function collectSupersets(exOrder){
 }
 // ── END SUPERSETS ──────────────────────────────────────────
 
+// Looks in both regular exercises AND inside supersets -- an exercise logged as part of a
+// superset last time was previously invisible to the "last session" hint when picked on its
+// own later, since supersets live in a separate array from regular exercises.
+function findExInSession(s,exName){
+  const direct=(s.exercises||[]).find(e=>e.ex===exName&&(e.setData||[]).some(r=>r.reps||r.weight));
+  if(direct) return direct;
+  const supersets=s.supersets||[];
+  for(let i=0;i<supersets.length;i++){
+    const found=(supersets[i].exercises||[]).find(e=>e.ex===exName&&(
+      (e.setData||[]).some(r=>r.reps||r.weight) ||
+      (e.type==='cardio'&&(e.duration||e.distance))
+    ));
+    if(found) return found;
+  }
+  return null;
+}
+
 function onExChange(sel){
   const block=sel.closest('.ex-block');
   const exName=sel.value;
@@ -2357,11 +2464,8 @@ function onExChange(sel){
     return;
   }
 
-  const lastSess=sessions.find(s=>
-    (s.exercises||[]).some(e=>e.ex===exName&&(e.setData||[]).some(r=>r.reps||r.weight))
-  );
-
-  const lastEx=lastSess?(lastSess.exercises||[]).find(e=>e.ex===exName&&(e.setData||[]).some(r=>r.reps||r.weight)):null;
+  const lastSess=sessions.find(s=>findExInSession(s,exName));
+  const lastEx=lastSess?findExInSession(lastSess,exName):null;
 
   // Match the sets dropdown to this exercise's own last-session MAIN set count
   // (drops don't count as separate sets) before generating rows, so switching
@@ -2412,7 +2516,7 @@ function onExChange(sel){
       const label=r.dropset?(++dsN>1?'D'+dsN:'D'):(dsN=0,mainN++,'Set '+mainN);
       return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;'+(r.dropset?'margin-left:16px;border-left:2px solid var(--red);':'')+'">'
         +'<span style="font-family:\'DM Mono\',monospace;font-size:17px;color:'+(r.dropset?'var(--red)':'var(--muted2)')+';width:42px;flex-shrink:0;text-transform:uppercase;">'+label+'</span>'
-        +(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps</span>':'<span style="flex:1;"></span>')
+        +(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(SOS '+r.assistedReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
         +(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:17px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
         +'</div>';
     }).join('');
