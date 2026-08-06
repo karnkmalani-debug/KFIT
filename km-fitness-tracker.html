@@ -1649,10 +1649,14 @@ function autoFillExercisesForBodyPart(bp){
     return;
   }
 
-  const bpExerciseNames=new Set(EX_LIB[bp]||[]);
-  const relevant=last.exercises.filter(e=>bpExerciseNames.has(e.ex));
+  // Deliberately not filtering by EX_LIB[bp] membership here -- some exercises (Face Pulls,
+  // Rear Delt work, etc.) legitimately belong to more than one body part, and requiring an
+  // exact match against just this one body part's list was hiding them when they'd actually
+  // been logged under the other. The session already being tagged with this body part is
+  // proof enough of relevance.
+  const relevant=last.exercises;
   if(!relevant.length){
-    showBpNotif(bp,'🔍','Found a previous <b style="color:var(--gold);">'+bp+'</b> session, but none of its exercises matched your current library');
+    showBpNotif(bp,'🔍','Found a previous <b style="color:var(--gold);">'+bp+'</b> session, but it had no exercises logged');
     return;
   }
 
@@ -2464,7 +2468,8 @@ function onExChange(sel){
     return;
   }
 
-  const lastSess=sessions.find(s=>findExInSession(s,exName));
+  const sortedSessions=[...sessions].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const lastSess=sortedSessions.find(s=>findExInSession(s,exName));
   const lastEx=lastSess?findExInSession(lastSess,exName):null;
 
   // Match the sets dropdown to this exercise's own last-session MAIN set count
