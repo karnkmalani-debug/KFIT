@@ -64,7 +64,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-seri
 .date-chip{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);background:var(--surf);border:1px solid var(--border);border-radius:20px;padding:5px 12px;}
 
 .tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:52px;z-index:49;}
-.help-strip{display:flex;justify-content:flex-end;gap:8px;padding:6px 14px;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:calc(52px + 45px);z-index:48;}
+.help-strip{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 14px;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:calc(52px + 45px);z-index:48;min-height:40px;}
 .help-btn{width:28px;height:28px;border-radius:50%;background:var(--gold);border:none;color:#141412;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);}
 .feedback-btn{width:28px;height:28px;border-radius:50%;background:var(--sage);border:none;color:#0c0c0a;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);}
 .tab{flex:1;padding:12px 4px;text-align:center;font-size:17px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:color .2s;border-bottom:2px solid transparent;}
@@ -199,6 +199,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .dur-btn-stop:hover{opacity:.82;}
 .dur-status{font-size:17px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:right;}
 .dur-status.running{color:var(--sage);}
+.help-strip .dur-display{font-size:15px;letter-spacing:0;line-height:normal;}
+.help-strip .dur-status{font-size:10px;letter-spacing:.02em;text-align:left;}
+.help-strip .dur-btn-start,.help-strip .dur-btn-stop{padding:5px 11px;font-size:12px;border-radius:7px;}
 
 /* -- Manual duration input -- */
 .dur-manual{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
@@ -479,8 +482,16 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     <div class="tab" onclick="goTab(5)">BODY</div>
   </div>
   <div class="help-strip">
-    <button class="feedback-btn" onclick="openFeedback()" title="Send feedback">&#128172;</button>
-    <button class="help-btn" onclick="showHelp(currentTab)" title="What is this page?">?</button>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="dur-display idle" id="durDisplay">00:00</span>
+      <span class="dur-status" id="durStatus">Not started</span>
+      <button class="dur-btn-start" id="durStartBtn" onclick="startDuration()">&#9654; Start</button>
+      <button class="dur-btn-stop" id="durStopBtn" onclick="stopDuration()" style="display:none;">&#9632; Stop</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="feedback-btn" onclick="openFeedback()" title="Send feedback">&#128172;</button>
+      <button class="help-btn" onclick="showHelp(currentTab)" title="What is this page?">?</button>
+    </div>
   </div>
   <div id="bpNotifStack" style="position:fixed;top:112px;left:16px;right:16px;max-width:488px;margin:0 auto;z-index:350;display:flex;flex-direction:column;gap:8px;pointer-events:none;"></div>
 
@@ -552,18 +563,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
     <div class="card">
       <div class="card-title">Session Duration &#128336;</div>
-      <div class="dur-card">
-        <div>
-          <div class="dur-display idle" id="durDisplay">00:00</div>
-          <div class="dur-status" id="durStatus">Not started</div>
-        </div>
-        <div class="dur-btns">
-          <button class="dur-btn-start" id="durStartBtn" onclick="startDuration()">▶ Start</button>
-          <button class="dur-btn-stop" id="durStopBtn" onclick="stopDuration()" style="display:none;">■ Stop</button>
-        </div>
-      </div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">The live timer and Start/Stop buttons now live at the top of the screen, next to Help and Feedback -- visible no matter which tab you're on.</div>
       <div class="dur-manual">
-        <span class="dur-manual-label">Or enter</span>
+        <span class="dur-manual-label">Or enter manually</span>
         <input class="dur-manual-input" type="text" id="durManual" placeholder="e.g. 45 or 1:30" inputmode="text">
       </div>
     </div>
