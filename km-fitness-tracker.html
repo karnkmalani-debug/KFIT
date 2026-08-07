@@ -204,9 +204,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .help-strip .dur-btn-start,.help-strip .dur-btn-stop{padding:5px 11px;font-size:12px;border-radius:7px;}
 
 /* -- Manual duration input -- */
-.dur-manual{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.dur-manual{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;align-items:center;gap:10px;}
 .dur-manual-label{font-size:17px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;white-space:nowrap;}
-.dur-manual-input{flex:1;background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:16px;outline:none;text-align:center;}
+.dur-manual-input{flex:1;min-width:0;background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-family:'DM Mono',monospace;font-size:16px;outline:none;text-align:center;}
 .dur-manual-input:focus{border-color:var(--gold);}
 .dur-manual-input::placeholder{color:var(--muted2);}
 
@@ -563,9 +563,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
     <div class="card">
       <div class="card-title">Session Duration &#128336;</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">The live timer and Start/Stop buttons now live at the top of the screen, next to Help and Feedback -- visible no matter which tab you're on.</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">The live timer and Start/Stop buttons are at the top of the screen, next to Help and Feedback -- visible no matter which tab you're on.</div>
       <div class="dur-manual">
-        <span class="dur-manual-label">Or enter manually</span>
+        <span class="dur-manual-label">Or enter</span>
         <input class="dur-manual-input" type="text" id="durManual" placeholder="e.g. 45 or 1:30" inputmode="text">
       </div>
     </div>
@@ -4720,10 +4720,11 @@ const HELP_TEXT=[
     '<b>6. Doing two exercises back-to-back with no rest? Use Superset</b><br>Tap "+ Add Superset" instead of logging them as two separate exercises. This links them together properly in your history.<br><br>'+
     '<b>7. Just doing cardio?</b><br>Tap the Cardio body part instead. You\'ll log duration and how hard it felt, not sets and reps.<br><br>'+
     '<b>8. Resting between sets</b><br>Use the REST bar at the bottom of the screen -- tap 1m / 90s / 2m / 3m, or type your own time, and it counts down for you. This also automatically fills in your average rest time, so you don\'t need to type that in separately.<br><br>'+
-    '<b>9. Notes and sending things to your coach</b><br>Session Notes is just for writing how the workout felt. Progress Pic and Record Video are separate buttons that send a photo or video straight to your coach -- they don\'t affect your sets/reps data at all.<br><br>'+
-    '<b>10. You can\'t lose your work</b><br>Everything you type is saved as a draft automatically, even if you close the app halfway through a workout and come back later. It only becomes a real, permanent entry in your History once you tap "Save Session" at the bottom.<br><br>'+
-    '<b>11. Logging a workout from a past day</b><br>Forgot to log yesterday? Tap the date at the very top of the screen (next to the KFit logo) -- it opens your phone\'s own calendar so you can pick any earlier date and log for that day instead of today. If that day already has a workout logged, you\'ll get asked whether to edit it or add another one -- useful if you train twice in a day.<br><br>'+
-    '<b>12. Exercise isn\'t in the list?</b><br>Scroll to the bottom of the exercise list and tap "Suggest a new exercise to your coach." It gets sent to your coach, who can add it permanently so it shows up for everyone next time.'},
+    '<b>9. Timing the whole workout</b><br>At the top of the screen, next to Help and Feedback, there\'s a timer with Start/Stop -- tap Start when you begin your session. It stays visible even if you switch to another tab, and its total gets saved with the session. Prefer to just type the total afterwards instead? Scroll down to Session Duration and enter it manually there.<br><br>'+
+    '<b>10. Notes and sending things to your coach</b><br>Session Notes is just for writing how the workout felt. Progress Pic and Record Video are separate buttons that send a photo or video straight to your coach -- they don\'t affect your sets/reps data at all.<br><br>'+
+    '<b>11. You can\'t lose your work</b><br>Everything you type is saved as a draft automatically, even if you close the app halfway through a workout and come back later. It only becomes a real, permanent entry in your History once you tap "Save Session" at the bottom.<br><br>'+
+    '<b>12. Logging a workout from a past day</b><br>Forgot to log yesterday? Tap the date at the very top of the screen (next to the KFit logo) -- it opens your phone\'s own calendar so you can pick any earlier date and log for that day instead of today. If that day already has a workout logged, you\'ll get asked whether to edit it or add another one -- useful if you train twice in a day.<br><br>'+
+    '<b>13. Exercise isn\'t in the list?</b><br>Scroll to the bottom of the exercise list and tap "Suggest a new exercise to your coach." It gets sent to your coach, who can add it permanently so it shows up for everyone next time.'},
   {title:'History',body:
     '<b>What this page is</b><br>Every workout you\'ve ever saved, listed with the newest at the top.<br><br>'+
     '<b>Narrowing it down</b><br>Tap All Time, This Month, This Week, or Custom (pick your own two dates) to only see workouts from that period. The list below changes to match instantly.<br><br>'+
