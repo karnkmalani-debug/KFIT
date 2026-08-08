@@ -581,6 +581,7 @@ function fmtFbDate(iso){
   const m=String(d.getMinutes()).padStart(2,'0');
   return `${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}, ${h}:${m} ${ap}`;
 }
+let _fbCache={};
 async function loadFeedback(){
   const {data,error}=await getSB().from('app_feedback').select('*').order('created_at',{ascending:false});
   if(error){
@@ -597,13 +598,31 @@ async function loadFeedback(){
   else { badge.style.display='none'; }
 
   function card(r,isNew){
+    _fbCache[r.id]=r;
+    const replies=r.replies||[];
+    const repliesHtml=replies.map(function(rep){
+      const isCoach=rep.sender==='coach';
+      return `<div style="display:flex;${isCoach?'justify-content:flex-end;':'justify-content:flex-start;'}margin-bottom:6px;">
+        <div style="max-width:80%;padding:8px 12px;border-radius:12px;background:${isCoach?'var(--sage)':'var(--surf2)'};color:${isCoach?'#fff':'var(--text)'};font-size:13px;line-height:1.4;white-space:pre-wrap;">
+          <div style="font-size:10px;opacity:.75;margin-bottom:2px;text-transform:uppercase;letter-spacing:.03em;">${isCoach?'You':'Client'} &middot; ${fmtFbDate(rep.timestamp)}</div>
+          ${(rep.message||'').replace(/</g,'&lt;')}
+        </div>
+      </div>`;
+    }).join('');
     return `
     <div class="client-card" style="cursor:default;">
       <div class="client-meta" style="margin-bottom:6px;display:flex;justify-content:space-between;gap:8px;">
         <span>${r.submitted_by||'A client'}${r.tab?' · '+r.tab+' tab':''}</span>
         <span style="white-space:nowrap;">${fmtFbDate(r.created_at)}</span>
       </div>
-      <div style="font-size:14px;color:var(--text);line-height:1.5;margin-bottom:10px;white-space:pre-wrap;">${(r.message||'').replace(/</g,'&lt;')}</div>
+      <div style="display:flex;justify-content:flex-start;margin-bottom:${replies.length?'6px':'10px'};">
+        <div style="max-width:85%;padding:8px 12px;border-radius:12px;background:var(--surf2);color:var(--text);font-size:14px;line-height:1.5;white-space:pre-wrap;">${(r.message||'').replace(/</g,'&lt;')}</div>
+      </div>
+      ${repliesHtml}
+      <div style="display:flex;gap:6px;margin:8px 0;">
+        <input type="text" id="fbReplyInput_${r.id}" placeholder="Reply to ${(r.submitted_by||'client').replace(/"/g,'&quot;')}..." style="flex:1;padding:8px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+        <button onclick="sendFeedbackReply(${r.id})" style="padding:8px 14px;background:var(--gold);border:none;border-radius:8px;color:#1a1408;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Send</button>
+      </div>
       <div style="display:flex;gap:8px;">
         ${isNew?`<button onclick="markFeedbackReviewed(${r.id})" style="flex:1;padding:9px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:#fff;cursor:pointer;">✓ Mark Reviewed</button>`:''}
         <button onclick="deleteFeedback(${r.id})" style="${isNew?'':'flex:1;'}padding:9px 14px;background:none;border:1px solid var(--terra);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--terra);cursor:pointer;">✕ Delete</button>
@@ -613,6 +632,19 @@ async function loadFeedback(){
 
   document.getElementById('fbNewList').innerHTML=fresh.length?fresh.map(r=>card(r,true)).join(''):'<div class="empty">No new feedback.</div>';
   document.getElementById('fbReviewedList').innerHTML=reviewed.length?reviewed.map(r=>card(r,false)).join(''):'<div class="empty">Nothing reviewed yet.</div>';
+}
+async function sendFeedbackReply(id){
+  const input=document.getElementById('fbReplyInput_'+id);
+  const msg=(input.value||'').trim();
+  if(!msg) return;
+  const r=_fbCache[id];
+  const replies=(r&&r.replies)?r.replies.slice():[];
+  replies.push({sender:'coach',message:msg,timestamp:new Date().toISOString()});
+  input.disabled=true;
+  const {error}=await getSB().from('app_feedback').update({replies:replies}).eq('id',id);
+  input.disabled=false;
+  if(error){alert('Error sending reply: '+error.message);return;}
+  loadFeedback();
 }
 async function markFeedbackReviewed(id){
   const {error}=await getSB().from('app_feedback').update({status:'reviewed'}).eq('id',id);
@@ -1250,7 +1282,7 @@ function ssBodyHtmlCoach(ss,uLabel,prMap8,s,allSessions){
           const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
           return`<tr>
           <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${r.dropset?'var(--terra)':'inherit'};border-bottom:1px solid var(--border);padding:6px 0;">${dropLabel}</td>
-          <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">SOS '+r.assistedReps+'</span>':''}</td>
+          <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">H '+r.assistedReps+'</span>':''}</td>
           ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
         </tr>`;}).join('')})()}</tbody>
       </table>
@@ -1327,7 +1359,7 @@ function renderCoachSession(s,allSessions){
             const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
             return`<tr>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${r.dropset?'var(--terra)':'inherit'};border-bottom:1px solid var(--border);padding:6px 0;">${dropLabel}</td>
-            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">SOS '+r.assistedReps+'</span>':''}</td>
+            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">H '+r.assistedReps+'</span>':''}</td>
             ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
           </tr>`;}).join('')})()}</tbody>
         </table>

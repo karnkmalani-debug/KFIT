@@ -64,7 +64,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-seri
 .date-chip{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);background:var(--surf);border:1px solid var(--border);border-radius:20px;padding:5px 12px;}
 
 .tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:52px;z-index:49;}
-.help-strip{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 14px;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:calc(52px + 45px);z-index:48;min-height:40px;}
+.help-strip{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:9px 14px;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:calc(52px + 45px);z-index:48;min-height:40px;}
 .help-btn{width:28px;height:28px;border-radius:50%;background:var(--gold);border:none;color:#141412;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);}
 .feedback-btn{width:28px;height:28px;border-radius:50%;background:var(--sage);border:none;color:#0c0c0a;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);}
 .tab{flex:1;padding:12px 4px;text-align:center;font-size:17px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:color .2s;border-bottom:2px solid transparent;}
@@ -199,9 +199,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .dur-btn-stop:hover{opacity:.82;}
 .dur-status{font-size:17px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);text-align:right;}
 .dur-status.running{color:var(--sage);}
-.help-strip .dur-display{font-size:15px;letter-spacing:0;line-height:normal;}
-.help-strip .dur-status{font-size:10px;letter-spacing:.02em;text-align:left;}
-.help-strip .dur-btn-start,.help-strip .dur-btn-stop{padding:5px 11px;font-size:12px;border-radius:7px;}
+.help-strip .dur-display{font-size:18px;letter-spacing:0;line-height:normal;}
+.help-strip .dur-status{font-size:11px;letter-spacing:.02em;text-align:left;}
+.help-strip .dur-btn-start,.help-strip .dur-btn-stop{padding:6px 13px;font-size:13px;border-radius:7px;}
 
 /* -- Manual duration input -- */
 .dur-manual{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;align-items:center;gap:10px;}
@@ -482,7 +482,8 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     <div class="tab" onclick="goTab(5)">BODY</div>
   </div>
   <div class="help-strip">
-    <div style="display:flex;align-items:center;gap:8px;">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
+      <span style="font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);">Workout Timer</span>
       <span class="dur-display idle" id="durDisplay">00:00</span>
       <span class="dur-status" id="durStatus">Not started</span>
       <button class="dur-btn-start" id="durStartBtn" onclick="startDuration()">&#9654; Start</button>
@@ -556,11 +557,6 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
       <div id="cardioBlocks"></div>
     </div>
 
-    <div class="card" id="sessionRestCard" style="display:none;">
-      <div class="card-title">Rest This Session &#128336;</div>
-      <div id="sessionRestSummary"></div>
-    </div>
-
     <div class="card">
       <div class="card-title">Session Duration &#128336;</div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">The live timer and Start/Stop buttons are at the top of the screen, next to Help and Feedback -- visible no matter which tab you're on.</div>
@@ -568,6 +564,11 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
         <span class="dur-manual-label">Or enter</span>
         <input class="dur-manual-input" type="text" id="durManual" placeholder="e.g. 45 or 1:30" inputmode="text">
       </div>
+    </div>
+
+    <div class="card" id="sessionRestCard" style="display:none;">
+      <div class="card-title">Rest This Session &#128336;</div>
+      <div id="sessionRestSummary"></div>
     </div>
 
     <div class="card">
@@ -820,14 +821,43 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
 <!-- FEEDBACK -->
 <div id="feedbackOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center;">
-  <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 32px;width:100%;max-width:520px;">
-    <div style="font-size:17px;font-weight:800;margin-bottom:6px;color:var(--text);">Send Feedback</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Something not working, or an idea for the app? Goes straight to your coach.</div>
-    <textarea id="feedbackText" rows="5" placeholder="Type your feedback here..." style="width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;resize:vertical;margin-bottom:14px;"></textarea>
-    <div style="display:flex;gap:8px;">
-      <button onclick="closeFeedback()" style="flex:1;padding:13px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:var(--text);cursor:pointer;">Cancel</button>
-      <button onclick="submitFeedback()" style="flex:1;padding:13px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#0c0c0a;cursor:pointer;">Send</button>
+  <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 32px;width:100%;max-width:520px;max-height:82vh;display:flex;flex-direction:column;">
+
+    <!-- LIST VIEW: past threads + start new -->
+    <div id="fbModalListView" style="display:flex;flex-direction:column;min-height:0;flex:1;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-shrink:0;">
+        <div style="font-size:17px;font-weight:800;color:var(--text);">Feedback</div>
+        <button onclick="closeFeedback()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+      </div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;flex-shrink:0;">Something not working, or an idea for the app? Goes straight to your coach.</div>
+      <button onclick="showNewFeedbackForm()" style="width:100%;padding:12px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;color:#0c0c0a;cursor:pointer;margin-bottom:14px;flex-shrink:0;">+ New Feedback</button>
+      <div id="fbThreadListBody" style="overflow-y:auto;flex:1;"></div>
     </div>
+
+    <!-- NEW FEEDBACK COMPOSE VIEW -->
+    <div id="fbModalNewView" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <button onclick="showFeedbackList()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;">&larr; Back</button>
+        <button onclick="closeFeedback()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+      </div>
+      <div style="font-size:17px;font-weight:800;color:var(--text);margin:8px 0 6px;">New Feedback</div>
+      <textarea id="feedbackText" rows="5" placeholder="Type your feedback here..." style="width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;resize:vertical;margin-bottom:14px;"></textarea>
+      <button onclick="submitFeedback()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#0c0c0a;cursor:pointer;">Send</button>
+    </div>
+
+    <!-- CHAT THREAD VIEW: original message + replies + reply box -->
+    <div id="fbModalThreadView" style="display:none;flex-direction:column;flex:1;min-height:0;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-shrink:0;">
+        <button onclick="showFeedbackList()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;">&larr; Back</button>
+        <button onclick="closeFeedback()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+      </div>
+      <div id="fbThreadBody" style="overflow-y:auto;flex:1;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:8px;flex-shrink:0;">
+        <input type="text" id="fbThreadReplyInput" placeholder="Type a reply..." style="flex:1;padding:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
+        <button onclick="sendClientReply()" style="padding:10px 16px;background:var(--sage);border:none;border-radius:8px;color:#0c0c0a;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Send</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1983,7 +2013,7 @@ function generateSetRows(container, count, exName){
     const startCount=vals[i]?.assistedReps||0;
     row.innerHTML=`<span class="set-num">S${i+1}</span>
       <input class="reps-input" type="number" inputmode="numeric" min="0" max="999" placeholder="--" value="${vals[i]?.reps||''}" onblur="autoFixNum(this)">
-      <button type="button" class="assist-toggle${startCount>0?' active':''}" data-count="${startCount}" title="Tap: +1 rep needed help. Hold: -1">${startCount>0?startCount:'SOS'}</button>
+      <button type="button" class="assist-toggle${startCount>0?' active':''}" data-count="${startCount}" title="Tap: +1 rep needed help. Hold: -1">${startCount>0?startCount:'H'}</button>
       <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" value="${vals[i]?.weight||''}" onblur="autoFixNum(this)">
       <span class="pr-badge-slot" style="font-size:14px;text-align:center;"></span>`;
     wireAssistButton(row.querySelector('.assist-toggle'));
@@ -2035,7 +2065,7 @@ function changeAssistCount(btn,delta){
   let n=(parseInt(btn.dataset.count)||0)+delta;
   if(n<0) n=0;
   btn.dataset.count=n;
-  btn.textContent=n>0?n:'SOS';
+  btn.textContent=n>0?n:'H';
   btn.classList.toggle('active',n>0);
   const row=btn.closest('.set-row');
   if(row) checkSetForPR(row);
@@ -2048,7 +2078,7 @@ function buildDropRowElement(afterMain){
   row.dataset.afterMain=afterMain;
   row.innerHTML=`<span class="set-num dropset">D</span>
     <input class="reps-input" type="number" inputmode="numeric" min="0" max="999" placeholder="--" onblur="autoFixNum(this)">
-    <button type="button" class="assist-toggle" data-count="0" title="Tap: +1 rep needed help. Hold: -1">SOS</button>
+    <button type="button" class="assist-toggle" data-count="0" title="Tap: +1 rep needed help. Hold: -1">H</button>
     <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" onblur="autoFixNum(this)">
     <button type="button" class="drop-del-btn" title="Remove this drop set">&#10005;</button>`;
   wireAssistButton(row.querySelector('.assist-toggle'));
@@ -2523,7 +2553,7 @@ function onExChange(sel){
       const label=r.dropset?(++dsN>1?'D'+dsN:'D'):(dsN=0,mainN++,'Set '+mainN);
       return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;'+(r.dropset?'margin-left:16px;border-left:2px solid var(--red);':'')+'">'
         +'<span style="font-family:\'DM Mono\',monospace;font-size:17px;color:'+(r.dropset?'var(--red)':'var(--muted2)')+';width:42px;flex-shrink:0;text-transform:uppercase;">'+label+'</span>'
-        +(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(SOS '+r.assistedReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
+        +(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
         +(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:17px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
         +'</div>';
     }).join('');
@@ -4007,7 +4037,7 @@ function buildSessionPrintBlock(s){
     var hasWeight=realSets.some(function(r){return r.weight;});
     var rows=realSets.map(function(r){
       return '<tr><td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">S'+r.set+(r.dropset?' (drop)':'')+'</td>'+
-        '<td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">'+(r.reps||'--')+(r.assistedReps>0?' (SOS '+r.assistedReps+')':'')+'</td>'+
+        '<td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">'+(r.reps||'--')+(r.assistedReps>0?' (H '+r.assistedReps+')':'')+'</td>'+
         (hasWeight?'<td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">'+(r.weight||'--')+' '+uLabel+'</td>':'')+'</tr>';
     }).join('');
     return '<div style="margin-bottom:10px;"><div style="font-size:14px;font-weight:700;margin-bottom:4px;">'+e.ex+'</div>'+
@@ -4416,7 +4446,7 @@ function openDetail(id){
               const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
               return`<tr>
               <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${dropLabel}</td>
-              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">SOS '+r.assistedReps+'</span>':''}</td>
+              <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">H '+r.assistedReps+'</span>':''}</td>
               ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
             </tr>`;}).join('')})()}</tbody>
           </table>
@@ -4480,7 +4510,7 @@ function ssBodyHtml(ss,uLabel,prMap8,s){
           const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
           return`<tr>
           <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${dropLabel}</td>
-          <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">SOS '+r.assistedReps+'</span>':''}</td>
+          <td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">H '+r.assistedReps+'</span>':''}</td>
           ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
         </tr>`;}).join('')})()}</tbody>
       </table>
@@ -4714,7 +4744,7 @@ const HELP_TEXT=[
   {title:'Log a Workout',body:
     '<b>1. Tap the body part you\'re training</b><br>See buttons like Back, Chest, Legs, Cardio? Tap the one(s) you\'re training today. You can tap more than one (e.g. Chest + Shoulders). The right exercises show up below by themselves -- you never have to search for them.<br><br>'+
     '<b>2. For each exercise, fill in your sets</b><br>Every exercise shows boxes for Reps and Weight, one row per set. Just type the numbers in as you finish each set. Did an extra set that isn\'t shown? Tap "+ Add Set" to add another row.<br><br>'+
-    '<b>3. The SOS button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "SOS". If someone helped you finish a rep or two (a spot), tap SOS once for each rep you needed help with -- it\'ll show a number like "SOS 2". Didn\'t need help? Just leave it alone.<br><br>'+
+    '<b>3. The H button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "H" (for Help). If someone helped you finish a rep or two (a spot), tap H once for each rep you needed help with -- it\'ll show a number like "H 2". Didn\'t need help? Just leave it alone.<br><br>'+
     '<b>4. Drop sets</b><br>Right after a set, you\'ll see a small "+ Drop set" link. Tap it if you dropped the weight and kept going with no rest (a classic drop set) -- it adds a new row marked "D" underneath that set.<br><br>'+
     '<b>5. How to actually do each rep</b><br>This matters as much as the numbers you log: lower the weight slowly (2-4 seconds), pause for a second at the bottom, then lift back up fast and with intent. Always use the full range of motion -- never half-reps. If you can\'t do this with control, the weight is too heavy; use less weight, not less range.<br><br>'+
     '<b>6. Doing two exercises back-to-back with no rest? Use Superset</b><br>Tap "+ Add Superset" instead of logging them as two separate exercises. This links them together properly in your history.<br><br>'+
@@ -4750,18 +4780,122 @@ function closeHelp(){
 }
 
 // FEEDBACK -- plain text, sent to a Supabase table for the coach to review later
+// FEEDBACK -- now a small threaded chat: a list of past messages (with any coach replies),
+// a compose view for starting a new one, and a thread view for replying to an existing one.
+var _fbThreads=[];
+var _fbCurrentThreadId=null;
+
 function openFeedback(){
-  document.getElementById('feedbackText').value='';
   document.getElementById('feedbackOverlay').style.display='flex';
+  showFeedbackList();
 }
 function closeFeedback(){
   document.getElementById('feedbackOverlay').style.display='none';
+}
+function showFeedbackList(){
+  document.getElementById('fbModalListView').style.display='flex';
+  document.getElementById('fbModalNewView').style.display='none';
+  document.getElementById('fbModalThreadView').style.display='none';
+  loadFeedbackThreads();
+}
+function showNewFeedbackForm(){
+  document.getElementById('feedbackText').value='';
+  document.getElementById('fbModalListView').style.display='none';
+  document.getElementById('fbModalNewView').style.display='block';
+  document.getElementById('fbModalThreadView').style.display='none';
+}
+function fbFmtDate(iso){
+  if(!iso) return '';
+  var d=new Date(iso);
+  var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var h=d.getHours(),ap=h>=12?'PM':'AM'; h=h%12||12;
+  var m=String(d.getMinutes()).padStart(2,'0');
+  return d.getDate()+' '+M[d.getMonth()]+', '+h+':'+m+' '+ap;
+}
+function loadFeedbackThreads(){
+  var listEl=document.getElementById('fbThreadListBody');
+  var mobile=localStorage.getItem('kmfit_mobile');
+  if(!mobile){
+    listEl.innerHTML='<div style="font-size:13px;color:var(--muted);padding:20px 0;text-align:center;">Add your mobile number in Notes to see your past feedback here.</div>';
+    return;
+  }
+  listEl.innerHTML='<div style="font-size:13px;color:var(--muted);padding:20px 0;text-align:center;">Loading...</div>';
+  getSB().from('app_feedback').select('*').eq('submitted_by_mobile',mobile).order('created_at',{ascending:false}).then(function(res){
+    if(res.error){
+      listEl.innerHTML='<div style="font-size:13px;color:var(--terra);padding:20px 0;text-align:center;">Could not load: '+res.error.message+'</div>';
+      return;
+    }
+    _fbThreads=res.data||[];
+    if(!_fbThreads.length){
+      listEl.innerHTML='<div style="font-size:13px;color:var(--muted);padding:20px 0;text-align:center;">No feedback sent yet.</div>';
+      return;
+    }
+    listEl.innerHTML=_fbThreads.map(function(t){
+      var replies=t.replies||[];
+      var lastReply=replies.length?replies[replies.length-1]:null;
+      var preview=lastReply?((lastReply.sender==='coach'?'Coach: ':'You: ')+lastReply.message):t.message;
+      return '<button onclick="openFeedbackThread('+t.id+')" style="width:100%;text-align:left;padding:12px 14px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;font-family:\'DM Sans\',sans-serif;">'
+        +'<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">'
+        +'<span style="font-size:12px;color:var(--muted);">'+fbFmtDate(t.created_at)+'</span>'
+        +(replies.length?'<span style="font-size:11px;color:var(--sage);font-weight:700;">'+replies.length+' repl'+(replies.length===1?'y':'ies')+'</span>':'')
+        +'</div>'
+        +'<div style="font-size:14px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+preview.replace(/</g,'&lt;')+'</div>'
+        +'</button>';
+    }).join('');
+  });
+}
+function openFeedbackThread(id){
+  _fbCurrentThreadId=id;
+  var t=_fbThreads.find(function(x){return x.id===id;});
+  if(!t) return;
+  document.getElementById('fbModalListView').style.display='none';
+  document.getElementById('fbModalNewView').style.display='none';
+  document.getElementById('fbModalThreadView').style.display='flex';
+  renderFeedbackThread(t);
+}
+function renderFeedbackThread(t){
+  var body=document.getElementById('fbThreadBody');
+  var bubbles='<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">'
+    +'<div style="max-width:82%;padding:9px 13px;border-radius:12px;background:var(--sage);color:#0c0c0a;font-size:14px;line-height:1.4;white-space:pre-wrap;">'
+    +'<div style="font-size:10px;opacity:.7;margin-bottom:2px;">You &middot; '+fbFmtDate(t.created_at)+'</div>'
+    +(t.message||'').replace(/</g,'&lt;')
+    +'</div></div>';
+  (t.replies||[]).forEach(function(rep){
+    var isCoach=rep.sender==='coach';
+    bubbles+='<div style="display:flex;'+(isCoach?'justify-content:flex-start;':'justify-content:flex-end;')+'margin-bottom:8px;">'
+      +'<div style="max-width:82%;padding:9px 13px;border-radius:12px;background:'+(isCoach?'var(--surf3)':'var(--sage)')+';color:'+(isCoach?'var(--text)':'#0c0c0a')+';font-size:14px;line-height:1.4;white-space:pre-wrap;">'
+      +'<div style="font-size:10px;opacity:.7;margin-bottom:2px;">'+(isCoach?'Coach':'You')+' &middot; '+fbFmtDate(rep.timestamp)+'</div>'
+      +(rep.message||'').replace(/</g,'&lt;')
+      +'</div></div>';
+  });
+  body.innerHTML=bubbles;
+  body.scrollTop=body.scrollHeight;
+  document.getElementById('fbThreadReplyInput').value='';
+}
+function sendClientReply(){
+  var input=document.getElementById('fbThreadReplyInput');
+  var msg=input.value.trim();
+  if(!msg||!_fbCurrentThreadId) return;
+  var t=_fbThreads.find(function(x){return x.id===_fbCurrentThreadId;});
+  if(!t) return;
+  var replies=(t.replies||[]).slice();
+  replies.push({sender:'client',message:msg,timestamp:new Date().toISOString()});
+  input.disabled=true;
+  getSB().from('app_feedback').update({replies:replies}).eq('id',_fbCurrentThreadId).then(function(res){
+    input.disabled=false;
+    if(res.error){
+      toast('Could not send: '+res.error.message);
+      return;
+    }
+    t.replies=replies;
+    renderFeedbackThread(t);
+  });
 }
 function submitFeedback(){
   var msg=document.getElementById('feedbackText').value.trim();
   if(!msg){toast('Type something first');return;}
   var tabNames=['Log','History','Stats','Notes','PR','Body'];
-  var btn=document.querySelector('#feedbackOverlay button[onclick="submitFeedback()"]');
+  var btn=document.querySelector('#fbModalNewView button[onclick="submitFeedback()"]');
   if(btn){btn.disabled=true;btn.textContent='Sending...';}
   var timedOut=false;
   var timeoutId=setTimeout(function(){
@@ -4774,7 +4908,8 @@ function submitFeedback(){
     tab:'Fitness - '+(tabNames[currentTab]||'Unknown'),
     submitted_by:localStorage.getItem('kmfit_name')||'Client',
     submitted_by_mobile:localStorage.getItem('kmfit_mobile')||null,
-    status:'new'
+    status:'new',
+    replies:[]
   }).then(function(res){
     clearTimeout(timeoutId);
     if(timedOut) return; // already told the user it timed out -- don't also show a stale success
@@ -4783,8 +4918,8 @@ function submitFeedback(){
       console.error('Feedback insert failed:',res.error);
       toast('Could not send: '+(res.error.message||'unknown error'));
     } else {
-      closeFeedback();
       toast('Feedback sent, thank you! ✓');
+      showFeedbackList();
     }
   }).catch(function(err){
     clearTimeout(timeoutId);
