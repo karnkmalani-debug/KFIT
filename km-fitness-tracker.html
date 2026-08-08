@@ -64,9 +64,18 @@ html,body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-seri
 .date-chip{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);background:var(--surf);border:1px solid var(--border);border-radius:20px;padding:5px 12px;}
 
 .tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:52px;z-index:49;}
-.help-strip{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:9px 14px;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:calc(52px + 45px);z-index:48;min-height:40px;}
-.help-btn{width:28px;height:28px;border-radius:50%;background:var(--gold);border:none;color:#141412;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);}
-.feedback-btn{width:28px;height:28px;border-radius:50%;background:var(--sage);border:none;color:#0c0c0a;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);}
+.help-strip{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:calc(52px + 45px);z-index:48;min-height:56px;}
+.strip-timer-zone{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;justify-content:center;}
+.strip-timer-row1{display:flex;align-items:baseline;gap:8px;flex-wrap:nowrap;overflow:hidden;}
+.strip-timer-row2{display:flex;align-items:center;gap:6px;}
+.strip-timer-label{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);white-space:nowrap;flex-shrink:0;}
+.strip-icon-zone{flex-shrink:0;display:flex;align-items:center;gap:10px;}
+.help-strip .dur-display{font-size:18px;letter-spacing:0;line-height:normal;flex-shrink:0;}
+.help-strip .dur-status{font-size:11px;letter-spacing:.02em;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.help-strip .dur-btn-start,.help-strip .dur-btn-stop,.help-strip .dur-btn-reset{padding:6px 12px;font-size:12px;border-radius:7px;white-space:nowrap;}
+.dur-btn-reset{background:var(--surf3);color:var(--muted);border:1px solid var(--border);}
+.help-btn{width:36px;height:36px;border-radius:50%;background:var(--gold);border:none;color:#141412;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);}
+.feedback-btn{width:36px;height:36px;border-radius:50%;background:var(--sage);border:none;color:#0c0c0a;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3);}
 .tab{flex:1;padding:12px 4px;text-align:center;font-size:17px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:color .2s;border-bottom:2px solid transparent;}
 .tab.active{color:var(--sage);border-bottom-color:var(--sage);}
 
@@ -482,14 +491,19 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     <div class="tab" onclick="goTab(5)">BODY</div>
   </div>
   <div class="help-strip">
-    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
-      <span style="font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);">Workout Timer</span>
-      <span class="dur-display idle" id="durDisplay">00:00</span>
-      <span class="dur-status" id="durStatus">Not started</span>
-      <button class="dur-btn-start" id="durStartBtn" onclick="startDuration()">&#9654; Start</button>
-      <button class="dur-btn-stop" id="durStopBtn" onclick="stopDuration()" style="display:none;">&#9632; Stop</button>
+    <div class="strip-timer-zone">
+      <div class="strip-timer-row1">
+        <span class="strip-timer-label">Workout Timer</span>
+        <span class="dur-display idle" id="durDisplay">00:00</span>
+        <span class="dur-status" id="durStatus">Not started</span>
+      </div>
+      <div class="strip-timer-row2">
+        <button class="dur-btn-start" id="durStartBtn" onclick="startDuration()">&#9654; Start</button>
+        <button class="dur-btn-stop" id="durStopBtn" onclick="stopDuration()" style="display:none;">&#9632; Stop</button>
+        <button class="dur-btn-reset" id="durResetBtn" onclick="resetDuration()" style="display:none;">&#8635; Reset</button>
+      </div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;">
+    <div class="strip-icon-zone">
       <button class="feedback-btn" onclick="openFeedback()" title="Send feedback">&#128172;</button>
       <button class="help-btn" onclick="showHelp(currentTab)" title="What is this page?">?</button>
     </div>
@@ -572,16 +586,18 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     </div>
 
     <div class="card">
+      <div class="card-title">Average Rest Time &#128336;</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">If you didn't use the REST bar to time individual sets, enter your average rest here instead.</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="number" id="avgRestInput" placeholder="e.g. 90" min="0" max="600" inputmode="numeric" style="width:100px;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;">
+        <span style="font-size:17px;color:var(--muted);">seconds</span>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="card-title">Session Notes</div>
       <div id="bpNotesStack" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
       <textarea class="notes-ta" id="sessNotes" rows="3" placeholder="How did it go?"></textarea>
-      <div style="margin-top:12px;">
-        <div style="font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">&#128336; Average Rest Time <span style="font-weight:400;text-transform:none;letter-spacing:0;">(if not tracked above)</span></div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <input type="number" id="avgRestInput" placeholder="e.g. 90" min="0" max="600" inputmode="numeric" style="width:100px;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;">
-          <span style="font-size:17px;color:var(--muted);">seconds</span>
-        </div>
-      </div>
     </div>
 
     <div class="card">
@@ -829,7 +845,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
         <div style="font-size:17px;font-weight:800;color:var(--text);">Feedback</div>
         <button onclick="closeFeedback()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
       </div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;flex-shrink:0;">Something not working, or an idea for the app? Goes straight to your coach.</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;flex-shrink:0;">Something not working, or an idea for the app? We value your feedback and do our best to improve the app with it.</div>
       <button onclick="showNewFeedbackForm()" style="width:100%;padding:12px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;color:#0c0c0a;cursor:pointer;margin-bottom:14px;flex-shrink:0;">+ New Feedback</button>
       <div id="fbThreadListBody" style="overflow-y:auto;flex:1;"></div>
     </div>
@@ -3442,6 +3458,7 @@ function draftLoad(){
         updateDurDisplay(durElapsed);
         document.getElementById('durStartBtn').style.display='none';
         document.getElementById('durStopBtn').style.display='block';
+        document.getElementById('durResetBtn').style.display='block';
         document.getElementById('durStatus').textContent='Running...';
         document.getElementById('durStatus').className='dur-status running';
         document.getElementById('durDisplay').className='dur-display';
@@ -3453,7 +3470,9 @@ function draftLoad(){
       } else {
         durElapsed=d.durElapsed||0;
         updateDurDisplay(durElapsed);
-        document.getElementById('durStatus').textContent='Paused -- tap Start to resume';
+        document.getElementById('durStartBtn').textContent='\u25B6 Resume';
+        document.getElementById('durResetBtn').style.display='block';
+        document.getElementById('durStatus').textContent='Paused';
         document.getElementById('durDisplay').className='dur-display';
       }
     }
@@ -3491,6 +3510,7 @@ function startDuration(){
   durRunning=true;
   document.getElementById('durStartBtn').style.display='none';
   document.getElementById('durStopBtn').style.display='block';
+  document.getElementById('durResetBtn').style.display='block';
   document.getElementById('durStatus').textContent='Running...';
   document.getElementById('durStatus').className='dur-status running';
   document.getElementById('durDisplay').className='dur-display';
@@ -3511,9 +3531,27 @@ async function stopDuration(){
   document.getElementById('durStartBtn').style.display='block';
   document.getElementById('durStartBtn').textContent='> Resume';
   document.getElementById('durStopBtn').style.display='none';
-  document.getElementById('durStatus').textContent='Stopped -- '+fmtDur(durElapsed);
+  document.getElementById('durResetBtn').style.display='block';
+  document.getElementById('durStatus').textContent='Paused';
   document.getElementById('durStatus').className='dur-status';
   updateDurDisplay(durElapsed);
+}
+
+async function resetDuration(){
+  if(durElapsed===0&&!durRunning) return;
+  const ok=await showConfirm('Reset timer to 00:00?','This clears the current session time. Cannot be undone.');
+  if(!ok) return;
+  durElapsed=0;
+  durRunning=false;
+  clearInterval(durTmr);
+  updateDurDisplay(0);
+  document.getElementById('durStartBtn').style.display='block';
+  document.getElementById('durStartBtn').textContent='\u25B6 Start';
+  document.getElementById('durStopBtn').style.display='none';
+  document.getElementById('durResetBtn').style.display='none';
+  document.getElementById('durStatus').textContent='Not started';
+  document.getElementById('durStatus').className='dur-status';
+  document.getElementById('durDisplay').className='dur-display idle';
 }
 
 function updateDurDisplay(secs){
@@ -4749,8 +4787,8 @@ const HELP_TEXT=[
     '<b>5. How to actually do each rep</b><br>This matters as much as the numbers you log: lower the weight slowly (2-4 seconds), pause for a second at the bottom, then lift back up fast and with intent. Always use the full range of motion -- never half-reps. If you can\'t do this with control, the weight is too heavy; use less weight, not less range.<br><br>'+
     '<b>6. Doing two exercises back-to-back with no rest? Use Superset</b><br>Tap "+ Add Superset" instead of logging them as two separate exercises. This links them together properly in your history.<br><br>'+
     '<b>7. Just doing cardio?</b><br>Tap the Cardio body part instead. You\'ll log duration and how hard it felt, not sets and reps.<br><br>'+
-    '<b>8. Resting between sets</b><br>Use the REST bar at the bottom of the screen -- tap 1m / 90s / 2m / 3m, or type your own time, and it counts down for you. This also automatically fills in your average rest time, so you don\'t need to type that in separately.<br><br>'+
-    '<b>9. Timing the whole workout</b><br>At the top of the screen, next to Help and Feedback, there\'s a timer with Start/Stop -- tap Start when you begin your session. It stays visible even if you switch to another tab, and its total gets saved with the session. Prefer to just type the total afterwards instead? Scroll down to Session Duration and enter it manually there.<br><br>'+
+    '<b>8. Resting between sets</b><br>Use the REST bar at the bottom of the screen -- tap 1m / 90s / 2m / 3m, or type your own time, and it counts down for you. This also automatically fills in your average rest time, so you don\'t need to type that in separately. Didn\'t use the timer? There\'s a separate Average Rest Time section further down to enter it by hand.<br><br>'+
+    '<b>9. Timing the whole workout</b><br>At the top of the screen, next to Help and Feedback, there\'s a timer with Start/Stop -- tap Start when you begin your session. It stays visible even if you switch to another tab, and its total gets saved with the session. Made a mistake or want to start over? Tap Reset to clear it back to 00:00. Prefer to just type the total afterwards instead? Scroll down to Session Duration and enter it manually there.<br><br>'+
     '<b>10. Notes and sending things to your coach</b><br>Session Notes is just for writing how the workout felt. Progress Pic and Record Video are separate buttons that send a photo or video straight to your coach -- they don\'t affect your sets/reps data at all.<br><br>'+
     '<b>11. You can\'t lose your work</b><br>Everything you type is saved as a draft automatically, even if you close the app halfway through a workout and come back later. It only becomes a real, permanent entry in your History once you tap "Save Session" at the bottom.<br><br>'+
     '<b>12. Logging a workout from a past day</b><br>Forgot to log yesterday? Tap the date at the very top of the screen (next to the KFit logo) -- it opens your phone\'s own calendar so you can pick any earlier date and log for that day instead of today. If that day already has a workout logged, you\'ll get asked whether to edit it or add another one -- useful if you train twice in a day.<br><br>'+
