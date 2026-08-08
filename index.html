@@ -190,7 +190,7 @@
       <div class="logo"><span>K</span>Fit</div>
       <div class="tagline-small">by Karan K.M. Malani</div>
     </div>
-    <button onclick="showInstall()" style="background:transparent;border:1.5px solid rgba(255,255,255,.25);border-radius:10px;padding:8px 14px;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:700;color:#fff;cursor:pointer;">📲 Install App</button>
+    <button id="installBtn" onclick="showInstall()" style="background:transparent;border:1.5px solid rgba(255,255,255,.25);border-radius:10px;padding:8px 14px;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:700;color:#fff;cursor:pointer;">📲 Install App</button>
   </header>
 
   <div class="hero">
@@ -237,13 +237,13 @@
 var ua=navigator.userAgent;
 var isIG=/instagram/i.test(ua)||/FBAN|FBAV/i.test(ua)||/\bIB\/\d/i.test(ua);
 var isInApp=isIG||(/\bLinkedIn\b/i.test(ua))||(/\bSnapchat\b/i.test(ua))||(/\bTwitter\b/i.test(ua));
-var isIOS=/iphone|ipad|ipod/i.test(ua);
+var isIOSUA=/iphone|ipad|ipod/i.test(ua);
 if(isInApp){
   document.getElementById('igBanner').classList.add('show');
   var s1=document.getElementById('igStep1');
   var s2=document.getElementById('igStep2');
   var s3=document.getElementById('igStep3');
-  if(isIOS){
+  if(isIOSUA){
     s1.innerHTML='Tap the <b>⋯ menu</b> (top right of this screen)';
     s2.innerHTML='Tap <b>"Open in Safari"</b> or <b>"Open in browser"</b>';
     s3.innerHTML='Once in your browser, tap <b>"Add to Home Screen"</b> inside the KFit app';
@@ -252,6 +252,18 @@ if(isInApp){
     s2.innerHTML='Tap <b>"Open in KFit"</b> or <b>"Open in browser"</b>';
     s3.innerHTML='Once in Chrome, tap <b>"Add to Home Screen"</b> inside the KFit app';
   }
+}
+
+// Are we already running as the installed home-screen app? If so, there's nothing to install --
+// hide the Install App button entirely rather than showing install instructions for something
+// that's already done. This mirrors the same check already used correctly in both trackers.
+function isRunningStandalone(){
+  return (('standalone' in window.navigator) && window.navigator.standalone) ||
+         window.matchMedia('(display-mode: standalone)').matches;
+}
+if(isRunningStandalone()){
+  var btn=document.getElementById('installBtn');
+  if(btn) btn.style.display='none';
 }
 
 // Install prompt
@@ -306,7 +318,7 @@ var deferredPrompt=null;
   // Service worker for offline -- network-first so updates always reach the page,
   // only falling back to cache when genuinely offline
   if('serviceWorker' in navigator){
-    var sw='const V="kfit-index-v2";'
+    var sw='const V="kfit-index-v3";'
       +'self.addEventListener("install",e=>{self.skipWaiting();});'
       +'self.addEventListener("activate",e=>e.waitUntil('
       +'caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim())'
@@ -328,10 +340,24 @@ var deferredPrompt=null;
   window.addEventListener('beforeinstallprompt',function(e){
     e.preventDefault();
     deferredPrompt=e;
+    // Only bother showing the button/prompt path if we're not already installed
+    if(isRunningStandalone()){
+      var btn=document.getElementById('installBtn');
+      if(btn) btn.style.display='none';
+    }
+  });
+  window.addEventListener('appinstalled',function(){
+    deferredPrompt=null;
+    var btn=document.getElementById('installBtn');
+    if(btn) btn.style.display='none';
   });
 })();
 
 function showInstall(){
+  if(isRunningStandalone()){
+    // Already installed -- nothing to do, and no reason to show instructions for it
+    return;
+  }
   if(deferredPrompt){
     deferredPrompt.prompt();
     deferredPrompt.userChoice.then(function(){deferredPrompt=null;});
