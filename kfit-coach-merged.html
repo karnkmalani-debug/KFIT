@@ -123,10 +123,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <!-- ══════════════ FEEDBACK SECTION ══════════════ -->
   <div id="fbSection" style="display:none;">
     <div class="content" id="fbDashView">
-      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">New Feedback</div>
-      <div id="fbNewList"><div class="empty">Loading...</div></div>
-      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:20px 0 10px;">Reviewed</div>
-      <div id="fbReviewedList"><div class="empty">Loading...</div></div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Feedback</div>
+      <div id="fbInboxList"><div class="empty">Loading...</div></div>
     </div>
   </div>
 
@@ -581,81 +579,185 @@ function fmtFbDate(iso){
   const m=String(d.getMinutes()).padStart(2,'0');
   return `${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}, ${h}:${m} ${ap}`;
 }
-let _fbCache={};
+
+// FEEDBACK -- one WhatsApp-style chat per client rather than one card per submission.
+// Collapsed by default (a normal inbox: name, last message preview, unread badge) since a
+// coach with many clients doesn't want every conversation unrolled at once -- tap a row to
+// open the full thread, same mental model as any messaging app.
+let _fbGroups={};
+let _fbOpenKey=null;
+
+function fbFlatten(rows){
+  const msgs=[];
+  rows.forEach(function(row){
+    msgs.push({rowId:row.id,kind:'original',message:row.message,sender:'client',timestamp:row.created_at,read:!!row.read_by_coach});
+    (row.replies||[]).forEach(function(rep,idx){
+      msgs.push({rowId:row.id,kind:'reply',replyIndex:idx,message:rep.message,sender:rep.sender,timestamp:rep.timestamp,read:!!rep.read});
+    });
+  });
+  msgs.sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
+  return msgs;
+}
+function fbSafeKey(key){
+  return String(key).replace(/[^a-zA-Z0-9]/g,'_');
+}
+function fbTicks(m){
+  // Ticks only make sense on the coach's own messages here -- single check means sent,
+  // double means the client has opened the chat and seen it.
+  if(m.sender!=='coach') return '';
+  return m.read
+    ? '<span style="color:#5ec8f2;" title="Read">&#10003;&#10003;</span>'
+    : '<span style="opacity:.6;" title="Sent">&#10003;</span>';
+}
+
 async function loadFeedback(){
-  const {data,error}=await getSB().from('app_feedback').select('*').order('created_at',{ascending:false});
+  const {data,error}=await getSB().from('app_feedback').select('*').order('created_at',{ascending:true});
+  const listEl=document.getElementById('fbInboxList');
   if(error){
-    document.getElementById('fbNewList').innerHTML='<div class="empty">Error loading feedback.<br>'+error.message+'</div>';
-    document.getElementById('fbReviewedList').innerHTML='';
+    listEl.innerHTML='<div class="empty">Error loading feedback.<br>'+error.message+'</div>';
     return;
   }
   const rows=data||[];
-  const fresh=rows.filter(r=>r.status==='new');
-  const reviewed=rows.filter(r=>r.status==='reviewed');
+  const groups={};
+  rows.forEach(function(r){
+    const key=r.submitted_by_mobile||r.submitted_by||('row_'+r.id);
+    if(!groups[key]) groups[key]={name:r.submitted_by||'A client',mobile:r.submitted_by_mobile,rows:[]};
+    groups[key].rows.push(r);
+  });
+  _fbGroups=groups;
 
-  const badge=document.getElementById('fbBadge');
-  if(fresh.length){ badge.style.display='inline-block'; badge.textContent=fresh.length; }
-  else { badge.style.display='none'; }
+  const keys=Object.keys(groups);
+  if(!keys.length){
+    listEl.innerHTML='<div class="empty">No feedback yet.</div>';
+    updateFbBadge();
+    return;
+  }
 
-  function card(r,isNew){
-    _fbCache[r.id]=r;
-    const replies=r.replies||[];
-    const repliesHtml=replies.map(function(rep){
-      const isCoach=rep.sender==='coach';
+  // Most recently active conversation first
+  function lastTs(g){
+    let t=0;
+    fbFlatten(g.rows).forEach(function(m){t=Math.max(t,new Date(m.timestamp).getTime());});
+    return t;
+  }
+  keys.sort(function(a,b){return lastTs(groups[b])-lastTs(groups[a]);});
+
+  listEl.innerHTML=keys.map(function(key){
+    const group=groups[key];
+    const msgs=fbFlatten(group.rows);
+    const last=msgs[msgs.length-1];
+    const awaitingReply=last&&last.sender==='client';
+    const isOpen=_fbOpenKey===key;
+    const preview=last?((last.sender==='coach'?'You: ':'')+last.message):'';
+    const safeKey=fbSafeKey(key);
+
+    const bubbles=msgs.map(function(m){
+      const isCoach=m.sender==='coach';
+      const delBtn='<span onclick="deleteFbMessage(\''+key.replace(/'/g,"\\'")+'\','+m.rowId+',\''+m.kind+'\','+(m.kind==='reply'?m.replyIndex:'null')+')" style="cursor:pointer;opacity:.7;margin-left:8px;">&#128465;</span>';
       return `<div style="display:flex;${isCoach?'justify-content:flex-end;':'justify-content:flex-start;'}margin-bottom:6px;">
-        <div style="max-width:80%;padding:8px 12px;border-radius:12px;background:${isCoach?'var(--sage)':'var(--surf2)'};color:${isCoach?'#fff':'var(--text)'};font-size:13px;line-height:1.4;white-space:pre-wrap;">
-          <div style="font-size:10px;opacity:.75;margin-bottom:2px;text-transform:uppercase;letter-spacing:.03em;">${isCoach?'You':'Client'} &middot; ${fmtFbDate(rep.timestamp)}</div>
-          ${(rep.message||'').replace(/</g,'&lt;')}
+        <div style="max-width:82%;padding:8px 12px;border-radius:12px;background:${isCoach?'var(--sage)':'var(--surf2)'};color:${isCoach?'#fff':'var(--text)'};font-size:13px;line-height:1.4;white-space:pre-wrap;">
+          ${(m.message||'').replace(/</g,'&lt;')}
+          <div style="font-size:10px;opacity:.75;margin-top:3px;display:flex;justify-content:flex-end;align-items:center;gap:4px;">${fmtFbDate(m.timestamp)} ${fbTicks(m)}${delBtn}</div>
         </div>
       </div>`;
     }).join('');
-    return `
-    <div class="client-card" style="cursor:default;">
-      <div class="client-meta" style="margin-bottom:6px;display:flex;justify-content:space-between;gap:8px;">
-        <span>${r.submitted_by||'A client'}${r.tab?' · '+r.tab+' tab':''}</span>
-        <span style="white-space:nowrap;">${fmtFbDate(r.created_at)}</span>
-      </div>
-      <div style="display:flex;justify-content:flex-start;margin-bottom:${replies.length?'6px':'10px'};">
-        <div style="max-width:85%;padding:8px 12px;border-radius:12px;background:var(--surf2);color:var(--text);font-size:14px;line-height:1.5;white-space:pre-wrap;">${(r.message||'').replace(/</g,'&lt;')}</div>
-      </div>
-      ${repliesHtml}
-      <div style="display:flex;gap:6px;margin:8px 0;">
-        <input type="text" id="fbReplyInput_${r.id}" placeholder="Reply to ${(r.submitted_by||'client').replace(/"/g,'&quot;')}..." style="flex:1;padding:8px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
-        <button onclick="sendFeedbackReply(${r.id})" style="padding:8px 14px;background:var(--gold);border:none;border-radius:8px;color:#1a1408;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Send</button>
-      </div>
-      <div style="display:flex;gap:8px;">
-        ${isNew?`<button onclick="markFeedbackReviewed(${r.id})" style="flex:1;padding:9px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:#fff;cursor:pointer;">✓ Mark Reviewed</button>`:''}
-        <button onclick="deleteFeedback(${r.id})" style="${isNew?'':'flex:1;'}padding:9px 14px;background:none;border:1px solid var(--terra);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--terra);cursor:pointer;">✕ Delete</button>
-      </div>
-    </div>`;
-  }
 
-  document.getElementById('fbNewList').innerHTML=fresh.length?fresh.map(r=>card(r,true)).join(''):'<div class="empty">No new feedback.</div>';
-  document.getElementById('fbReviewedList').innerHTML=reviewed.length?reviewed.map(r=>card(r,false)).join(''):'<div class="empty">Nothing reviewed yet.</div>';
+    return `
+    <div class="client-card" style="cursor:default;${awaitingReply&&!isOpen?'border-color:var(--terra);':''}">
+      <div onclick="toggleFbThread('${key.replace(/'/g,"\\'")}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <div style="min-width:0;">
+          <div style="font-weight:700;color:var(--text);font-size:14px;">${group.name||'A client'}${group.mobile?' · '+group.mobile:''}</div>
+          <div style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">${(preview||'').replace(/</g,'&lt;')}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          ${awaitingReply?'<span style="width:9px;height:9px;border-radius:50%;background:var(--terra);display:inline-block;"></span>':''}
+          <span style="color:var(--muted);font-size:13px;">${isOpen?'&#9650;':'&#9660;'}</span>
+        </div>
+      </div>
+      ${isOpen?`
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+        <div style="max-height:320px;overflow-y:auto;margin-bottom:8px;" id="fbChatBody_${safeKey}">${bubbles}</div>
+        <div style="display:flex;gap:6px;">
+          <input type="text" id="fbReplyInput_${safeKey}" placeholder="Reply to ${(group.name||'client').replace(/"/g,'&quot;')}..." style="flex:1;padding:8px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+          <button onclick="sendFeedbackReplyToClient('${key.replace(/'/g,"\\'")}')" style="padding:8px 14px;background:var(--gold);border:none;border-radius:8px;color:#1a1408;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Send</button>
+        </div>
+      </div>`:''}
+    </div>`;
+  }).join('');
+
+  updateFbBadge();
 }
-async function sendFeedbackReply(id){
-  const input=document.getElementById('fbReplyInput_'+id);
+
+function updateFbBadge(){
+  const badge=document.getElementById('fbBadge');
+  const awaitingCount=Object.values(_fbGroups).filter(function(g){
+    const msgs=fbFlatten(g.rows);
+    const last=msgs[msgs.length-1];
+    return last&&last.sender==='client';
+  }).length;
+  if(awaitingCount){ badge.style.display='inline-block'; badge.textContent=awaitingCount; }
+  else { badge.style.display='none'; }
+}
+
+function toggleFbThread(key){
+  const wasOpen=_fbOpenKey===key;
+  _fbOpenKey=wasOpen?null:key;
+  loadFeedback().then(function(){
+    if(!wasOpen) markClientMessagesRead(key);
+  });
+}
+
+function markClientMessagesRead(key){
+  // Opening a client's thread = you've now seen everything they've sent so far -- flip
+  // their unread messages to read so their tick (on their own screen) shows as double.
+  const group=_fbGroups[key];
+  if(!group) return;
+  group.rows.forEach(function(row){
+    let changed=false;
+    if(!row.read_by_coach){ row.read_by_coach=true; changed=true; }
+    const replies=(row.replies||[]).map(function(rep){
+      if(rep.sender==='client'&&!rep.read){changed=true;return Object.assign({},rep,{read:true});}
+      return rep;
+    });
+    if(changed){
+      row.replies=replies;
+      getSB().from('app_feedback').update({read_by_coach:row.read_by_coach,replies:row.replies}).eq('id',row.id).then(function(){});
+    }
+  });
+}
+
+async function sendFeedbackReplyToClient(key){
+  const safeKey=fbSafeKey(key);
+  const input=document.getElementById('fbReplyInput_'+safeKey);
   const msg=(input.value||'').trim();
   if(!msg) return;
-  const r=_fbCache[id];
-  const replies=(r&&r.replies)?r.replies.slice():[];
-  replies.push({sender:'coach',message:msg,timestamp:new Date().toISOString()});
+  const group=_fbGroups[key];
+  if(!group||!group.rows.length) return;
+  const lastRow=group.rows[group.rows.length-1];
+  const replies=(lastRow.replies||[]).slice();
+  replies.push({sender:'coach',message:msg,timestamp:new Date().toISOString(),read:false});
   input.disabled=true;
-  const {error}=await getSB().from('app_feedback').update({replies:replies}).eq('id',id);
+  const {error}=await getSB().from('app_feedback').update({replies:replies}).eq('id',lastRow.id);
   input.disabled=false;
   if(error){alert('Error sending reply: '+error.message);return;}
+  lastRow.replies=replies;
   loadFeedback();
 }
-async function markFeedbackReviewed(id){
-  const {error}=await getSB().from('app_feedback').update({status:'reviewed'}).eq('id',id);
-  if(error){alert('Error updating: '+error.message);return;}
-  loadFeedback();
-}
-async function deleteFeedback(id){
-  const ok=confirm('Delete this feedback permanently?');
-  if(!ok)return;
-  const {error}=await getSB().from('app_feedback').delete().eq('id',id);
-  if(error){alert('Error deleting: '+error.message);return;}
+
+async function deleteFbMessage(key,rowId,kind,replyIndex){
+  const ok=confirm('Delete this message?');
+  if(!ok) return;
+  const group=_fbGroups[key];
+  const row=group?group.rows.find(function(r){return r.id===rowId;}):null;
+  if(!row) return;
+  if(kind==='original'){
+    const {error}=await getSB().from('app_feedback').delete().eq('id',rowId);
+    if(error){alert('Error deleting: '+error.message);return;}
+  } else {
+    const replies=(row.replies||[]).slice();
+    replies.splice(replyIndex,1);
+    const {error}=await getSB().from('app_feedback').update({replies:replies}).eq('id',rowId);
+    if(error){alert('Error deleting: '+error.message);return;}
+  }
   loadFeedback();
 }
 
