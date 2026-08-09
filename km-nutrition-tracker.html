@@ -24,6 +24,8 @@ html,body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif
 body{overflow-x:hidden;}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:max(18px,env(safe-area-inset-top)) 20px 14px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;background:var(--bg);}
 .brand{font-family:'Playfair Display',serif;font-size:1.35rem;color:var(--txt);}
+.brand .g{color:#4a8050;}
+.brand .t{color:#c4694a;}
 .brand span{color:var(--sage);}
 .save-pill{font-family:'DM Mono',monospace;font-size:.65rem;letter-spacing:.08em;padding:4px 10px;border-radius:20px;background:var(--sage-d);color:var(--sage);border:1px solid rgba(74,128,80,.25);opacity:0;transition:opacity .4s;}
 .save-pill.show{opacity:1;}
@@ -171,6 +173,8 @@ body{overflow-x:hidden;}
 .view-panel.active{display:block;}
 #pwGate{position:fixed;inset:0;z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:max(32px, env(safe-area-inset-top)) 24px max(32px, env(safe-area-inset-bottom)) 24px;background:var(--bg);overflow-y:auto;}
 .pw-logo{font-family:'Playfair Display',serif;font-size:42px;font-weight:900;color:var(--txt);margin-bottom:5px;}
+.pw-logo .g{color:#4a8050;}
+.pw-logo .t{color:#c4694a;}
 .pw-logo span{color:var(--sage);}
 .pw-sub{color:var(--txt3);font-size:17px;letter-spacing:3px;text-transform:uppercase;margin-bottom:44px;}
 .pw-card{background:var(--surf);border:1px solid var(--border);border-radius:14px;padding:28px;width:100%;max-width:360px;}
@@ -196,7 +200,7 @@ body{overflow-x:hidden;}
 </head>
 <body>
 <div id="appLoader" style="display:none;position:fixed;inset:0;z-index:1000;background:#faf8f3;align-items:center;justify-content:center;">
-  <div style="font-family:'Playfair Display',serif;font-size:2rem;font-weight:900;color:#1a1a18;">K<span style="color:#4a8050;">F</span>it <span style="color:#4a8050;">Nutrition</span></div>
+  <div style="font-family:'Playfair Display',serif;font-size:2rem;font-weight:900;color:#1a1a18;">K<span style="color:#4a8050;">F</span><span style="color:#c4694a;">it</span> <span style="color:#4a8050;">Nutrition</span></div>
 </div>
 <div id="pwGate">
   <div class="pw-logo">K<span class="g">F</span><span class="t">it</span> Nutrition</div>

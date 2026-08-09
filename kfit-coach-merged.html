@@ -17,8 +17,9 @@
 }
 body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;padding-bottom:40px;}
 .topbar{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;}
-.logo{font-size:22px;font-weight:900;letter-spacing:-1px;}
-.logo span{color:var(--terra);}
+.logo{font-size:22px;font-weight:900;letter-spacing:-1px;color:#fff;}
+.logo .g{color:var(--sage);}
+.logo .t{color:var(--terra);}
 .page-title{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
 .content{max-width:520px;margin:0 auto;padding:18px;}
 .card{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
@@ -87,7 +88,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 <!-- Password Gate -->
 <div class="pw-gate" id="pwGate">
   <div class="pw-box">
-    <div class="pw-title">K<span style="color:var(--terra)">F</span>it Coach</div>
+    <div class="pw-title">K<span style="color:var(--sage)">F</span><span style="color:var(--terra)">it</span> Coach</div>
     <div class="pw-sub">Fitness &amp; Nutrition Dashboard</div>
     <input class="pw-inp" type="password" id="pwInp" placeholder="Password" onkeydown="if(event.key==='Enter')checkPw()">
     <button class="pw-btn" onclick="checkPw()">Enter</button>
@@ -98,7 +99,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 <!-- Main -->
 <div id="mainApp" style="display:none;">
   <div class="topbar">
-    <div class="logo">K<span>F</span>it</div>
+    <div class="logo">K<span class="g">F</span><span class="t">it</span></div>
     <div class="page-title" id="pageTitle">Coach</div>
     <button onclick="window.print()" title="Print this screen" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">&#128424;</button>
   </div>
