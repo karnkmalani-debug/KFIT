@@ -125,6 +125,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div id="fbSection" style="display:none;">
     <div class="content" id="fbDashView">
       <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Feedback</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button id="fbTabOpen" onclick="setFbView('open')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--sage);background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Open</button>
+        <button id="fbTabArchived" onclick="setFbView('archived')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Archived</button>
+      </div>
       <div id="fbInboxList"><div class="empty">Loading...</div></div>
     </div>
   </div>
@@ -587,6 +591,7 @@ function fmtFbDate(iso){
 // open the full thread, same mental model as any messaging app.
 let _fbGroups={};
 let _fbOpenKey=null;
+let _fbView='open';
 
 function fbFlatten(rows){
   const msgs=[];
@@ -610,6 +615,24 @@ function fbTicks(m){
     ? '<span style="color:#5ec8f2;" title="Read">&#10003;&#10003;</span>'
     : '<span style="opacity:.6;" title="Sent">&#10003;</span>';
 }
+function fbIsArchived(group){
+  // A conversation counts as archived only once every row in it is archived -- if the
+  // client sends something new to a row that wasn't touched, the whole thing should still
+  // read as open rather than silently split between two states.
+  return group.rows.every(function(r){return !!r.archived;});
+}
+
+function setFbView(view){
+  _fbView=view;
+  _fbOpenKey=null;
+  document.getElementById('fbTabOpen').style.background=view==='open'?'var(--sage)':'none';
+  document.getElementById('fbTabOpen').style.color=view==='open'?'#fff':'var(--muted)';
+  document.getElementById('fbTabOpen').style.borderColor=view==='open'?'var(--sage)':'var(--border)';
+  document.getElementById('fbTabArchived').style.background=view==='archived'?'var(--sage)':'none';
+  document.getElementById('fbTabArchived').style.color=view==='archived'?'#fff':'var(--muted)';
+  document.getElementById('fbTabArchived').style.borderColor=view==='archived'?'var(--sage)':'var(--border)';
+  loadFeedback();
+}
 
 async function loadFeedback(){
   const {data,error}=await getSB().from('app_feedback').select('*').order('created_at',{ascending:true});
@@ -627,9 +650,14 @@ async function loadFeedback(){
   });
   _fbGroups=groups;
 
-  const keys=Object.keys(groups);
+  const allKeys=Object.keys(groups);
+  const keys=allKeys.filter(function(k){
+    const archived=fbIsArchived(groups[k]);
+    return _fbView==='archived'?archived:!archived;
+  });
+
   if(!keys.length){
-    listEl.innerHTML='<div class="empty">No feedback yet.</div>';
+    listEl.innerHTML=`<div class="empty">${_fbView==='archived'?'Nothing archived.':'No open feedback.'}</div>`;
     updateFbBadge();
     return;
   }
@@ -650,6 +678,7 @@ async function loadFeedback(){
     const isOpen=_fbOpenKey===key;
     const preview=last?((last.sender==='coach'?'You: ':'')+last.message):'';
     const safeKey=fbSafeKey(key);
+    const isArchived=fbIsArchived(group);
 
     const bubbles=msgs.map(function(m){
       const isCoach=m.sender==='coach';
@@ -677,9 +706,13 @@ async function loadFeedback(){
       ${isOpen?`
       <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
         <div style="max-height:320px;overflow-y:auto;margin-bottom:8px;" id="fbChatBody_${safeKey}">${bubbles}</div>
-        <div style="display:flex;gap:6px;">
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
           <input type="text" id="fbReplyInput_${safeKey}" placeholder="Reply to ${(group.name||'client').replace(/"/g,'&quot;')}..." style="flex:1;padding:8px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
           <button onclick="sendFeedbackReplyToClient('${key.replace(/'/g,"\\'")}')" style="padding:8px 14px;background:var(--gold);border:none;border-radius:8px;color:#1a1408;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Send</button>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button onclick="toggleArchiveConversation('${key.replace(/'/g,"\\'")}')" style="flex:1;padding:8px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">${isArchived?'Unarchive':'Archive'}</button>
+          <button onclick="deleteConversation('${key.replace(/'/g,"\\'")}')" style="flex:1;padding:8px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Delete Conversation</button>
         </div>
       </div>`:''}
     </div>`;
@@ -691,6 +724,7 @@ async function loadFeedback(){
 function updateFbBadge(){
   const badge=document.getElementById('fbBadge');
   const awaitingCount=Object.values(_fbGroups).filter(function(g){
+    if(fbIsArchived(g)) return false; // archived conversations don't need attention in the badge
     const msgs=fbFlatten(g.rows);
     const last=msgs[msgs.length-1];
     return last&&last.sender==='client';
@@ -705,6 +739,29 @@ function toggleFbThread(key){
   loadFeedback().then(function(){
     if(!wasOpen) markClientMessagesRead(key);
   });
+}
+
+async function toggleArchiveConversation(key){
+  const group=_fbGroups[key];
+  if(!group) return;
+  const shouldArchive=!fbIsArchived(group);
+  await Promise.all(group.rows.map(function(row){
+    return getSB().from('app_feedback').update({archived:shouldArchive}).eq('id',row.id);
+  }));
+  if(shouldArchive) _fbOpenKey=null;
+  loadFeedback();
+}
+
+async function deleteConversation(key){
+  const group=_fbGroups[key];
+  if(!group) return;
+  const ok=confirm('Delete this entire conversation with '+(group.name||'this client')+'? This removes every message permanently and cannot be undone.');
+  if(!ok) return;
+  await Promise.all(group.rows.map(function(row){
+    return getSB().from('app_feedback').delete().eq('id',row.id);
+  }));
+  _fbOpenKey=null;
+  loadFeedback();
 }
 
 function markClientMessagesRead(key){
@@ -737,7 +794,7 @@ async function sendFeedbackReplyToClient(key){
   const replies=(lastRow.replies||[]).slice();
   replies.push({sender:'coach',message:msg,timestamp:new Date().toISOString(),read:false});
   input.disabled=true;
-  const {error}=await getSB().from('app_feedback').update({replies:replies}).eq('id',lastRow.id);
+  const {error}=await getSB().from('app_feedback').update({replies:replies,archived:false}).eq('id',lastRow.id);
   input.disabled=false;
   if(error){alert('Error sending reply: '+error.message);return;}
   lastRow.replies=replies;
@@ -900,6 +957,8 @@ function showClient(key){
     var d=new Date(r.session_date+'T12:00:00');
     return d>=histRange.start&&d<=histRange.end;
   }):c.records;
+  const filteredPaidCount=isTaggedClient?filteredRecords.filter(r=>r.paid).length:0;
+  const filteredUnpaidCount=isTaggedClient?filteredRecords.filter(r=>!r.paid).length:0;
   const rows=filteredRecords.map(r=>{
     const d=new Date(r.session_date+'T12:00:00');
     const label=r.activity&&r.activity.trim()?r.activity:r.body_parts&&r.body_parts.trim()?r.body_parts:r.workout_type||'Session';
@@ -945,6 +1004,10 @@ function showClient(key){
     <div class="card">
       <div class="card-title">Session History</div>
       <div id="coachHistPills" style="margin-bottom:4px;">${renderCoachHistPills()}</div>
+      ${isTaggedClient?`<div style="display:flex;gap:12px;margin-bottom:10px;font-size:13px;">
+        <span style="color:var(--sage);font-weight:700;">${filteredPaidCount} Paid</span>
+        <span style="color:var(--terra);font-weight:700;">${filteredUnpaidCount} Unpaid</span>
+      </div>`:''}
       <div id="coachHistCustomRange" style="display:${coachHistFilterMode==='custom'?'flex':'none'};gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
         <input type="date" id="coachHistFromDate" value="${coachHistFilterFrom||''}" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
         <span style="color:var(--muted);font-size:13px;">to</span>

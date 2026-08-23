@@ -4964,7 +4964,7 @@ function sendClientReply(){
     var lastRow=_fbRows[_fbRows.length-1];
     var replies=(lastRow.replies||[]).slice();
     replies.push({sender:'client',message:msg,timestamp:new Date().toISOString(),read:false});
-    getSB().from('app_feedback').update({replies:replies}).eq('id',lastRow.id).then(function(res){
+    getSB().from('app_feedback').update({replies:replies,archived:false}).eq('id',lastRow.id).then(function(res){
       input.disabled=false;
       if(res.error){toast('Could not send: '+res.error.message);return;}
       lastRow.replies=replies;
