@@ -1496,6 +1496,17 @@ function _launchMainApp(){
       renderStats();
       // Re-trigger exercise history for any already-selected exercises
       document.querySelectorAll('#exBody .ex-select').forEach(sel=>{if(sel.value)onExChange(sel);});
+      // Same idea, one level up: if a body part was tapped before this initial sync
+      // finished, autoFillExercisesForBodyPart would have run against incomplete/empty
+      // session data and quietly found "no history" even when real history existed.
+      // Retry it now for any selected body part that still has nothing loaded -- this
+      // function already skips exercises that are already in the form, so it's safe to
+      // call again without duplicating anything the person added manually in the meantime.
+      (selectedBP||[]).forEach(bp=>{
+        if(bp==='Cardio') return;
+        const hasAny=document.querySelector('#exBody .ex-block[data-autobp="'+bp+'"]');
+        if(!hasAny) autoFillExercisesForBodyPart(bp);
+      });
     }
     applyAssignedWorkoutIfAny();
   });
