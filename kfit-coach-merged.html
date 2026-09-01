@@ -58,6 +58,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .form-label{font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
 .form-inp{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;-webkit-appearance:none;}
 .reorder-stack{display:flex;flex-direction:column;gap:1px;flex-shrink:0;border:1.5px solid var(--muted2);border-radius:8px;overflow:hidden;}
+.hist-filter-pill{padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;display:inline-block;}
 .reorder-stack button{width:32px;height:21px;min-width:32px;font-size:14px;font-weight:700;border-radius:0;border:none;border-bottom:1px solid var(--muted2);background:var(--surf3);color:var(--muted2);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
 .reorder-stack button:last-child{border-bottom:none;}
 .move-btn-down{transform:rotate(180deg);}
@@ -433,19 +434,8 @@ function setCoachHistFilter(mode){
     if(pillsEl) pillsEl.innerHTML=renderCoachHistPills();
     const cr=document.getElementById('coachHistCustomRange');
     if(cr) cr.style.display='flex';
-    const list=document.querySelector('#coachHistPills').closest('.card');
-    if(list){
-      const existingRows=list.querySelectorAll('.client-card');
-      existingRows.forEach(function(r){r.remove();});
-      const emptyMsg=list.querySelector('.coach-hist-empty');
-      if(!emptyMsg){
-        const p=document.createElement('div');
-        p.className='coach-hist-empty';
-        p.style.color='var(--muted)';
-        p.textContent='Pick a date range and hit Apply.';
-        list.appendChild(p);
-      }
-    }
+    const listEl=document.getElementById('coachHistList');
+    if(listEl) listEl.innerHTML='<div class="empty">Pick a date range and hit Apply.</div>';
   }
 }
 function applyCoachHistCustomRange(){
@@ -459,7 +449,7 @@ function renderCoachHistPills(){
   const pills=[{key:'all',label:'All Time'},{key:'month',label:'This Month'},{key:'week',label:'This Week'},{key:'custom',label:'Custom'}];
   return pills.map(function(p){
     const active=coachHistFilterMode===p.key;
-    return '<div onclick="setCoachHistFilter(\''+p.key+'\')" style="padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;display:inline-block;margin:0 6px 6px 0;border:1px solid '+(active?'var(--sage)':'var(--border)')+';background:'+(active?'var(--sage)':'transparent')+';color:'+(active?'#fff':'var(--muted)')+';">'+p.label+'</div>';
+    return '<div class="hist-filter-pill" onclick="setCoachHistFilter(\''+p.key+'\')" style="border:1px solid '+(active?'var(--sage)':'var(--border)')+';background:'+(active?'var(--sage-d)':'transparent')+';color:'+(active?'var(--sage)':'var(--muted)')+';">'+p.label+'</div>';
   }).join('');
 }
 
@@ -652,9 +642,9 @@ let _fbView='open';
 function fbFlatten(rows){
   const msgs=[];
   rows.forEach(function(row){
-    msgs.push({rowId:row.id,kind:'original',message:row.message,sender:'client',timestamp:row.created_at,read:!!row.read_by_coach});
+    msgs.push({rowId:row.id,kind:'original',message:row.message,sender:'client',timestamp:row.created_at,read:!!row.read_by_coach,attachmentUrl:row.attachment_url,attachmentType:row.attachment_type});
     (row.replies||[]).forEach(function(rep,idx){
-      msgs.push({rowId:row.id,kind:'reply',replyIndex:idx,message:rep.message,sender:rep.sender,timestamp:rep.timestamp,read:!!rep.read});
+      msgs.push({rowId:row.id,kind:'reply',replyIndex:idx,message:rep.message,sender:rep.sender,timestamp:rep.timestamp,read:!!rep.read,attachmentUrl:rep.attachmentUrl,attachmentType:rep.attachmentType});
     });
   });
   msgs.sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
@@ -739,8 +729,14 @@ async function loadFeedback(){
     const bubbles=msgs.map(function(m){
       const isCoach=m.sender==='coach';
       const delBtn='<span onclick="deleteFbMessage(\''+key.replace(/'/g,"\\'")+'\','+m.rowId+',\''+m.kind+'\','+(m.kind==='reply'?m.replyIndex:'null')+')" style="cursor:pointer;opacity:.7;margin-left:8px;">&#128465;</span>';
+      const attachHtml=m.attachmentUrl
+        ? (m.attachmentType==='video'
+            ? `<video src="${m.attachmentUrl}" controls style="max-width:100%;border-radius:8px;margin-bottom:6px;display:block;"></video>`
+            : `<a href="${m.attachmentUrl}" target="_blank"><img src="${m.attachmentUrl}" style="max-width:100%;border-radius:8px;margin-bottom:6px;display:block;"></a>`)
+        : '';
       return `<div style="display:flex;${isCoach?'justify-content:flex-end;':'justify-content:flex-start;'}margin-bottom:6px;">
         <div style="max-width:82%;padding:8px 12px;border-radius:12px;background:${isCoach?'var(--sage)':'var(--surf2)'};color:${isCoach?'#fff':'var(--text)'};font-size:13px;line-height:1.4;white-space:pre-wrap;">
+          ${attachHtml}
           ${(m.message||'').replace(/</g,'&lt;')}
           <div style="font-size:10px;opacity:.75;margin-top:3px;display:flex;justify-content:flex-end;align-items:center;gap:4px;">${fmtFbDate(m.timestamp)} ${fbTicks(m)}${delBtn}</div>
         </div>
@@ -762,7 +758,10 @@ async function loadFeedback(){
       ${isOpen?`
       <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
         <div style="max-height:320px;overflow-y:auto;margin-bottom:8px;" id="fbChatBody_${safeKey}">${bubbles}</div>
+        <div id="fbPendingAttachPreview_${safeKey}" style="display:none;margin-bottom:8px;"></div>
+        <input type="file" id="fbAttachInput_${safeKey}" accept="image/*,video/*" style="display:none;" onchange="onFbFileSelected('${key.replace(/'/g,"\\'")}')">
         <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <button onclick="triggerFbAttach('${key.replace(/'/g,"\\'")}')" title="Attach a photo or video" style="padding:8px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:14px;cursor:pointer;">&#128206;</button>
           <input type="text" id="fbReplyInput_${safeKey}" placeholder="Reply to ${(group.name||'client').replace(/"/g,'&quot;')}..." style="flex:1;padding:8px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
           <button onclick="sendFeedbackReplyToClient('${key.replace(/'/g,"\\'")}')" style="padding:8px 14px;background:var(--gold);border:none;border-radius:8px;color:#1a1408;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Send</button>
         </div>
@@ -779,13 +778,11 @@ async function loadFeedback(){
 
 function updateFbBadge(){
   const badge=document.getElementById('fbBadge');
-  const awaitingCount=Object.values(_fbGroups).filter(function(g){
+  const unreadCount=Object.values(_fbGroups).filter(function(g){
     if(fbIsArchived(g)) return false; // archived conversations don't need attention in the badge
-    const msgs=fbFlatten(g.rows);
-    const last=msgs[msgs.length-1];
-    return last&&last.sender==='client';
+    return fbFlatten(g.rows).some(function(m){ return m.sender==='client' && !m.read; });
   }).length;
-  if(awaitingCount){ badge.style.display='inline-block'; badge.textContent=awaitingCount; }
+  if(unreadCount){ badge.style.display='inline-block'; badge.textContent=unreadCount; }
   else { badge.style.display='none'; }
 }
 
@@ -825,6 +822,7 @@ function markClientMessagesRead(key){
   // their unread messages to read so their tick (on their own screen) shows as double.
   const group=_fbGroups[key];
   if(!group) return;
+  let anyChanged=false;
   group.rows.forEach(function(row){
     let changed=false;
     if(!row.read_by_coach){ row.read_by_coach=true; changed=true; }
@@ -834,26 +832,74 @@ function markClientMessagesRead(key){
     });
     if(changed){
       row.replies=replies;
+      anyChanged=true;
       getSB().from('app_feedback').update({read_by_coach:row.read_by_coach,replies:row.replies}).eq('id',row.id).then(function(){});
     }
   });
+  // group.rows are the same objects referenced in _fbGroups, so this reflects immediately
+  // rather than waiting on the (fire-and-forget) database confirmations above.
+  if(anyChanged) updateFbBadge();
 }
 
+var _fbPendingAttachment=null;
+function triggerFbAttach(key){
+  const input=document.getElementById('fbAttachInput_'+fbSafeKey(key));
+  if(input) input.click();
+}
+function onFbFileSelected(key){
+  const safeKey=fbSafeKey(key);
+  const input=document.getElementById('fbAttachInput_'+safeKey);
+  if(!input||!input.files||!input.files[0]) return;
+  const file=input.files[0];
+  const MAX_BYTES=20*1024*1024;
+  if(file.size>MAX_BYTES){ alert('File too large (max 20MB)'); input.value=''; return; }
+  const isImage=/^image\//.test(file.type);
+  const isVideo=/^video\//.test(file.type);
+  if(!isImage&&!isVideo){ alert('Only photos and videos can be attached'); input.value=''; return; }
+  const safeName=file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
+  const filename='coach_fb_'+Date.now()+'_'+safeName;
+  const previewEl=document.getElementById('fbPendingAttachPreview_'+safeKey);
+  previewEl.style.display='block';
+  previewEl.innerHTML='<div style="font-size:12px;color:var(--muted);">Uploading...</div>';
+  const fr=new FileReader();
+  fr.onload=function(e){
+    getSB().storage.from('body-scans').upload(filename,e.target.result,{
+      contentType:file.type||'application/octet-stream', upsert:true
+    }).then(function(res){
+      input.value='';
+      if(res.error){ alert('Upload failed: '+res.error.message); previewEl.style.display='none'; return; }
+      const urlRes=getSB().storage.from('body-scans').getPublicUrl(filename);
+      _fbPendingAttachment={url:urlRes.data.publicUrl,type:isImage?'image':'video'};
+      previewEl.innerHTML=(isImage
+        ?'<img src="'+_fbPendingAttachment.url+'" style="max-height:60px;border-radius:8px;">'
+        :'<video src="'+_fbPendingAttachment.url+'" style="max-height:60px;border-radius:8px;" muted></video>')
+        +'<button onclick="clearFbAttachment(\''+key.replace(/'/g,"\\'")+'\')" style="margin-left:8px;background:none;border:1px solid var(--terra);border-radius:6px;color:var(--terra);font-size:11px;padding:3px 8px;cursor:pointer;">Remove</button>';
+    });
+  };
+  fr.readAsArrayBuffer(file);
+}
+function clearFbAttachment(key){
+  _fbPendingAttachment=null;
+  const previewEl=document.getElementById('fbPendingAttachPreview_'+fbSafeKey(key));
+  if(previewEl){ previewEl.style.display='none'; previewEl.innerHTML=''; }
+}
 async function sendFeedbackReplyToClient(key){
   const safeKey=fbSafeKey(key);
   const input=document.getElementById('fbReplyInput_'+safeKey);
   const msg=(input.value||'').trim();
-  if(!msg) return;
+  if(!msg&&!_fbPendingAttachment) return;
   const group=_fbGroups[key];
   if(!group||!group.rows.length) return;
+  const attachment=_fbPendingAttachment;
   const lastRow=group.rows[group.rows.length-1];
   const replies=(lastRow.replies||[]).slice();
-  replies.push({sender:'coach',message:msg,timestamp:new Date().toISOString(),read:false});
+  replies.push({sender:'coach',message:msg,timestamp:new Date().toISOString(),read:false,attachmentUrl:attachment?attachment.url:null,attachmentType:attachment?attachment.type:null});
   input.disabled=true;
   const {error}=await getSB().from('app_feedback').update({replies:replies,archived:false}).eq('id',lastRow.id);
   input.disabled=false;
   if(error){alert('Error sending reply: '+error.message);return;}
   lastRow.replies=replies;
+  clearFbAttachment(key);
   loadFeedback();
 }
 
@@ -1059,7 +1105,7 @@ function showClient(key){
     </div>
     <div class="card">
       <div class="card-title">Session History</div>
-      <div id="coachHistPills" style="margin-bottom:4px;">${renderCoachHistPills()}</div>
+      <div id="coachHistPills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">${renderCoachHistPills()}</div>
       ${isTaggedClient?`<div style="display:flex;gap:12px;margin-bottom:10px;font-size:13px;">
         <span style="color:var(--sage);font-weight:700;">${filteredPaidCount} Paid</span>
         <span style="color:var(--terra);font-weight:700;">${filteredUnpaidCount} Unpaid</span>
@@ -1070,7 +1116,7 @@ function showClient(key){
         <input type="date" id="coachHistToDate" value="${coachHistFilterTo||''}" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
         <button onclick="applyCoachHistCustomRange()" style="padding:8px 14px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Apply</button>
       </div>
-      ${rows||'<div style="color:var(--muted);">No sessions in this range.</div>'}
+      <div id="coachHistList">${rows||'<div style="color:var(--muted);">No sessions in this range.</div>'}</div>
     </div>
     <div class="card" style="border-color:var(--terra);">
       <div class="card-title" style="color:var(--terra);">⚠️ Danger Zone</div>

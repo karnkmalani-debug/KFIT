@@ -84,6 +84,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-seri
 
 .card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;}
 .card-title{font-size:13px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:var(--text);margin-bottom:13px;}
+.ask-chip{padding:7px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:20px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
 
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;}
 .field-block{display:flex;flex-direction:column;}
@@ -524,6 +525,15 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
     <div class="card">
       <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>My Routines</span>
+        <button onclick="saveCurrentAsRoutine()" style="padding:6px 12px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">+ Save Current</button>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Save any combination of body parts and exercises as a named routine -- push day, a specific week's plan, whatever you want -- and load it back instantly next time.</div>
+      <div id="routineList"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
         <span>Exercises<span class="autosave-dot" id="autosaveDot" title="Draft auto-saved"></span></span>
         <div class="unit-toggle">
           <button class="unit-opt active" id="unitKg" onclick="setUnit('kg')">kg</button>
@@ -534,9 +544,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
         <span style="font-size:13px;color:var(--muted);">Not doing this workout today?</span>
         <button onclick="cancelAssignedWorkout()" style="padding:6px 12px;background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Cancel</button>
       </div>
-      <div style="margin-bottom:10px;">
-        <input type="text" id="exSearchInput" list="allExDatalist" placeholder="&#128269; Search any exercise, any body part..." onchange="addExerciseFromSearch(this)" style="width:100%;padding:11px 14px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;">
-        <datalist id="allExDatalist"></datalist>
+      <div style="margin-bottom:10px;position:relative;">
+        <input type="text" id="exSearchInput" placeholder="&#128269; Search any exercise, any body part..." autocomplete="off" oninput="handleExSearchInput(this)" onkeydown="handleExSearchKeydown(event)" onblur="setTimeout(function(){var b=document.getElementById('exSearchSuggestions');if(b)b.style.display='none';},180);" style="width:100%;padding:11px 14px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;">
+        <div id="exSearchSuggestions" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--surf3);border:1px solid var(--border);border-radius:10px;overflow:hidden;z-index:60;max-height:260px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4);"></div>
       </div>
       <div id="exBody"></div>
       <div class="add-row" onclick="addExRow()" style="background:var(--flame);border-style:solid;border-color:var(--flame);color:#1a0d05;font-weight:800;">+ Add Exercise</div>
@@ -645,6 +655,22 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
   <!-- STATS -->
   <div class="panel" id="panel2">
+    <div class="card">
+      <div class="card-title">Ask Me Anything</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Ask about your training in plain words -- everything's computed right here from your own logged sessions, nothing sent anywhere.</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <input type="text" id="askInput" placeholder="e.g. how many hours did I train this month?" onkeydown="if(event.key==='Enter')askWorkoutQuestion()" style="flex:1;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
+        <button onclick="askWorkoutQuestion()" style="padding:10px 16px;background:var(--sage);border:none;border-radius:8px;color:#0c0c0a;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Ask</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">
+        <button class="ask-chip" onclick="askPreset('total reps all time')">Total reps</button>
+        <button class="ask-chip" onclick="askPreset('total hours trained all time')">Total hours</button>
+        <button class="ask-chip" onclick="askPreset('cardio vs strength hours')">Cardio vs strength</button>
+        <button class="ask-chip" onclick="askPreset('total sets all time')">Total sets</button>
+        <button class="ask-chip" onclick="askPreset('summary this month')">This month</button>
+      </div>
+      <div id="askAnswer"></div>
+    </div>
     <div class="stat-grid" id="statGrid"></div>
     <div id="restStatsSection"></div>
     <div id="statDetail"></div>
@@ -895,7 +921,7 @@ const EX_LIB = {
 const ALL_EX = Object.values(EX_LIB).flat();
 const CARDIO_EX = new Set(EX_LIB['Cardio']);
 
-let selectedBP=[], sessions=[], notes={}, assignedWorkouts={}, deletedSessionIds=[], measurements=[];
+let selectedBP=[], sessions=[], notes={}, assignedWorkouts={}, deletedSessionIds=[], measurements=[], routines=[];
 const MEAS_FIELDS=[
   {key:'weight',label:'Weight (kg)'},
   {key:'height',label:'Height (cm)'},
@@ -1500,8 +1526,8 @@ function _launchMainApp(){
   loadApprovedExercises();
   reconcileCustomEx();
   renderExChips();
-  populateAllExDatalist();
   loadExerciseVideos();
+  renderRoutineList();
   renderCardioChips();
   draftLoad();
   startAutoSave();
@@ -1511,6 +1537,7 @@ function _launchMainApp(){
     if(loaded){
       renderHistory();
       renderStats();
+      renderRoutineList();
       // Re-trigger exercise history for any already-selected exercises
       document.querySelectorAll('#exBody .ex-select').forEach(sel=>{if(sel.value)onExChange(sel);});
       // Same idea, one level up: if a body part was tapped before this initial sync
@@ -2334,11 +2361,55 @@ function addExRow(){
 // part(s) are currently toggled on -- picking one auto-activates whichever body part it
 // belongs to (if not already active) so the new block's own picker recognizes it, then adds
 // the block pre-filled and triggers the same "last time" history lookup as picking it normally.
-function populateAllExDatalist(){
-  const dl=document.getElementById('allExDatalist');
-  if(!dl) return;
-  const unique=[...new Set(Object.values(EX_LIB).flat())].sort();
-  dl.innerHTML=unique.map(name=>'<option value="'+name.replace(/"/g,'&quot;')+'"></option>').join('');
+// Fuzzy exercise search -- lets someone type words in any order (e.g. "flat bench press
+// barbell") and still find the exercise as it's actually saved ("Barbell Bench Press
+// (Flat)"). Every typed word must appear SOMEWHERE in the candidate name; results are
+// ranked by how many words matched, then how early they matched, then shorter/more
+// specific names first.
+function fuzzyMatchExercises(query,limit){
+  const q=(query||'').toLowerCase().trim();
+  if(!q) return [];
+  const words=q.split(/\s+/).filter(Boolean);
+  const allNames=[...new Set(Object.values(EX_LIB).flat())];
+  const scored=allNames.map(function(name){
+    const lower=name.toLowerCase();
+    let score=0, matchedCount=0;
+    words.forEach(function(w){
+      const idx=lower.indexOf(w);
+      if(idx!==-1){ matchedCount++; score+=(idx===0?2:1); }
+    });
+    return {name:name, score:score, matchedCount:matchedCount, allMatched:matchedCount===words.length};
+  }).filter(function(r){ return r.matchedCount>0; })
+    .sort(function(a,b){
+      if(a.allMatched!==b.allMatched) return a.allMatched?-1:1;
+      if(b.matchedCount!==a.matchedCount) return b.matchedCount-a.matchedCount;
+      if(b.score!==a.score) return b.score-a.score;
+      return a.name.length-b.name.length;
+    });
+  return scored.slice(0,limit).map(function(r){ return r.name; });
+}
+function handleExSearchInput(input){
+  const box=document.getElementById('exSearchSuggestions');
+  const matches=fuzzyMatchExercises(input.value,8);
+  if(!matches.length){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML=matches.map(function(name,i){
+    return '<div class="ex-search-suggestion" data-idx="'+i+'" onclick="pickExSearchSuggestion(\''+name.replace(/'/g,"\\'")+'\')" style="padding:11px 14px;font-size:14px;color:var(--text);cursor:pointer;border-bottom:1px solid var(--border);">'+name+'</div>';
+  }).join('');
+  box.style.display='block';
+}
+function handleExSearchKeydown(e){
+  if(e.key!=='Enter') return;
+  e.preventDefault();
+  const box=document.getElementById('exSearchSuggestions');
+  const first=box&&box.querySelector('.ex-search-suggestion');
+  if(first) first.click();
+}
+function pickExSearchSuggestion(name){
+  const input=document.getElementById('exSearchInput');
+  input.value=name;
+  const box=document.getElementById('exSearchSuggestions');
+  box.style.display='none'; box.innerHTML='';
+  addExerciseFromSearch(input);
 }
 function addExerciseFromSearch(input){
   const name=(input.value||'').trim();
@@ -2372,6 +2443,154 @@ function addExerciseFromSearch(input){
 
 // ── SUPERSETS ──────────────────────────────────────────────
 let supersetCounter=0;
+
+// MY ROUTINES -- named, reusable templates a client builds themselves, including supersets.
+function renderRoutineList(){
+  const el=document.getElementById('routineList');
+  if(!el) return;
+  if(!routines.length){
+    el.innerHTML='<div style="font-size:13px;color:var(--muted);text-align:center;padding:10px 0;">No saved routines yet.</div>';
+    return;
+  }
+  el.innerHTML=routines.map(function(r){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border);">'
+      +'<div style="min-width:0;">'
+        +'<div style="font-size:14px;font-weight:700;color:var(--text);">'+r.name.replace(/</g,'&lt;')+(r.createdBy==='coach'?' <span style="font-size:10px;color:var(--gold);font-weight:800;">COACH</span>':'')+'</div>'
+        +'<div style="font-size:11px;color:var(--muted);">'+(r.bodyParts||[]).join(', ')+' &middot; '+(r.exercises||[]).length+' exercises'+((r.supersets&&r.supersets.length)?' + '+r.supersets.length+' superset'+(r.supersets.length===1?'':'s'):'')+'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:6px;flex-shrink:0;">'
+        +'<button onclick="loadRoutine(\''+r.id+'\')" style="padding:7px 12px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Load</button>'
+        +'<button onclick="renameRoutine(\''+r.id+'\')" style="padding:7px 9px;background:none;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:12px;cursor:pointer;">Rename</button>'
+        +'<button onclick="deleteRoutine(\''+r.id+'\')" style="padding:7px 9px;background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-size:12px;cursor:pointer;">Delete</button>'
+      +'</div>'
+    +'</div>';
+  }).join('');
+}
+function saveCurrentAsRoutine(){
+  const exBlocks=[...document.querySelectorAll('#exBody .ex-block')];
+  const supersetBlocks=[...document.querySelectorAll('#exBody .superset-block')];
+  if(!exBlocks.length && !supersetBlocks.length){
+    toast('Add some exercises first, then save as a routine');
+    return;
+  }
+  const name=prompt('Name this routine (e.g. "Push Day A", "Week 3 Legs"):');
+  if(!name||!name.trim()) return;
+  const exercises=exBlocks.map(function(block){
+    const sel=block.querySelector('.ex-select');
+    return sel&&sel.value?{ex:sel.value}:null;
+  }).filter(Boolean);
+  const supersets=supersetBlocks.map(function(block){
+    const names=[...block.querySelectorAll('.ss-ex-select')].map(function(s){return s.value;}).filter(Boolean);
+    return names.length?{exercises:names.map(function(n){return {ex:n};})}:null;
+  }).filter(Boolean);
+  if(!exercises.length && !supersets.length){
+    toast('Pick at least one exercise before saving');
+    return;
+  }
+  const routine={
+    id:'rt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    name:name.trim(),
+    createdBy:'client',
+    bodyParts:[...selectedBP],
+    exercises:exercises,
+    supersets:supersets,
+    createdAt:new Date().toISOString(),
+    updatedAt:Date.now()
+  };
+  routines.unshift(routine);
+  localStorage.setItem('kmfit_routines',JSON.stringify(routines));
+  syncFitnessToSupabase();
+  renderRoutineList();
+  toast('Routine "'+routine.name+'" saved \u2713');
+}
+function loadRoutineSuperset(ssData){
+  addSupersetBlock();
+  const ssBlocks=document.querySelectorAll('#exBody .superset-block');
+  const block=ssBlocks[ssBlocks.length-1];
+  const ssId=block.dataset.ssid;
+
+  const allBps=Object.keys(EX_LIB).filter(function(k){return k!=='Cardio';});
+  const bpsNeeded=new Set();
+  (ssData.exercises||[]).forEach(function(e){
+    allBps.forEach(function(bp){ if((EX_LIB[bp]||[]).includes(e.ex)) bpsNeeded.add(bp); });
+  });
+  const row=document.getElementById('ssBpRow_'+ssId);
+  if(row){
+    row.querySelectorAll('.ss-bp-btn').forEach(function(btn){
+      if(bpsNeeded.has(btn.dataset.bp)) btn.classList.add('ss-bp-active');
+    });
+  }
+
+  const container=document.getElementById('ssExBody_'+ssId);
+  (ssData.exercises||[]).forEach(function(e,i){
+    let exBlock=container.querySelectorAll('.superset-ex-block')[i];
+    if(!exBlock){
+      addSupersetEx(ssId);
+      exBlock=container.querySelectorAll('.superset-ex-block')[i];
+    }
+    const sel=exBlock.querySelector('.ss-ex-select');
+    populateSupersetExSel(sel,[...bpsNeeded]);
+    sel.value=e.ex;
+    onSupersetExChange(sel);
+  });
+}
+function loadRoutine(id){
+  const routine=routines.find(function(r){return r.id===id;});
+  if(!routine) return;
+  const hasExistingWork=document.querySelectorAll('#exBody .ex-block, #exBody .superset-block').length>0 || (cardioBlocks&&cardioBlocks.length>0);
+  if(hasExistingWork && !confirm('Load "'+routine.name+'"? This replaces your current exercise selection.')) return;
+  document.getElementById('exBody').innerHTML='';
+  cardioBlocks=[];
+  if(typeof renderCardioBlocks==='function') renderCardioBlocks();
+  // Deactivate every body-part button and clear selectedBP directly -- NOT via toggleBP,
+  // since that also triggers autoFillExercisesForBodyPart and would blend in "last time"
+  // exercises alongside the routine's own list instead of loading the routine cleanly.
+  document.querySelectorAll('.bp-btn').forEach(function(b){ b.classList.remove('active'); });
+  selectedBP=[];
+  (routine.bodyParts||[]).forEach(function(bp){
+    const btn=[...document.querySelectorAll('.bp-btn')].find(function(b){ return b.textContent.trim()===bp; });
+    if(btn) btn.classList.add('active');
+    if(!selectedBP.includes(bp)) selectedBP.push(bp);
+  });
+  renderExChips();
+  (routine.exercises||[]).forEach(function(e){
+    addExRow();
+    const blocks=document.querySelectorAll('#exBody .ex-block');
+    const newBlock=blocks[blocks.length-1];
+    const sel=newBlock.querySelector('.ex-select');
+    if(![...sel.options].some(function(o){ return o.value===e.ex; })){
+      const opt=document.createElement('option');
+      opt.value=e.ex; opt.textContent=e.ex;
+      sel.appendChild(opt);
+    }
+    sel.value=e.ex;
+    onExChange(sel);
+  });
+  (routine.supersets||[]).forEach(function(ss){
+    loadRoutineSuperset(ss);
+  });
+  toast('Loaded "'+routine.name+'"');
+}
+function renameRoutine(id){
+  const routine=routines.find(function(r){return r.id===id;});
+  if(!routine) return;
+  const newName=prompt('Rename routine:',routine.name);
+  if(!newName||!newName.trim()) return;
+  routine.name=newName.trim();
+  routine.updatedAt=Date.now();
+  localStorage.setItem('kmfit_routines',JSON.stringify(routines));
+  syncFitnessToSupabase();
+  renderRoutineList();
+}
+function deleteRoutine(id){
+  const routine=routines.find(function(r){return r.id===id;});
+  if(!routine) return;
+  if(!confirm('Delete routine "'+routine.name+'"?')) return;
+  routines=routines.filter(function(r){return r.id!==id;});
+  localStorage.setItem('kmfit_routines',JSON.stringify(routines));
+  syncFitnessToSupabase();
+  renderRoutineList();
+}
 
 function addSupersetBlock(){
   supersetCounter++;
@@ -2991,7 +3210,7 @@ function dismissMoveOverlay(){
 function syncFitnessToSupabase(){
   var key=getFitClientKey();
   if(key==='unknown')return;
-  if((!sessions||sessions.length===0)&&(!deletedSessionIds||deletedSessionIds.length===0)&&(!measurements||measurements.length===0))return;
+  if((!sessions||sessions.length===0)&&(!deletedSessionIds||deletedSessionIds.length===0)&&(!measurements||measurements.length===0)&&(!routines||routines.length===0))return;
   ensureAnonAuth(function(uid){
     if(!uid)return;
     // assignedWorkouts is coach-authored and can change on the server between when this
@@ -3004,12 +3223,14 @@ function syncFitnessToSupabase(){
       var serverAssigned={};
       var serverSessions=[];
       var serverMeasurements=[];
+      var serverRoutines=[];
       try{
         if(!fres.error&&fres.data&&fres.data.length&&fres.data[0].data){
           var fd=typeof fres.data[0].data==='string'?JSON.parse(fres.data[0].data):fres.data[0].data;
           serverAssigned=fd.assignedWorkouts||{};
           serverSessions=fd.sessions||[];
           serverMeasurements=fd.measurements||[];
+          serverRoutines=fd.routines||[];
         }
       }catch(e){}
       var mergedAssigned=Object.assign({},serverAssigned,assignedWorkouts);
@@ -3026,6 +3247,19 @@ function syncFitnessToSupabase(){
       var mergedMeasurements=Object.values(measById).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
       measurements=mergedMeasurements;
       try{localStorage.setItem('kmfit_measurements',JSON.stringify(measurements));}catch(e){}
+
+      // Routines: same id-merge pattern -- another device (or this one, in another tab)
+      // may have saved/renamed/deleted routines since this device last synced.
+      var routById={};
+      serverRoutines.forEach(function(r){ if(r.id) routById[r.id]=r; });
+      (routines||[]).forEach(function(r){
+        if(!r.id) return;
+        var srv=routById[r.id];
+        if(!srv||(r.updatedAt||0)>=(srv.updatedAt||0)) routById[r.id]=r;
+      });
+      var mergedRoutines=Object.values(routById).sort(function(a,b){return (b.updatedAt||0)-(a.updatedAt||0);});
+      routines=mergedRoutines;
+      try{localStorage.setItem('kmfit_routines',JSON.stringify(routines));}catch(e){}
 
       // Sessions: merge by id instead of blindly overwriting with this device's local copy.
       // Without this, a coach edit (or an edit from another device) made after this device
@@ -3060,6 +3294,7 @@ function syncFitnessToSupabase(){
           assignedWorkouts:mergedAssigned,
           deletedSessionIds:deletedSessionIds,
           measurements:measurements,
+          routines:routines,
           name:localStorage.getItem('kmfit_name'),
           mobile:localStorage.getItem('kmfit_mobile'),
           email:localStorage.getItem('kmfit_email'),
@@ -3174,6 +3409,13 @@ function _applyFitnessData(d){
     localM.forEach(function(m){if(m.id&&(!mMap[m.id]||(m.updatedAt||0)>(mMap[m.id].updatedAt||0)))mMap[m.id]=m;});
     measurements=Object.values(mMap).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
   }
+  if(d.routines){
+    var localR=routines||[];
+    var rMap={};
+    (d.routines||[]).forEach(function(r){if(r.id)rMap[r.id]=r;});
+    localR.forEach(function(r){if(r.id&&(!rMap[r.id]||(r.updatedAt||0)>(rMap[r.id].updatedAt||0)))rMap[r.id]=r;});
+    routines=Object.values(rMap).sort(function(a,b){return (b.updatedAt||0)-(a.updatedAt||0);});
+  }
   if(d.name)localStorage.setItem('kmfit_name',d.name);
   if(d.target)localStorage.setItem('kmfit_target',d.target);
   if(d.unit)localStorage.setItem('kmfit_unit',d.unit);
@@ -3181,6 +3423,7 @@ function _applyFitnessData(d){
   localStorage.setItem('kmfit_notes',JSON.stringify(notes));
   localStorage.setItem('kmfit_deleted_ids',JSON.stringify(deletedSessionIds));
   localStorage.setItem('kmfit_measurements',JSON.stringify(measurements));
+  localStorage.setItem('kmfit_routines',JSON.stringify(routines));
   syncFitnessToSupabase();
 }
 
@@ -3189,6 +3432,7 @@ function loadData(){
   try{sessions=JSON.parse(localStorage.getItem('kmfit_sessions')||'[]');}catch(e){sessions=[];}
   try{notes=JSON.parse(localStorage.getItem('kmfit_notes')||'{}');}catch(e){notes={};}
   try{measurements=JSON.parse(localStorage.getItem('kmfit_measurements')||'[]');}catch(e){measurements=[];}
+  try{routines=JSON.parse(localStorage.getItem('kmfit_routines')||'[]');}catch(e){routines=[];}
 }
 function detectWorkoutType(exercises, supersets, cardio){
   const hasWeights=exercises&&exercises.length>0;
@@ -4272,6 +4516,131 @@ window.addEventListener('afterprint',function(){
 });
 
 // STATS
+// ASK ME ANYTHING -- a small offline calculator, not an AI call. Everything here is
+// computed directly from the sessions already sitting in memory; nothing leaves the device.
+// The "understanding" is just keyword matching against a fixed set of question shapes, not
+// a language model -- good enough for "how many reps this month" style questions without
+// needing any external service or API key.
+function askGetDateRangeForPeriod(period){
+  var now=new Date(), start, end;
+  if(period==='week'){
+    var dow=now.getDay()===0?6:now.getDay()-1;
+    start=new Date(now); start.setDate(now.getDate()-dow); start.setHours(0,0,0,0);
+    end=new Date(start); end.setDate(start.getDate()+6); end.setHours(23,59,59,999);
+  } else if(period==='month'){
+    start=new Date(now.getFullYear(),now.getMonth(),1);
+    end=new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59);
+  } else if(period==='year'){
+    start=new Date(now.getFullYear(),0,1);
+    end=new Date(now.getFullYear(),11,31,23,59,59);
+  } else {
+    return null;
+  }
+  return {start:start,end:end};
+}
+function askDetectPeriod(q){
+  if(/\bweek\b/.test(q)) return {key:'week',label:'this week'};
+  if(/\bmonth\b/.test(q)) return {key:'month',label:'this month'};
+  if(/\byear\b/.test(q)) return {key:'year',label:'this year'};
+  return {key:'all',label:'all time'};
+}
+function askFmtDuration(seconds){
+  var h=Math.floor(seconds/3600);
+  var m=Math.round((seconds%3600)/60);
+  if(h===0) return m+'m';
+  return h+'h '+m+'m';
+}
+function computeWorkoutStats(sessionList){
+  var stats={
+    sessionCount:sessionList.length,
+    totalSets:0, totalReps:0, totalVolume:0,
+    totalAssistedReps:0, totalLPReps:0, totalDropSets:0,
+    strengthSeconds:0, cardioSeconds:0, mixedSeconds:0,
+    strengthSessions:0, cardioSessions:0, mixedSessions:0,
+    bodyPartCounts:{}, exerciseCounts:{}
+  };
+  sessionList.forEach(function(s){
+    var hasStrength=(s.exercises&&s.exercises.length>0)||(s.supersets&&s.supersets.length>0);
+    var hasCardio=(s.cardio&&s.cardio.length>0);
+    var dur=s.duration||0;
+    if(hasStrength&&hasCardio){ stats.mixedSeconds+=dur; stats.mixedSessions++; }
+    else if(hasStrength){ stats.strengthSeconds+=dur; stats.strengthSessions++; }
+    else if(hasCardio){ stats.cardioSeconds+=dur; stats.cardioSessions++; }
+
+    (s.bodyParts||[]).forEach(function(bp){ stats.bodyPartCounts[bp]=(stats.bodyPartCounts[bp]||0)+1; });
+
+    function processExercise(e){
+      if(!e||e.type==='cardio') return;
+      stats.exerciseCounts[e.ex]=(stats.exerciseCounts[e.ex]||0)+1;
+      (e.setData||[]).forEach(function(set){
+        if(!set.reps&&!set.weight) return;
+        var reps=parseFloat(set.reps)||0;
+        var weight=parseFloat(set.weight)||0;
+        stats.totalSets++;
+        stats.totalReps+=reps;
+        stats.totalVolume+=reps*weight;
+        stats.totalAssistedReps+=(set.assistedReps||0);
+        stats.totalLPReps+=(set.lengthenedPartialReps||0);
+        if(set.dropset) stats.totalDropSets++;
+      });
+    }
+    (s.exercises||[]).forEach(processExercise);
+    (s.supersets||[]).forEach(function(ss){ (ss.exercises||[]).forEach(processExercise); });
+  });
+  return stats;
+}
+function askPreset(text){
+  document.getElementById('askInput').value=text;
+  answerWorkoutQuestion(text);
+}
+function askWorkoutQuestion(){
+  answerWorkoutQuestion(document.getElementById('askInput').value);
+}
+function answerWorkoutQuestion(query){
+  var el=document.getElementById('askAnswer');
+  var q=(query||'').toLowerCase().trim();
+  if(!q){ el.innerHTML=''; return; }
+  var period=askDetectPeriod(q);
+  var range=askGetDateRangeForPeriod(period.key);
+  var filtered=range?sessions.filter(function(s){
+    var d=new Date(s.date+'T12:00:00');
+    return d>=range.start&&d<=range.end;
+  }):sessions;
+  var stats=computeWorkoutStats(filtered);
+  var totalSeconds=stats.strengthSeconds+stats.cardioSeconds+stats.mixedSeconds;
+
+  var answer;
+  if(/cardio.*strength|strength.*cardio/.test(q)){
+    answer='Strength: <b>'+askFmtDuration(stats.strengthSeconds)+'</b> across '+stats.strengthSessions+' session'+(stats.strengthSessions===1?'':'s')+'.<br>'
+      +'Cardio: <b>'+askFmtDuration(stats.cardioSeconds)+'</b> across '+stats.cardioSessions+' session'+(stats.cardioSessions===1?'':'s')+'.'
+      +(stats.mixedSessions?'<br>Mixed sessions (both in one): <b>'+askFmtDuration(stats.mixedSeconds)+'</b> across '+stats.mixedSessions+'.':'')
+      +'<br><span style="color:var(--muted);font-size:12px;">('+period.label+')</span>';
+  } else if(/\breps?\b/.test(q)){
+    answer='You logged <b>'+Math.round(stats.totalReps)+' reps</b> across <b>'+stats.totalSets+' sets</b> <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+  } else if(/\bsets?\b/.test(q)){
+    answer='You logged <b>'+stats.totalSets+' sets</b> <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+  } else if(/\bhours?\b|\bduration\b/.test(q)){
+    answer='You trained for <b>'+askFmtDuration(totalSeconds)+'</b> across <b>'+stats.sessionCount+' session'+(stats.sessionCount===1?'':'s')+'</b> <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+  } else if(/volume|tonnage|weight lifted/.test(q)){
+    answer='Total volume lifted: <b>'+Math.round(stats.totalVolume).toLocaleString()+' '+weightUnit+'</b> (reps &times; weight, summed) <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+  } else if(/body part|which.*train|most.*train/.test(q)){
+    var sorted=Object.entries(stats.bodyPartCounts).sort(function(a,b){return b[1]-a[1];});
+    answer=sorted.length
+      ?'Most trained <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>: '+sorted.slice(0,5).map(function(x){return x[0]+' ('+x[1]+')';}).join(', ')+'.'
+      :'No body parts logged '+period.label+'.';
+  } else if(/session|workout/.test(q)){
+    answer='You logged <b>'+stats.sessionCount+' session'+(stats.sessionCount===1?'':'s')+'</b> <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+  } else {
+    answer='<b>Summary ('+period.label+'):</b><br>'
+      +stats.sessionCount+' sessions &middot; '+askFmtDuration(totalSeconds)+' total<br>'
+      +stats.totalSets+' sets &middot; '+Math.round(stats.totalReps)+' reps &middot; '+Math.round(stats.totalVolume).toLocaleString()+' '+weightUnit+' volume<br>'
+      +'Strength: '+askFmtDuration(stats.strengthSeconds)+' &middot; Cardio: '+askFmtDuration(stats.cardioSeconds)
+      +(stats.totalAssistedReps?'<br>Assisted (H) reps: '+stats.totalAssistedReps:'')
+      +(stats.totalLPReps?'<br>Lengthened partial reps: '+stats.totalLPReps:'');
+  }
+  el.innerHTML='<div style="padding:12px;background:var(--surf2);border-radius:8px;font-size:14px;line-height:1.6;color:var(--text);">'+answer+'</div>';
+}
+
 function renderStats(){
   const target=+localStorage.getItem('kmfit_target')||4;
   const now=new Date();
@@ -4924,7 +5293,8 @@ function confirmResolve(val){
 const HELP_TEXT=[
   {title:'Log a Workout',body:
     '<b>1. Tap the body part you\'re training</b><br>See buttons like Back, Chest, Legs, Cardio? Tap the one(s) you\'re training today. You can tap more than one (e.g. Chest + Shoulders). The right exercises show up below by themselves -- you never have to search for them.<br><br>'+
-    '<b>1b. Or just search for any exercise directly</b><br>There\'s a search box above your exercise list -- type any exercise\'s name, from any body part, whether or not you\'ve tapped that body part above. Pick it from the suggestions and it gets added, its body part gets ticked on automatically, and your history for it shows up right away.<br><br>'+
+    '<b>1b. Or just search for any exercise directly</b><br>There\'s a search box above your exercise list -- type any exercise\'s name, from any body part, whether or not you\'ve tapped that body part above. It\'s forgiving about word order, so "flat bench press barbell" still finds "Barbell Bench Press (Flat)." Tap a suggestion and it gets added, its body part gets ticked on automatically, and your history for it shows up right away.<br><br>'+
+    '<b>1c. Save and reuse your own routines</b><br>Built a combination of exercises you want to repeat -- a specific push day, a week\'s plan, anything? Tap "Save Current" in the My Routines box to name and save it, however many you like. Next time, tap "Load" and it rebuilds that exact exercise list instantly, ready to log fresh numbers against. Loading a routine replaces whatever\'s currently on the page, so save or finish anything in progress first.<br><br>'+
     '<b>2. For each exercise, fill in your sets</b><br>Every exercise shows boxes for Reps and Weight, one row per set. Just type the numbers in as you finish each set. Did an extra set that isn\'t shown? Tap "+ Add Set" to add another row.<br><br>'+
     '<b>3. The H button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "H" (for Help). Tap it once for every rep in that set where someone helped you finish (a spot) -- it\'ll show a number like "H 2". Tapped it by mistake, or want to lower the count? Press and hold the button to subtract one. Didn\'t need help at all? Just leave it alone.<br><br>'+
     '<b>3b. The LP button (lengthened partials)</b><br>Works exactly the same way as H, right next to it. Tap "LP" once for every rep in that set done as a lengthened partial -- a shorter rep performed in the stretched position of the movement (e.g. the bottom half of a leg extension or bicep curl), a technique some research suggests builds muscle as well as full-range reps for certain exercises. Same as H: tap to add one, press and hold to subtract one. Like H and drop sets, LP reps are excluded from your Personal Records, since a partial-range rep isn\'t really the same lift as a full-range one.<br><br>'+
@@ -4942,7 +5312,7 @@ const HELP_TEXT=[
     '<b>What this page is</b><br>Every workout you\'ve ever saved, listed with the newest at the top.<br><br>'+
     '<b>Narrowing it down</b><br>Tap All Time, This Month, This Week, or Custom (pick your own two dates) to only see workouts from that period. The list below changes to match instantly.<br><br>'+
     '<b>Printing</b><br>Two buttons here: "Print Summary View" prints the short list you can see on screen. "Print Full Report" prints the complete detail for every workout in whatever range you\'ve selected -- every exercise, every set, every rep -- with one workout per printed page. Both respect whichever filter (This Week/Month/etc.) you currently have selected.'},
-  {title:'Stats',body:'A look at how your training is trending over time -- how your rest times between sets have changed, and which exercises you do most. Tap "Share Progress Report" to send a summary of this straight to your coach.'},
+  {title:'Stats',body:'A look at how your training is trending over time -- how your rest times between sets have changed, and which exercises you do most. At the top, Ask Me Anything lets you type plain questions about your training ("how many hours this month", "cardio vs strength", "total reps") -- it\'s all computed instantly from your own logged sessions, nothing sent anywhere. Tap "Share Progress Report" to send a summary of this straight to your coach.'},
   {title:'Notes',body:'A simple text box to write how a week or month of training went, in your own words -- how you felt, what was hard, anything you want your coach to know. Your coach reads these alongside your actual numbers to understand the full picture.'},
   {title:'Personal Records (PR)',body:'Pick any exercise from the dropdown list to see the best set you\'ve ever logged for it -- your heaviest weight, or the most reps at a given weight. This updates by itself the moment you beat your own record in a future session -- you don\'t have to do anything for it to update.'},
   {title:'Body Measurements',body:
@@ -5195,8 +5565,7 @@ function loadApprovedExercises(){
     });
     if(changed){
       document.querySelectorAll('.ex-select').forEach(function(sel){populateSel(sel);});
-      populateAllExDatalist();
-    }
+        }
   });
 }
 
