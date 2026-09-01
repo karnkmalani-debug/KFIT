@@ -534,6 +534,10 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
         <span style="font-size:13px;color:var(--muted);">Not doing this workout today?</span>
         <button onclick="cancelAssignedWorkout()" style="padding:6px 12px;background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Cancel</button>
       </div>
+      <div style="margin-bottom:10px;">
+        <input type="text" id="exSearchInput" list="allExDatalist" placeholder="&#128269; Search any exercise, any body part..." onchange="addExerciseFromSearch(this)" style="width:100%;padding:11px 14px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;">
+        <datalist id="allExDatalist"></datalist>
+      </div>
       <div id="exBody"></div>
       <div class="add-row" onclick="addExRow()" style="background:var(--flame);border-style:solid;border-color:var(--flame);color:#1a0d05;font-weight:800;">+ Add Exercise</div>
       <div class="add-row" onclick="addSupersetBlock()" style="color:var(--sage);border-color:var(--sage);margin-top:6px;">+ Superset</div>
@@ -849,7 +853,10 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     </div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;flex-shrink:0;">We value your feedback and do our best to improve the app with it.</div>
     <div id="fbThreadBody" style="overflow-y:auto;flex:1;min-height:120px;margin-bottom:10px;"></div>
+    <div id="fbPendingAttachPreview" style="display:none;margin-bottom:8px;flex-shrink:0;"></div>
+    <input type="file" id="fbAttachInput" accept="image/*,video/*" style="display:none;" onchange="onFbFileSelected()">
     <div style="display:flex;gap:8px;flex-shrink:0;">
+      <button onclick="triggerFbAttach()" title="Attach a photo or video" style="padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:16px;cursor:pointer;">&#128206;</button>
       <input type="text" id="fbThreadReplyInput" placeholder="Type a message..." style="flex:1;padding:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
       <button onclick="sendClientReply()" style="padding:10px 16px;background:var(--sage);border:none;border-radius:8px;color:#0c0c0a;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Send</button>
     </div>
@@ -1485,6 +1492,8 @@ function _launchMainApp(){
   loadApprovedExercises();
   reconcileCustomEx();
   renderExChips();
+  populateAllExDatalist();
+  loadExerciseVideos();
   renderCardioChips();
   draftLoad();
   startAutoSave();
@@ -2268,6 +2277,16 @@ function toggleExBlock(btn){
   }
 }
 
+// Technique videos your coach has curated and linked per exercise -- loaded once, cheap to
+// keep in memory since it's just a name-to-URL map.
+var _exerciseVideos={};
+function loadExerciseVideos(){
+  getSB().from('exercise_videos').select('*').then(function(res){
+    if(res.error||!res.data) return;
+    res.data.forEach(function(row){ _exerciseVideos[row.exercise_name]=row.video_url; });
+  });
+}
+
 function addExRow(){
   const block=document.createElement('div');
   block.className='ex-block';
@@ -2295,6 +2314,46 @@ function addExRow(){
   btn.textContent='+ Suggest a new exercise to your coach';
   btn.onclick=()=>openCustomEx();
   block.appendChild(btn);
+}
+
+// Lets someone search and add ANY exercise from the full library, regardless of which body
+// part(s) are currently toggled on -- picking one auto-activates whichever body part it
+// belongs to (if not already active) so the new block's own picker recognizes it, then adds
+// the block pre-filled and triggers the same "last time" history lookup as picking it normally.
+function populateAllExDatalist(){
+  const dl=document.getElementById('allExDatalist');
+  if(!dl) return;
+  const unique=[...new Set(Object.values(EX_LIB).flat())].sort();
+  dl.innerHTML=unique.map(name=>'<option value="'+name.replace(/"/g,'&quot;')+'"></option>').join('');
+}
+function addExerciseFromSearch(input){
+  const name=(input.value||'').trim();
+  if(!name) return;
+  const liveAllEx=Object.values(EX_LIB).flat();
+  if(!liveAllEx.includes(name)){
+    toast('Pick an exercise from the suggestions');
+    return;
+  }
+  const owningBps=Object.keys(EX_LIB).filter(bp=>bp!=='Cardio'&&(EX_LIB[bp]||[]).includes(name));
+  const alreadyActive=owningBps.some(bp=>selectedBP.includes(bp));
+  if(!alreadyActive&&owningBps.length){
+    const bpToActivate=owningBps[0];
+    const btn2=[...document.querySelectorAll('.bp-btn')].find(b=>b.textContent.trim()===bpToActivate);
+    if(btn2) toggleBP(btn2,bpToActivate);
+  }
+  addExRow();
+  const blocks=document.querySelectorAll('#exBody .ex-block');
+  const newBlock=blocks[blocks.length-1];
+  const sel=newBlock.querySelector('.ex-select');
+  if(![...sel.options].some(o=>o.value===name)){
+    const opt=document.createElement('option');
+    opt.value=name; opt.textContent=name;
+    sel.appendChild(opt);
+  }
+  sel.value=name;
+  onExChange(sel);
+  input.value='';
+  toast('Added '+name);
 }
 
 // ── SUPERSETS ──────────────────────────────────────────────
@@ -2542,6 +2601,25 @@ function onExChange(sel){
     histEl=document.createElement('div');
     histEl.className='ex-last-hist';
     block.querySelector('.ex-top-row').insertAdjacentElement('afterend',histEl);
+  }
+
+  // Technique video, if your coach has linked one for this exercise
+  let vidEl=block.querySelector('.tech-video-link');
+  if(!vidEl){
+    vidEl=document.createElement('a');
+    vidEl.className='tech-video-link';
+    vidEl.target='_blank';
+    vidEl.rel='noopener';
+    vidEl.style.cssText='display:none;font-size:12px;font-weight:700;color:var(--gold);text-decoration:none;margin:4px 0 0;';
+    histEl.insertAdjacentElement('afterend',vidEl);
+  }
+  const vidUrl=_exerciseVideos[exName];
+  if(vidUrl){
+    vidEl.href=vidUrl;
+    vidEl.textContent='\u25B6 Watch Technique Video';
+    vidEl.style.display='inline-block';
+  } else {
+    vidEl.style.display='none';
   }
 
   if(!exName){
@@ -4816,6 +4894,7 @@ function confirmResolve(val){
 const HELP_TEXT=[
   {title:'Log a Workout',body:
     '<b>1. Tap the body part you\'re training</b><br>See buttons like Back, Chest, Legs, Cardio? Tap the one(s) you\'re training today. You can tap more than one (e.g. Chest + Shoulders). The right exercises show up below by themselves -- you never have to search for them.<br><br>'+
+    '<b>1b. Or just search for any exercise directly</b><br>There\'s a search box above your exercise list -- type any exercise\'s name, from any body part, whether or not you\'ve tapped that body part above. Pick it from the suggestions and it gets added, its body part gets ticked on automatically, and your history for it shows up right away.<br><br>'+
     '<b>2. For each exercise, fill in your sets</b><br>Every exercise shows boxes for Reps and Weight, one row per set. Just type the numbers in as you finish each set. Did an extra set that isn\'t shown? Tap "+ Add Set" to add another row.<br><br>'+
     '<b>3. The H button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "H" (for Help). Tap it once for every rep in that set where someone helped you finish (a spot) -- it\'ll show a number like "H 2". Tapped it by mistake, or want to lower the count? Press and hold the button to subtract one. Didn\'t need help at all? Just leave it alone.<br><br>'+
     '<b>3b. The LP button (lengthened partials)</b><br>Works exactly the same way as H, right next to it. Tap "LP" once for every rep in that set done as a lengthened partial -- a shorter rep performed in the stretched position of the movement (e.g. the bottom half of a leg extension or bicep curl), a technique some research suggests builds muscle as well as full-range reps for certain exercises. Same as H: tap to add one, press and hold to subtract one. Like H and drop sets, LP reps are excluded from your Personal Records, since a partial-range rep isn\'t really the same lift as a full-range one.<br><br>'+
@@ -4878,9 +4957,9 @@ function fbFmtDate(iso){
 function fbFlatten(rows){
   var msgs=[];
   rows.forEach(function(row){
-    msgs.push({rowId:row.id,kind:'original',message:row.message,sender:'client',timestamp:row.created_at,read:!!row.read_by_coach});
+    msgs.push({rowId:row.id,kind:'original',message:row.message,sender:'client',timestamp:row.created_at,read:!!row.read_by_coach,attachmentUrl:row.attachment_url,attachmentType:row.attachment_type});
     (row.replies||[]).forEach(function(rep,idx){
-      msgs.push({rowId:row.id,kind:'reply',replyIndex:idx,message:rep.message,sender:rep.sender,timestamp:rep.timestamp,read:!!rep.read});
+      msgs.push({rowId:row.id,kind:'reply',replyIndex:idx,message:rep.message,sender:rep.sender,timestamp:rep.timestamp,read:!!rep.read,attachmentUrl:rep.attachmentUrl,attachmentType:rep.attachmentType});
     });
   });
   msgs.sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
@@ -4939,8 +5018,15 @@ function renderFeedbackChat(){
   body.innerHTML=msgs.map(function(m){
     var isClient=m.sender==='client';
     var delBtn=isClient?('<span onclick="deleteFeedbackMessage('+m.rowId+',\''+m.kind+'\','+(m.kind==='reply'?m.replyIndex:'null')+')" style="cursor:pointer;opacity:.7;margin-left:8px;">&#128465;</span>'):'';
+    var attachHtml='';
+    if(m.attachmentUrl){
+      attachHtml=m.attachmentType==='video'
+        ? '<video src="'+m.attachmentUrl+'" controls style="max-width:100%;border-radius:8px;margin-bottom:6px;display:block;"></video>'
+        : '<a href="'+m.attachmentUrl+'" target="_blank"><img src="'+m.attachmentUrl+'" style="max-width:100%;border-radius:8px;margin-bottom:6px;display:block;"></a>';
+    }
     return '<div style="display:flex;'+(isClient?'justify-content:flex-end;':'justify-content:flex-start;')+'margin-bottom:8px;">'
       +'<div style="max-width:82%;padding:9px 13px;border-radius:12px;background:'+(isClient?'var(--sage)':'var(--surf3)')+';color:'+(isClient?'#0c0c0a':'var(--text)')+';font-size:14px;line-height:1.4;white-space:pre-wrap;">'
+      +attachHtml
       +(m.message||'').replace(/</g,'&lt;')
       +'<div style="font-size:10px;opacity:.7;margin-top:3px;display:flex;justify-content:flex-end;align-items:center;gap:4px;">'
       +fbFmtDate(m.timestamp)+' '+fbTicks(m)+delBtn
@@ -4969,21 +5055,81 @@ function deleteFeedbackMessage(rowId,kind,replyIndex){
     });
   }
 }
+var _fbPendingAttachment=null;
+function triggerFbAttach(){
+  document.getElementById('fbAttachInput').click();
+}
+function onFbFileSelected(){
+  var input=document.getElementById('fbAttachInput');
+  if(!input.files||!input.files[0]) return;
+  var file=input.files[0];
+  var MAX_BYTES=20*1024*1024;
+  if(file.size>MAX_BYTES){
+    toast('File too large (max 20MB)');
+    input.value='';
+    return;
+  }
+  var isImage=/^image\//.test(file.type);
+  var isVideo=/^video\//.test(file.type);
+  if(!isImage&&!isVideo){
+    toast('Only photos and videos can be attached');
+    input.value='';
+    return;
+  }
+  var clientKey=(typeof getFitClientKey==='function')?getFitClientKey():'client';
+  var safeName=file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
+  var filename=clientKey+'_fb_'+Date.now()+'_'+safeName;
+  var previewEl=document.getElementById('fbPendingAttachPreview');
+  previewEl.style.display='block';
+  previewEl.innerHTML='<div style="font-size:12px;color:var(--muted);">Uploading...</div>';
+  function doUpload(blobOrFile){
+    var fr=new FileReader();
+    fr.onload=function(e){
+      getSB().storage.from('body-scans').upload(filename,e.target.result,{
+        contentType:file.type||'application/octet-stream', upsert:true
+      }).then(function(res){
+        input.value='';
+        if(res.error){toast('Upload failed: '+res.error.message);previewEl.style.display='none';return;}
+        var urlRes=getSB().storage.from('body-scans').getPublicUrl(filename);
+        _fbPendingAttachment={url:urlRes.data.publicUrl,type:isImage?'image':'video'};
+        previewEl.innerHTML=(isImage
+          ?'<img src="'+_fbPendingAttachment.url+'" style="max-height:60px;border-radius:8px;">'
+          :'<video src="'+_fbPendingAttachment.url+'" style="max-height:60px;border-radius:8px;" muted></video>')
+          +'<button onclick="clearFbAttachment()" style="margin-left:8px;background:none;border:1px solid var(--terra);border-radius:6px;color:var(--terra);font-size:11px;padding:3px 8px;cursor:pointer;">Remove</button>';
+      });
+    };
+    fr.readAsArrayBuffer(blobOrFile);
+  }
+  if(isImage&&typeof compressImage==='function'){
+    compressImage(file,1600,0.8,function(blob){ doUpload(blob); });
+  } else {
+    doUpload(file);
+  }
+}
+function clearFbAttachment(){
+  _fbPendingAttachment=null;
+  var previewEl=document.getElementById('fbPendingAttachPreview');
+  previewEl.style.display='none';
+  previewEl.innerHTML='';
+}
+
 function sendClientReply(){
   var input=document.getElementById('fbThreadReplyInput');
   var msg=input.value.trim();
-  if(!msg) return;
+  if(!msg&&!_fbPendingAttachment) return;
   input.disabled=true;
   var tabNames=['Log','History','Stats','Notes','PR','Body'];
+  var attachment=_fbPendingAttachment;
   if(_fbRows.length){
     var lastRow=_fbRows[_fbRows.length-1];
     var replies=(lastRow.replies||[]).slice();
-    replies.push({sender:'client',message:msg,timestamp:new Date().toISOString(),read:false});
+    replies.push({sender:'client',message:msg,timestamp:new Date().toISOString(),read:false,attachmentUrl:attachment?attachment.url:null,attachmentType:attachment?attachment.type:null});
     getSB().from('app_feedback').update({replies:replies,archived:false}).eq('id',lastRow.id).then(function(res){
       input.disabled=false;
       if(res.error){toast('Could not send: '+res.error.message);return;}
       lastRow.replies=replies;
       input.value='';
+      clearFbAttachment();
       renderFeedbackChat();
     });
   } else {
@@ -4994,12 +5140,15 @@ function sendClientReply(){
       submitted_by_mobile:localStorage.getItem('kmfit_mobile')||null,
       status:'new',
       read_by_coach:false,
+      attachment_url:attachment?attachment.url:null,
+      attachment_type:attachment?attachment.type:null,
       replies:[]
     }).select().then(function(res){
       input.disabled=false;
       if(res.error){toast('Could not send: '+res.error.message);return;}
       if(res.data&&res.data[0]) _fbRows.push(res.data[0]);
       input.value='';
+      clearFbAttachment();
       renderFeedbackChat();
     });
   }
@@ -5014,7 +5163,10 @@ function loadApprovedExercises(){
       if(!EX_LIB[bp]) EX_LIB[bp]=[];
       if(!EX_LIB[bp].includes(row.name)){ EX_LIB[bp].push(row.name); changed=true; }
     });
-    if(changed) document.querySelectorAll('.ex-select').forEach(function(sel){populateSel(sel);});
+    if(changed){
+      document.querySelectorAll('.ex-select').forEach(function(sel){populateSel(sel);});
+      populateAllExDatalist();
+    }
   });
 }
 

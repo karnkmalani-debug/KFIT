@@ -277,42 +277,19 @@ body{overflow-x:hidden;}
 <!-- FEEDBACK -->
 <div id="feedbackOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.6);align-items:flex-end;justify-content:center;">
   <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;max-height:82vh;display:flex;flex-direction:column;">
-
-    <!-- LIST VIEW -->
-    <div id="fbModalListView" style="display:flex;flex-direction:column;min-height:0;flex:1;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-shrink:0;">
-        <div style="font-size:17px;font-weight:800;color:var(--txt);">Feedback</div>
-        <button onclick="closeFeedback()" style="background:none;border:none;color:var(--txt2);font-size:20px;cursor:pointer;">✕</button>
-      </div>
-      <div style="font-size:13px;color:var(--txt2);margin-bottom:14px;flex-shrink:0;">Something not working, or an idea for the app? We value your feedback and do our best to improve the app with it.</div>
-      <button onclick="showNewFeedbackForm()" style="width:100%;padding:12px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;color:#fff;cursor:pointer;margin-bottom:14px;flex-shrink:0;">+ New Feedback</button>
-      <div id="fbThreadListBody" style="overflow-y:auto;flex:1;"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-shrink:0;">
+      <div style="font-size:17px;font-weight:800;color:var(--txt);">Feedback</div>
+      <button onclick="closeFeedback()" style="background:none;border:none;color:var(--txt2);font-size:20px;cursor:pointer;">✕</button>
     </div>
-
-    <!-- NEW FEEDBACK COMPOSE VIEW -->
-    <div id="fbModalNewView" style="display:none;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <button onclick="showFeedbackList()" style="background:none;border:none;color:var(--txt2);font-size:14px;cursor:pointer;">&larr; Back</button>
-        <button onclick="closeFeedback()" style="background:none;border:none;color:var(--txt2);font-size:20px;cursor:pointer;">✕</button>
-      </div>
-      <div style="font-size:17px;font-weight:800;color:var(--txt);margin:8px 0 6px;">New Feedback</div>
-      <textarea id="feedbackText" rows="5" placeholder="Type your feedback here..." style="width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:15px;resize:vertical;margin-bottom:14px;"></textarea>
-      <button onclick="submitFeedback()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#fff;cursor:pointer;">Send</button>
+    <div style="font-size:12px;color:var(--txt2);margin-bottom:12px;flex-shrink:0;">We value your feedback and do our best to improve the app with it.</div>
+    <div id="fbThreadBody" style="overflow-y:auto;flex:1;min-height:120px;margin-bottom:10px;"></div>
+    <div id="fbPendingAttachPreview" style="display:none;margin-bottom:8px;flex-shrink:0;"></div>
+    <input type="file" id="fbAttachInput" accept="image/*,video/*" style="display:none;" onchange="onFbFileSelected()">
+    <div style="display:flex;gap:8px;flex-shrink:0;">
+      <button onclick="triggerFbAttach()" title="Attach a photo or video" style="padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--txt2);font-size:16px;cursor:pointer;">&#128206;</button>
+      <input type="text" id="fbThreadReplyInput" placeholder="Type a message..." style="flex:1;padding:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:14px;">
+      <button onclick="sendClientReply()" style="padding:10px 16px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Send</button>
     </div>
-
-    <!-- CHAT THREAD VIEW -->
-    <div id="fbModalThreadView" style="display:none;flex-direction:column;flex:1;min-height:0;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-shrink:0;">
-        <button onclick="showFeedbackList()" style="background:none;border:none;color:var(--txt2);font-size:14px;cursor:pointer;">&larr; Back</button>
-        <button onclick="closeFeedback()" style="background:none;border:none;color:var(--txt2);font-size:20px;cursor:pointer;">✕</button>
-      </div>
-      <div id="fbThreadBody" style="overflow-y:auto;flex:1;margin-bottom:10px;"></div>
-      <div style="display:flex;gap:8px;flex-shrink:0;">
-        <input type="text" id="fbThreadReplyInput" placeholder="Type a reply..." style="flex:1;padding:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--txt);font-family:'DM Sans',sans-serif;font-size:14px;">
-        <button onclick="sendClientReply()" style="padding:10px 16px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Send</button>
-      </div>
-    </div>
-
   </div>
 </div>
 
@@ -1149,30 +1126,17 @@ function closeHelp(){
   document.getElementById('helpOverlay').style.display='none';
 }
 
-// FEEDBACK -- plain text, sent to the same app_feedback table the fitness tracker uses
-// FEEDBACK -- a small threaded chat: past messages (with any coach replies), a compose view,
-// and a thread view for replying to an existing one. Mirrors the fitness tracker's version.
-var _fbThreads=[];
-var _fbCurrentThreadId=null;
+// FEEDBACK -- one continuous WhatsApp-style chat per client, not separate tickets. Mirrors
+// the fitness tracker's implementation exactly, sharing the same app_feedback table so a
+// client's messages from either tracker land in the same coach inbox conversation.
+var _fbRows=[];
 
 function openFeedback(){
   document.getElementById('feedbackOverlay').style.display='flex';
-  showFeedbackList();
+  loadFeedbackChat();
 }
 function closeFeedback(){
   document.getElementById('feedbackOverlay').style.display='none';
-}
-function showFeedbackList(){
-  document.getElementById('fbModalListView').style.display='flex';
-  document.getElementById('fbModalNewView').style.display='none';
-  document.getElementById('fbModalThreadView').style.display='none';
-  loadFeedbackThreads();
-}
-function showNewFeedbackForm(){
-  document.getElementById('feedbackText').value='';
-  document.getElementById('fbModalListView').style.display='none';
-  document.getElementById('fbModalNewView').style.display='block';
-  document.getElementById('fbModalThreadView').style.display='none';
 }
 function fbFmtDate(iso){
   if(!iso) return '';
@@ -1182,123 +1146,204 @@ function fbFmtDate(iso){
   var m=String(d.getMinutes()).padStart(2,'0');
   return d.getDate()+' '+M[d.getMonth()]+', '+h+':'+m+' '+ap;
 }
-function loadFeedbackThreads(){
-  var listEl=document.getElementById('fbThreadListBody');
+function fbFlatten(rows){
+  var msgs=[];
+  rows.forEach(function(row){
+    msgs.push({rowId:row.id,kind:'original',message:row.message,sender:'client',timestamp:row.created_at,read:!!row.read_by_coach,attachmentUrl:row.attachment_url,attachmentType:row.attachment_type});
+    (row.replies||[]).forEach(function(rep,idx){
+      msgs.push({rowId:row.id,kind:'reply',replyIndex:idx,message:rep.message,sender:rep.sender,timestamp:rep.timestamp,read:!!rep.read,attachmentUrl:rep.attachmentUrl,attachmentType:rep.attachmentType});
+    });
+  });
+  msgs.sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
+  return msgs;
+}
+function loadFeedbackChat(){
   var mobile=localStorage.getItem('kmnut_mobile');
+  var body=document.getElementById('fbThreadBody');
   if(!mobile){
-    listEl.innerHTML='<div style="font-size:13px;color:var(--txt2);padding:20px 0;text-align:center;">Add your mobile number in Account to see your past feedback here.</div>';
+    body.innerHTML='<div style="font-size:13px;color:var(--txt2);padding:20px 0;text-align:center;">Add your mobile number in Account to chat with your coach.</div>';
     return;
   }
-  listEl.innerHTML='<div style="font-size:13px;color:var(--txt2);padding:20px 0;text-align:center;">Loading...</div>';
-  getSB().from('app_feedback').select('*').eq('submitted_by_mobile',mobile).order('created_at',{ascending:false}).then(function(res){
+  body.innerHTML='<div style="font-size:13px;color:var(--txt2);padding:20px 0;text-align:center;">Loading...</div>';
+  getSB().from('app_feedback').select('*').eq('submitted_by_mobile',mobile).order('created_at',{ascending:true}).then(function(res){
     if(res.error){
-      listEl.innerHTML='<div style="font-size:13px;color:var(--terra);padding:20px 0;text-align:center;">Could not load: '+res.error.message+'</div>';
+      body.innerHTML='<div style="font-size:13px;color:var(--terra);padding:20px 0;text-align:center;">Could not load: '+res.error.message+'</div>';
       return;
     }
-    _fbThreads=res.data||[];
-    if(!_fbThreads.length){
-      listEl.innerHTML='<div style="font-size:13px;color:var(--txt2);padding:20px 0;text-align:center;">No feedback sent yet.</div>';
-      return;
-    }
-    listEl.innerHTML=_fbThreads.map(function(t){
-      var replies=t.replies||[];
-      var lastReply=replies.length?replies[replies.length-1]:null;
-      var preview=lastReply?((lastReply.sender==='coach'?'Coach: ':'You: ')+lastReply.message):t.message;
-      return '<button onclick="openFeedbackThread('+t.id+')" style="width:100%;text-align:left;padding:12px 14px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;font-family:\'DM Sans\',sans-serif;">'
-        +'<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px;">'
-        +'<span style="font-size:12px;color:var(--txt2);">'+fbFmtDate(t.created_at)+'</span>'
-        +(replies.length?'<span style="font-size:11px;color:var(--sage);font-weight:700;">'+replies.length+' repl'+(replies.length===1?'y':'ies')+'</span>':'')
-        +'</div>'
-        +'<div style="font-size:14px;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+preview.replace(/</g,'&lt;')+'</div>'
-        +'</button>';
-    }).join('');
+    _fbRows=res.data||[];
+    markCoachMessagesRead();
+    renderFeedbackChat();
   });
 }
-function openFeedbackThread(id){
-  _fbCurrentThreadId=id;
-  var t=_fbThreads.find(function(x){return x.id===id;});
-  if(!t) return;
-  document.getElementById('fbModalListView').style.display='none';
-  document.getElementById('fbModalNewView').style.display='none';
-  document.getElementById('fbModalThreadView').style.display='flex';
-  renderFeedbackThread(t);
+function markCoachMessagesRead(){
+  // Opening the chat = the client has now seen every coach message so far -- flip any
+  // unread coach replies to read and push that back so the coach's tick turns into a double.
+  var toUpdate=[];
+  _fbRows.forEach(function(row){
+    var replies=row.replies||[];
+    var changed=false;
+    var newReplies=replies.map(function(rep){
+      if(rep.sender==='coach'&&!rep.read){changed=true;return Object.assign({},rep,{read:true});}
+      return rep;
+    });
+    if(changed){row.replies=newReplies;toUpdate.push(row);}
+  });
+  toUpdate.forEach(function(row){
+    getSB().from('app_feedback').update({replies:row.replies}).eq('id',row.id).then(function(){});
+  });
 }
-function renderFeedbackThread(t){
+function fbTicks(m){
+  // Only show ticks on the client's own messages -- seeing your own delivery/read status,
+  // same as WhatsApp shows ticks only on messages you sent.
+  if(m.sender!=='client') return '';
+  return m.read
+    ? '<span style="color:#5ec8f2;" title="Read">&#10003;&#10003;</span>'
+    : '<span style="opacity:.6;" title="Sent">&#10003;</span>';
+}
+function renderFeedbackChat(){
   var body=document.getElementById('fbThreadBody');
-  var bubbles='<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">'
-    +'<div style="max-width:82%;padding:9px 13px;border-radius:12px;background:var(--sage);color:#fff;font-size:14px;line-height:1.4;white-space:pre-wrap;">'
-    +'<div style="font-size:10px;opacity:.8;margin-bottom:2px;">You &middot; '+fbFmtDate(t.created_at)+'</div>'
-    +(t.message||'').replace(/</g,'&lt;')
-    +'</div></div>';
-  (t.replies||[]).forEach(function(rep){
-    var isCoach=rep.sender==='coach';
-    bubbles+='<div style="display:flex;'+(isCoach?'justify-content:flex-start;':'justify-content:flex-end;')+'margin-bottom:8px;">'
-      +'<div style="max-width:82%;padding:9px 13px;border-radius:12px;background:'+(isCoach?'var(--surf2)':'var(--sage)')+';color:'+(isCoach?'var(--txt)':'#fff')+';font-size:14px;line-height:1.4;white-space:pre-wrap;">'
-      +'<div style="font-size:10px;opacity:.8;margin-bottom:2px;">'+(isCoach?'Coach':'You')+' &middot; '+fbFmtDate(rep.timestamp)+'</div>'
-      +(rep.message||'').replace(/</g,'&lt;')
+  var msgs=fbFlatten(_fbRows);
+  if(!msgs.length){
+    body.innerHTML='<div style="font-size:13px;color:var(--txt2);padding:20px 0;text-align:center;">No messages yet -- say hello!</div>';
+    return;
+  }
+  body.innerHTML=msgs.map(function(m){
+    var isClient=m.sender==='client';
+    var delBtn=isClient?('<span onclick="deleteFeedbackMessage('+m.rowId+',\''+m.kind+'\','+(m.kind==='reply'?m.replyIndex:'null')+')" style="cursor:pointer;opacity:.7;margin-left:8px;">&#128465;</span>'):'';
+    var attachHtml='';
+    if(m.attachmentUrl){
+      attachHtml=m.attachmentType==='video'
+        ? '<video src="'+m.attachmentUrl+'" controls style="max-width:100%;border-radius:8px;margin-bottom:6px;display:block;"></video>'
+        : '<a href="'+m.attachmentUrl+'" target="_blank"><img src="'+m.attachmentUrl+'" style="max-width:100%;border-radius:8px;margin-bottom:6px;display:block;"></a>';
+    }
+    return '<div style="display:flex;'+(isClient?'justify-content:flex-end;':'justify-content:flex-start;')+'margin-bottom:8px;">'
+      +'<div style="max-width:82%;padding:9px 13px;border-radius:12px;background:'+(isClient?'var(--sage)':'var(--surf2)')+';color:'+(isClient?'#fff':'var(--txt)')+';font-size:14px;line-height:1.4;white-space:pre-wrap;">'
+      +attachHtml
+      +(m.message||'').replace(/</g,'&lt;')
+      +'<div style="font-size:10px;opacity:.75;margin-top:3px;display:flex;justify-content:flex-end;align-items:center;gap:4px;">'
+      +fbFmtDate(m.timestamp)+' '+fbTicks(m)+delBtn
+      +'</div>'
       +'</div></div>';
-  });
-  body.innerHTML=bubbles;
+  }).join('');
   body.scrollTop=body.scrollHeight;
-  document.getElementById('fbThreadReplyInput').value='';
+}
+function deleteFeedbackMessage(rowId,kind,replyIndex){
+  if(!confirm('Delete this message?')) return;
+  var row=_fbRows.find(function(r){return r.id===rowId;});
+  if(!row) return;
+  if(kind==='original'){
+    getSB().from('app_feedback').delete().eq('id',rowId).then(function(res){
+      if(res.error){showToast('Could not delete: '+res.error.message);return;}
+      _fbRows=_fbRows.filter(function(r){return r.id!==rowId;});
+      renderFeedbackChat();
+    });
+  } else {
+    var replies=(row.replies||[]).slice();
+    replies.splice(replyIndex,1);
+    getSB().from('app_feedback').update({replies:replies}).eq('id',rowId).then(function(res){
+      if(res.error){showToast('Could not delete: '+res.error.message);return;}
+      row.replies=replies;
+      renderFeedbackChat();
+    });
+  }
+}
+var _fbPendingAttachment=null;
+function triggerFbAttach(){
+  document.getElementById('fbAttachInput').click();
+}
+function onFbFileSelected(){
+  var input=document.getElementById('fbAttachInput');
+  if(!input.files||!input.files[0]) return;
+  var file=input.files[0];
+  var MAX_BYTES=20*1024*1024;
+  if(file.size>MAX_BYTES){
+    showToast('File too large (max 20MB)');
+    input.value='';
+    return;
+  }
+  var isImage=/^image\//.test(file.type);
+  var isVideo=/^video\//.test(file.type);
+  if(!isImage&&!isVideo){
+    showToast('Only photos and videos can be attached');
+    input.value='';
+    return;
+  }
+  var clientKey=(typeof getClientKey==='function')?getClientKey():'client';
+  var safeName=file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
+  var filename=clientKey+'_fb_'+Date.now()+'_'+safeName;
+  var previewEl=document.getElementById('fbPendingAttachPreview');
+  previewEl.style.display='block';
+  previewEl.innerHTML='<div style="font-size:12px;color:var(--txt2);">Uploading...</div>';
+  function doUpload(blobOrFile){
+    var fr=new FileReader();
+    fr.onload=function(e){
+      getSB().storage.from('body-scans').upload(filename,e.target.result,{
+        contentType:file.type||'application/octet-stream', upsert:true
+      }).then(function(res){
+        input.value='';
+        if(res.error){showToast('Upload failed: '+res.error.message);previewEl.style.display='none';return;}
+        var urlRes=getSB().storage.from('body-scans').getPublicUrl(filename);
+        _fbPendingAttachment={url:urlRes.data.publicUrl,type:isImage?'image':'video'};
+        previewEl.innerHTML=(isImage
+          ?'<img src="'+_fbPendingAttachment.url+'" style="max-height:60px;border-radius:8px;">'
+          :'<video src="'+_fbPendingAttachment.url+'" style="max-height:60px;border-radius:8px;" muted></video>')
+          +'<button onclick="clearFbAttachment()" style="margin-left:8px;background:none;border:1px solid var(--terra);border-radius:6px;color:var(--terra);font-size:11px;padding:3px 8px;cursor:pointer;">Remove</button>';
+      });
+    };
+    fr.readAsArrayBuffer(blobOrFile);
+  }
+  if(isImage&&typeof compressImage==='function'){
+    compressImage(file,1600,0.8,function(blob){ doUpload(blob); });
+  } else {
+    doUpload(file);
+  }
+}
+function clearFbAttachment(){
+  _fbPendingAttachment=null;
+  var previewEl=document.getElementById('fbPendingAttachPreview');
+  previewEl.style.display='none';
+  previewEl.innerHTML='';
 }
 function sendClientReply(){
   var input=document.getElementById('fbThreadReplyInput');
   var msg=input.value.trim();
-  if(!msg||!_fbCurrentThreadId) return;
-  var t=_fbThreads.find(function(x){return x.id===_fbCurrentThreadId;});
-  if(!t) return;
-  var replies=(t.replies||[]).slice();
-  replies.push({sender:'client',message:msg,timestamp:new Date().toISOString()});
+  if(!msg&&!_fbPendingAttachment) return;
   input.disabled=true;
-  getSB().from('app_feedback').update({replies:replies}).eq('id',_fbCurrentThreadId).then(function(res){
-    input.disabled=false;
-    if(res.error){
-      showToast('Could not send: '+res.error.message);
-      return;
-    }
-    t.replies=replies;
-    renderFeedbackThread(t);
-  });
-}
-function submitFeedback(){
-  var msg=document.getElementById('feedbackText').value.trim();
-  if(!msg){showToast('Type something first');return;}
   var view=(ui&&ui.activeView)||'track';
   var tabLabel='Nutrition - '+view.charAt(0).toUpperCase()+view.slice(1);
-  var btn=document.querySelector('#fbModalNewView button[onclick="submitFeedback()"]');
-  if(btn){btn.disabled=true;btn.textContent='Sending...';}
-  var timedOut=false;
-  var timeoutId=setTimeout(function(){
-    timedOut=true;
-    showToast('This is taking too long -- check your connection and try again');
-    if(btn){btn.disabled=false;btn.textContent='Send';}
-  },8000);
-  getSB().from('app_feedback').insert({
-    message:msg,
-    tab:tabLabel,
-    submitted_by:(appSetup&&appSetup.clientName)||'Client',
-    submitted_by_mobile:localStorage.getItem('kmnut_mobile')||null,
-    status:'new',
-    replies:[]
-  }).then(function(res){
-    clearTimeout(timeoutId);
-    if(timedOut) return;
-    if(btn){btn.disabled=false;btn.textContent='Send';}
-    if(res.error){
-      console.error('Feedback insert failed:',res.error);
-      showToast('Could not send: '+(res.error.message||'unknown error'));
-    } else {
-      showToast('Feedback sent, thank you! ✓');
-      showFeedbackList();
-    }
-  }).catch(function(err){
-    clearTimeout(timeoutId);
-    if(btn){btn.disabled=false;btn.textContent='Send';}
-    if(timedOut) return;
-    console.error('Feedback insert threw:',err);
-    showToast('Could not send: '+(err&&err.message?err.message:'network/connection error'));
-  });
+  var attachment=_fbPendingAttachment;
+  if(_fbRows.length){
+    var lastRow=_fbRows[_fbRows.length-1];
+    var replies=(lastRow.replies||[]).slice();
+    replies.push({sender:'client',message:msg,timestamp:new Date().toISOString(),read:false,attachmentUrl:attachment?attachment.url:null,attachmentType:attachment?attachment.type:null});
+    getSB().from('app_feedback').update({replies:replies,archived:false}).eq('id',lastRow.id).then(function(res){
+      input.disabled=false;
+      if(res.error){showToast('Could not send: '+res.error.message);return;}
+      lastRow.replies=replies;
+      input.value='';
+      clearFbAttachment();
+      renderFeedbackChat();
+    });
+  } else {
+    getSB().from('app_feedback').insert({
+      message:msg,
+      tab:tabLabel,
+      submitted_by:(appSetup&&appSetup.clientName)||'Client',
+      submitted_by_mobile:localStorage.getItem('kmnut_mobile')||null,
+      status:'new',
+      read_by_coach:false,
+      attachment_url:attachment?attachment.url:null,
+      attachment_type:attachment?attachment.type:null,
+      replies:[]
+    }).select().then(function(res){
+      input.disabled=false;
+      if(res.error){showToast('Could not send: '+res.error.message);return;}
+      if(res.data&&res.data[0]) _fbRows.push(res.data[0]);
+      input.value='';
+      clearFbAttachment();
+      renderFeedbackChat();
+    });
+  }
 }
 
 function renderMealPlan(){
