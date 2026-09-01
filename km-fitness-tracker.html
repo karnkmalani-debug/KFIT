@@ -1687,14 +1687,18 @@ function autoFillExercisesForBodyPart(bp){
     return;
   }
 
-  // Deliberately not filtering by EX_LIB[bp] membership here -- some exercises (Face Pulls,
-  // Rear Delt work, etc.) legitimately belong to more than one body part, and requiring an
-  // exact match against just this one body part's list was hiding them when they'd actually
-  // been logged under the other. The session already being tagged with this body part is
-  // proof enough of relevance.
-  const relevant=last.exercises;
+  // This must only include exercises that actually exist as a selectable option in this
+  // block's dropdown -- getExList() is the union of every currently-selected body part's
+  // library. Earlier this filtered by EX_LIB[bp] alone (missing cross-tagged exercises like
+  // Face Pulls when found under a different body part), then briefly had no filter at all
+  // (which could try to auto-select an exercise name with no matching <option>, silently
+  // leaving the whole block blank -- name, reps and weight all empty). This is the middle
+  // ground: still permissive enough to catch exercises tagged to more than one body part,
+  // but never tries to select something that isn't actually a valid option right now.
+  const validNames=new Set(getExList());
+  const relevant=last.exercises.filter(e=>validNames.has(e.ex));
   if(!relevant.length){
-    showBpNotif(bp,'🔍','Found a previous <b style="color:var(--gold);">'+bp+'</b> session, but it had no exercises logged');
+    showBpNotif(bp,'🔍','Found a previous <b style="color:var(--gold);">'+bp+'</b> session, but none of its exercises matched your current library');
     return;
   }
 
