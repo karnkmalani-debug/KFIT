@@ -518,7 +518,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     <input type="hidden" id="sessDate">
 
     <div class="card">
-      <div class="card-title">Body Parts Trained</div>
+      <div class="card-title">Select Body Part to Train</div>
       <div class="bp-grid" id="bpGrid"></div>
     </div>
 
@@ -834,6 +834,14 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 </div>
 
 <!-- SESSION PICKER (shown when picking a date that already has one or more sessions) -->
+<!-- SAVE CONFIRMATION -- big and unmissable, unlike the old subtle toast -->
+<div id="saveConfirmOverlay" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.78);align-items:center;justify-content:center;pointer-events:none;">
+  <div id="saveConfirmCard" style="text-align:center;transform:scale(.85);opacity:0;transition:transform .25s cubic-bezier(.34,1.56,.64,1),opacity .2s;">
+    <div style="width:96px;height:96px;border-radius:50%;background:var(--sage);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:52px;color:#0c0c0a;font-weight:900;box-shadow:0 8px 30px rgba(0,0,0,.4);">&#10003;</div>
+    <div style="font-size:26px;font-weight:900;color:#fff;font-family:Georgia,serif;">Session Saved</div>
+  </div>
+</div>
+
 <div id="sessionPickerOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center;">
   <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 32px;width:100%;max-width:520px;max-height:78vh;display:flex;flex-direction:column;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -2282,8 +2290,14 @@ function toggleExBlock(btn){
 var _exerciseVideos={};
 function loadExerciseVideos(){
   getSB().from('exercise_videos').select('*').then(function(res){
-    if(res.error||!res.data) return;
+    if(res.error){ console.error('Could not load technique videos:',res.error); return; }
+    if(!res.data) return;
     res.data.forEach(function(row){ _exerciseVideos[row.exercise_name]=row.video_url; });
+    // If an exercise was already selected before this fetch finished, its video link
+    // check ran against an empty cache and would have stayed hidden -- retry now.
+    document.querySelectorAll('#exBody .ex-select').forEach(function(sel){
+      if(sel.value) onExChange(sel);
+    });
   });
 }
 
@@ -2701,6 +2715,22 @@ function onExChange(sel){
 }
 
 // SAVE / CLEAR
+function showSaveConfirmation(){
+  var overlay=document.getElementById('saveConfirmOverlay');
+  var card=document.getElementById('saveConfirmCard');
+  if(!overlay||!card) return;
+  overlay.style.display='flex';
+  // Force a reflow so the transition actually plays instead of snapping straight to end state
+  void card.offsetWidth;
+  card.style.transform='scale(1)';
+  card.style.opacity='1';
+  setTimeout(function(){
+    card.style.transform='scale(.9)';
+    card.style.opacity='0';
+    setTimeout(function(){ overlay.style.display='none'; },220);
+  },1300);
+}
+
 function saveSession(){
   const saveBtn=document.getElementById('saveSessionBtn');
   if(saveBtn&&saveBtn.disabled) return;
@@ -2802,7 +2832,7 @@ function saveSession(){
     updatedAt: Date.now()
   });
   saveSessions();
-  toast('Session saved v');
+  showSaveConfirmation();
   // Write new attendance row for new sessions; update existing row when editing
   var _attRecord={
     client: document.getElementById('clientName').value.trim()||'Client',
