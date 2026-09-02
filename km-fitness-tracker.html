@@ -6341,6 +6341,33 @@ window.addEventListener('appinstalled',function(){
   var w=document.getElementById('installWrap');
   if(w) w.style.display='none';
 });
+// Android install steps differ by browser -- Samsung Internet (huge install base in India)
+// explicitly stopped supporting the automated install prompt in newer versions, by Samsung's
+// own stated design choice, so there's no way to code around it -- the fix is showing that
+// browser's real menu instead of generic Chrome steps. Confidence is high for Samsung and
+// Firefox (well-documented, stable UI); lower for less common browsers, so those get a more
+// general pointer rather than confidently-wrong exact steps.
+function getAndroidInstallSteps(){
+  var ua=navigator.userAgent;
+  if(/SamsungBrowser/i.test(ua)){
+    return '<b>1.</b> Tap the <b>menu icon</b> (\u2261 three lines, usually bottom of the screen)<br><br><b>2.</b> Tap <b>"Add page to"</b><br><br><b>3.</b> Tap <b>"Home screen"</b> -> <b>Add</b>';
+  }
+  if(/Firefox/i.test(ua)){
+    return '<b>1.</b> Tap the <b>menu</b> (\u22ee three dots)<br><br><b>2.</b> Tap <b>"Install"</b> (or <b>"Add to Home screen"</b> on older versions)';
+  }
+  if(/MiuiBrowser|XiaoMi/i.test(ua)){
+    return '<b>1.</b> Tap the <b>menu icon</b> in your browser<br><br><b>2.</b> Look for <b>"Add to Home screen"</b> or <b>"Install app"</b> -- MIUI Browser\'s exact wording varies by version';
+  }
+  if(/UCBrowser/i.test(ua)){
+    return '<b>1.</b> Tap the <b>menu icon</b> in UC Browser<br><br><b>2.</b> Look for <b>"Add to Home screen"</b> or <b>"Home screen shortcut"</b>';
+  }
+  if(/OPR|Opera/i.test(ua)){
+    return '<b>1.</b> Tap the <b>menu</b> (\u22ee three dots)<br><br><b>2.</b> Look for <b>"Add to home screen"</b> or <b>"Install"</b>';
+  }
+  // Default -- Chrome, Edge, and most other Chromium-based browsers
+  return '<b>1.</b> Tap the <b>\u22ee menu</b> (top right of the browser)<br><br><b>2.</b> Tap <b>"Add to Home screen"</b> or <b>"Install app"</b> -> <b>Add</b>';
+}
+
 function triggerInstall(){
   if(deferredInstallPrompt){
     deferredInstallPrompt.prompt();
@@ -6353,7 +6380,7 @@ function triggerInstall(){
     if(isIOS){
       instructions.innerHTML='<b>1.</b> Tap the <b>Share button [^</b> at the bottom of Safari<br><br><b>2.</b> Scroll down and tap <b>"Add to Home Screen"</b> -> <b>Add</b>';
     } else {
-      instructions.innerHTML='<b>1.</b> Tap the <b>... menu</b> (top right of Chrome)<br><br><b>2.</b> Tap <b>"Add to Home screen"</b> -> <b>Add</b>';
+      instructions.innerHTML=getAndroidInstallSteps();
     }
   }
   document.getElementById('installModal').style.display='flex';

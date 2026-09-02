@@ -340,6 +340,39 @@ var deferredPrompt=null;
   });
 })();
 
+// Android install steps differ by browser -- Samsung Internet (huge install base in India)
+// explicitly stopped supporting the automated install prompt in newer versions, by Samsung's
+// own stated design choice, so there's no way to code around it -- the fix is showing that
+// browser's real menu instead of generic Chrome steps. Confidence is high for Samsung and
+// Firefox (well-documented, stable UI); lower for less common browsers, so those get a more
+// general pointer rather than confidently-wrong exact steps.
+function getAndroidInstallStepsHtml(){
+  var ua=navigator.userAgent;
+  if(/SamsungBrowser/i.test(ua)){
+    return '<div class="install-step"><div class="install-num">1</div><div class="install-text">Tap the <b>menu icon</b> (&#9776; three lines, usually bottom of the screen)</div></div>'
+      +'<div class="install-step"><div class="install-num">2</div><div class="install-text">Tap <b>"Add page to"</b></div></div>'
+      +'<div class="install-step"><div class="install-num">3</div><div class="install-text">Tap <b>"Home screen"</b> → <b>Add</b></div></div>';
+  }
+  if(/Firefox/i.test(ua)){
+    return '<div class="install-step"><div class="install-num">1</div><div class="install-text">Tap the <b>menu</b> (⋮ three dots)</div></div>'
+      +'<div class="install-step"><div class="install-num">2</div><div class="install-text">Tap <b>"Install"</b> (or <b>"Add to Home screen"</b> on older versions)</div></div>';
+  }
+  if(/MiuiBrowser|XiaoMi/i.test(ua)){
+    return '<div class="install-step"><div class="install-num">1</div><div class="install-text">Tap the <b>menu icon</b> in your browser</div></div>'
+      +'<div class="install-step"><div class="install-num">2</div><div class="install-text">Look for <b>"Add to Home screen"</b> or <b>"Install app"</b> -- MIUI Browser\'s exact wording varies by version</div></div>';
+  }
+  if(/UCBrowser/i.test(ua)){
+    return '<div class="install-step"><div class="install-num">1</div><div class="install-text">Tap the <b>menu icon</b> in UC Browser</div></div>'
+      +'<div class="install-step"><div class="install-num">2</div><div class="install-text">Look for <b>"Add to Home screen"</b> or <b>"Home screen shortcut"</b></div></div>';
+  }
+  if(/OPR|Opera/i.test(ua)){
+    return '<div class="install-step"><div class="install-num">1</div><div class="install-text">Tap the <b>menu</b> (⋮ three dots)</div></div>'
+      +'<div class="install-step"><div class="install-num">2</div><div class="install-text">Look for <b>"Add to home screen"</b> or <b>"Install"</b></div></div>';
+  }
+  return '<div class="install-step"><div class="install-num">1</div><div class="install-text">Tap the <b>⋮ menu</b> (top right of the browser)</div></div>'
+    +'<div class="install-step"><div class="install-num">2</div><div class="install-text">Tap <b>"Add to Home screen"</b> or <b>"Install app"</b> → <b>Add</b></div></div>';
+}
+
 function showInstall(){
   if(isRunningStandalone()){
     // Already installed -- nothing to do, and no reason to show instructions for it
@@ -359,8 +392,7 @@ function showInstall(){
       +'<div class="install-step"><div class="install-num">2</div><div class="install-text">Scroll down and tap <b>"Add to Home Screen"</b> → <b>Add</b></div></div>';
   } else {
     sub.textContent='Install KFit on your Android:';
-    steps.innerHTML='<div class="install-step"><div class="install-num">1</div><div class="install-text">Tap the <b>⋮ menu</b> (top right of Chrome)</div></div>'
-      +'<div class="install-step"><div class="install-num">2</div><div class="install-text">Tap <b>"Add to Home screen"</b> → <b>Add</b></div></div>';
+    steps.innerHTML=getAndroidInstallStepsHtml();
   }
   document.getElementById('installModal').classList.add('show');
 }
