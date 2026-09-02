@@ -1592,6 +1592,7 @@ function _launchMainApp(){
   reconcileCustomEx();
   renderExChips();
   loadExerciseVideos();
+  loadLiveRoutineTemplates();
   renderRoutineList();
   renderFaqList();
   renderCardioChips();
@@ -2473,6 +2474,22 @@ function toggleExBlock(btn){
 // Technique videos your coach has curated and linked per exercise -- loaded once, cheap to
 // keep in memory since it's just a name-to-URL map.
 var _exerciseVideos={};
+// Coach-assigned routines are LINKED, not copied -- they store a templateId and always pull
+// the current version of the template at render/load time. This matches how technique
+// videos and the exercise library already work (both are read live from a shared source,
+// no per-client copy), so editing or deleting a template in Merge reaches every client who
+// has it automatically, the same way editing a technique video link already does.
+var _liveTemplates={};
+function loadLiveRoutineTemplates(){
+  getSB().from('routine_templates').select('*').then(function(res){
+    if(res.error){ console.error('Could not load routine templates:',res.error); return; }
+    if(!res.data) return;
+    _liveTemplates={};
+    res.data.forEach(function(t){ _liveTemplates[t.id]=t; });
+    renderRoutineList();
+  });
+}
+
 function loadExerciseVideos(){
   getSB().from('exercise_videos').select('*').then(function(res){
     if(res.error){ console.error('Could not load technique videos:',res.error); return; }
@@ -2616,6 +2633,16 @@ let supersetCounter=0;
 
 // MY ROUTINES -- named, reusable templates a client builds themselves, including supersets.
 var _routineSelectedId=null;
+function getEffectiveRoutineData(r){
+  if(r.templateId&&_liveTemplates[r.templateId]){
+    const t=_liveTemplates[r.templateId];
+    return {name:t.name,bodyParts:t.body_parts||[],exercises:t.exercises||[],supersets:t.supersets||[],isLive:true,isDeleted:false};
+  }
+  if(r.templateId&&!_liveTemplates[r.templateId]){
+    return {name:r.name,bodyParts:r.bodyParts||[],exercises:r.exercises||[],supersets:r.supersets||[],isLive:false,isDeleted:true};
+  }
+  return {name:r.name,bodyParts:r.bodyParts||[],exercises:r.exercises||[],supersets:r.supersets||[],isLive:false,isDeleted:false};
+}
 function renderRoutineList(){
   const emptyMsg=document.getElementById('routineEmptyMsg');
   const sel=document.getElementById('routineSelect');
@@ -2633,7 +2660,9 @@ function renderRoutineList(){
   const keepSelection=routines.some(function(r){return r.id===_routineSelectedId;});
   sel.innerHTML='<option value="">-- Choose a routine to load --</option>'
     +routines.map(function(r){
-      return '<option value="'+r.id+'"'+(keepSelection&&r.id===_routineSelectedId?' selected':'')+'>'+r.name.replace(/</g,'&lt;')+(r.createdBy==='coach'?' (Coach)':'')+'</option>';
+      const eff=getEffectiveRoutineData(r);
+      const tag=r.createdBy==='coach'?(eff.isDeleted?' (Coach -- removed)':' (Coach)'):'';
+      return '<option value="'+r.id+'"'+(keepSelection&&r.id===_routineSelectedId?' selected':'')+'>'+eff.name.replace(/</g,'&lt;')+tag+'</option>';
     }).join('');
   if(keepSelection){
     sel.value=_routineSelectedId;
@@ -2655,8 +2684,11 @@ function showRoutineDetail(id){
   const r=routines.find(function(x){return x.id===id;});
   const detail=document.getElementById('routineDetail');
   if(!r){ detail.style.display='none'; return; }
-  document.getElementById('routineDetailName').textContent=r.name+(r.createdBy==='coach'?' (Coach)':'');
-  document.getElementById('routineDetailMeta').textContent=(r.bodyParts||[]).join(', ')+' \u00b7 '+(r.exercises||[]).length+' exercises'+((r.supersets&&r.supersets.length)?' + '+r.supersets.length+' superset'+(r.supersets.length===1?'':'s'):'');
+  const eff=getEffectiveRoutineData(r);
+  document.getElementById('routineDetailName').textContent=eff.name+(r.createdBy==='coach'?(eff.isDeleted?' (Coach -- removed)':' (Coach)'):'');
+  document.getElementById('routineDetailMeta').textContent=eff.isDeleted
+    ? 'Your coach removed this routine -- you can delete it from your list below.'
+    : eff.bodyParts.join(', ')+' \u00b7 '+eff.exercises.length+' exercises'+(eff.supersets.length?' + '+eff.supersets.length+' superset'+(eff.supersets.length===1?'':'s'):'');
   detail.style.display='block';
 }
 function saveCurrentAsRoutine(){
@@ -2730,8 +2762,13 @@ function loadRoutineSuperset(ssData){
 function loadRoutine(id){
   const routine=routines.find(function(r){return r.id===id;});
   if(!routine) return;
+  const eff=getEffectiveRoutineData(routine);
+  if(eff.isDeleted){
+    toast('Your coach removed this routine -- nothing to load. You can delete it from your list.');
+    return;
+  }
   const hasExistingWork=document.querySelectorAll('#exBody .ex-block, #exBody .superset-block').length>0 || (cardioBlocks&&cardioBlocks.length>0);
-  if(hasExistingWork && !confirm('Load "'+routine.name+'"? This starts a fresh set of exercises from that routine -- anything you\'ve started here but haven\'t saved yet will be cleared. Your saved sessions and routines are never affected.')) return;
+  if(hasExistingWork && !confirm('Load "'+eff.name+'"? This starts a fresh set of exercises from that routine -- anything you\'ve started here but haven\'t saved yet will be cleared. Your saved sessions and routines are never affected.')) return;
   document.getElementById('exBody').innerHTML='';
   cardioBlocks=[];
   if(typeof renderCardioBlocks==='function') renderCardioBlocks();
@@ -2740,13 +2777,13 @@ function loadRoutine(id){
   // exercises alongside the routine's own list instead of loading the routine cleanly.
   document.querySelectorAll('.bp-btn').forEach(function(b){ b.classList.remove('active'); });
   selectedBP=[];
-  (routine.bodyParts||[]).forEach(function(bp){
+  eff.bodyParts.forEach(function(bp){
     const btn=[...document.querySelectorAll('.bp-btn')].find(function(b){ return b.textContent.trim()===bp; });
     if(btn) btn.classList.add('active');
     if(!selectedBP.includes(bp)) selectedBP.push(bp);
   });
   renderExChips();
-  (routine.exercises||[]).forEach(function(e){
+  eff.exercises.forEach(function(e){
     addExRow();
     const blocks=document.querySelectorAll('#exBody .ex-block');
     const newBlock=blocks[blocks.length-1];
@@ -2759,10 +2796,10 @@ function loadRoutine(id){
     sel.value=e.ex;
     onExChange(sel);
   });
-  (routine.supersets||[]).forEach(function(ss){
+  eff.supersets.forEach(function(ss){
     loadRoutineSuperset(ss);
   });
-  toast('Loaded "'+routine.name+'"');
+  toast('Loaded "'+eff.name+'"');
 }
 function renameRoutine(id){
   const routine=routines.find(function(r){return r.id===id;});

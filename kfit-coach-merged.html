@@ -1394,6 +1394,7 @@ async function performRoutineAssignment(template,c){
   const routines=d.routines||[];
   routines.unshift({
     id:'rt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    templateId:template.id,
     name:template.name,
     createdBy:'coach',
     bodyParts:template.body_parts||[],
