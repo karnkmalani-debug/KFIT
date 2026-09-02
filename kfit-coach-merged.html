@@ -139,6 +139,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         </div>
         <div id="rtExList" style="margin-bottom:10px;"></div>
         <button onclick="saveRoutineTemplate()" style="width:100%;padding:10px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Save Routine Template</button>
+        <div onclick="cancelEditRoutineTemplate()" style="text-align:center;margin-top:8px;font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline;">Cancel editing</div>
       </div>
       <div id="rtList"><div class="empty">Loading...</div></div>
     </div>
@@ -579,6 +580,8 @@ async function loadExerciseSuggestions(){
 // reps/weight, mirroring the same shape a client's own saved routine uses (see the fitness
 // tracker's My Routines feature) so assigning one just drops straight into their list.
 let _rtCurrentExercises=[];
+let _rtEditingId=null;
+let _rtTemplatesCache=[];
 
 function scoreRtExerciseMatches(query){
   const q=(query||'').toLowerCase().trim();
@@ -647,20 +650,48 @@ async function saveRoutineTemplate(){
   const name=(nameInp.value||'').trim();
   if(!name){ alert('Name this routine first'); return; }
   if(!_rtCurrentExercises.length){ alert('Add at least one exercise'); return; }
-  const template={
-    id:'rt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
-    name:name,
-    body_parts:rtBodyPartsFor(_rtCurrentExercises),
-    exercises:_rtCurrentExercises.map(function(ex){ return {ex:ex}; }),
-    supersets:[],
-    updated_at:Date.now()
-  };
-  const {error}=await getSB().from('routine_templates').insert(template);
-  if(error){ alert('Error saving: '+error.message); return; }
+  const bodyParts=rtBodyPartsFor(_rtCurrentExercises);
+  const exercises=_rtCurrentExercises.map(function(ex){ return {ex:ex}; });
+  if(_rtEditingId){
+    const {error}=await getSB().from('routine_templates').update({
+      name:name, body_parts:bodyParts, exercises:exercises, updated_at:Date.now()
+    }).eq('id',_rtEditingId);
+    if(error){ alert('Error updating: '+error.message); return; }
+    _rtEditingId=null;
+    document.querySelector('button[onclick="saveRoutineTemplate()"]').textContent='Save Routine Template';
+  } else {
+    const template={
+      id:'rt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+      name:name,
+      body_parts:bodyParts,
+      exercises:exercises,
+      supersets:[],
+      updated_at:Date.now()
+    };
+    const {error}=await getSB().from('routine_templates').insert(template);
+    if(error){ alert('Error saving: '+error.message); return; }
+  }
   nameInp.value='';
   _rtCurrentExercises=[];
   renderRtExList();
   loadRoutineTemplates();
+}
+function editRoutineTemplate(id){
+  const template=_rtTemplatesCache.find(function(t){ return t.id===id; });
+  if(!template){ alert('Could not find that template -- try reloading this tab'); return; }
+  _rtEditingId=id;
+  document.getElementById('rtName').value=template.name;
+  _rtCurrentExercises=(template.exercises||[]).map(function(e){ return e.ex; });
+  renderRtExList();
+  document.querySelector('button[onclick="saveRoutineTemplate()"]').textContent='Update Routine Template';
+  document.getElementById('rtName').scrollIntoView({behavior:'smooth',block:'center'});
+}
+function cancelEditRoutineTemplate(){
+  _rtEditingId=null;
+  document.getElementById('rtName').value='';
+  _rtCurrentExercises=[];
+  renderRtExList();
+  document.querySelector('button[onclick="saveRoutineTemplate()"]').textContent='Save Routine Template';
 }
 async function loadRoutineTemplates(){
   const listEl=document.getElementById('rtList');
@@ -668,13 +699,20 @@ async function loadRoutineTemplates(){
   const {data,error}=await getSB().from('routine_templates').select('*').order('name',{ascending:true});
   if(error){ listEl.innerHTML='<div class="empty">Error loading routines.<br>'+error.message+'</div>'; return; }
   const rows=data||[];
+  _rtTemplatesCache=rows;
   listEl.innerHTML=rows.length?rows.map(function(r){
-    return '<div class="client-card" style="cursor:default;display:flex;justify-content:space-between;align-items:center;gap:10px;">'
+    return '<div class="client-card" id="rtRow_'+r.id+'" style="cursor:default;">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">'
       +'<div style="min-width:0;">'
         +'<div style="font-weight:700;color:var(--text);font-size:14px;">'+r.name+'</div>'
         +'<div style="font-size:12px;color:var(--muted);">'+(r.body_parts||[]).join(', ')+' &middot; '+(r.exercises||[]).length+' exercises</div>'
       +'</div>'
-      +'<button onclick="deleteRoutineTemplate(\''+r.id+'\')" style="padding:7px 12px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;">Delete</button>'
+      +'<div style="display:flex;gap:6px;flex-shrink:0;">'
+      +'<button onclick="toggleTemplateAssignPicker(\''+r.id+'\')" style="padding:7px 12px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>'
+      +'<button onclick="editRoutineTemplate(\''+r.id+'\')" style="padding:7px 12px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Edit</button>'
+      +'<button onclick="deleteRoutineTemplate(\''+r.id+'\')" style="padding:7px 12px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Delete</button>'
+      +'</div>'
+      +'</div>'
       +'</div>';
   }).join(''):'<div class="empty">No routine templates yet.</div>';
 }
@@ -902,11 +940,20 @@ async function loadFeedback(){
 
 function updateFbBadge(){
   const badge=document.getElementById('fbBadge');
+  const unreadDetails=[];
   const unreadCount=Object.values(_fbGroups).filter(function(g){
     if(fbIsArchived(g)) return false; // archived conversations don't need attention in the badge
-    return fbFlatten(g.rows).some(function(m){ return m.sender==='client' && !m.read; });
+    const unreadMsgs=fbFlatten(g.rows).filter(function(m){ return m.sender==='client' && !m.read; });
+    if(unreadMsgs.length){
+      unreadDetails.push({client:g.name||g.mobile,unreadMsgs:unreadMsgs.map(function(m){return {rowId:m.rowId,kind:m.kind,timestamp:m.timestamp,message:(m.message||'').slice(0,40)};})});
+      return true;
+    }
+    return false;
   }).length;
-  if(unreadCount){ badge.style.display='inline-block'; badge.textContent=unreadCount; }
+  if(unreadCount){
+    console.log('Feedback badge shows',unreadCount,'-- specifically:',unreadDetails);
+    badge.style.display='inline-block'; badge.textContent=unreadCount;
+  }
   else { badge.style.display='none'; }
 }
 
@@ -1274,31 +1321,30 @@ function showClient(key){
 async function populateRtAssignSelect(){
   const sel=document.getElementById('rtAssignSelect');
   if(!sel) return;
+  sel.innerHTML='<option value="">Loading routines...</option>';
   const {data,error}=await getSB().from('routine_templates').select('*').order('name',{ascending:true});
-  if(error||!data||!data.length){
-    sel.innerHTML='<option value="">No routine templates yet -- build one in the Exercises tab</option>';
+  // Re-fetch the element fresh -- if the coach navigated to a different client while this
+  // was in flight, don't write into a select that no longer belongs to the visible page.
+  const sel2=document.getElementById('rtAssignSelect');
+  if(!sel2) return;
+  if(error){
+    console.error('Failed to load routine templates:',error);
+    sel2.innerHTML='<option value="">Could not load routines -- check console for error</option>';
     return;
   }
-  sel.innerHTML='<option value="">-- Choose a routine --</option>'+data.map(function(r){
+  if(!data||!data.length){
+    sel2.innerHTML='<option value="">No routine templates yet -- build one in the Exercises tab</option>';
+    return;
+  }
+  sel2.innerHTML='<option value="">-- Choose a routine --</option>'+data.map(function(r){
     return '<option value="'+r.id+'">'+r.name+' ('+(r.exercises||[]).length+' exercises)</option>';
   }).join('');
-  sel.dataset.templates=JSON.stringify(data);
+  sel2.dataset.templates=JSON.stringify(data);
 }
-async function assignRoutineToClient(clientKey){
-  const sel=document.getElementById('rtAssignSelect');
-  const templateId=sel.value;
-  if(!templateId){ alert('Pick a routine template first'); return; }
-  const templates=JSON.parse(sel.dataset.templates||'[]');
-  const template=templates.find(function(t){ return t.id===templateId; });
-  if(!template){ alert('Could not find that template -- try reopening this client\'s page'); return; }
-
-  const clients=groupClients();
-  const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
-  if(!c){ alert('Client not found.'); return; }
+async function performRoutineAssignment(template,c){
   const fitId=buildClientId(c.name,c.mobile);
-
   const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',fitId).eq('tracker','fitness');
-  if(error){ alert('Could not load this client\'s data: '+error.message); return; }
+  if(error){ alert('Could not load this client\'s data: '+error.message); return false; }
   let d={};
   if(data&&data.length&&data[0].data) d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
   const routines=d.routines||[];
@@ -1316,9 +1362,57 @@ async function assignRoutineToClient(clientKey){
   const {error:saveErr}=await getSB().from('tracker_data').upsert({
     client_id:fitId, tracker:'fitness', data:JSON.stringify(d), updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
-  if(saveErr){ alert('Error assigning: '+saveErr.message); return; }
+  if(saveErr){ alert('Error assigning: '+saveErr.message); return false; }
+  return true;
+}
+async function assignRoutineToClient(clientKey){
+  const sel=document.getElementById('rtAssignSelect');
+  const templateId=sel.value;
+  if(!templateId){ alert('Pick a routine template first'); return; }
+  const templates=JSON.parse(sel.dataset.templates||'[]');
+  const template=templates.find(function(t){ return t.id===templateId; });
+  if(!template){ alert('Could not find that template -- try reopening this client\'s page'); return; }
+
+  const clients=groupClients();
+  const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
+  if(!c){ alert('Client not found.'); return; }
+
+  const ok=await performRoutineAssignment(template,c);
+  if(!ok) return;
   alert('"'+template.name+'" assigned to '+c.name+' \u2713');
   sel.value='';
+}
+
+function toggleTemplateAssignPicker(templateId){
+  const existing=document.getElementById('rtInlineAssign_'+templateId);
+  document.querySelectorAll('[id^="rtInlineAssign_"]').forEach(function(el){ el.remove(); });
+  if(existing) return; // was already open -- toggle closed
+  const template=_rtTemplatesCache.find(function(t){ return t.id===templateId; });
+  if(!template) return;
+  const clients=Object.values(groupClients());
+  const row=document.getElementById('rtRow_'+templateId);
+  if(!row) return;
+  const picker=document.createElement('div');
+  picker.id='rtInlineAssign_'+templateId;
+  picker.style.cssText='margin-top:8px;padding:10px;background:var(--surf2);border-radius:8px;';
+  picker.innerHTML='<select id="rtInlinePick_'+templateId+'" style="width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:13px;margin-bottom:8px;">'
+    +'<option value="">-- Choose a client --</option>'
+    +clients.map(function(c){ return '<option value="'+(c.mobile||c.name).replace(/"/g,'&quot;')+'">'+c.name+'</option>'; }).join('')
+    +'</select>'
+    +'<button onclick="confirmInlineAssign(\''+templateId+'\')" style="width:100%;padding:8px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>';
+  row.appendChild(picker);
+}
+async function confirmInlineAssign(templateId){
+  const sel=document.getElementById('rtInlinePick_'+templateId);
+  const clientKey=sel.value;
+  if(!clientKey){ alert('Pick a client first'); return; }
+  const template=_rtTemplatesCache.find(function(t){ return t.id===templateId; });
+  const c=Object.values(groupClients()).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
+  if(!template||!c){ alert('Could not find that template or client'); return; }
+  const ok=await performRoutineAssignment(template,c);
+  if(!ok) return;
+  alert('"'+template.name+'" assigned to '+c.name+' \u2713');
+  document.getElementById('rtInlineAssign_'+templateId).remove();
 }
 
 async function loadAssignedWorkoutsForClient(key,c){
