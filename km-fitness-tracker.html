@@ -2839,10 +2839,18 @@ function addSupersetEx(ssId){
   block.className='superset-ex-block';
   block.innerHTML=`
     <div class="ex-top-row" style="padding:6px 8px;">
-      <select class="ss-ex-select ex-select" style="flex:1;" onchange="onSupersetExChange(this)">
+      <select class="ss-ex-select ex-select" style="display:none;" onchange="onSupersetExChange(this)">
         <option value="">-- Select Exercise --</option>
       </select>
-      <select class="sets-select" onchange="updateSupersetSetRows(this)">${setsOpts(3)}</select>
+      <div class="cs-wrap">
+        <button type="button" class="cs-trigger placeholder" onclick="toggleCustomSelectPanel(this)">-- Select --</button>
+        <div class="cs-panel"></div>
+      </div>
+      <select class="sets-select" onchange="updateSupersetSetRows(this)" style="display:none;">${setsOpts(3)}</select>
+      <div class="cs-wrap-sets">
+        <button type="button" class="cs-trigger cs-trigger-sets" onclick="toggleCustomSelectPanel(this)"></button>
+        <div class="cs-panel"></div>
+      </div>
       <div class="action-group">
         <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">⌃</button>
         <button class="del-btn" onclick="this.closest('.superset-ex-block').remove()">&#10005;</button>
@@ -2850,6 +2858,7 @@ function addSupersetEx(ssId){
     </div>
     <div class="set-rows" style="padding:4px 8px 8px;"></div>`;
   populateSupersetExSel(block.querySelector('.ss-ex-select'), activeBPs);
+  populateSimpleCsPanel(block.querySelector('.sets-select'));
   generateSetRows(block.querySelector('.set-rows'),3,'');
   container.appendChild(block);
 }
@@ -2864,6 +2873,7 @@ function populateSupersetExSel(sel, bps){
   list=[...new Set(list)].filter(e=>!deleted.has(e));
   const cur=sel.value;
   sel.innerHTML='<option value="">-- Select Exercise --</option>'+list.map(e=>`<option value="${e}"${e===cur?' selected':''}>${e}</option>`).join('');
+  populateSimpleCsPanel(sel);
 }
 
 function onSupersetExChange(sel){
