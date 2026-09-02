@@ -2879,10 +2879,12 @@ function populateSupersetExSel(sel, bps){
 function onSupersetExChange(sel){
   const block=sel.closest('.superset-ex-block');
   const setsEl=block.querySelector('.sets-select');
+  const setsWrap=block.querySelector('.cs-wrap-sets');
   const setRows=block.querySelector('.set-rows');
   const exName=sel.value;
+  setsEl.style.display='none'; // native select stays permanently hidden -- toggle the custom wrapper instead
   if(isCardio(exName)){
-    setsEl.style.display='none';
+    if(setsWrap) setsWrap.style.display='none';
     setRows.innerHTML=`
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px 0;">
         <div><div class="cardio-field-label">Duration (min)</div>
@@ -2899,7 +2901,7 @@ function onSupersetExChange(sel){
         </div>
       </div>`;
   } else {
-    setsEl.style.display='';
+    if(setsWrap) setsWrap.style.display='';
     generateSetRows(setRows,+setsEl.value,exName);
   }
 }
@@ -3030,7 +3032,9 @@ function onExChange(sel){
   const exName=sel.value;
   const setsEl=block.querySelector('.sets-select');
   const isC=isCardio(exName);
-  setsEl.style.display=isC?'none':'';
+  setsEl.style.display='none'; // native select stays permanently hidden -- toggle the custom wrapper instead
+  const setsWrap=block.querySelector('.cs-wrap-sets');
+  if(setsWrap) setsWrap.style.display=isC?'none':'';
 
   // Show last session history for this exercise
   let histEl=block.querySelector('.ex-last-hist');
