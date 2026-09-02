@@ -128,6 +128,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <button onclick="saveExerciseVideo()" style="width:100%;padding:10px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Save Video Link</button>
       </div>
       <div id="exVideoList"><div class="empty">Loading...</div></div>
+
+      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:20px 0 10px;">Routine Templates</div>
+      <div class="client-card" style="cursor:default;margin-bottom:10px;">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Build a routine once here -- exercises only, no reps or weight -- then assign it to any client from their page. It shows up in their own "My Routines" list, tagged as yours.</div>
+        <input type="text" id="rtName" placeholder="Routine name (e.g. Push Day A)" style="width:100%;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;margin-bottom:10px;">
+        <div style="position:relative;margin-bottom:8px;">
+          <input type="text" id="rtExSearch" placeholder="Search exercise to add..." autocomplete="off" oninput="handleRtExSearch(this)" style="width:100%;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
+          <div id="rtExSuggestions" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--surf3);border:1px solid var(--border);border-radius:8px;overflow:hidden;z-index:60;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5);"></div>
+        </div>
+        <div id="rtExList" style="margin-bottom:10px;"></div>
+        <button onclick="saveRoutineTemplate()" style="width:100%;padding:10px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Save Routine Template</button>
+      </div>
+      <div id="rtList"><div class="empty">Loading...</div></div>
     </div>
   </div>
 
@@ -559,6 +572,117 @@ async function loadExerciseSuggestions(){
     dl.innerHTML=allNames.map(n=>'<option value="'+n.replace(/"/g,'&quot;')+'"></option>').join('');
   }
   loadExerciseVideoList();
+  loadRoutineTemplates();
+}
+
+// ROUTINE TEMPLATES -- coach-built once, assignable to any client. Exercises only, no
+// reps/weight, mirroring the same shape a client's own saved routine uses (see the fitness
+// tracker's My Routines feature) so assigning one just drops straight into their list.
+let _rtCurrentExercises=[];
+
+function scoreRtExerciseMatches(query){
+  const q=(query||'').toLowerCase().trim();
+  if(!q) return [];
+  const words=q.split(/\s+/).filter(function(w){ return w.length>=3; });
+  if(!words.length) return [];
+  const allNames=[...new Set(Object.values(EX_LIB).flat())].filter(function(n){
+    return !(EX_LIB['Cardio']||[]).includes(n);
+  });
+  return allNames.map(function(name){
+    const nameWords=name.toLowerCase().replace(/[()]/g,'').split(/\s+/);
+    let score=0, matchedCount=0;
+    words.forEach(function(w){
+      const hit=nameWords.some(function(nw){ return nw===w||nw.indexOf(w)===0||w.indexOf(nw)===0; });
+      if(hit){ matchedCount++; score++; }
+    });
+    return {name:name, score:score, matchedCount:matchedCount, allMatched:matchedCount===words.length};
+  }).filter(function(r){ return r.matchedCount>0; })
+    .sort(function(a,b){
+      if(a.allMatched!==b.allMatched) return a.allMatched?-1:1;
+      if(b.matchedCount!==a.matchedCount) return b.matchedCount-a.matchedCount;
+      if(b.score!==a.score) return b.score-a.score;
+      return a.name.length-b.name.length;
+    });
+}
+function handleRtExSearch(input){
+  const box=document.getElementById('rtExSuggestions');
+  const matches=scoreRtExerciseMatches(input.value).slice(0,8);
+  if(!matches.length){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML=matches.map(function(r){
+    return '<div style="padding:10px 12px;font-size:14px;color:var(--text);cursor:pointer;border-top:1px solid var(--border);" onclick="addRtExercise(\''+r.name.replace(/'/g,"\\'")+'\')">'+r.name+'</div>';
+  }).join('');
+  box.style.display='block';
+}
+function addRtExercise(name){
+  if(!_rtCurrentExercises.includes(name)) _rtCurrentExercises.push(name);
+  document.getElementById('rtExSearch').value='';
+  document.getElementById('rtExSuggestions').style.display='none';
+  renderRtExList();
+}
+function removeRtExercise(idx){
+  _rtCurrentExercises.splice(idx,1);
+  renderRtExList();
+}
+function renderRtExList(){
+  const el=document.getElementById('rtExList');
+  if(!_rtCurrentExercises.length){ el.innerHTML=''; return; }
+  el.innerHTML=_rtCurrentExercises.map(function(name,i){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--surf2);border-radius:6px;margin-bottom:5px;">'
+      +'<span style="font-size:13px;color:var(--text);">'+name+'</span>'
+      +'<span onclick="removeRtExercise('+i+')" style="cursor:pointer;color:var(--terra);font-size:14px;padding:0 4px;">&#10005;</span>'
+      +'</div>';
+  }).join('');
+}
+function rtBodyPartsFor(exercises){
+  const bps=new Set();
+  exercises.forEach(function(ex){
+    Object.keys(EX_LIB).forEach(function(bp){
+      if(bp!=='Cardio'&&(EX_LIB[bp]||[]).includes(ex)) bps.add(bp);
+    });
+  });
+  return [...bps];
+}
+async function saveRoutineTemplate(){
+  const nameInp=document.getElementById('rtName');
+  const name=(nameInp.value||'').trim();
+  if(!name){ alert('Name this routine first'); return; }
+  if(!_rtCurrentExercises.length){ alert('Add at least one exercise'); return; }
+  const template={
+    id:'rt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    name:name,
+    body_parts:rtBodyPartsFor(_rtCurrentExercises),
+    exercises:_rtCurrentExercises.map(function(ex){ return {ex:ex}; }),
+    supersets:[],
+    updated_at:Date.now()
+  };
+  const {error}=await getSB().from('routine_templates').insert(template);
+  if(error){ alert('Error saving: '+error.message); return; }
+  nameInp.value='';
+  _rtCurrentExercises=[];
+  renderRtExList();
+  loadRoutineTemplates();
+}
+async function loadRoutineTemplates(){
+  const listEl=document.getElementById('rtList');
+  if(!listEl) return;
+  const {data,error}=await getSB().from('routine_templates').select('*').order('name',{ascending:true});
+  if(error){ listEl.innerHTML='<div class="empty">Error loading routines.<br>'+error.message+'</div>'; return; }
+  const rows=data||[];
+  listEl.innerHTML=rows.length?rows.map(function(r){
+    return '<div class="client-card" style="cursor:default;display:flex;justify-content:space-between;align-items:center;gap:10px;">'
+      +'<div style="min-width:0;">'
+        +'<div style="font-weight:700;color:var(--text);font-size:14px;">'+r.name+'</div>'
+        +'<div style="font-size:12px;color:var(--muted);">'+(r.body_parts||[]).join(', ')+' &middot; '+(r.exercises||[]).length+' exercises</div>'
+      +'</div>'
+      +'<button onclick="deleteRoutineTemplate(\''+r.id+'\')" style="padding:7px 12px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;">Delete</button>'
+      +'</div>';
+  }).join(''):'<div class="empty">No routine templates yet.</div>';
+}
+async function deleteRoutineTemplate(id){
+  if(!confirm('Delete this routine template? This does not remove it from any client who already has it assigned.')) return;
+  const {error}=await getSB().from('routine_templates').delete().eq('id',id);
+  if(error){ alert('Error deleting: '+error.message); return; }
+  loadRoutineTemplates();
 }
 
 async function loadExerciseVideoList(){
@@ -1109,6 +1233,14 @@ function showClient(key){
       <div id="fitMeasList">Loading...</div>
     </div>
     <div class="card" style="margin-bottom:14px;">
+      <div class="card-title">📚 Assign a Routine</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Pick one of your saved routine templates to add to this client's own "My Routines" list.</div>
+      <select id="rtAssignSelect" style="width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;margin-bottom:10px;">
+        <option value="">Loading routines...</option>
+      </select>
+      <button onclick="assignRoutineToClient('${key.replace(/'/g,"\\'")}')" style="width:100%;padding:10px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Assign to This Client</button>
+    </div>
+    <div class="card" style="margin-bottom:14px;">
       <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📋 Assigned Workouts
         <button onclick="openAddSession('${key.replace(/'/g,"\\'")}');setAsMode('assign');" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Assign Another Workout</button>
       </div>
@@ -1136,6 +1268,57 @@ function showClient(key){
     </div>`;
   loadAssignedWorkoutsForClient(key,c);
   loadMeasurementsForClient(buildClientId(c.name,c.mobile),'fitness','fitMeasList');
+  populateRtAssignSelect();
+}
+
+async function populateRtAssignSelect(){
+  const sel=document.getElementById('rtAssignSelect');
+  if(!sel) return;
+  const {data,error}=await getSB().from('routine_templates').select('*').order('name',{ascending:true});
+  if(error||!data||!data.length){
+    sel.innerHTML='<option value="">No routine templates yet -- build one in the Exercises tab</option>';
+    return;
+  }
+  sel.innerHTML='<option value="">-- Choose a routine --</option>'+data.map(function(r){
+    return '<option value="'+r.id+'">'+r.name+' ('+(r.exercises||[]).length+' exercises)</option>';
+  }).join('');
+  sel.dataset.templates=JSON.stringify(data);
+}
+async function assignRoutineToClient(clientKey){
+  const sel=document.getElementById('rtAssignSelect');
+  const templateId=sel.value;
+  if(!templateId){ alert('Pick a routine template first'); return; }
+  const templates=JSON.parse(sel.dataset.templates||'[]');
+  const template=templates.find(function(t){ return t.id===templateId; });
+  if(!template){ alert('Could not find that template -- try reopening this client\'s page'); return; }
+
+  const clients=groupClients();
+  const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
+  if(!c){ alert('Client not found.'); return; }
+  const fitId=buildClientId(c.name,c.mobile);
+
+  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',fitId).eq('tracker','fitness');
+  if(error){ alert('Could not load this client\'s data: '+error.message); return; }
+  let d={};
+  if(data&&data.length&&data[0].data) d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
+  const routines=d.routines||[];
+  routines.unshift({
+    id:'rt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    name:template.name,
+    createdBy:'coach',
+    bodyParts:template.body_parts||[],
+    exercises:template.exercises||[],
+    supersets:template.supersets||[],
+    createdAt:new Date().toISOString(),
+    updatedAt:Date.now()
+  });
+  d.routines=routines;
+  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+    client_id:fitId, tracker:'fitness', data:JSON.stringify(d), updated_at:new Date().toISOString()
+  },{onConflict:'client_id,tracker'});
+  if(saveErr){ alert('Error assigning: '+saveErr.message); return; }
+  alert('"'+template.name+'" assigned to '+c.name+' \u2713');
+  sel.value='';
 }
 
 async function loadAssignedWorkoutsForClient(key,c){
