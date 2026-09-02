@@ -9,6 +9,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="KFit">
 <meta name="theme-color" content="#141412">
+<link rel="manifest" href="/manifest-index.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
@@ -270,70 +272,12 @@ if(isRunningStandalone()){
 
 // Install prompt
 var deferredPrompt=null;
-// PWA manifest + icon
+// Icon and manifest are now real static files instead of blob: URLs -- blob-based
+// manifests/icons are session-ephemeral and are a known cause of "Add to Home Screen"
+// silently failing or behaving inconsistently across iOS/Android.
 (function(){
-  var c=document.createElement('canvas');
-  c.width=c.height=512;
-  var x=c.getContext('2d');
-  // Dark background
-  x.fillStyle='#0f0f0d';
-  x.beginPath();
-  var r=80;
-  x.moveTo(r,0);x.lineTo(512-r,0);x.quadraticCurveTo(512,0,512,r);
-  x.lineTo(512,512-r);x.quadraticCurveTo(512,512,512-r,512);
-  x.lineTo(r,512);x.quadraticCurveTo(0,512,0,512-r);
-  x.lineTo(0,r);x.quadraticCurveTo(0,0,r,0);
-  x.closePath();x.fill();
-  // K in sage green
-  x.fillStyle='#4a8050';
-  x.font='900 210px Georgia,serif';
-  x.textAlign='left';x.textBaseline='alphabetic';
-  x.fillText('K',62,300);
-  // Fit in white
-  x.fillStyle='#ffffff';
-  x.font='900 168px Georgia,serif';
-  x.fillText('Fit',230,300);
-  // Gold bottom line accent
-  x.fillStyle='#c8922a';
-  x.fillRect(62,318,388,4);
-  // Full name in gold
-  x.fillStyle='#c8922a';
-  x.font='500 38px Arial,sans-serif';
-  x.textAlign='center';
-  x.fillText('KARAN KM MALANI',256,390);
-  var ico=c.toDataURL('image/png');
-  // Apple touch icon
-  var il=document.createElement('link');
-  il.rel='apple-touch-icon';il.href=ico;
-  document.head.appendChild(il);
-  // Manifest
-  var manifest={
-    name:'KFit',short_name:'KFit',
-    start_url:'https://kfit.pages.dev/',
-    display:'standalone',
-    background_color:'#141412',theme_color:'#141412',
-    icons:[{src:ico,sizes:'512x512',type:'image/png',purpose:'any maskable'}]
-  };
-  var ml=document.createElement('link');ml.rel='manifest';
-  ml.href=URL.createObjectURL(new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'}));
-  document.head.appendChild(ml);
-  // Service worker for offline -- network-first so updates always reach the page,
-  // only falling back to cache when genuinely offline
   if('serviceWorker' in navigator){
-    var sw='const V="kfit-index-v3";'
-      +'self.addEventListener("install",e=>{self.skipWaiting();});'
-      +'self.addEventListener("activate",e=>e.waitUntil('
-      +'caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim())'
-      +'));'
-      +'self.addEventListener("fetch",e=>e.respondWith('
-      +'fetch(e.request).then(res=>{'
-      +'const clone=res.clone();'
-      +'caches.open(V).then(c=>c.put(e.request,clone));'
-      +'return res;'
-      +'}).catch(()=>caches.match(e.request))'
-      +'));';
-    var swUrl=URL.createObjectURL(new Blob([sw],{type:'application/javascript'}));
-    navigator.serviceWorker.register(swUrl).catch(function(){});
+    navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){});
     navigator.serviceWorker.getRegistrations().then(function(regs){
       regs.forEach(function(r){ if(r.active) r.update(); });
     });

@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-title" content="KFit Nutrition">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#faf8f3">
+<link rel="manifest" href="/manifest-nutrition.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <title>KFit Nutrition Tracker</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap');
@@ -3156,70 +3158,16 @@ window.addEventListener('DOMContentLoaded',function(){
     }
   });
 });
-  // -- PWA: ICON + MANIFEST + OFFLINE --
-  (function(){
-    const c=document.createElement('canvas');
-    c.width=c.height=512;
-    const x=c.getContext('2d');
-    const r=90;
-    x.beginPath();
-    x.moveTo(r,0);x.lineTo(512-r,0);x.quadraticCurveTo(512,0,512,r);
-    x.lineTo(512,512-r);x.quadraticCurveTo(512,512,512-r,512);
-    x.lineTo(r,512);x.quadraticCurveTo(0,512,0,512-r);
-    x.lineTo(0,r);x.quadraticCurveTo(0,0,r,0);
-    x.closePath();
-    x.fillStyle='#0f0f0d';x.fill();
-    // K green
-    x.fillStyle='#4a8050';
-    x.font='900 210px Georgia,serif';
-    x.textAlign='left';x.textBaseline='alphabetic';
-    x.fillText('K',62,300);
-    // Fit white
-    x.fillStyle='#ffffff';
-    x.font='900 168px Georgia,serif';
-    x.fillText('Fit',230,300);
-    // Gold line
-    x.fillStyle='#c8922a';
-    x.fillRect(62,318,388,4);
-    // NUTRITION gold
-    x.fillStyle='#c8922a';
-    x.font='500 52px Arial,sans-serif';
-    x.textAlign='center';
-    x.fillText('NUTRITION',256,400);
-    // Green dot accent top right
-    x.fillStyle='#4a8050';
-    x.beginPath();x.arc(450,62,28,0,Math.PI*2);x.fill();
-    const ico=c.toDataURL('image/png');
-    const il=document.createElement('link');
-    il.rel='apple-touch-icon';il.href=ico;
-    document.head.appendChild(il);
-    const manifest={name:'KFit Nutrition',short_name:'KFit Nutrition',start_url:'https://kfit.pages.dev/km-nutrition-tracker',display:'standalone',
-      background_color:'#0f0f0d',theme_color:'#4a8050',
-      icons:[{src:ico,sizes:'512x512',type:'image/png',purpose:'any maskable'}]};
-    const ml=document.createElement('link');ml.rel='manifest';
-    ml.href=URL.createObjectURL(new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'}));
-    document.head.appendChild(ml);
-    if('serviceWorker' in navigator){
-      const sw=`
-        const V='kmnut-v3';
-        self.addEventListener('install',e=>{self.skipWaiting();});
-        self.addEventListener('activate',e=>e.waitUntil(
-          caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim())
-        ));
-        self.addEventListener('fetch',e=>e.respondWith(
-          fetch(e.request).then(res=>{
-            const clone=res.clone();
-            caches.open(V).then(c=>c.put(e.request,clone));
-            return res;
-          }).catch(()=>caches.match(e.request))
-        ));`;
-      const swBlob=new Blob([sw],{type:'text/javascript'});
-      navigator.serviceWorker.register(URL.createObjectURL(swBlob),{scope:'./'}).catch(()=>{});
-      navigator.serviceWorker.getRegistrations().then(regs=>{
-        regs.forEach(r=>{ if(r.active) r.update(); });
-      });
-    }
-  })();
+  // -- PWA: OFFLINE SUPPORT --
+  // Icon and manifest are now real static files instead of blob: URLs -- blob-based
+  // manifests/icons are session-ephemeral and are a known cause of "Add to Home Screen"
+  // silently failing or behaving inconsistently across iOS/Android.
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{});
+    navigator.serviceWorker.getRegistrations().then(regs=>{
+      regs.forEach(r=>{ if(r.active) r.update(); });
+    });
+  }
 </script>
 </body>
 </html>
