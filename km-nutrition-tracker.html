@@ -201,6 +201,46 @@ body{overflow-x:hidden;}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
+<!-- Chrome-on-iOS detection -- iOS only allows real "Add to Home Screen" installs from
+     Safari; every other iPhone browser (Chrome included) can't do it, even though the
+     page looks identical. Route them to Safari instead of letting them hit a silently
+     broken install. -->
+<div id="criosBanner" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,10,8,.75);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:24px;">
+  <div style="background:#faf8f3;border-radius:20px;padding:32px 24px 28px;max-width:360px;width:100%;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,.35);">
+    <div style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:900;color:#1a1a18;margin-bottom:6px;">K<span style="color:#4a8050;">F</span><span style="color:#c4694a;">it</span></div>
+    <div style="font-family:'DM Sans',sans-serif;font-size:.7rem;color:#888;margin-bottom:20px;letter-spacing:.06em;text-transform:uppercase;">by Karan K.M. Malani</div>
+    <div style="font-family:'DM Sans',sans-serif;font-size:1rem;font-weight:700;color:#1a1a18;margin-bottom:8px;">Open in Safari to install KFit</div>
+    <div style="font-family:'DM Sans',sans-serif;font-size:.82rem;color:#666;line-height:1.6;margin-bottom:24px;">iPhones only allow installing apps to the home screen from Safari -- Chrome (and every other iPhone browser) can't do this, even though the page looks the same. Copy the link below, then paste it into Safari.</div>
+    <div style="display:flex;align-items:flex-start;gap:12px;background:rgba(0,0,0,.04);border-radius:12px;padding:14px;margin-bottom:10px;text-align:left;">
+      <div style="background:#4a8050;color:#fff;border-radius:50%;width:24px;height:24px;min-width:24px;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:700;">1</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:.8rem;color:#333;line-height:1.5;">Tap <b style="color:#4a8050;">Copy Link</b> below</div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:12px;background:rgba(0,0,0,.04);border-radius:12px;padding:14px;margin-bottom:10px;text-align:left;">
+      <div style="background:#4a8050;color:#fff;border-radius:50%;width:24px;height:24px;min-width:24px;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:700;">2</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:.8rem;color:#333;line-height:1.5;">Open the <b style="color:#4a8050;">Safari</b> app (not Chrome)</div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:12px;background:rgba(0,0,0,.04);border-radius:12px;padding:14px;margin-bottom:10px;text-align:left;">
+      <div style="background:#4a8050;color:#fff;border-radius:50%;width:24px;height:24px;min-width:24px;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:700;">3</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:.8rem;color:#333;line-height:1.5;">Paste the link, then tap <b style="color:#4a8050;">Share</b> &rarr; <b style="color:#4a8050;">Add to Home Screen</b></div>
+    </div>
+    <button id="criosCopyBtn" onclick="copyCriosLink()" style="width:100%;margin-top:8px;padding:14px;background:#4a8050;color:#fff;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;">Copy Link</button>
+    <button onclick="document.getElementById('criosBanner').style.display='none'" style="width:100%;margin-top:8px;padding:14px;background:transparent;color:#1a1a18;border:1.5px solid rgba(0,0,0,.2);border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;">Continue anyway</button>
+  </div>
+</div>
+<script>
+if(/CriOS/i.test(navigator.userAgent)&&/iphone|ipad|ipod/i.test(navigator.userAgent)){
+  document.getElementById('criosBanner').style.display='flex';
+}
+function copyCriosLink(){
+  var btn=document.getElementById('criosCopyBtn');
+  navigator.clipboard.writeText(window.location.href).then(function(){
+    btn.textContent='Copied \u2713';
+    setTimeout(function(){ btn.textContent='Copy Link'; },2000);
+  }).catch(function(){
+    btn.textContent='Could not copy -- select the address bar manually';
+  });
+}
+</script>
 <div id="appLoader" style="display:none;position:fixed;inset:0;z-index:1000;background:#faf8f3;align-items:center;justify-content:center;">
   <div style="font-family:'Playfair Display',serif;font-size:2rem;font-weight:900;color:#1a1a18;">K<span style="color:#4a8050;">F</span><span style="color:#c4694a;">it</span> <span style="color:#4a8050;">Nutrition</span></div>
 </div>

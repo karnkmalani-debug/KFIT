@@ -178,6 +178,34 @@
   </div>
 </div>
 
+<!-- Chrome-on-iOS detection -- iOS only allows real "Add to Home Screen" installs from Safari.
+     Every other browser on iOS (Chrome included) is required by Apple to use the same
+     underlying engine as Safari, but only Safari itself gets install capability -- so
+     someone on Chrome-iOS needs to be routed to Safari first, or their "Add to Home Screen"
+     silently produces a broken bookmark instead of a real installed app. -->
+<div id="criosBanner" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,10,8,.92);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:24px;">
+  <div class="ig-card">
+    <div class="ig-logo">K<span class="g">F</span><span class="t">it</span></div>
+    <div style="font-family:'DM Sans',sans-serif;font-size:.7rem;color:#aaa;margin-bottom:20px;letter-spacing:.06em;text-transform:uppercase;">by Karan K.M. Malani</div>
+    <div class="ig-title">Open in Safari to install KFit</div>
+    <div class="ig-sub">iPhones only allow installing apps to the home screen from Safari -- Chrome (and every other iPhone browser) can't do this, even though the page looks the same. Copy the link below, then paste it into Safari.</div>
+    <div class="ig-step">
+      <div class="ig-num">1</div>
+      <div class="ig-step-text">Tap <b>Copy Link</b> below</div>
+    </div>
+    <div class="ig-step">
+      <div class="ig-num">2</div>
+      <div class="ig-step-text">Open the <b>Safari</b> app (not Chrome)</div>
+    </div>
+    <div class="ig-step">
+      <div class="ig-num">3</div>
+      <div class="ig-step-text">Paste the link, then tap <b>Share</b> &rarr; <b>Add to Home Screen</b></div>
+    </div>
+    <button class="ig-btn" id="criosCopyBtn" onclick="copyCriosLink()">Copy Link</button>
+    <button class="ig-btn" style="background:transparent;border:1.5px solid rgba(255,255,255,.25);margin-top:8px;" onclick="document.getElementById('criosBanner').style.display='none'">Continue anyway</button>
+  </div>
+</div>
+
 <!-- Install modal -->
 <div id="installModal">
   <div class="install-card">
@@ -256,6 +284,19 @@ if(isInApp){
     s2.innerHTML='Tap <b>"Open in KFit"</b> or <b>"Open in browser"</b>';
     s3.innerHTML='Once in Chrome, tap <b>"Add to Home Screen"</b> inside the KFit app';
   }
+} else if(isIOSUA && /CriOS/i.test(ua)){
+  // Chrome on iOS specifically -- not an in-app WebView, a real browser, but iOS only
+  // grants "Add to Home Screen" install capability to Safari itself.
+  document.getElementById('criosBanner').style.display='flex';
+}
+function copyCriosLink(){
+  var btn=document.getElementById('criosCopyBtn');
+  navigator.clipboard.writeText(window.location.href).then(function(){
+    btn.textContent='Copied \u2713';
+    setTimeout(function(){ btn.textContent='Copy Link'; },2000);
+  }).catch(function(){
+    btn.textContent='Could not copy -- select the address bar manually';
+  });
 }
 
 // Are we already running as the installed home-screen app? If so, there's nothing to install --
