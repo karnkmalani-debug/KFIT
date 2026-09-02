@@ -1286,6 +1286,8 @@ function showClient(key){
         <option value="">Loading routines...</option>
       </select>
       <button onclick="assignRoutineToClient('${key.replace(/'/g,"\\'")}')" style="width:100%;padding:10px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Assign to This Client</button>
+      <div style="font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;">This Client's Routines</div>
+      <div id="clientRoutinesList">Loading...</div>
     </div>
     <div class="card" style="margin-bottom:14px;">
       <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📋 Assigned Workouts
@@ -1316,6 +1318,48 @@ function showClient(key){
   loadAssignedWorkoutsForClient(key,c);
   loadMeasurementsForClient(buildClientId(c.name,c.mobile),'fitness','fitMeasList');
   populateRtAssignSelect();
+  loadClientRoutinesList(key);
+}
+
+async function loadClientRoutinesList(clientKey){
+  const listEl=document.getElementById('clientRoutinesList');
+  if(!listEl) return;
+  const clients=groupClients();
+  const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
+  if(!c){ listEl.innerHTML='<div class="empty">Client not found.</div>'; return; }
+  const fitId=buildClientId(c.name,c.mobile);
+  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',fitId).eq('tracker','fitness');
+  if(error){ listEl.innerHTML='<div class="empty">Error loading: '+error.message+'</div>'; return; }
+  let d={};
+  if(data&&data.length&&data[0].data) d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
+  const routines=d.routines||[];
+  if(!routines.length){ listEl.innerHTML='<div class="empty">This client has no routines yet.</div>'; return; }
+  listEl.innerHTML=routines.map(function(r){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;background:var(--surf2);border-radius:8px;margin-bottom:6px;">'
+      +'<div style="min-width:0;">'
+        +'<div style="font-size:13px;color:var(--text);font-weight:700;">'+r.name+(r.createdBy==='coach'?' <span style="font-size:10px;color:var(--gold);font-weight:800;">COACH</span>':'')+'</div>'
+        +'<div style="font-size:11px;color:var(--muted);">'+(r.bodyParts||[]).join(', ')+' &middot; '+(r.exercises||[]).length+' exercises</div>'
+      +'</div>'
+      +'<button onclick="deleteClientRoutine(\''+clientKey.replace(/'/g,"\\'")+'\',\''+r.id+'\')" style="padding:6px 10px;background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-family:\'DM Sans\',sans-serif;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;">Delete</button>'
+      +'</div>';
+  }).join('');
+}
+async function deleteClientRoutine(clientKey,routineId){
+  if(!confirm('Remove this routine from this client\'s list? This deletes it for them, not just from your view.')) return;
+  const clients=groupClients();
+  const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
+  if(!c){ alert('Client not found.'); return; }
+  const fitId=buildClientId(c.name,c.mobile);
+  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',fitId).eq('tracker','fitness');
+  if(error){ alert('Could not load this client\'s data: '+error.message); return; }
+  let d={};
+  if(data&&data.length&&data[0].data) d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
+  d.routines=(d.routines||[]).filter(function(r){ return r.id!==routineId; });
+  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+    client_id:fitId, tracker:'fitness', data:JSON.stringify(d), updated_at:new Date().toISOString()
+  },{onConflict:'client_id,tracker'});
+  if(saveErr){ alert('Error deleting: '+saveErr.message); return; }
+  loadClientRoutinesList(clientKey);
 }
 
 async function populateRtAssignSelect(){
@@ -1381,6 +1425,7 @@ async function assignRoutineToClient(clientKey){
   if(!ok) return;
   alert('"'+template.name+'" assigned to '+c.name+' \u2713');
   sel.value='';
+  loadClientRoutinesList(clientKey);
 }
 
 function toggleTemplateAssignPicker(templateId){
