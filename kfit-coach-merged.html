@@ -833,7 +833,18 @@ function markClientMessagesRead(key){
     if(changed){
       row.replies=replies;
       anyChanged=true;
-      getSB().from('app_feedback').update({read_by_coach:row.read_by_coach,replies:row.replies}).eq('id',row.id).then(function(){});
+      (function writeReadStatus(attempt){
+        getSB().from('app_feedback').update({read_by_coach:row.read_by_coach,replies:row.replies}).eq('id',row.id).then(function(res){
+          if(res.error){
+            console.error('Failed to mark feedback read for row',row.id,'(attempt '+attempt+'):',res.error);
+            if(attempt===1){
+              setTimeout(function(){ writeReadStatus(2); },1000);
+            } else {
+              alert('Could not mark a message as read (it may show unread again after refresh): '+res.error.message);
+            }
+          }
+        });
+      })(1);
     }
   });
   // group.rows are the same objects referenced in _fbGroups, so this reflects immediately
