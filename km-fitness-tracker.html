@@ -588,6 +588,13 @@ function copyCriosLink(){
     <input type="hidden" id="clientName">
     <input type="hidden" id="sessDate">
 
+    <div class="card" id="logImportCard" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div style="font-size:13px;color:var(--muted);line-height:1.5;">Coming from Strong, Hevy, or a spreadsheet? Bring your history in.</div>
+        <button onclick="openImportModal()" style="padding:9px 14px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">Import Data</button>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-title">Select Body Part to Train</div>
       <div class="bp-grid" id="bpGrid"></div>
@@ -1624,6 +1631,8 @@ function _launchMainApp(){
   renderRoutineList();
   renderFaqList();
   renderCardioChips();
+  var logImportCard=document.getElementById('logImportCard');
+  if(logImportCard) logImportCard.style.display=sessions.length?'none':'block';
   draftLoad();
   startAutoSave();
   // Backup localStorage before any Supabase load
@@ -5693,7 +5702,7 @@ const HELP_TEXT=[
   {title:'Log a Workout',body:
     '<b>1. Tap the body part you\'re training</b><br>See buttons like Back, Chest, Legs, Cardio? Tap the one(s) you\'re training today. You can tap more than one (e.g. Chest + Shoulders). The right exercises show up below by themselves -- you never have to search for them.<br><br>'+
     '<b>1b. Or just search for any exercise directly</b><br>There\'s a search box above your exercise list -- type any exercise\'s name, from any body part, whether or not you\'ve tapped that body part above. It\'s forgiving about word order, so "flat bench press barbell" still finds "Barbell Bench Press (Flat)." Tap a suggestion and it gets added, its body part gets ticked on automatically, and your history for it shows up right away.<br><br>'+
-    '<b>1c. Save and reuse your own routines</b><br>Built a combination of exercises you want to repeat -- a specific push day, a week\'s plan, anything? Tap "Set a Routine" in the My Routines box to name and save it, however many you like. Next time, tap "Load" and it rebuilds that exact exercise list instantly -- a fresh, blank set of exercises ready to log new numbers against, with your history for each one still showing. Loading a routine only clears whatever\'s currently unsaved on the page; it never touches anything you\'ve already saved.<br><br>'+
+    '<b>1c. Save and reuse your own routines</b><br>Built a combination of exercises you want to repeat -- a specific push day, a week\'s plan, anything? In the My Routines box, tap <b>Add exercises</b> to search and build a list right there (no need to log real sets first), then tap <b>Set a Routine</b> to name and save it, however many you like. If you\'d rather build it the long way, add exercises normally on this page first, then tap Set a Routine -- it saves whatever\'s currently on the page instead. Next time, tap "Load" from the dropdown and it rebuilds that exact exercise list instantly -- a fresh, blank set of exercises ready to log new numbers against, with your history for each one still showing. Loading a routine only clears whatever\'s currently unsaved on the page; it never touches anything you\'ve already saved. Routines with a "(Coach)" tag were sent to you by your coach -- you can load, rename, or delete them just like your own.<br><br>'+
     '<b>2. For each exercise, fill in your sets</b><br>Every exercise shows boxes for Reps and Weight, one row per set. Just type the numbers in as you finish each set. Did an extra set that isn\'t shown? Tap "+ Add Set" to add another row.<br><br>'+
     '<b>3. The H button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "H" (for Help). Tap it once for every rep in that set where someone helped you finish (a spot) -- it\'ll show a number like "H 2". Tapped it by mistake, or want to lower the count? Press and hold the button to subtract one. Didn\'t need help at all? Just leave it alone.<br><br>'+
     '<b>3b. The LP button (lengthened partials)</b><br>Works exactly the same way as H, right next to it. Tap "LP" once for every rep in that set done as a lengthened partial -- a shorter rep performed in the stretched position of the movement (e.g. the bottom half of a leg extension or bicep curl), a technique some research suggests builds muscle as well as full-range reps for certain exercises. Same as H: tap to add one, press and hold to subtract one. Like H and drop sets, LP reps are excluded from your Personal Records, since a partial-range rep isn\'t really the same lift as a full-range one.<br><br>'+
@@ -5712,7 +5721,7 @@ const HELP_TEXT=[
     '<b>Narrowing it down</b><br>Tap All Time, This Month, This Week, or Custom (pick your own two dates) to only see workouts from that period. The list below changes to match instantly.<br><br>'+
     '<b>Printing</b><br>Two buttons here: "Print Summary View" prints the short list you can see on screen. "Print Full Report" prints the complete detail for every workout in whatever range you\'ve selected -- every exercise, every set, every rep -- with one workout per printed page. Both respect whichever filter (This Week/Month/etc.) you currently have selected.'},
   {title:'Stats',body:'A look at how your training is trending over time -- how your rest times between sets have changed, and which exercises you do most. Below that, the Training FAQ has common questions (total reps, hours, cardio vs strength, heaviest lifts, and more) -- pick a time range and tap one to see the answer instantly, computed from your own logged sessions with nothing sent anywhere. Underneath it, type a specific exercise name to ask about that exercise alone. Tap "Share Progress Report" to send a summary of this straight to your coach.'},
-  {title:'Notes',body:'A simple text box to write how a week or month of training went, in your own words -- how you felt, what was hard, anything you want your coach to know. Your coach reads these alongside your actual numbers to understand the full picture.'},
+  {title:'Notes',body:'A simple text box to write how a week or month of training went, in your own words -- how you felt, what was hard, anything you want your coach to know. Your coach reads these alongside your actual numbers to understand the full picture. Further down, "Import Data" lets you bring in past workout history from Strong, Hevy, or your own spreadsheet as a CSV file -- it always shows you exactly what it found before anything is actually added, so nothing gets imported without your confirmation.'},
   {title:'Personal Records (PR)',body:'Pick any exercise from the dropdown list to see the best set you\'ve ever logged for it -- your heaviest weight, or the most reps at a given weight. This updates by itself the moment you beat your own record in a future session -- you don\'t have to do anything for it to update.'},
   {title:'Body Measurements',body:
     '<b>What to log</b><br>Your weight, height, and body measurements (chest, waist, arms, etc.) -- as well as Body Fat % and Muscle Mass if you know them (e.g. from a DEXA or InBody scan).<br><br>'+
