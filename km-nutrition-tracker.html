@@ -79,8 +79,8 @@ body{overflow-x:hidden;}
 .habit-check{width:24px;height:24px;border-radius:6px;border:2px solid var(--border);background:var(--surf2);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;}
 .habit-check.checked{background:var(--sage-d);border-color:var(--sage);}
 .habit-check.checked::after{content:'';display:block;width:6px;height:10px;border:2px solid var(--sage);border-top:none;border-left:none;transform:rotate(45deg) translateY(-1px);}
-.habit-text{font-size:.8rem;color:var(--txt2);line-height:1.5;}
-.habit-tip{font-size:.72rem;color:var(--sage);margin-top:3px;font-style:italic;}
+.habit-text{font-size:.85rem;font-weight:700;color:var(--txt);line-height:1.5;}
+.habit-tip{font-size:.78rem;font-weight:700;color:var(--sage);margin-top:3px;font-style:italic;}
 /* day notes */
 .day-notes-wrap{margin:0 16px 16px;}
 .day-notes-inp{width:100%;background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:12px;font-family:'DM Sans',sans-serif;font-size:.82rem;color:var(--txt);resize:none;min-height:70px;}
@@ -91,7 +91,7 @@ body{overflow-x:hidden;}
 .wsum-title{font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--sage);margin-bottom:10px;}
 .wsum-bars{display:flex;gap:4px;align-items:flex-end;height:50px;margin-bottom:8px;}
 .wbar{flex:1;border-radius:4px 4px 0 0;min-height:4px;transition:height .3s;}
-.wsum-row{display:flex;justify-content:space-between;font-size:.72rem;color:var(--txt2);}
+.wsum-row{display:flex;justify-content:space-between;font-size:.82rem;font-weight:700;color:var(--txt);}
 .week-notes-inp{width:100%;margin-top:10px;background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:.8rem;color:var(--txt);resize:none;}
 .week-notes-inp:focus{outline:none;border-color:var(--sage);}
 .week-notes-inp::placeholder{color:var(--txt3);}
@@ -1060,9 +1060,9 @@ function renderTracker(){
   var philoOpen=!philoSeen;
   if(philoOpen) localStorage.setItem('kmnut_philosophy_seen','1');
   html+='<div style="background:var(--surf);border:1px solid var(--border);border-radius:14px;margin-bottom:14px;overflow:hidden;">'
-    +'<div onclick="togglePhilosophyCard()" style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:var(--sage-d);">'
-      +'<div style="font-size:.68rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--sage);">The KFit Philosophy</div>'
-      +'<span id="philoChevron" style="color:var(--sage);font-size:.9rem;">'+(philoOpen?'\u25B2':'\u25BC')+'</span>'
+    +'<div onclick="togglePhilosophyCard()" style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:var(--sage);">'
+      +'<div style="font-size:.75rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#fff;">The KFit Philosophy</div>'
+      +'<span id="philoChevron" style="color:#fff;font-size:1rem;">'+(philoOpen?'\u25B2':'\u25BC')+'</span>'
     +'</div>'
     +'<div id="philoBody" style="display:'+(philoOpen?'block':'none')+';padding:20px 18px;">'
       +'<div style="font-family:\'Playfair Display\',serif;font-size:1.3rem;color:var(--txt);margin-bottom:6px;">We Don\'t Go on <em>Diets.</em></div>'
@@ -2179,7 +2179,7 @@ function renderWeekSummary(m,w,cal,wn){
   var html='<div class="week-summary">'
     +'<div class="wsum-title">Week Summary</div>'
     +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
-      +'<span style="font-size:.75rem;color:var(--txt2);">Eating Order</span>'
+      +'<span style="font-size:.85rem;font-weight:700;color:var(--txt);">Eating Order</span>'
       +'<span style="font-size:1rem;font-weight:700;color:#6a9e6e;">'+orderPct+'%</span>'
     +'</div>'
     +'<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">';
@@ -2192,7 +2192,7 @@ function renderWeekSummary(m,w,cal,wn){
   });
   html+='</div>'
     +'<div style="border-top:1px solid rgba(74,128,80,.2);padding-top:12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
-      +'<span style="font-size:.75rem;color:var(--txt2);">Protein First</span>'
+      +'<span style="font-size:.85rem;font-weight:700;color:var(--txt);">Protein First</span>'
       +'<span style="font-size:.85rem;font-weight:700;color:var(--sage);">'+proteinTrendLabel+'</span>'
     +'</div>'
     +'<div class="wsum-row"><span>Days logged: '+loggedDays.length+'/'+dayRows.length+'</span></div>'

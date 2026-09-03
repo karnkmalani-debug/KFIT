@@ -537,9 +537,33 @@ body {
   font-weight:700 !important;
 }
 strong, b { font-weight:800 !important; }
+
+/* ── MOBILE RESPONSIVE ── same fix as the nutrition guide: built for print/PDF export
+   at desktop widths, this makes it actually readable on a phone. ── */
+@media (max-width:600px) {
+  .page { padding:26px 18px 22px; }
+  .benefit-grid { grid-template-columns:1fr; }
+  .page-title { font-size:24px; }
+  .cover-title { font-size:32px; }
+}
 </style>
 </head>
 <body>
+
+<button id="navBtn" style="position:fixed;top:14px;left:14px;z-index:999;padding:9px 16px;background:rgba(58,110,64,.95);color:#fff;border:none;border-radius:20px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.2);">&larr; Back to Tracker</button>
+<script>
+(function(){
+  var btn=document.getElementById('navBtn');
+  var cameFromTracker=document.referrer&&document.referrer.indexOf('km-fitness-tracker')!==-1;
+  if(cameFromTracker){
+    btn.textContent='\u2190 Back to Tracker';
+    btn.onclick=function(){ window.history.back(); };
+  } else {
+    btn.textContent='Start Training with KFit \u2192';
+    btn.onclick=function(){ window.location.href='/km-fitness-tracker'; };
+  }
+})();
+</script>
 
 <div id="mainContent">
 
@@ -830,6 +854,5 @@ strong, b { font-weight:800 !important; }
   </div>
 </div>
 
-</div><!-- /mainContent -->
 </body>
 </html>
