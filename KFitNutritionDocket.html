@@ -332,9 +332,41 @@
   font-weight:800 !important;
 }
 strong, b { font-weight:800 !important; }
+
+/* ── MOBILE RESPONSIVE ── this document was originally built for print/PDF export at
+   desktop widths; these rules make it actually readable on a phone, since it's primarily
+   opened from a link inside the nutrition tracker app. ── */
+@media (max-width:600px) {
+  .page { padding:26px 18px 22px; }
+  .rainbow-row-1 { grid-template-columns:repeat(2,1fr); }
+  .rainbow-row-2 { grid-template-columns:repeat(2,1fr); }
+  .tips-grid { grid-template-columns:1fr; }
+  .rules-grid { grid-template-columns:1fr; }
+  .spectrum-row { grid-template-columns:1fr; }
+  .section-title { font-size:24px; }
+  .cover-title, .back-cover-title { font-size:32px; }
+}
 </style>
 </head>
 <body>
+
+<button id="navBtn" style="position:fixed;top:14px;left:14px;z-index:999;padding:9px 16px;background:rgba(58,110,64,.95);color:#fff;border:none;border-radius:20px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.2);">&larr; Back to Tracker</button>
+<script>
+(function(){
+  var btn=document.getElementById('navBtn');
+  var cameFromTracker=document.referrer&&document.referrer.indexOf('km-nutrition-tracker')!==-1;
+  if(cameFromTracker){
+    btn.textContent='\u2190 Back to Tracker';
+    btn.onclick=function(){ window.history.back(); };
+  } else {
+    // Arrived via a direct/shared link, not from inside the app -- likely someone who
+    // hasn't used KFit yet, so offer to start rather than a confusing "back" to
+    // somewhere they've never been.
+    btn.textContent='Start Tracking with KFit \u2192';
+    btn.onclick=function(){ window.location.href='/km-nutrition-tracker'; };
+  }
+})();
+</script>
 
 <div id="mainContent">
 
@@ -962,6 +994,5 @@ strong, b { font-weight:800 !important; }
   <div style="margin-top:12px;font-size:12px;letter-spacing:2px;color:rgba(255,255,255,0.2);text-transform:uppercase;">KFit by Karan KM Malani · © 2025</div>
 </div>
 
-</div><!-- /mainContent -->
 </body>
 </html>
