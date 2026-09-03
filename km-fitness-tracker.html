@@ -109,7 +109,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .cs-trigger{display:block;width:100%;text-align:left;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 28px 8px 6px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:17px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:relative;}
 .cs-trigger.placeholder{color:var(--muted);}
 .cs-trigger::after{content:'';position:absolute;right:9px;top:50%;transform:translateY(-45%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--gold);}
-.cs-panel{display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--surf3);border:1px solid var(--border);border-radius:10px;max-height:280px;overflow-y:auto;z-index:70;box-shadow:0 8px 24px rgba(0,0,0,.5);}
+.cs-panel{display:none;position:fixed;background:var(--surf3);border:1px solid var(--border);border-radius:10px;max-height:280px;overflow-y:auto;z-index:500;box-shadow:0 8px 24px rgba(0,0,0,.5);}
 .cs-group-label{padding:9px 12px 4px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-family:'DM Sans',sans-serif;}
 .cs-option{padding:10px 14px;font-size:15px;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif;border-top:1px solid var(--border);}
 .cs-option:first-of-type{border-top:none;}
@@ -579,7 +579,7 @@ function copyCriosLink(){
 
     <div class="card">
       <div class="card-title"><span>My Routines</span></div>
-      <div id="routineEmptyMsg" style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:12px;line-height:1.7;"><span onclick="toggleInlineRoutineBuilder()" style="color:var(--sage);font-weight:700;text-decoration:underline;cursor:pointer;">Add exercises</span> below, then <span onclick="trySetInlineRoutine()" style="color:var(--sage);font-weight:700;text-decoration:underline;cursor:pointer;">set a routine</span> to save them for reuse -- push day, a specific week's plan, whatever you want.</div>
+      <div id="routineEmptyMsg" style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:12px;line-height:1.7;"><span onclick="toggleInlineRoutineBuilder()" style="color:var(--sage);font-weight:900;text-transform:uppercase;letter-spacing:.3px;text-decoration:underline;cursor:pointer;">Add exercises</span> below, then <span onclick="trySetInlineRoutine()" style="color:var(--sage);font-weight:900;text-transform:uppercase;letter-spacing:.3px;text-decoration:underline;cursor:pointer;">set a routine</span> to save them for reuse -- push day, a specific week's plan, whatever you want.</div>
       <div id="inlineRoutineBuilder" style="display:none;margin-bottom:12px;">
         <div style="position:relative;margin-bottom:8px;">
           <input type="text" id="inlineRoutineSearch" placeholder="Search exercise to add..." autocomplete="off" oninput="handleInlineRoutineSearch(this)" style="width:100%;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
@@ -2128,8 +2128,23 @@ function toggleCustomSelectPanel(trigger){
   const panel=trigger.nextElementSibling;
   const isOpen=panel.style.display==='block';
   document.querySelectorAll('.cs-panel').forEach(function(p){ p.style.display='none'; });
-  if(!isOpen) panel.style.display='block';
+  if(isOpen) return;
+  const rect=trigger.getBoundingClientRect();
+  panel.style.left=rect.left+'px';
+  panel.style.width=rect.width+'px';
+  const spaceBelow=window.innerHeight-rect.bottom;
+  if(spaceBelow<200&&rect.top>200){
+    panel.style.top='';
+    panel.style.bottom=(window.innerHeight-rect.top+4)+'px';
+  } else {
+    panel.style.bottom='';
+    panel.style.top=(rect.bottom+4)+'px';
+  }
+  panel.style.display='block';
 }
+window.addEventListener('scroll',function(){
+  document.querySelectorAll('.cs-panel').forEach(function(p){ p.style.display='none'; });
+},true);
 function pickCsOption(optionEl,value){
   const wrap=optionEl.closest('.cs-wrap');
   const sel=wrap.previousElementSibling;
@@ -5806,7 +5821,7 @@ const HELP_TEXT=[
     '<b>What this page is</b><br>Every workout you\'ve ever saved, listed with the newest at the top.<br><br>'+
     '<b>Narrowing it down</b><br>Tap All Time, This Month, This Week, or Custom (pick your own two dates) to only see workouts from that period. The list below changes to match instantly.<br><br>'+
     '<b>Printing</b><br>Two buttons here: "Print Summary View" prints the short list you can see on screen. "Print Full Report" prints the complete detail for every workout in whatever range you\'ve selected -- every exercise, every set, every rep -- with one workout per printed page. Both respect whichever filter (This Week/Month/etc.) you currently have selected.'},
-  {title:'Stats',body:'A look at how your training is trending over time -- how your rest times between sets have changed, and which exercises you do most. At the top, the Training FAQ has common questions (total reps, hours, cardio vs strength, heaviest lifts, and more) -- pick a time range and tap one to see the answer instantly, computed from your own logged sessions with nothing sent anywhere. Below it, type a specific exercise name to ask about that exercise alone. Tap "Share Progress Report" to send a summary of this straight to your coach.'},
+  {title:'Stats',body:'A look at how your training is trending over time -- how your rest times between sets have changed, and which exercises you do most. Below that, the Training FAQ has common questions (total reps, hours, cardio vs strength, heaviest lifts, and more) -- pick a time range and tap one to see the answer instantly, computed from your own logged sessions with nothing sent anywhere. Underneath it, type a specific exercise name to ask about that exercise alone. Tap "Share Progress Report" to send a summary of this straight to your coach.'},
   {title:'Notes',body:'A simple text box to write how a week or month of training went, in your own words -- how you felt, what was hard, anything you want your coach to know. Your coach reads these alongside your actual numbers to understand the full picture.'},
   {title:'Personal Records (PR)',body:'Pick any exercise from the dropdown list to see the best set you\'ve ever logged for it -- your heaviest weight, or the most reps at a given weight. This updates by itself the moment you beat your own record in a future session -- you don\'t have to do anything for it to update.'},
   {title:'Body Measurements',body:
