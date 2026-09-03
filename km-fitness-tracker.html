@@ -38,8 +38,8 @@
 
   /* -- Text -- */
   --text:   #eeecea;
-  --muted:  #7a7870;
-  --muted2: #4a4a46;
+  --muted:  #a8a69c;
+  --muted2: #8a887e;
   --r: 10px;
 }
 
@@ -131,7 +131,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .set-num{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);text-align:center;font-weight:600;}
 .set-row.drop-row{position:relative;margin-left:14px;padding-left:8px;border-left:2px solid rgba(200,120,63,.35);}
 .set-num.dropset{color:var(--terra);font-weight:800;font-size:14px;}
-.drop-del-btn{background:none;border:none;color:var(--muted2);font-size:13px;cursor:pointer;padding:0;width:20px;text-align:center;}
+.drop-del-btn{background:none;border:none;color:var(--muted2);font-size:15px;font-weight:600;cursor:pointer;padding:0;width:20px;text-align:center;}
 .add-drop-link{display:block;width:auto;margin:0 0 6px 40px;padding:2px 0;background:none;border:none;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:700;cursor:pointer;text-align:left;opacity:.75;}
 .add-drop-link:active{opacity:.4;}
 .reps-input,.weight-input{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--text);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;transition:border-color .15s;}
@@ -140,7 +140,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .del-btn{background:var(--surf3);border:2px solid var(--terra);color:var(--terra);font-size:22px;font-weight:900;cursor:pointer;width:42px;height:42px;min-width:42px;border-radius:9px;line-height:1;transition:color .18s;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-left:10px;}
 .collapse-btn{background:var(--surf3);border:2px solid var(--sage);color:var(--sage);font-size:22px;font-weight:900;cursor:pointer;width:42px;height:42px;min-width:42px;border-radius:9px;line-height:1;flex-shrink:0;transition:color .18s;display:flex;align-items:center;justify-content:center;}
 .collapse-btn:hover{color:var(--sage);}
-.move-btn{background:var(--surf3);border:1px solid var(--border);color:var(--muted2);font-size:12px;cursor:pointer;width:26px;height:36px;min-width:26px;border-radius:7px;line-height:1;flex-shrink:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;}
+.move-btn{background:var(--surf3);border:1px solid var(--border);color:var(--muted2);font-size:14px;font-weight:600;cursor:pointer;width:26px;height:36px;min-width:26px;border-radius:7px;line-height:1;flex-shrink:0;transition:opacity .15s;display:flex;align-items:center;justify-content:center;}
 .move-btn:active{opacity:.5;}
 .move-btn:disabled{opacity:.25;cursor:default;}
 .reorder-stack{display:flex;flex-direction:column;gap:1px;flex-shrink:0;border:1.5px solid var(--muted2);border-radius:8px;overflow:hidden;}
@@ -156,7 +156,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .superset-header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--sage-d);}
 .superset-label{font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--sage);}
 .superset-done-btn{padding:5px 14px;background:var(--sage);border:none;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:#fff;cursor:pointer;}
-.superset-remove-btn{padding:5px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);cursor:pointer;}
+.superset-remove-btn{padding:5px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;color:var(--muted);cursor:pointer;}
 .superset-exercises{padding:8px;}
 .superset-add-ex{margin:6px 0 4px;padding:8px;border:1px dashed var(--sage);border-radius:7px;text-align:center;color:var(--sage);font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;}
 .superset-collapsed{padding:10px 12px;background:var(--surf2);font-size:14px;color:var(--muted);}
@@ -457,7 +457,7 @@ function copyCriosLink(){
       </div>
     </div>
     <div class="pw-error" id="pwError"></div>
-    <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:14px;text-align:center;">
+    <div style="font-size:13px;font-weight:600;color:var(--muted);line-height:1.5;margin-top:14px;text-align:center;">
       Your workout &amp; nutrition entries are stored securely to power this tracker and improve KFit. Anonymised, aggregate insights (not tied to your identity) may be used or shared for research, product improvement, or partnerships. Your identifiable data is never sold without your separate, explicit consent.
     </div>
     <div id="installWrap" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
@@ -513,7 +513,7 @@ function copyCriosLink(){
       </select>
     </div>
     <button class="s-btn" onclick="completeSetup()">Enter Tracker →</button>
-    <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:14px;text-align:center;">
+    <div style="font-size:13px;font-weight:600;color:var(--muted);line-height:1.5;margin-top:14px;text-align:center;">
       Your workout &amp; nutrition entries are stored securely to power this tracker and improve KFit. Anonymised, aggregate insights (not tied to your identity) may be used or shared for research, product improvement, or partnerships. Your identifiable data is never sold without your separate, explicit consent.
     </div>
     <div style="text-align:center;margin-top:16px;">
@@ -579,7 +579,7 @@ function copyCriosLink(){
 
     <div class="card">
       <div class="card-title"><span>My Routines</span></div>
-      <div id="routineEmptyMsg" style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.7;"><span onclick="toggleInlineRoutineBuilder()" style="color:var(--sage);font-weight:700;text-decoration:underline;cursor:pointer;">Add exercises</span> below, then <span onclick="trySetInlineRoutine()" style="color:var(--sage);font-weight:700;text-decoration:underline;cursor:pointer;">set a routine</span> to save them for reuse -- push day, a specific week's plan, whatever you want.</div>
+      <div id="routineEmptyMsg" style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:12px;line-height:1.7;"><span onclick="toggleInlineRoutineBuilder()" style="color:var(--sage);font-weight:700;text-decoration:underline;cursor:pointer;">Add exercises</span> below, then <span onclick="trySetInlineRoutine()" style="color:var(--sage);font-weight:700;text-decoration:underline;cursor:pointer;">set a routine</span> to save them for reuse -- push day, a specific week's plan, whatever you want.</div>
       <div id="inlineRoutineBuilder" style="display:none;margin-bottom:12px;">
         <div style="position:relative;margin-bottom:8px;">
           <input type="text" id="inlineRoutineSearch" placeholder="Search exercise to add..." autocomplete="off" oninput="handleInlineRoutineSearch(this)" style="width:100%;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
@@ -591,7 +591,7 @@ function copyCriosLink(){
       <select id="routineSelect" onchange="onRoutineSelectChange(this)" style="display:none;width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;margin-bottom:10px;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%278%27 viewBox=%270 0 12 8%27%3E%3Cpath d=%27M1 1l5 5 5-5%27 stroke=%27%23c9a84c%27 stroke-width=%271.8%27 fill=%27none%27 stroke-linecap=%27round%27/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 12px center;"></select>
       <div id="routineDetail" style="display:none;background:var(--surf2);border-radius:8px;padding:12px;">
         <div id="routineDetailName" style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px;"></div>
-        <div id="routineDetailMeta" style="font-size:11px;color:var(--muted);margin-bottom:10px;"></div>
+        <div id="routineDetailMeta" style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;"></div>
         <div style="display:flex;gap:6px;">
           <button onclick="loadRoutine(_routineSelectedId)" style="flex:1;padding:8px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Load</button>
           <button onclick="renameRoutine(_routineSelectedId)" style="padding:8px 10px;background:none;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;">Rename</button>
@@ -609,7 +609,7 @@ function copyCriosLink(){
         </div>
       </div>
       <div id="skipAssignedBanner" style="display:none;margin-bottom:10px;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;justify-content:space-between;align-items:center;gap:10px;">
-        <span style="font-size:13px;color:var(--muted);">Not doing this workout today?</span>
+        <span style="font-size:15px;font-weight:600;color:var(--muted);">Not doing this workout today?</span>
         <button onclick="cancelAssignedWorkout()" style="padding:6px 12px;background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Cancel</button>
       </div>
       <div id="exBody"></div>
@@ -657,7 +657,7 @@ function copyCriosLink(){
 
     <div class="card">
       <div class="card-title">Session Duration &#128336;</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">The live timer and Start/Stop buttons are at the top of the screen, next to Help and Feedback -- visible no matter which tab you're on.</div>
+      <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">The live timer and Start/Stop buttons are at the top of the screen, next to Help and Feedback -- visible no matter which tab you're on.</div>
       <div class="dur-manual">
         <span class="dur-manual-label">Or enter</span>
         <input class="dur-manual-input" type="text" id="durManual" placeholder="e.g. 45 or 1:30" inputmode="text">
@@ -671,7 +671,7 @@ function copyCriosLink(){
 
     <div class="card">
       <div class="card-title">Average Rest Time &#128336;</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">If you didn't use the REST bar to time individual sets, enter your average rest here instead.</div>
+      <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">If you didn't use the REST bar to time individual sets, enter your average rest here instead.</div>
       <div style="display:flex;align-items:center;gap:8px;">
         <input type="number" id="avgRestInput" placeholder="e.g. 90" min="0" max="600" inputmode="numeric" style="width:100px;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;">
         <span style="font-size:17px;color:var(--muted);">seconds</span>
@@ -708,7 +708,7 @@ function copyCriosLink(){
       <div id="histFilterPills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
       <div id="histCustomRange" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
         <input type="date" id="histFromDate" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
-        <span style="color:var(--muted);font-size:13px;">to</span>
+        <span style="color:var(--muted);font-size:15px;font-weight:600;">to</span>
         <input type="date" id="histToDate" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
         <button class="btn btn-sm" onclick="applyHistCustomRange()">Apply</button>
       </div>
@@ -728,16 +728,16 @@ function copyCriosLink(){
     <div id="statDetail"></div>
     <div class="card">
       <div class="card-title">Training FAQ</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Common questions about your training, answered instantly from your own logged sessions -- nothing sent anywhere. Pick a time range, then tap a question.</div>
+      <div style="font-size:14px;font-weight:600;color:var(--muted);margin-bottom:10px;">Common questions about your training, answered instantly from your own logged sessions -- nothing sent anywhere. Pick a time range, then tap a question.</div>
       <div style="display:flex;gap:6px;margin-bottom:12px;">
         <button class="faq-period-pill" data-period="all" onclick="setFaqPeriod('all')" style="padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--sage);background:var(--sage-d);color:var(--sage);">All Time</button>
         <button class="faq-period-pill" data-period="month" onclick="setFaqPeriod('month')" style="padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);">This Month</button>
         <button class="faq-period-pill" data-period="week" onclick="setFaqPeriod('week')" style="padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);">This Week</button>
       </div>
-      <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px;">This range only changes the answers below -- it's separate from anything above.</div>
+      <div style="font-size:13px;font-weight:600;color:var(--muted);margin:-6px 0 12px;">This range only changes the answers below -- it's separate from anything above.</div>
       <div id="faqList"></div>
       <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Or ask about a specific exercise:</div>
+        <div style="font-size:14px;font-weight:600;color:var(--muted);margin-bottom:8px;">Or ask about a specific exercise:</div>
         <div style="display:flex;gap:8px;">
           <input type="text" id="askInput" placeholder="e.g. how many times have I done deadlifts?" oninput="if(!this.value.trim())document.getElementById('askAnswer').innerHTML=''" onkeydown="if(event.key==='Enter')askWorkoutQuestion()" style="flex:1;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
           <button onclick="askWorkoutQuestion()" style="padding:10px 16px;background:var(--sage);border:none;border-radius:8px;color:#0c0c0a;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Ask</button>
@@ -800,12 +800,12 @@ function copyCriosLink(){
         <input type="date" id="measDate" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;">
       </div>
       <div id="measInputGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
-      <div style="font-size:12px;color:var(--muted);margin-top:10px;">Leave any field blank to skip it. Only fields you fill in are saved.</div>
+      <div style="font-size:14px;font-weight:600;color:var(--muted);margin-top:10px;">Leave any field blank to skip it. Only fields you fill in are saved.</div>
       <div class="flex-end" style="margin-top:14px;">
         <button class="btn btn-accent" onclick="saveMeasurement()">Save Entry</button>
       </div>
       <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
-        <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">Have a DEXA or InBody scan report? Attach it to this date's entry.</div>
+        <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:8px;">Have a DEXA or InBody scan report? Attach it to this date's entry.</div>
         <input type="file" id="scanFileInput" style="display:none;" onchange="onScanFileSelected()">
         <button onclick="triggerScanUpload()" style="width:100%;padding:11px;background:transparent;border:1px solid var(--gold);border-radius:8px;color:var(--gold);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">📎 Upload Scan / Report</button>
       </div>
@@ -899,7 +899,7 @@ function copyCriosLink(){
     </select>
     <label style="display:flex;align-items:flex-start;gap:8px;margin:4px 0 14px;cursor:pointer;">
       <input type="checkbox" id="customExPrivate" onchange="toggleCustomExPrivate()" style="margin-top:3px;accent-color:var(--sage);">
-      <span style="font-size:13px;color:var(--muted);line-height:1.4;">Just for me -- keep this on my device only, don't send it to my coach</span>
+      <span style="font-size:15px;font-weight:600;color:var(--muted);line-height:1.4;">Just for me -- keep this on my device only, don't send it to my coach</span>
     </label>
     <div class="modal-btns">
       <button class="modal-cancel" onclick="closeCustomEx()">Cancel</button>
@@ -957,7 +957,7 @@ function copyCriosLink(){
       <div style="font-size:17px;font-weight:800;color:var(--text);">Feedback</div>
       <button onclick="closeFeedback()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
     </div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;flex-shrink:0;">We value your feedback and do our best to improve the app with it.</div>
+    <div style="font-size:14px;font-weight:600;color:var(--muted);margin-bottom:12px;flex-shrink:0;">We value your feedback and do our best to improve the app with it.</div>
     <div id="fbThreadBody" style="overflow-y:auto;flex:1;min-height:120px;margin-bottom:10px;"></div>
     <div id="fbPendingAttachPreview" style="display:none;margin-bottom:8px;flex-shrink:0;"></div>
     <input type="file" id="fbAttachInput" accept="image/*,video/*" style="display:none;" onchange="onFbFileSelected()">
@@ -1989,10 +1989,10 @@ function showSessionPicker(dateVal,existingSessions){
     var timeLabel=s.timeOfDay?(' &middot; '+s.timeOfDay):'';
     return '<button onclick="pickExistingSession('+s.id+')" style="width:100%;text-align:left;padding:13px 14px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;font-family:\'DM Sans\',sans-serif;cursor:pointer;">'+
       '<div style="font-size:15px;font-weight:700;color:var(--text);">'+label+'</div>'+
-      '<div style="font-size:12px;color:var(--muted);margin-top:2px;">Tap to edit'+timeLabel+'</div>'+
+      '<div style="font-size:14px;font-weight:600;color:var(--muted);margin-top:2px;">Tap to edit'+timeLabel+'</div>'+
       '</button>';
   }).join('');
-  var body='<div style="font-size:13px;color:var(--muted);margin-bottom:14px;">'+existingSessions.length+' session'+(existingSessions.length>1?'s':'')+' already logged on '+dstr+'. Edit one, or log another.</div>'+
+  var body='<div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:14px;">'+existingSessions.length+' session'+(existingSessions.length>1?'s':'')+' already logged on '+dstr+'. Edit one, or log another.</div>'+
     listHtml+
     '<button onclick="pickNewSessionForDate(\''+dateVal+'\')" style="width:100%;padding:13px;background:var(--flame);border:none;border-radius:10px;font-family:\'DM Sans\',sans-serif;font-size:15px;font-weight:800;color:#1a0d05;cursor:pointer;margin-top:6px;">+ Log Another Session</button>';
   document.getElementById('sessionPickerTitle').textContent='Sessions on '+dstr;
@@ -3901,7 +3901,7 @@ function renderMeasInputs(){
   var grid=document.getElementById('measInputGrid');
   if(!grid) return;
   grid.innerHTML=MEAS_FIELDS.map(function(f){
-    return '<div><label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">'+f.label+'</label>'+
+    return '<div><label style="font-size:14px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">'+f.label+'</label>'+
       '<input type="number" step="0.1" inputmode="decimal" id="meas_'+f.key+'" placeholder="--" '+
       'style="width:100%;padding:9px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:15px;">'+
       '</div>';
@@ -3945,7 +3945,7 @@ function renderMeasHistory(){
       var delta='';
       if(prev&&prev[f.key]!=null){
         var d=(m[f.key]-prev[f.key]);
-        if(Math.abs(d)>0.01) delta=' <span style="color:var(--muted);font-size:12px;">('+(d>0?'+':'')+d.toFixed(1)+')</span>';
+        if(Math.abs(d)>0.01) delta=' <span style="color:var(--muted);font-size:14px;font-weight:600;">('+(d>0?'+':'')+d.toFixed(1)+')</span>';
       }
       return '<div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0;"><span style="color:var(--muted);">'+f.label+'</span><span style="color:var(--text);font-weight:600;">'+m[f.key]+delta+'</span></div>';
     }).join('');
@@ -4329,7 +4329,7 @@ function updateSessionRestCard(){
     <div class="rst-row"><span class="rst-label">Rests taken</span><span class="rst-val">${currentRestTimes.length}</span></div>
     <div class="rst-row"><span class="rst-label">Average rest</span><span class="rst-val">${fmtSecs(avg)}</span></div>
     <div class="rst-row"><span class="rst-label">Total rest time</span><span class="rst-val">${fmtSecs(total)}</span></div>
-    <div style="margin-top:9px;">${currentRestTimes.map((r,i)=>`<span class="pill" style="display:inline-flex;align-items:center;gap:4px;">${fmtSecs(r)}<button onclick="removeRestTime(${i})" style="background:none;border:none;color:var(--muted2);font-size:12px;cursor:pointer;padding:0 1px;line-height:1;">&#10005;</button></span>`).join('')}</div>`;
+    <div style="margin-top:9px;">${currentRestTimes.map((r,i)=>`<span class="pill" style="display:inline-flex;align-items:center;gap:4px;">${fmtSecs(r)}<button onclick="removeRestTime(${i})" style="background:none;border:none;color:var(--muted2);font-size:14px;font-weight:600;cursor:pointer;padding:0 1px;line-height:1;">&#10005;</button></span>`).join('')}</div>`;
 }
 function removeRestTime(idx){
   currentRestTimes.splice(idx,1);
@@ -4391,12 +4391,12 @@ function renderAttendance(){
       return`<div onclick="${sessId?`openDetail(${sessId})`:''}" style="background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;${sessId?'cursor:pointer;':''};transition:border-color .18s;" ${sessId?`onmouseenter="this.style.borderColor='var(--sage)'" onmouseleave="this.style.borderColor='var(--border)'"`:''}>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
           <span style="font-size:15px;font-weight:700;color:var(--text);">${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}</span>
-          ${r.session_time?`<span style="font-size:12px;color:var(--muted);">${r.session_time}</span>`:''}
+          ${r.session_time?`<span style="font-size:14px;font-weight:600;color:var(--muted);">${r.session_time}</span>`:''}
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:14px;font-weight:700;color:var(--sage);">${label}</span>
           <div style="display:flex;align-items:center;gap:6px;">
-            ${r.duration_secs?`<span style="font-size:13px;color:var(--muted);">${Math.round(r.duration_secs/60)}m</span>`:''}
+            ${r.duration_secs?`<span style="font-size:15px;font-weight:600;color:var(--muted);">${Math.round(r.duration_secs/60)}m</span>`:''}
             ${sessId?`<span style="font-size:16px;color:var(--muted2);">›</span>`:''}
           </div>
         </div>
@@ -4411,21 +4411,21 @@ function renderAttendance(){
       <div id="attHidden" style="display:none;">${hidden.map(buildRow).join('')}</div>
       <div onclick="toggleAttAll(this)" style="padding:9px 0;text-align:center;font-size:13px;font-weight:700;color:var(--sage);cursor:pointer;">See All (${hidden.length} more)</div>
     `:'';
-    const noneInRangeMsg=(!filteredRecords.length)?`<div style="padding:14px 0;text-align:center;font-size:13px;color:var(--muted);">No sessions in this range.</div>`:'';
+    const noneInRangeMsg=(!filteredRecords.length)?`<div style="padding:14px 0;text-align:center;font-size:15px;font-weight:600;color:var(--muted);">No sessions in this range.</div>`:'';
 
     inner.innerHTML=`
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
         <div style="background:var(--surf2);border-radius:8px;padding:10px;text-align:center;">
           <div style="font-size:22px;font-weight:800;color:var(--sage);">${filteredRecords.length}</div>
-          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">${rangeLabel}</div>
+          <div style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">${rangeLabel}</div>
         </div>
         <div style="background:var(--surf2);border-radius:8px;padding:10px;text-align:center;">
           <div style="font-size:22px;font-weight:800;color:var(--gold);">${daysTrained}</div>
-          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Days Trained</div>
+          <div style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Days Trained</div>
         </div>
         <div style="background:var(--surf2);border-radius:8px;padding:10px;text-align:center;">
           <div style="font-size:22px;font-weight:800;color:var(--terra);">${streak}w</div>
-          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Streak</div>
+          <div style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Streak</div>
         </div>
       </div>
       ${noneInRangeMsg}${visibleRows}
@@ -4996,13 +4996,13 @@ function buildAnswerHtml(query){
   if(matchedExercise){
     var exStats=computeExerciseStats(matchedExercise,filtered);
     if(!exStats.timesLogged){
-      return 'No logged sets found for <b>'+matchedExercise+'</b> <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+      return 'No logged sets found for <b>'+matchedExercise+'</b> <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>.';
     } else if(/heavy|heaviest|max|pr|personal record/.test(q)){
-      return 'Heaviest <b>'+matchedExercise+'</b>: <b>'+exStats.maxWeight+' '+weightUnit+'</b> for '+exStats.maxWeightReps+' reps <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+      return 'Heaviest <b>'+matchedExercise+'</b>: <b>'+exStats.maxWeight+' '+weightUnit+'</b> for '+exStats.maxWeightReps+' reps <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>.';
     } else if(/how many times|how often|last (time|did)/.test(q)){
-      return 'You\'ve done <b>'+matchedExercise+'</b> <b>'+exStats.timesLogged+' time'+(exStats.timesLogged===1?'':'s')+'</b>'+(exStats.lastDate?', last on <b>'+exStats.lastDate+'</b>':'')+' <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+      return 'You\'ve done <b>'+matchedExercise+'</b> <b>'+exStats.timesLogged+' time'+(exStats.timesLogged===1?'':'s')+'</b>'+(exStats.lastDate?', last on <b>'+exStats.lastDate+'</b>':'')+' <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>.';
     } else {
-      return '<b>'+matchedExercise+'</b> <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>:<br>'
+      return '<b>'+matchedExercise+'</b> <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>:<br>'
         +'Logged '+exStats.timesLogged+' time'+(exStats.timesLogged===1?'':'s')+' &middot; '+exStats.sets+' sets &middot; '+Math.round(exStats.reps)+' reps<br>'
         +'Heaviest: '+exStats.maxWeight+' '+weightUnit+' for '+exStats.maxWeightReps+' reps &middot; Volume: '+Math.round(exStats.volume).toLocaleString()+' '+weightUnit
         +(exStats.lastDate?'<br>Last done: '+exStats.lastDate:'');
@@ -5016,28 +5016,28 @@ function buildAnswerHtml(query){
     return 'Strength: <b>'+askFmtDuration(stats.strengthSeconds)+'</b> across '+stats.strengthSessions+' session'+(stats.strengthSessions===1?'':'s')+'.<br>'
       +'Cardio: <b>'+askFmtDuration(stats.cardioSeconds)+'</b> across '+stats.cardioSessions+' session'+(stats.cardioSessions===1?'':'s')+'.'
       +(stats.mixedSessions?'<br>Mixed sessions (both in one): <b>'+askFmtDuration(stats.mixedSeconds)+'</b> across '+stats.mixedSessions+'.':'')
-      +'<br><span style="color:var(--muted);font-size:12px;">('+period.label+')</span>';
+      +'<br><span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>';
   } else if(/drop set/.test(q)){
-    return 'You\'ve done <b>'+stats.totalDropSets+' drop set'+(stats.totalDropSets===1?'':'s')+'</b> <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+    return 'You\'ve done <b>'+stats.totalDropSets+' drop set'+(stats.totalDropSets===1?'':'s')+'</b> <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>.';
   } else if(/lengthened partial|\blp\b/.test(q)){
-    return 'You\'ve logged <b>'+stats.totalLPReps+' lengthened partial rep'+(stats.totalLPReps===1?'':'s')+'</b> <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+    return 'You\'ve logged <b>'+stats.totalLPReps+' lengthened partial rep'+(stats.totalLPReps===1?'':'s')+'</b> <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>.';
   } else if(/assisted|needed help|\bh\b.*rep/.test(q)){
-    return 'You\'ve needed help on <b>'+stats.totalAssistedReps+' rep'+(stats.totalAssistedReps===1?'':'s')+'</b> <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+    return 'You\'ve needed help on <b>'+stats.totalAssistedReps+' rep'+(stats.totalAssistedReps===1?'':'s')+'</b> <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>.';
   } else if(/\breps?\b/.test(q)){
-    return 'You logged <b>'+Math.round(stats.totalReps)+' reps</b> across <b>'+stats.totalSets+' sets</b> <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+    return 'You logged <b>'+Math.round(stats.totalReps)+' reps</b> across <b>'+stats.totalSets+' sets</b> <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>.';
   } else if(/\bsets?\b/.test(q)){
-    return 'You logged <b>'+stats.totalSets+' sets</b> <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+    return 'You logged <b>'+stats.totalSets+' sets</b> <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>.';
   } else if(/\bhours?\b|\bduration\b/.test(q)){
-    return 'You trained for <b>'+askFmtDuration(totalSeconds)+'</b> across <b>'+stats.sessionCount+' session'+(stats.sessionCount===1?'':'s')+'</b> <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+    return 'You trained for <b>'+askFmtDuration(totalSeconds)+'</b> across <b>'+stats.sessionCount+' session'+(stats.sessionCount===1?'':'s')+'</b> <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>.';
   } else if(/volume|tonnage|weight lifted/.test(q)){
-    return 'Total volume lifted: <b>'+Math.round(stats.totalVolume).toLocaleString()+' '+weightUnit+'</b> (reps &times; weight, summed) <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+    return 'Total volume lifted: <b>'+Math.round(stats.totalVolume).toLocaleString()+' '+weightUnit+'</b> (reps &times; weight, summed) <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>.';
   } else if(/body part|which.*train|most.*train/.test(q)){
     var sorted=Object.entries(stats.bodyPartCounts).sort(function(a,b){return b[1]-a[1];});
     return sorted.length
-      ?'Most trained <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>: '+sorted.slice(0,5).map(function(x){return x[0]+' ('+x[1]+')';}).join(', ')+'.'
+      ?'Most trained <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>: '+sorted.slice(0,5).map(function(x){return x[0]+' ('+x[1]+')';}).join(', ')+'.'
       :'No body parts logged '+period.label+'.';
   } else if(/session|workout/.test(q)){
-    return 'You logged <b>'+stats.sessionCount+' session'+(stats.sessionCount===1?'':'s')+'</b> <span style="color:var(--muted);font-size:12px;">('+period.label+')</span>.';
+    return 'You logged <b>'+stats.sessionCount+' session'+(stats.sessionCount===1?'':'s')+'</b> <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>.';
   }
   return '<b>Summary ('+period.label+'):</b><br>'
     +stats.sessionCount+' sessions &middot; '+askFmtDuration(totalSeconds)+' total<br>'
@@ -5077,7 +5077,7 @@ function renderFaqList(){
     return '<div style="border-bottom:1px solid var(--border);">'
       +'<div onclick="toggleFaqItem('+i+')" style="padding:11px 0;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;">'
         +'<span style="font-size:14px;color:var(--text);">'+item.q+'</span>'
-        +'<span style="color:var(--muted);font-size:13px;flex-shrink:0;" id="faqChevron'+i+'">&#9660;</span>'
+        +'<span style="color:var(--muted);font-size:15px;font-weight:600;flex-shrink:0;" id="faqChevron'+i+'">&#9660;</span>'
       +'</div>'
       +'<div id="faqAnswer'+i+'" style="display:none;padding:0 0 12px;font-size:14px;line-height:1.6;color:var(--text);"></div>'
     +'</div>';
@@ -5863,10 +5863,10 @@ function loadFeedbackChat(){
   var mobile=localStorage.getItem('kmfit_mobile');
   var body=document.getElementById('fbThreadBody');
   if(!mobile){
-    body.innerHTML='<div style="font-size:13px;color:var(--muted);padding:20px 0;text-align:center;">Add your mobile number in Notes to chat with your coach.</div>';
+    body.innerHTML='<div style="font-size:15px;font-weight:600;color:var(--muted);padding:20px 0;text-align:center;">Add your mobile number in Notes to chat with your coach.</div>';
     return;
   }
-  body.innerHTML='<div style="font-size:13px;color:var(--muted);padding:20px 0;text-align:center;">Loading...</div>';
+  body.innerHTML='<div style="font-size:15px;font-weight:600;color:var(--muted);padding:20px 0;text-align:center;">Loading...</div>';
   getSB().from('app_feedback').select('*').eq('submitted_by_mobile',mobile).order('created_at',{ascending:true}).then(function(res){
     if(res.error){
       body.innerHTML='<div style="font-size:13px;color:var(--terra);padding:20px 0;text-align:center;">Could not load: '+res.error.message+'</div>';
@@ -5906,7 +5906,7 @@ function renderFeedbackChat(){
   var body=document.getElementById('fbThreadBody');
   var msgs=fbFlatten(_fbRows);
   if(!msgs.length){
-    body.innerHTML='<div style="font-size:13px;color:var(--muted);padding:20px 0;text-align:center;">No messages yet -- say hello!</div>';
+    body.innerHTML='<div style="font-size:15px;font-weight:600;color:var(--muted);padding:20px 0;text-align:center;">No messages yet -- say hello!</div>';
     return;
   }
   body.innerHTML=msgs.map(function(m){
@@ -5975,7 +5975,7 @@ function onFbFileSelected(){
   var filename=clientKey+'_fb_'+Date.now()+'_'+safeName;
   var previewEl=document.getElementById('fbPendingAttachPreview');
   previewEl.style.display='block';
-  previewEl.innerHTML='<div style="font-size:12px;color:var(--muted);">Uploading...</div>';
+  previewEl.innerHTML='<div style="font-size:14px;font-weight:600;color:var(--muted);">Uploading...</div>';
   function doUpload(blobOrFile){
     var fr=new FileReader();
     fr.onload=function(e){
