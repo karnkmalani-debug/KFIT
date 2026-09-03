@@ -578,11 +578,16 @@ function copyCriosLink(){
     </div>
 
     <div class="card">
-      <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
-        <span>My Routines</span>
-        <button onclick="saveCurrentAsRoutine()" style="padding:6px 12px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">+ Set a Routine</button>
+      <div class="card-title"><span>My Routines</span></div>
+      <div id="routineEmptyMsg" style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.7;"><span onclick="toggleInlineRoutineBuilder()" style="color:var(--sage);font-weight:700;text-decoration:underline;cursor:pointer;">Add exercises</span> below, then <span onclick="trySetInlineRoutine()" style="color:var(--sage);font-weight:700;text-decoration:underline;cursor:pointer;">set a routine</span> to save them for reuse -- push day, a specific week's plan, whatever you want.</div>
+      <div id="inlineRoutineBuilder" style="display:none;margin-bottom:12px;">
+        <div style="position:relative;margin-bottom:8px;">
+          <input type="text" id="inlineRoutineSearch" placeholder="Search exercise to add..." autocomplete="off" oninput="handleInlineRoutineSearch(this)" style="width:100%;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
+          <div id="inlineRoutineSuggestions" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--surf3);border:1px solid var(--border);border-radius:8px;overflow:hidden;z-index:60;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5);"></div>
+        </div>
+        <div id="inlineRoutineExList" style="margin-bottom:8px;"></div>
+        <button onclick="trySetInlineRoutine()" style="width:100%;padding:10px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Set a Routine</button>
       </div>
-      <div id="routineEmptyMsg" style="font-size:12px;color:var(--muted);margin-bottom:10px;">Save any combination of body parts and exercises as a named routine -- push day, a specific week's plan, whatever you want -- and load it back instantly next time.</div>
       <select id="routineSelect" onchange="onRoutineSelectChange(this)" style="display:none;width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;margin-bottom:10px;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%278%27 viewBox=%270 0 12 8%27%3E%3Cpath d=%27M1 1l5 5 5-5%27 stroke=%27%23c9a84c%27 stroke-width=%271.8%27 fill=%27none%27 stroke-linecap=%27round%27/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 12px center;"></select>
       <div id="routineDetail" style="display:none;background:var(--surf2);border-radius:8px;padding:12px;">
         <div id="routineDetailName" style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px;"></div>
@@ -718,6 +723,9 @@ function copyCriosLink(){
 
   <!-- STATS -->
   <div class="panel" id="panel2">
+    <div class="stat-grid" id="statGrid"></div>
+    <div id="restStatsSection"></div>
+    <div id="statDetail"></div>
     <div class="card">
       <div class="card-title">Training FAQ</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Common questions about your training, answered instantly from your own logged sessions -- nothing sent anywhere. Pick a time range, then tap a question.</div>
@@ -726,6 +734,7 @@ function copyCriosLink(){
         <button class="faq-period-pill" data-period="month" onclick="setFaqPeriod('month')" style="padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);">This Month</button>
         <button class="faq-period-pill" data-period="week" onclick="setFaqPeriod('week')" style="padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);">This Week</button>
       </div>
+      <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px;">This range only changes the answers below -- it's separate from anything above.</div>
       <div id="faqList"></div>
       <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Or ask about a specific exercise:</div>
@@ -736,9 +745,6 @@ function copyCriosLink(){
         <div id="askAnswer"></div>
       </div>
     </div>
-    <div class="stat-grid" id="statGrid"></div>
-    <div id="restStatsSection"></div>
-    <div id="statDetail"></div>
     <div style="padding:0 14px 16px;">
       <button onclick="shareAllSessions()" style="width:100%;padding:13px;background:var(--sage);color:#0c0c0a;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:.3px;">📤 Share Progress Report</button>
       <button class="print-inline" onclick="window.print()">&#128424; Print This Screen</button>
@@ -920,6 +926,7 @@ function copyCriosLink(){
   <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 32px;width:100%;max-width:520px;max-height:78vh;display:flex;flex-direction:column;">
     <div id="helpTitle" style="font-size:17px;font-weight:800;margin-bottom:10px;color:var(--text);flex-shrink:0;"></div>
     <div id="helpBody" style="font-size:15px;color:var(--muted);line-height:1.6;margin-bottom:20px;overflow-y:auto;flex:1;"></div>
+    <style>#helpBody b{color:var(--gold);font-size:1.05em;display:inline-block;margin-top:4px;}</style>
     <button onclick="closeHelp()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#0c0c0a;cursor:pointer;flex-shrink:0;">Got it</button>
   </div>
 </div>
@@ -2133,7 +2140,7 @@ function pickCsOption(optionEl,value){
 }
 function syncExTrigger(sel){
   const wrap=sel.nextElementSibling;
-  if(!wrap||!wrap.classList||!wrap.classList.contains('cs-wrap')) return;
+  if(!wrap||!wrap.classList||!(wrap.classList.contains('cs-wrap')||wrap.classList.contains('cs-wrap-sets'))) return;
   const trigger=wrap.querySelector('.cs-trigger');
   if(!trigger) return;
   trigger.textContent=sel.value||'-- Select --';
@@ -2143,7 +2150,7 @@ function syncExTrigger(sel){
 // options don't need grouping -- just mirrors whatever's already in the real <select>.
 function populateSimpleCsPanel(sel){
   const wrap=sel.nextElementSibling;
-  if(!wrap||!wrap.classList||!wrap.classList.contains('cs-wrap')) return;
+  if(!wrap||!wrap.classList||!(wrap.classList.contains('cs-wrap')||wrap.classList.contains('cs-wrap-sets'))) return;
   const panel=wrap.querySelector('.cs-panel');
   if(panel){
     panel.innerHTML=[...sel.options].map(function(o){
@@ -2644,18 +2651,15 @@ function getEffectiveRoutineData(r){
   return {name:r.name,bodyParts:r.bodyParts||[],exercises:r.exercises||[],supersets:r.supersets||[],isLive:false,isDeleted:false};
 }
 function renderRoutineList(){
-  const emptyMsg=document.getElementById('routineEmptyMsg');
   const sel=document.getElementById('routineSelect');
   const detail=document.getElementById('routineDetail');
   if(!sel) return;
   if(!routines.length){
-    emptyMsg.style.display='block';
     sel.style.display='none';
     detail.style.display='none';
     _routineSelectedId=null;
     return;
   }
-  emptyMsg.style.display='none';
   sel.style.display='block';
   const keepSelection=routines.some(function(r){return r.id===_routineSelectedId;});
   sel.innerHTML='<option value="">-- Choose a routine to load --</option>'
@@ -2690,6 +2694,80 @@ function showRoutineDetail(id){
     ? 'Your coach removed this routine -- you can delete it from your list below.'
     : eff.bodyParts.join(', ')+' \u00b7 '+eff.exercises.length+' exercises'+(eff.supersets.length?' + '+eff.supersets.length+' superset'+(eff.supersets.length===1?'':'s'):'');
   detail.style.display='block';
+}
+// Inline routine builder -- a lighter way to define a routine's exercise list directly in
+// the My Routines card, without needing to first build real exercise blocks on the log page.
+let _inlineRoutineExercises=[];
+function toggleInlineRoutineBuilder(){
+  const el=document.getElementById('inlineRoutineBuilder');
+  const isOpen=el.style.display==='block';
+  el.style.display=isOpen?'none':'block';
+  if(!isOpen) document.getElementById('inlineRoutineSearch').focus();
+}
+function handleInlineRoutineSearch(input){
+  const box=document.getElementById('inlineRoutineSuggestions');
+  const matches=fuzzyMatchExercises(input.value,8);
+  if(!matches.length){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML=matches.map(function(name){
+    return '<div style="padding:10px 12px;font-size:14px;color:var(--text);cursor:pointer;border-top:1px solid var(--border);" onclick="addInlineRoutineExercise(\''+name.replace(/'/g,"\\'")+'\')">'+name+'</div>';
+  }).join('');
+  box.style.display='block';
+}
+function addInlineRoutineExercise(name){
+  if(!_inlineRoutineExercises.includes(name)) _inlineRoutineExercises.push(name);
+  document.getElementById('inlineRoutineSearch').value='';
+  document.getElementById('inlineRoutineSuggestions').style.display='none';
+  renderInlineRoutineExList();
+}
+function removeInlineRoutineExercise(idx){
+  _inlineRoutineExercises.splice(idx,1);
+  renderInlineRoutineExList();
+}
+function renderInlineRoutineExList(){
+  const el=document.getElementById('inlineRoutineExList');
+  if(!_inlineRoutineExercises.length){ el.innerHTML=''; return; }
+  el.innerHTML=_inlineRoutineExercises.map(function(name,i){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--surf2);border-radius:6px;margin-bottom:5px;">'
+      +'<span style="font-size:13px;color:var(--text);">'+name+'</span>'
+      +'<span onclick="removeInlineRoutineExercise('+i+')" style="cursor:pointer;color:var(--terra);font-size:14px;padding:0 4px;">&#10005;</span>'
+      +'</div>';
+  }).join('');
+}
+function trySetInlineRoutine(){
+  if(_inlineRoutineExercises.length){
+    saveInlineRoutine();
+  } else {
+    // Nothing added via the inline picker -- fall back to saving whatever's already
+    // built on the log page, same as the routine-saving flow always worked before.
+    saveCurrentAsRoutine();
+  }
+}
+function saveInlineRoutine(){
+  const name=prompt('Name this routine (e.g. "Push Day A", "Week 3 Legs"):');
+  if(!name||!name.trim()) return;
+  const bodyParts=[];
+  _inlineRoutineExercises.forEach(function(ex){
+    Object.keys(EX_LIB).forEach(function(bp){
+      if(bp!=='Cardio'&&(EX_LIB[bp]||[]).includes(ex)&&!bodyParts.includes(bp)) bodyParts.push(bp);
+    });
+  });
+  routines.push({
+    id:'rt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    name:name.trim(),
+    createdBy:'client',
+    bodyParts:bodyParts,
+    exercises:_inlineRoutineExercises.map(function(ex){return {ex:ex};}),
+    supersets:[],
+    createdAt:new Date().toISOString(),
+    updatedAt:Date.now()
+  });
+  localStorage.setItem('kmfit_routines',JSON.stringify(routines));
+  syncFitnessToSupabase();
+  _inlineRoutineExercises=[];
+  renderInlineRoutineExList();
+  document.getElementById('inlineRoutineBuilder').style.display='none';
+  renderRoutineList();
+  toast('Routine "'+name.trim()+'" saved');
 }
 function saveCurrentAsRoutine(){
   const exBlocks=[...document.querySelectorAll('#exBody .ex-block')];
