@@ -2061,12 +2061,10 @@ function renderDayPanel(m,w,di,cal){
       +' onchange="setMealNote('+m+','+w+','+di+',\''+meal.id+'\',this.value)"'
       +' oninput="setMealNote('+m+','+w+','+di+',\''+meal.id+'\',this.value)">'
       +((dd.mealNotes&&dd.mealNotes[meal.id])||'')+'</textarea>'
-      // Order of eating reminder
-      +(score>0
-        ?(ordered
+      // Order of eating reminder -- always shown, not just after a plate score is given
+      +(ordered
           ?'<div class="order-reminder-done">\u2713 Started with protein, fibre or fat -- well done!</div>'
           :'<div class="order-reminder"> Remember: eat protein, veg or fat BEFORE the carbs</div>')
-        :'')
       // Food log
       +'<div class="food-log-label">What did you eat?</div>'
       +'<div class="food-chips" id="chips-'+m+'-'+w+'-'+di+'-'+meal.id+'">'
