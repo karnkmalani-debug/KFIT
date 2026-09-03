@@ -105,17 +105,6 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .ex-top-row{display:flex;align-items:center;gap:6px;padding:8px;background:var(--surf2);}
 .ex-top-row .ex-select{flex:1;min-width:0;}
 .ex-top-row .sets-select{width:54px;flex-shrink:0;}
-.cs-wrap{position:relative;flex:1;min-width:0;}
-.cs-trigger{display:block;width:100%;text-align:left;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 28px 8px 6px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:17px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:relative;}
-.cs-trigger.placeholder{color:var(--muted);}
-.cs-trigger::after{content:'';position:absolute;right:9px;top:50%;transform:translateY(-45%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid var(--gold);}
-.cs-panel{display:none;position:fixed;background:var(--surf3);border:1px solid var(--border);border-radius:10px;max-height:280px;overflow-y:auto;z-index:500;box-shadow:0 8px 24px rgba(0,0,0,.5);}
-.cs-group-label{padding:9px 12px 4px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-family:'DM Sans',sans-serif;}
-.cs-option{padding:10px 14px;font-size:15px;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif;border-top:1px solid var(--border);}
-.cs-option:first-of-type{border-top:none;}
-.cs-option:active{background:var(--surf2);}
-.cs-wrap-sets{position:relative;width:54px;flex-shrink:0;}
-.cs-trigger-sets{text-align:center;}
 .ex-select{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:8px 28px 8px 6px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:17px;outline:none;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c9a84c' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;}
 .ex-top-row .ex-select{border:1px solid var(--border);border-radius:6px;background:var(--surf3);}
 .sets-select{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--gold);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c9a84c' stroke-width='1.8' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;}
@@ -375,6 +364,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 </head>
 <body>
 
@@ -434,6 +424,7 @@ function copyCriosLink(){
     <div id="loginTabPw" style="display:none;">
       <div style="font-size:.85rem;color:var(--muted);margin-bottom:16px;line-height:1.5;">First time here? Tap below to set up your profile and start tracking.</div>
       <button class="pw-btn" onclick="startNewFitnessUser()">Start Tracking →</button>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:14px;line-height:1.5;text-align:center;">📥 Coming from Strong, Hevy, or a spreadsheet? Set up your account above, then use <b style="color:var(--sage);">Import Data</b> in the Notes tab to bring your history in.</div>
     </div>
     <!-- Mobile tab -->
     <div id="loginTabMobile">
@@ -477,6 +468,31 @@ function copyCriosLink(){
   </div>
 </div>
 
+
+<!-- Import Workout History modal -->
+<div id="importModal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--surf);border-radius:16px;padding:24px 20px;width:100%;max-width:420px;max-height:85vh;overflow-y:auto;">
+    <div id="importStepSource">
+      <div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:6px;">Where's your data coming from?</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.5;">We'll show the right export steps for your app.</div>
+      <button onclick="selectImportSource('strong')" style="width:100%;padding:13px;margin-bottom:8px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;text-align:left;">Strong</button>
+      <button onclick="selectImportSource('hevy')" style="width:100%;padding:13px;margin-bottom:8px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;text-align:left;">Hevy</button>
+      <button onclick="selectImportSource('generic')" style="width:100%;padding:13px;margin-bottom:16px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;text-align:left;">My own spreadsheet</button>
+      <button onclick="closeImportModal()" style="width:100%;padding:11px;background:none;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;">Cancel</button>
+    </div>
+    <div id="importStepInstructions" style="display:none;">
+      <div id="importInstructionsContent" style="margin-bottom:16px;"></div>
+      <input type="file" id="importFileInput" accept=".csv" onchange="handleImportFileSelected(this)" style="display:none;">
+      <button onclick="document.getElementById('importFileInput').click()" style="width:100%;padding:13px;margin-bottom:8px;background:var(--sage);border:none;border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;">Choose CSV File</button>
+      <button onclick="backToImportSource()" style="width:100%;padding:11px;background:none;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;">← Back</button>
+    </div>
+    <div id="importStepPreview" style="display:none;">
+      <div id="importPreviewContent" style="margin-bottom:16px;"></div>
+      <button id="importConfirmBtn" onclick="confirmImport()" style="width:100%;padding:13px;margin-bottom:8px;background:var(--sage);border:none;border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;">Import This Data</button>
+      <button onclick="cancelImportPreview()" style="width:100%;padding:11px;background:none;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;">Cancel -- Don't Import</button>
+    </div>
+  </div>
+</div>
 
 <!-- iOS install guide modal -->
 <div id="installModal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.75);align-items:flex-end;justify-content:center;">
@@ -767,6 +783,11 @@ function copyCriosLink(){
         <button class="btn btn-accent btn-sm" onclick="shareNotes()">📤 Send</button>
         <button class="btn btn-ghost btn-sm" onclick="saveNotes()">Save Notes</button>
       </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Import Workout History</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.6;">Coming from Strong, Hevy, or your own spreadsheet? Bring your past workouts into KFit.</div>
+      <button onclick="openImportModal()" style="width:100%;padding:11px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Import Data</button>
     </div>
     <div class="card" id="mobileNumberCard">
       <div class="card-title">📱 Mobile Login</div>
@@ -1668,16 +1689,8 @@ function applyAssignedWorkoutIfAny(){
             <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">⇧</button>
             <button class="move-btn move-btn-down" onclick="moveExBlock(this,1)" title="Move down">⇧</button>
           </div>
-          <select class="ex-select" onchange="onExChange(this)" style="display:none;"></select>
-      <div class="cs-wrap">
-        <button type="button" class="cs-trigger placeholder" onclick="toggleCustomSelectPanel(this)">-- Select --</button>
-        <div class="cs-panel"></div>
-      </div>
-          <select class="sets-select" onchange="updateSetRows(this)" style="display:none;">${setsOpts(e.sets||3)}</select>
-        <div class="cs-wrap-sets">
-          <button type="button" class="cs-trigger cs-trigger-sets" onclick="toggleCustomSelectPanel(this)"></button>
-          <div class="cs-panel"></div>
-        </div>
+          <select class="ex-select" onchange="onExChange(this)"></select>
+          <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
           <div class="action-group">
             <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">⌃</button>
             <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
@@ -1686,9 +1699,7 @@ function applyAssignedWorkoutIfAny(){
         <div class="set-rows"></div>`;
       document.getElementById('exBody').appendChild(block);
       populateSel(block.querySelector('.ex-select'));
-      populateSimpleCsPanel(block.querySelector('.sets-select'));
       block.querySelector('.ex-select').value=e.ex;
-      syncExTrigger(block.querySelector('.ex-select'));
       generateSetRows(block.querySelector('.set-rows'),e.sets||3);
       restoreSetData(block.querySelector('.set-rows'),e.setData);
       onExChange(block.querySelector('.ex-select'));
@@ -1845,16 +1856,8 @@ function autoFillExercisesForBodyPart(bp){
           <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">⇧</button>
           <button class="move-btn move-btn-down" onclick="moveExBlock(this,1)" title="Move down">⇧</button>
         </div>
-        <select class="ex-select" onchange="onExChange(this)" style="display:none;"></select>
-      <div class="cs-wrap">
-        <button type="button" class="cs-trigger placeholder" onclick="toggleCustomSelectPanel(this)">-- Select --</button>
-        <div class="cs-panel"></div>
-      </div>
-        <select class="sets-select" onchange="updateSetRows(this)" style="display:none;">${setsOpts(e.sets||3)}</select>
-        <div class="cs-wrap-sets">
-          <button type="button" class="cs-trigger cs-trigger-sets" onclick="toggleCustomSelectPanel(this)"></button>
-          <div class="cs-panel"></div>
-        </div>
+        <select class="ex-select" onchange="onExChange(this)"></select>
+        <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
         <div class="action-group">
           <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">⌃</button>
           <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
@@ -1863,9 +1866,7 @@ function autoFillExercisesForBodyPart(bp){
       <div class="set-rows"></div>`;
     document.getElementById('exBody').appendChild(block);
     populateSel(block.querySelector('.ex-select'));
-    populateSimpleCsPanel(block.querySelector('.sets-select'));
     block.querySelector('.ex-select').value=e.ex;
-      syncExTrigger(block.querySelector('.ex-select'));
     generateSetRows(block.querySelector('.set-rows'),e.sets||3);
     // Reps/weight left blank on purpose -- fresh session, "last time" hint shows the old numbers for reference
     onExChange(block.querySelector('.ex-select'));
@@ -2104,89 +2105,12 @@ function populateSel(sel){
   const activeBps=selectedBP.filter(function(bp){return bp!=='Cardio'&&EX_LIB[bp]&&EX_LIB[bp].length;});
   const bpsToShow=activeBps.length?activeBps:Object.keys(EX_LIB).filter(function(bp){return bp!=='Cardio'&&EX_LIB[bp]&&EX_LIB[bp].length;});
   let html='<option value="">-- Select --</option>';
-  let panelHtml='';
   bpsToShow.forEach(function(bp){
     const names=(EX_LIB[bp]||[]).slice().sort();
     html+='<optgroup label="'+bp+'">'+names.map(function(e){return '<option value="'+e.replace(/"/g,'&quot;')+'"'+(e===cur?' selected':'')+'>'+e+'</option>';}).join('')+'</optgroup>';
-    panelHtml+='<div class="cs-group-label">'+bp+'</div>'+names.map(function(e){
-      return '<div class="cs-option" onclick="pickCsOption(this,\''+e.replace(/'/g,"\\'")+'\')">'+e+'</div>';
-    }).join('');
   });
   sel.innerHTML=html;
-  const wrap=sel.nextElementSibling;
-  if(wrap&&wrap.classList&&wrap.classList.contains('cs-wrap')){
-    const panel=wrap.querySelector('.cs-panel');
-    if(panel) panel.innerHTML=panelHtml;
-  }
-  syncExTrigger(sel);
 }
-// Custom exercise dropdown -- the underlying <select> stays fully functional and hidden
-// (every other part of the app keeps reading/writing sel.value and listening for 'change'
-// exactly as before), but a custom-styled trigger + panel sit on top so the open dropdown
-// actually looks like the rest of the app instead of the OS's native picker sheet.
-function toggleCustomSelectPanel(trigger){
-  const panel=trigger.nextElementSibling;
-  const isOpen=panel.style.display==='block';
-  document.querySelectorAll('.cs-panel').forEach(function(p){ p.style.display='none'; });
-  if(isOpen) return;
-  const rect=trigger.getBoundingClientRect();
-  panel.style.left=rect.left+'px';
-  panel.style.width=rect.width+'px';
-  const spaceBelow=window.innerHeight-rect.bottom;
-  if(spaceBelow<200&&rect.top>200){
-    panel.style.top='';
-    panel.style.bottom=(window.innerHeight-rect.top+4)+'px';
-  } else {
-    panel.style.bottom='';
-    panel.style.top=(rect.bottom+4)+'px';
-  }
-  panel.style.display='block';
-}
-window.addEventListener('scroll',function(){
-  document.querySelectorAll('.cs-panel').forEach(function(p){ p.style.display='none'; });
-},true);
-function pickCsOption(optionEl,value){
-  const wrap=optionEl.closest('.cs-wrap');
-  const sel=wrap.previousElementSibling;
-  sel.value=value;
-  wrap.querySelector('.cs-panel').style.display='none';
-  syncExTrigger(sel);
-  sel.dispatchEvent(new Event('change',{bubbles:true}));
-}
-function syncExTrigger(sel){
-  const wrap=sel.nextElementSibling;
-  if(!wrap||!wrap.classList||!(wrap.classList.contains('cs-wrap')||wrap.classList.contains('cs-wrap-sets'))) return;
-  const trigger=wrap.querySelector('.cs-trigger');
-  if(!trigger) return;
-  trigger.textContent=sel.value||'-- Select --';
-  trigger.classList.toggle('placeholder',!sel.value);
-}
-// Generic version for simple flat-option selects (sets-select's 1-25 count) where the
-// options don't need grouping -- just mirrors whatever's already in the real <select>.
-function populateSimpleCsPanel(sel){
-  const wrap=sel.nextElementSibling;
-  if(!wrap||!wrap.classList||!(wrap.classList.contains('cs-wrap')||wrap.classList.contains('cs-wrap-sets'))) return;
-  const panel=wrap.querySelector('.cs-panel');
-  if(panel){
-    panel.innerHTML=[...sel.options].map(function(o){
-      return '<div class="cs-option" onclick="pickSimpleCsOption(this,\''+o.value.replace(/'/g,"\\'")+'\')">'+o.textContent+'</div>';
-    }).join('');
-  }
-  syncExTrigger(sel);
-}
-function pickSimpleCsOption(optionEl,value){
-  const wrap=optionEl.closest('.cs-wrap');
-  const sel=wrap.previousElementSibling;
-  sel.value=value;
-  wrap.querySelector('.cs-panel').style.display='none';
-  syncExTrigger(sel);
-  sel.dispatchEvent(new Event('change',{bubbles:true}));
-}
-document.addEventListener('click',function(e){
-  if(!e.target.closest('.cs-wrap')){
-    document.querySelectorAll('.cs-panel').forEach(function(p){ p.style.display='none'; });
-  }
-});
 
 // EXERCISES -- per-set blocks
 function setsOpts(def){let o='';for(let i=1;i<=25;i++)o+=`<option value="${i}"${i===def?' selected':''}>${i}</option>`;return o;}
@@ -2535,16 +2459,8 @@ function addExRow(){
         <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">⇧</button>
         <button class="move-btn move-btn-down" onclick="moveExBlock(this,1)" title="Move down">⇧</button>
       </div>
-      <select class="ex-select" onchange="onExChange(this)" style="display:none;"></select>
-      <div class="cs-wrap">
-        <button type="button" class="cs-trigger placeholder" onclick="toggleCustomSelectPanel(this)">-- Select --</button>
-        <div class="cs-panel"></div>
-      </div>
-      <select class="sets-select" onchange="updateSetRows(this)" style="display:none;">${setsOpts(3)}</select>
-      <div class="cs-wrap-sets">
-        <button type="button" class="cs-trigger cs-trigger-sets" onclick="toggleCustomSelectPanel(this)"></button>
-        <div class="cs-panel"></div>
-      </div>
+      <select class="ex-select" onchange="onExChange(this)"></select>
+      <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(3)}</select>
       <div class="action-group">
         <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">⌃</button>
         <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
@@ -2553,7 +2469,6 @@ function addExRow(){
     <div class="set-rows"></div>`;
   document.getElementById('exBody').appendChild(block);
   populateSel(block.querySelector('.ex-select'));
-  populateSimpleCsPanel(block.querySelector('.sets-select'));
   generateSetRows(block.querySelector('.set-rows'),3,'');
   // Custom exercise suggestion button
   const btn=document.createElement('button');
@@ -2969,18 +2884,10 @@ function addSupersetEx(ssId){
   block.className='superset-ex-block';
   block.innerHTML=`
     <div class="ex-top-row" style="padding:6px 8px;">
-      <select class="ss-ex-select ex-select" style="display:none;" onchange="onSupersetExChange(this)">
+      <select class="ss-ex-select ex-select" onchange="onSupersetExChange(this)">
         <option value="">-- Select Exercise --</option>
       </select>
-      <div class="cs-wrap">
-        <button type="button" class="cs-trigger placeholder" onclick="toggleCustomSelectPanel(this)">-- Select --</button>
-        <div class="cs-panel"></div>
-      </div>
-      <select class="sets-select" onchange="updateSupersetSetRows(this)" style="display:none;">${setsOpts(3)}</select>
-      <div class="cs-wrap-sets">
-        <button type="button" class="cs-trigger cs-trigger-sets" onclick="toggleCustomSelectPanel(this)"></button>
-        <div class="cs-panel"></div>
-      </div>
+      <select class="sets-select" onchange="updateSupersetSetRows(this)">${setsOpts(3)}</select>
       <div class="action-group">
         <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">⌃</button>
         <button class="del-btn" onclick="this.closest('.superset-ex-block').remove()">&#10005;</button>
@@ -2988,7 +2895,6 @@ function addSupersetEx(ssId){
     </div>
     <div class="set-rows" style="padding:4px 8px 8px;"></div>`;
   populateSupersetExSel(block.querySelector('.ss-ex-select'), activeBPs);
-  populateSimpleCsPanel(block.querySelector('.sets-select'));
   generateSetRows(block.querySelector('.set-rows'),3,'');
   container.appendChild(block);
 }
@@ -3003,18 +2909,15 @@ function populateSupersetExSel(sel, bps){
   list=[...new Set(list)].filter(e=>!deleted.has(e));
   const cur=sel.value;
   sel.innerHTML='<option value="">-- Select Exercise --</option>'+list.map(e=>`<option value="${e}"${e===cur?' selected':''}>${e}</option>`).join('');
-  populateSimpleCsPanel(sel);
 }
 
 function onSupersetExChange(sel){
   const block=sel.closest('.superset-ex-block');
   const setsEl=block.querySelector('.sets-select');
-  const setsWrap=block.querySelector('.cs-wrap-sets');
   const setRows=block.querySelector('.set-rows');
   const exName=sel.value;
-  setsEl.style.display='none'; // native select stays permanently hidden -- toggle the custom wrapper instead
   if(isCardio(exName)){
-    if(setsWrap) setsWrap.style.display='none';
+    setsEl.style.display='none';
     setRows.innerHTML=`
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px 0;">
         <div><div class="cardio-field-label">Duration (min)</div>
@@ -3031,7 +2934,7 @@ function onSupersetExChange(sel){
         </div>
       </div>`;
   } else {
-    if(setsWrap) setsWrap.style.display='';
+    setsEl.style.display='';
     generateSetRows(setRows,+setsEl.value,exName);
   }
 }
@@ -3157,14 +3060,11 @@ function findExInSession(s,exName){
 }
 
 function onExChange(sel){
-  syncExTrigger(sel);
   const block=sel.closest('.ex-block');
   const exName=sel.value;
   const setsEl=block.querySelector('.sets-select');
   const isC=isCardio(exName);
-  setsEl.style.display='none'; // native select stays permanently hidden -- toggle the custom wrapper instead
-  const setsWrap=block.querySelector('.cs-wrap-sets');
-  if(setsWrap) setsWrap.style.display=isC?'none':'';
+  setsEl.style.display=isC?'none':'';
 
   // Show last session history for this exercise
   let histEl=block.querySelector('.ex-last-hist');
@@ -4165,16 +4065,8 @@ function draftLoad(){
               <button class="move-btn" onclick="moveExBlock(this,-1)" title="Move up">⇧</button>
               <button class="move-btn move-btn-down" onclick="moveExBlock(this,1)" title="Move down">⇧</button>
             </div>
-            <select class="ex-select" onchange="onExChange(this)" style="display:none;"></select>
-      <div class="cs-wrap">
-        <button type="button" class="cs-trigger placeholder" onclick="toggleCustomSelectPanel(this)">-- Select --</button>
-        <div class="cs-panel"></div>
-      </div>
-            <select class="sets-select" onchange="updateSetRows(this)" style="display:none;">${setsOpts(e.sets||3)}</select>
-        <div class="cs-wrap-sets">
-          <button type="button" class="cs-trigger cs-trigger-sets" onclick="toggleCustomSelectPanel(this)"></button>
-          <div class="cs-panel"></div>
-        </div>
+            <select class="ex-select" onchange="onExChange(this)"></select>
+            <select class="sets-select" onchange="updateSetRows(this)">${setsOpts(e.sets||3)}</select>
             <div class="action-group">
               <button class="collapse-btn" onclick="toggleExBlock(this)" title="Collapse">⌃</button>
               <button class="del-btn" onclick="this.closest('.ex-block').remove()">&#10005;</button>
@@ -4183,9 +4075,7 @@ function draftLoad(){
           <div class="set-rows"></div>`;
         document.getElementById('exBody').appendChild(block);
         populateSel(block.querySelector('.ex-select'));
-      populateSimpleCsPanel(block.querySelector('.sets-select'));
         block.querySelector('.ex-select').value=e.ex;
-      syncExTrigger(block.querySelector('.ex-select'));
         generateSetRows(block.querySelector('.set-rows'),e.sets||3);
         restoreSetData(block.querySelector('.set-rows'),e.setData);
       });
@@ -5813,7 +5703,7 @@ const HELP_TEXT=[
     '<b>7. Just doing cardio?</b><br>Tap the Cardio body part instead. You\'ll log duration and how hard it felt, not sets and reps.<br><br>'+
     '<b>8. Resting between sets</b><br>Use the REST bar at the bottom of the screen -- tap 1m / 90s / 2m / 3m, or type your own time, and it counts down for you. This also automatically fills in your average rest time, so you don\'t need to type that in separately. Didn\'t use the timer? There\'s a separate Average Rest Time section further down to enter it by hand.<br><br>'+
     '<b>9. Timing the whole workout</b><br>At the top of the screen, next to Help and Feedback, there\'s a timer with Start/Stop -- tap Start when you begin your session. It stays visible even if you switch to another tab, and its total gets saved with the session. Made a mistake or want to start over? Tap Reset to clear it back to 00:00. Prefer to just type the total afterwards instead? Scroll down to Session Duration and enter it manually there.<br><br>'+
-    '<b>10. Notes and sending things to your coach</b><br>Session Notes is just for writing how the workout felt. Progress Pic and Record Video are separate buttons that send a photo or video straight to your coach -- they don\'t affect your sets/reps data at all.<br><br>'+
+    '<b>10. Notes and sending things to your coach</b><br>Session Notes is just for writing how the workout felt. Progress Pic and Record Video are separate buttons that send a photo or video straight to your coach -- they don\'t affect your sets/reps data at all. Coming from Strong, Hevy, or your own spreadsheet? "Import Data" further down lets you bring in your past workout history as a CSV file -- it always shows you exactly what it found before anything is actually added, so nothing gets imported without your confirmation.<br><br>'+
     '<b>11. You can\'t lose your work</b><br>Everything you type is saved as a draft automatically, even if you close the app halfway through a workout and come back later. It only becomes a real, permanent entry in your History once you tap "Save Session" at the bottom. This also covers editing a past session from History mid-workout: your in-progress session is safely tucked away while you edit, and comes right back once you\'re done.<br><br>'+
     '<b>12. Logging a workout from a past day</b><br>Forgot to log yesterday? Tap the date at the very top of the screen (next to the KFit logo) -- it opens your phone\'s own calendar so you can pick any earlier date and log for that day instead of today. If that day already has a workout logged, you\'ll get asked whether to edit it or add another one -- useful if you train twice in a day.<br><br>'+
     '<b>13. Exercise isn\'t in the list?</b><br>Scroll to the bottom of the exercise list and tap "Suggest a new exercise to your coach." It gets sent to your coach, who can add it permanently so it shows up for everyone next time.'},
@@ -6252,6 +6142,223 @@ function shareSession(id){
     });
   }
   else{navigator.clipboard.writeText(text).catch(()=>{});toast('v Session copied to clipboard');}
+}
+
+// IMPORT WORKOUT HISTORY -- reads a CSV export from Strong, Hevy, or a hand-built
+// spreadsheet, and turns it into real KFit sessions. Column detection is deliberately
+// flexible/keyword-based rather than requiring exact header names, since app export
+// formats vary slightly by version -- source selection mainly drives which instructions
+// and template get shown, not a rigid per-source parser.
+var _importSource=null;
+var _importParsedSessions=[];
+var _importSkippedRows=0;
+var _importUnmatchedExercises=[];
+
+function openImportModal(){
+  document.getElementById('importModal').style.display='flex';
+  document.getElementById('importStepSource').style.display='block';
+  document.getElementById('importStepInstructions').style.display='none';
+  document.getElementById('importStepPreview').style.display='none';
+}
+function closeImportModal(){
+  document.getElementById('importModal').style.display='none';
+  _importSource=null;
+  _importParsedSessions=[];
+  document.getElementById('importFileInput').value='';
+}
+function backToImportSource(){
+  document.getElementById('importStepSource').style.display='block';
+  document.getElementById('importStepInstructions').style.display='none';
+}
+function cancelImportPreview(){
+  _importParsedSessions=[];
+  closeImportModal();
+}
+
+function selectImportSource(source){
+  _importSource=source;
+  document.getElementById('importStepSource').style.display='none';
+  document.getElementById('importStepInstructions').style.display='block';
+  var content=document.getElementById('importInstructionsContent');
+  if(source==='strong'){
+    content.innerHTML='<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:10px;">Exporting from Strong</div>'
+      +'<div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:12px;">Open Strong &rarr; tap <b>Profile</b> &rarr; tap the <b>gear icon</b> &rarr; find <b>Export Workouts</b> under the data section &rarr; choose <b>CSV</b>. Share or save that file, then choose it below.</div>'
+      +'<div style="font-size:12px;color:var(--muted);background:var(--surf2);border-radius:8px;padding:10px;">We read whatever date, exercise, weight, and reps columns are in the file -- extra fields like RPE or notes get added to that session\'s notes automatically.</div>';
+  } else if(source==='hevy'){
+    content.innerHTML='<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:10px;">Exporting from Hevy</div>'
+      +'<div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:12px;">Open Hevy &rarr; <b>Profile</b> &rarr; <b>Settings</b> &rarr; <b>Export &amp; Import Data</b> &rarr; <b>Export Data</b> &rarr; <b>Export Workouts</b>. Save that CSV, then choose it below.</div>'
+      +'<div style="font-size:12px;color:var(--muted);background:var(--surf2);border-radius:8px;padding:10px;">We read whatever date, exercise, weight, and reps columns are in the file -- extra fields like RPE get added to that session\'s notes automatically.</div>';
+  } else {
+    content.innerHTML='<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:10px;">Your own spreadsheet</div>'
+      +'<div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:12px;">For the best results, use our template -- it guarantees a clean import. Columns: <b>Date, Exercise, Weight, Reps</b> (one row per set).</div>'
+      +'<button onclick="downloadImportTemplate()" style="width:100%;padding:10px;margin-bottom:12px;background:none;border:1px solid var(--sage);border-radius:8px;color:var(--sage);font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Download Template CSV</button>'
+      +'<div style="font-size:12px;color:var(--muted);background:var(--surf2);border-radius:8px;padding:10px;">Don\'t have the template? We\'ll still try to detect Date/Exercise/Weight/Reps-style columns automatically, but results are most reliable with the template.</div>';
+  }
+}
+function downloadImportTemplate(){
+  var csv='Date,Exercise,Weight,Reps\n2026-08-15,Barbell Bench Press (Flat),40,10\n2026-08-15,Barbell Bench Press (Flat),40,10\n2026-08-15,Barbell Bench Press (Flat),42.5,8\n2026-08-15,Lat Pulldown,35,12\n';
+  var blob=new Blob([csv],{type:'text/csv'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='kfit-import-template.csv';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); },300);
+}
+
+function detectColumn(headers,keywords,exclude){
+  for(var i=0;i<headers.length;i++){
+    var h=headers[i].toLowerCase();
+    if(exclude&&h.indexOf(exclude)!==-1) continue;
+    for(var j=0;j<keywords.length;j++){
+      if(h.indexOf(keywords[j])!==-1) return i;
+    }
+  }
+  return -1;
+}
+
+function handleImportFileSelected(input){
+  var file=input.files[0];
+  if(!file) return;
+  if(typeof Papa==='undefined'){
+    toast('Could not load the CSV reader -- check your connection and try again');
+    return;
+  }
+  Papa.parse(file,{
+    complete:function(results){
+      processImportedCsv(results.data);
+    },
+    error:function(err){
+      toast('Could not read that file: '+err.message);
+    }
+  });
+}
+
+function processImportedCsv(rows){
+  if(!rows||rows.length<2){
+    toast('That file looks empty or unreadable');
+    return;
+  }
+  var headers=rows[0].map(function(h){ return (h||'').toString(); });
+  var dateIdx=detectColumn(headers,['date','start time','start_time']);
+  var exIdx=detectColumn(headers,['exercise']);
+  var weightIdx=detectColumn(headers,['weight'],'unit');
+  var repsIdx=detectColumn(headers,['reps','rep count']);
+  var rpeIdx=detectColumn(headers,['rpe','effort']);
+  var noteIdx=detectColumn(headers,['note','comment']);
+  var distIdx=detectColumn(headers,['distance']);
+  var durIdx=detectColumn(headers,['second','duration']);
+
+  if(dateIdx===-1||exIdx===-1){
+    toast('Could not find Date and Exercise columns in that file -- try the template for a guaranteed format');
+    return;
+  }
+
+  // Group: date -> exercise name -> {sets:[{reps,weight}], extras:[strings]}
+  var byDate={};
+  var skipped=0;
+  var allExNames=[...new Set(Object.values(EX_LIB).flat())];
+
+  for(var r=1;r<rows.length;r++){
+    var row=rows[r];
+    if(!row||!row.length) continue;
+    var rawDate=(row[dateIdx]||'').toString().trim();
+    var rawEx=(row[exIdx]||'').toString().trim();
+    if(!rawDate||!rawEx){ skipped++; continue; }
+    // Normalize date to YYYY-MM-DD -- accept common formats
+    var d=new Date(rawDate);
+    if(isNaN(d.getTime())){ skipped++; continue; }
+    var dateKey=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if(!byDate[dateKey]) byDate[dateKey]={};
+    if(!byDate[dateKey][rawEx]) byDate[dateKey][rawEx]={sets:[],extras:[]};
+    var weight=weightIdx!==-1?(row[weightIdx]||'').toString().trim():'';
+    var reps=repsIdx!==-1?(row[repsIdx]||'').toString().trim():'';
+    if(reps||weight) byDate[dateKey][rawEx].sets.push({reps:reps,weight:weight});
+    var extraBits=[];
+    if(rpeIdx!==-1&&row[rpeIdx]) extraBits.push('RPE '+row[rpeIdx]);
+    if(distIdx!==-1&&row[distIdx]) extraBits.push(row[distIdx]+' distance');
+    if(durIdx!==-1&&row[durIdx]) extraBits.push(row[durIdx]+'s duration');
+    if(noteIdx!==-1&&row[noteIdx]) extraBits.push(row[noteIdx]);
+    if(extraBits.length) byDate[dateKey][rawEx].extras.push(rawEx+': '+extraBits.join(', '));
+  }
+
+  var unmatchedSet=new Set();
+  var sessions_=[];
+  Object.keys(byDate).sort().forEach(function(dateKey){
+    var exMap=byDate[dateKey];
+    var exercises=[];
+    var noteLines=[];
+    var order=0;
+    Object.keys(exMap).forEach(function(rawName){
+      var entry=exMap[rawName];
+      var matches=scoreExerciseMatches(rawName);
+      var finalName=(matches.length&&matches[0].matchedCount>=1&&allExNames.includes(matches[0].name))?matches[0].name:rawName;
+      if(finalName===rawName&&!allExNames.includes(rawName)) unmatchedSet.add(rawName);
+      exercises.push({
+        ex:finalName,
+        sets:entry.sets.length||1,
+        setData:entry.sets.map(function(s,i){ return {set:i+1,reps:s.reps,weight:s.weight,assistedReps:0,lengthenedPartialReps:0,dropset:false,afterMain:null}; }),
+        order:order++
+      });
+      if(entry.extras.length) noteLines=noteLines.concat(entry.extras);
+    });
+    sessions_.push({
+      id:Date.now()+Math.floor(Math.random()*100000)+sessions_.length,
+      client:document.getElementById('clientName').value.trim()||'Client',
+      date:dateKey, timeOfDay:'',
+      bodyParts:[], exercises:exercises, supersets:[], cardio:[],
+      restTimes:[], avgRestManual:null, duration:null, unit:weightUnit,
+      notes:(noteLines.length?'Imported from '+(_importSource||'file')+':\n'+noteLines.join('\n'):'Imported from '+(_importSource||'file')),
+      updatedAt:Date.now(), imported:true
+    });
+  });
+
+  _importParsedSessions=sessions_;
+  _importSkippedRows=skipped;
+  _importUnmatchedExercises=[...unmatchedSet];
+  renderImportPreview();
+}
+
+function renderImportPreview(){
+  document.getElementById('importStepInstructions').style.display='none';
+  document.getElementById('importStepPreview').style.display='block';
+  var content=document.getElementById('importPreviewContent');
+  var s=_importParsedSessions;
+  if(!s.length){
+    content.innerHTML='<div style="font-size:15px;font-weight:700;color:var(--terra);margin-bottom:10px;">No usable sessions found</div>'
+      +'<div style="font-size:13px;color:var(--muted);">We couldn\'t match any rows to a date and exercise. Double check the file, or try the template.</div>';
+    document.getElementById('importConfirmBtn').style.display='none';
+    return;
+  }
+  document.getElementById('importConfirmBtn').style.display='block';
+  var dates=s.map(function(x){return x.date;}).sort();
+  var totalEx=s.reduce(function(a,x){return a+x.exercises.length;},0);
+  var html='<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:10px;">Ready to import</div>'
+    +'<div style="font-size:14px;color:var(--text);line-height:1.8;margin-bottom:12px;">'
+    +'<b>'+s.length+'</b> session'+(s.length===1?'':'s')+' found<br>'
+    +'Spanning <b>'+dates[0]+'</b> to <b>'+dates[dates.length-1]+'</b><br>'
+    +'<b>'+totalEx+'</b> exercise entries total'
+    +'</div>';
+  if(_importSkippedRows>0){
+    html+='<div style="font-size:12px;color:var(--gold);background:var(--gold-d);border-radius:8px;padding:10px;margin-bottom:10px;">'+_importSkippedRows+' row'+(_importSkippedRows===1?'':'s')+' couldn\'t be read (missing date or exercise) and will be skipped.</div>';
+  }
+  if(_importUnmatchedExercises.length>0){
+    html+='<div style="font-size:12px;color:var(--muted);background:var(--surf2);border-radius:8px;padding:10px;margin-bottom:10px;">These exercise names didn\'t match your library and will be imported as-is: '+_importUnmatchedExercises.slice(0,8).join(', ')+(_importUnmatchedExercises.length>8?' +'+(_importUnmatchedExercises.length-8)+' more':'')+'</div>';
+  }
+  html+='<div style="font-size:12px;color:var(--muted);">This adds to your existing history -- nothing gets deleted or overwritten. Importing the same file twice will create duplicates, so only confirm once.</div>';
+  content.innerHTML=html;
+}
+
+function confirmImport(){
+  if(!_importParsedSessions.length) return;
+  sessions=_importParsedSessions.concat(sessions);
+  saveSessions();
+  var count=_importParsedSessions.length;
+  _importParsedSessions=[];
+  closeImportModal();
+  renderHistory();
+  renderStats();
+  toast(count+' session'+(count===1?'':'s')+' imported \u2713');
 }
 
 function shareAllSessions(){
