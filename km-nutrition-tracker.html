@@ -18,7 +18,7 @@
   --sage:#3a6e40;--sage-l:#5a8e5e;--sage-d:rgba(58,110,64,.12);
   --terra:#a04828;--terra-d:rgba(160,72,40,.12);
   --gold:#8a6420;--gold-d:rgba(138,100,32,.12);
-  --txt:#1a1814;--txt2:#4a4640;--txt3:#786e64;--white:#fff;
+  --txt:#1a1814;--txt2:#4a4640;--txt3:#5f564c;--white:#fff;
   --score-high:#3a6e40;--score-mid:#8a6420;--score-low:#a04828;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -1665,15 +1665,15 @@ function renderBodyMeasurementsCard(){
   html+='</div>';
   html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">';
   MEAS_FIELDS_NUT.forEach(function(f){
-    html+='<div><label style="font-size:12px;color:var(--txt3);display:block;margin-bottom:4px;">'+f.label+'</label>'
+    html+='<div><label style="font-size:14px;font-weight:600;color:var(--txt3);display:block;margin-bottom:4px;">'+f.label+'</label>'
       +'<input type="number" step="0.1" inputmode="decimal" id="measNut_'+f.key+'" placeholder="--" style="width:100%;padding:9px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--txt);font-family:\'DM Sans\',sans-serif;font-size:15px;">'
       +'</div>';
   });
   html+='</div>';
-  html+='<div style="font-size:12px;color:var(--txt3);margin-top:10px;">Leave any field blank to skip it. Only fields you fill in are saved.</div>';
+  html+='<div style="font-size:14px;font-weight:600;color:var(--txt3);margin-top:10px;">Leave any field blank to skip it. Only fields you fill in are saved.</div>';
   html+='<button onclick="saveMeasurementNut()" style="width:100%;margin-top:14px;padding:12px;background:var(--sage);border:none;border-radius:10px;font-family:\'DM Sans\',sans-serif;font-size:15px;font-weight:700;color:#fff;cursor:pointer;">Save Entry</button>';
   html+='<div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">';
-  html+='<div style="font-size:13px;color:var(--txt3);margin-bottom:8px;">Have a DEXA or InBody scan report? Attach it to this date\'s entry.</div>';
+  html+='<div style="font-size:15px;font-weight:600;color:var(--txt3);margin-bottom:8px;">Have a DEXA or InBody scan report? Attach it to this date\'s entry.</div>';
   html+='<input type="file" id="scanFileInputNut" style="display:none;" onchange="onScanFileSelectedNut()">';
   html+='<button onclick="triggerScanUploadNut()" style="width:100%;padding:11px;background:transparent;border:1px solid var(--gold);border-radius:8px;color:var(--gold);font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">📎 Upload Scan / Report</button>';
   html+='</div>';
@@ -1693,7 +1693,7 @@ function renderBodyMeasurementsCard(){
         var delta='';
         if(prev&&prev[f.key]!=null){
           var d=m[f.key]-prev[f.key];
-          if(Math.abs(d)>0.01) delta=' <span style="color:var(--txt3);font-size:12px;">('+(d>0?'+':'')+d.toFixed(1)+')</span>';
+          if(Math.abs(d)>0.01) delta=' <span style="color:var(--txt3);font-size:14px;font-weight:600;">('+(d>0?'+':'')+d.toFixed(1)+')</span>';
         }
         rows+='<div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0;"><span style="color:var(--txt3);">'+f.label+'</span><span style="color:var(--txt);font-weight:600;">'+m[f.key]+delta+'</span></div>';
       });

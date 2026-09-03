@@ -11,7 +11,7 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
   --bg:#0f0f0f;--surf:#1a1a1a;--surf2:#222;--surf3:#2a2a2a;
-  --border:#2e2e2e;--text:#f0f0f0;--muted:#888;--muted2:#555;
+  --border:#2e2e2e;--text:#f0f0f0;--muted:#a8a8a4;--muted2:#9a9a96;
   --sage:#6b8f71;--sage-d:#1a2b1c;--gold:#c9a84c;--gold-d:#2a2210;
   --terra:#c17a5a;--terra-d:#2a1a12;
 }
@@ -31,7 +31,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .client-card{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color .18s;}
 .client-card:hover{border-color:var(--sage);}
 .client-name{font-size:18px;font-weight:700;margin-bottom:4px;}
-.client-meta{font-size:13px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;}
+.client-meta{font-size:15px;font-weight:600;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;}
 .client-meta span{display:flex;align-items:center;gap:4px;}
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;}
 .badge-sage{background:var(--sage-d);color:var(--sage);border:1px solid var(--sage);}
@@ -121,7 +121,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       <div id="exApprovedList"><div class="empty">Loading...</div></div>
       <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:20px 0 10px;">Technique Videos</div>
       <div class="client-card" style="cursor:default;margin-bottom:10px;">
-        <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Link a technique video to any exercise -- it shows as a "Watch Technique Video" button on the fitness tracker whenever that exercise is selected.</div>
+        <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Link a technique video to any exercise -- it shows as a "Watch Technique Video" button on the fitness tracker whenever that exercise is selected.</div>
         <input type="text" id="vidExName" list="vidExDatalist" placeholder="Exercise name" style="width:100%;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;margin-bottom:8px;">
         <datalist id="vidExDatalist"></datalist>
         <input type="url" id="vidUrl" placeholder="Video URL (Instagram Reel, YouTube, etc.)" style="width:100%;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;margin-bottom:10px;">
@@ -131,7 +131,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
       <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:20px 0 10px;">Routine Templates</div>
       <div class="client-card" style="cursor:default;margin-bottom:10px;">
-        <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Build a routine once here -- exercises only, no reps or weight -- then assign it to any client from their page. It shows up in their own "My Routines" list, tagged as yours.</div>
+        <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Build a routine once here -- exercises only, no reps or weight -- then assign it to any client from their page. It shows up in their own "My Routines" list, tagged as yours.</div>
         <input type="text" id="rtName" placeholder="Routine name (e.g. Push Day A)" style="width:100%;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;margin-bottom:10px;">
         <div style="position:relative;margin-bottom:8px;">
           <input type="text" id="rtExSearch" placeholder="Search exercise to add..." autocomplete="off" oninput="handleRtExSearch(this)" style="width:100%;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
@@ -139,7 +139,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         </div>
         <div id="rtExList" style="margin-bottom:10px;"></div>
         <button onclick="saveRoutineTemplate()" style="width:100%;padding:10px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Save Routine Template</button>
-        <div onclick="cancelEditRoutineTemplate()" style="text-align:center;margin-top:8px;font-size:12px;color:var(--muted);cursor:pointer;text-decoration:underline;">Cancel editing</div>
+        <div onclick="cancelEditRoutineTemplate()" style="text-align:center;margin-top:8px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;text-decoration:underline;">Cancel editing</div>
       </div>
       <div id="rtList"><div class="empty">Loading...</div></div>
     </div>
@@ -237,7 +237,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           <input id="as-date-end" class="form-inp" type="date" style="flex:1;" onchange="updateAsRangeSummary()">
         </div>
         <div id="as-dow-row" style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;"></div>
-        <div id="as-range-summary" style="font-size:12px;color:var(--muted);margin-top:6px;"></div>
+        <div id="as-range-summary" style="font-size:14px;font-weight:600;color:var(--muted);margin-top:6px;"></div>
       </div>
 
       <div id="as-duration-group" class="form-group">
@@ -336,7 +336,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           <input id="mp-date-end" class="form-inp" type="date" onchange="onMpDateChange()" style="flex:1;">
         </div>
         <div id="mp-dow-row" style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;"></div>
-        <div id="mp-range-summary" style="font-size:12px;color:var(--muted);margin-top:6px;"></div>
+        <div id="mp-range-summary" style="font-size:14px;font-weight:600;color:var(--muted);margin-top:6px;"></div>
       </div>
       <div id="mp-meals"></div>
       <button id="mp-save-btn" onclick="saveMealPlan()" style="width:100%;margin-top:16px;padding:14px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#fff;cursor:pointer;">Save Meal Plan</button>
@@ -385,14 +385,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <button onclick="closeMeasModal()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
       </div>
       <div style="margin-bottom:12px;">
-        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Date</label>
+        <label style="font-size:14px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">Date</label>
         <input type="date" id="measModalDate" style="width:100%;padding:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;">
       </div>
       <div id="measModalGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;"></div>
       <div id="measModalExistingScans" style="margin-bottom:12px;"></div>
       <div style="margin-bottom:14px;">
-        <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px;">Attach a scan/report (optional)</label>
-        <input type="file" id="measModalScanInput" style="width:100%;font-size:13px;color:var(--muted);">
+        <label style="font-size:14px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">Attach a scan/report (optional)</label>
+        <input type="file" id="measModalScanInput" style="width:100%;font-size:15px;font-weight:600;color:var(--muted);">
         <div id="measModalScanPending" style="font-size:12px;color:var(--sage);margin-top:4px;"></div>
       </div>
       <button onclick="saveMeasurementModal()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;color:#fff;cursor:pointer;">Save</button>
@@ -705,7 +705,7 @@ async function loadRoutineTemplates(){
       +'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">'
       +'<div style="min-width:0;">'
         +'<div style="font-weight:700;color:var(--text);font-size:14px;">'+r.name+'</div>'
-        +'<div style="font-size:12px;color:var(--muted);">'+(r.body_parts||[]).join(', ')+' &middot; '+(r.exercises||[]).length+' exercises</div>'
+        +'<div style="font-size:14px;font-weight:600;color:var(--muted);">'+(r.body_parts||[]).join(', ')+' &middot; '+(r.exercises||[]).length+' exercises</div>'
       +'</div>'
       +'<div style="display:flex;gap:6px;flex-shrink:0;">'
       +'<button onclick="toggleTemplateAssignPicker(\''+r.id+'\')" style="padding:7px 12px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>'
@@ -910,11 +910,11 @@ async function loadFeedback(){
       <div onclick="toggleFbThread('${key.replace(/'/g,"\\'")}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;">
         <div style="min-width:0;">
           <div style="font-weight:700;color:var(--text);font-size:14px;">${group.name||'A client'}${group.mobile?' · '+group.mobile:''}</div>
-          <div style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">${(preview||'').replace(/</g,'&lt;')}</div>
+          <div style="font-size:14px;font-weight:600;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">${(preview||'').replace(/</g,'&lt;')}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
           ${awaitingReply?'<span style="width:9px;height:9px;border-radius:50%;background:var(--terra);display:inline-block;"></span>':''}
-          <span style="color:var(--muted);font-size:13px;">${isOpen?'&#9650;':'&#9660;'}</span>
+          <span style="color:var(--muted);font-size:15px;font-weight:600;">${isOpen?'&#9650;':'&#9660;'}</span>
         </div>
       </div>
       ${isOpen?`
@@ -1042,7 +1042,7 @@ function onFbFileSelected(key){
   const filename='coach_fb_'+Date.now()+'_'+safeName;
   const previewEl=document.getElementById('fbPendingAttachPreview_'+safeKey);
   previewEl.style.display='block';
-  previewEl.innerHTML='<div style="font-size:12px;color:var(--muted);">Uploading...</div>';
+  previewEl.innerHTML='<div style="font-size:14px;font-weight:600;color:var(--muted);">Uploading...</div>';
   const fr=new FileReader();
   fr.onload=function(e){
     getSB().storage.from('body-scans').upload(filename,e.target.result,{
@@ -1250,12 +1250,12 @@ function showClient(key){
     return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
       <div onclick="openCoachSession('${(c.mobile||c.name).replace(/'/g,"\\'")}','${r.session_date}','${(r.session_time||'').replace(/'/g,"\\'")}')" style="cursor:pointer;flex:1;">
         <div style="font-size:15px;font-weight:600;">${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}</div>
-        <div style="font-size:12px;color:var(--muted);">${r.session_time||''}</div>
+        <div style="font-size:14px;font-weight:600;color:var(--muted);">${r.session_time||''}</div>
       </div>
       <div style="text-align:right;display:flex;align-items:center;gap:8px;">
         <div onclick="openCoachSession('${(c.mobile||c.name).replace(/'/g,"\\'")}','${r.session_date}','${(r.session_time||'').replace(/'/g,"\\'")}')" style="cursor:pointer;">
           <div style="font-size:12px;font-weight:700;color:var(--sage);">${label}</div>
-          ${r.duration_secs?`<div style="font-size:12px;color:var(--muted);">${Math.round(r.duration_secs/60)}m</div>`:''}
+          ${r.duration_secs?`<div style="font-size:14px;font-weight:600;color:var(--muted);">${Math.round(r.duration_secs/60)}m</div>`:''}
         </div>
         ${paidBtn}
       </div>
@@ -1265,7 +1265,7 @@ function showClient(key){
   document.getElementById('clientDetail').innerHTML=`
     <div class="card" style="margin-bottom:14px;">
       <div style="font-size:22px;font-weight:800;margin-bottom:4px;">${c.name}</div>
-      ${c.mobile?`<div style="font-size:13px;color:var(--muted);">📱 ${c.mobile}</div>`:''}
+      ${c.mobile?`<div style="font-size:15px;font-weight:600;color:var(--muted);">📱 ${c.mobile}</div>`:''}
     </div>
     <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);">
       <div class="stat-box"><div class="stat-val" style="color:var(--sage);">${c.records.length}</div><div class="stat-lbl">Total</div></div>
@@ -1281,7 +1281,7 @@ function showClient(key){
     </div>
     <div class="card" style="margin-bottom:14px;">
       <div class="card-title">📚 Assign a Routine</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Pick one of your saved routine templates to add to this client's own "My Routines" list.</div>
+      <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Pick one of your saved routine templates to add to this client's own "My Routines" list.</div>
       <select id="rtAssignSelect" style="width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;margin-bottom:10px;">
         <option value="">Loading routines...</option>
       </select>
@@ -1304,7 +1304,7 @@ function showClient(key){
       </div>`:''}
       <div id="coachHistCustomRange" style="display:${coachHistFilterMode==='custom'?'flex':'none'};gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
         <input type="date" id="coachHistFromDate" value="${coachHistFilterFrom||''}" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
-        <span style="color:var(--muted);font-size:13px;">to</span>
+        <span style="color:var(--muted);font-size:15px;font-weight:600;">to</span>
         <input type="date" id="coachHistToDate" value="${coachHistFilterTo||''}" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
         <button onclick="applyCoachHistCustomRange()" style="padding:8px 14px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Apply</button>
       </div>
@@ -1312,7 +1312,7 @@ function showClient(key){
     </div>
     <div class="card" style="border-color:var(--terra);">
       <div class="card-title" style="color:var(--terra);">⚠️ Danger Zone</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Permanently deletes this client's fitness history and attendance record. Cannot be undone.</div>
+      <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Permanently deletes this client's fitness history and attendance record. Cannot be undone.</div>
       <button onclick="deleteClientFitness('${key.replace(/'/g,"\\'")}')" style="width:100%;padding:11px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Delete Fitness Data for ${c.name}</button>
     </div>`;
   loadAssignedWorkoutsForClient(key,c);
@@ -1338,7 +1338,7 @@ async function loadClientRoutinesList(clientKey){
     return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;background:var(--surf2);border-radius:8px;margin-bottom:6px;">'
       +'<div style="min-width:0;">'
         +'<div style="font-size:13px;color:var(--text);font-weight:700;">'+r.name+(r.createdBy==='coach'?' <span style="font-size:10px;color:var(--gold);font-weight:800;">COACH</span>':'')+'</div>'
-        +'<div style="font-size:11px;color:var(--muted);">'+(r.bodyParts||[]).join(', ')+' &middot; '+(r.exercises||[]).length+' exercises</div>'
+        +'<div style="font-size:13px;font-weight:600;color:var(--muted);">'+(r.bodyParts||[]).join(', ')+' &middot; '+(r.exercises||[]).length+' exercises</div>'
       +'</div>'
       +'<button onclick="deleteClientRoutine(\''+clientKey.replace(/'/g,"\\'")+'\',\''+r.id+'\')" style="padding:6px 10px;background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-family:\'DM Sans\',sans-serif;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;">Delete</button>'
       +'</div>';
@@ -1987,7 +1987,7 @@ function renderCoachSession(s,allSessions){
   const restTotal=restArr.length?restArr.reduce((a,b)=>a+b,0):null;
   const restHtml=(restArr.length||s.avgRestManual)?`<div class="card">
     <div class="card-title">Rest Times</div>
-    ${s.avgRestManual?`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);"><span style="color:var(--muted);">Average rest</span><span style="color:var(--gold);font-weight:700;">${fmtDurCoach(s.avgRestManual)}</span></div><div style="font-size:12px;color:var(--muted2);padding-bottom:6px;">Manually entered</div>`:''}
+    ${s.avgRestManual?`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);"><span style="color:var(--muted);">Average rest</span><span style="color:var(--gold);font-weight:700;">${fmtDurCoach(s.avgRestManual)}</span></div><div style="font-size:14px;font-weight:600;color:var(--muted2);padding-bottom:6px;">Manually entered</div>`:''}
     ${restAvg?`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);"><span style="color:var(--muted);">Rests taken</span><span style="font-weight:700;">${restArr.length}</span></div>`:''}
     ${restAvg?`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);"><span style="color:var(--muted);">Average rest</span><span style="color:var(--gold);font-weight:700;">${fmtDurCoach(restAvg)}</span></div>`:''}
     ${restTotal?`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);"><span style="color:var(--muted);">Total rest</span><span style="font-weight:700;">${fmtDurCoach(restTotal)}</span></div>`:''}
@@ -2173,7 +2173,7 @@ async function loadMeasurementsForClient(clientId,tracker,listElId){
       let delta='';
       if(prev&&prev[f.key]!=null){
         const dd=m[f.key]-prev[f.key];
-        if(Math.abs(dd)>0.01) delta=' <span style="color:var(--muted2);font-size:11px;">('+(dd>0?'+':'')+dd.toFixed(1)+')</span>';
+        if(Math.abs(dd)>0.01) delta=' <span style="color:var(--muted2);font-size:15px;font-weight:600;font-weight:600;">('+(dd>0?'+':'')+dd.toFixed(1)+')</span>';
       }
       return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0;"><span style="color:var(--muted);">'+f.label+'</span><span style="font-weight:600;">'+m[f.key]+delta+'</span></div>';
     }).join('');
@@ -2187,7 +2187,7 @@ async function loadMeasurementsForClient(clientId,tracker,listElId){
       +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
       +'<div style="font-size:13px;font-weight:700;color:var(--gold);">'+dt.getDate()+' '+M[dt.getMonth()]+' '+dt.getFullYear()+'</div>'
       +'<div style="display:flex;gap:6px;">'
-      +'<button onclick="openMeasurementModal(\''+clientId.replace(/'/g,"\\'")+'\',\''+tracker+'\',\''+listElId+'\',\''+m.id+'\')" style="padding:4px 9px;background:none;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted);cursor:pointer;">Edit</button>'
+      +'<button onclick="openMeasurementModal(\''+clientId.replace(/'/g,"\\'")+'\',\''+tracker+'\',\''+listElId+'\',\''+m.id+'\')" style="padding:4px 9px;background:none;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;">Edit</button>'
       +'<button onclick="deleteMeasurementForClient(\''+clientId.replace(/'/g,"\\'")+'\',\''+tracker+'\',\''+listElId+'\',\''+m.id+'\')" style="padding:4px 9px;background:none;border:1px solid var(--terra);border-radius:6px;font-size:11px;color:var(--terra);cursor:pointer;">Delete</button>'
       +'</div></div>'+rows+scansHtml+'</div>';
   }).join('');
@@ -2207,7 +2207,7 @@ function openMeasurementModal(clientId,tracker,listElId,entryId){
     const grid=document.getElementById('measModalGrid');
     grid.innerHTML=MEAS_FIELDS_COACH.map(function(f){
       const v=(entry&&entry[f.key]!=null)?entry[f.key]:'';
-      return '<div><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">'+f.label+'</label>'
+      return '<div><label style="font-size:13px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">'+f.label+'</label>'
         +'<input type="number" step="0.1" inputmode="decimal" id="measModal_'+f.key+'" value="'+v+'" placeholder="--" style="width:100%;padding:9px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:14px;">'
         +'</div>';
     }).join('');
@@ -2221,7 +2221,7 @@ function openMeasurementModal(clientId,tracker,listElId,entryId){
 function renderMeasModalScans(){
   const el=document.getElementById('measModalExistingScans');
   if(!measModalScans.length){el.innerHTML='';return;}
-  el.innerHTML='<label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px;">Attached files</label>'
+  el.innerHTML='<label style="font-size:13px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">Attached files</label>'
     +measModalScans.map(function(s,i){
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">'
         +'<a href="'+s.url+'" target="_blank" style="font-size:13px;color:var(--gold);text-decoration:underline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:75%;">📎 '+(s.name||'Scan report')+'</a>'
@@ -2583,7 +2583,7 @@ function renderAsSupersets(){
             <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);"><span></span><span>Reps</span><span>${asUnit}</span></div>
             ${groups.map(g=>`
               <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;align-items:center;">
-                <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);text-align:center;">S${g.mainIdx+1}</span>
+                <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:600;color:var(--muted);text-align:center;">S${g.mainIdx+1}</span>
                 <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${g.mainItem.reps}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${g.mainRealIdx},'reps',this.value)">
                 <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${g.mainItem.weight}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${g.mainRealIdx},'weight',this.value)">
               </div>
@@ -2591,7 +2591,7 @@ function renderAsSupersets(){
                 <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--terra);font-weight:800;text-align:center;">${di>0?'D'+(di+1):'D'}</span>
                 <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${d.item.reps}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${d.realIdx},'reps',this.value)">
                 <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${d.item.weight}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${d.realIdx},'weight',this.value)">
-                <button onclick="removeAsSupersetDropSet('${ss.id}','${e.id}',${d.realIdx})" title="Remove this drop set" style="background:none;border:none;color:var(--muted2);font-size:13px;cursor:pointer;padding:0;">✕</button>
+                <button onclick="removeAsSupersetDropSet('${ss.id}','${e.id}',${d.realIdx})" title="Remove this drop set" style="background:none;border:none;color:var(--muted2);font-size:15px;font-weight:600;cursor:pointer;padding:0;">✕</button>
               </div>`).join('')}
               <button type="button" onclick="addAsSupersetDropSet('${ss.id}','${e.id}',${g.mainIdx})" style="display:block;width:auto;margin:0 0 4px 38px;padding:2px 0;background:none;border:none;color:var(--terra);font-family:inherit;font-size:.7rem;font-weight:700;cursor:pointer;text-align:left;opacity:.75;">+ Drop set</button>
             `).join('')}
@@ -2639,7 +2639,7 @@ function renderAsExercises(){
         <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);"><span></span><span>Reps</span><span>${asUnit}</span></div>
         ${groups.map(g=>`
           <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;align-items:center;">
-            <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);text-align:center;">S${g.mainIdx+1}</span>
+            <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:600;color:var(--muted);text-align:center;">S${g.mainIdx+1}</span>
             <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${g.mainItem.reps}" oninput="updateAsExSetData('${b.id}',${g.mainRealIdx},'reps',this.value)">
             <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${g.mainItem.weight}" oninput="updateAsExSetData('${b.id}',${g.mainRealIdx},'weight',this.value)">
           </div>
@@ -2647,7 +2647,7 @@ function renderAsExercises(){
             <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--terra);font-weight:800;text-align:center;">${di>0?'D'+(di+1):'D'}</span>
             <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${d.item.reps}" oninput="updateAsExSetData('${b.id}',${d.realIdx},'reps',this.value)">
             <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${d.item.weight}" oninput="updateAsExSetData('${b.id}',${d.realIdx},'weight',this.value)">
-            <button onclick="removeAsDropSet('${b.id}',${d.realIdx})" title="Remove this drop set" style="background:none;border:none;color:var(--muted2);font-size:13px;cursor:pointer;padding:0;">✕</button>
+            <button onclick="removeAsDropSet('${b.id}',${d.realIdx})" title="Remove this drop set" style="background:none;border:none;color:var(--muted2);font-size:15px;font-weight:600;cursor:pointer;padding:0;">✕</button>
           </div>`).join('')}
           <button type="button" onclick="addAsDropSet('${b.id}',${g.mainIdx})" style="display:block;width:auto;margin:0 0 4px 38px;padding:2px 0;background:none;border:none;color:var(--terra);font-family:inherit;font-size:.7rem;font-weight:700;cursor:pointer;text-align:left;opacity:.75;">+ Drop set</button>
         `).join('')}
@@ -3370,13 +3370,13 @@ function viewPlanComparison(clientId,m,w,di){
     const changed=assignedFoods!==currentFoods;
     return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
       <div style="font-weight:700;font-size:13px;margin-bottom:4px;">${meal.name}${changed?' <span style="color:var(--gold);font-size:11px;">(changed)</span>':''}</div>
-      <div style="font-size:12px;color:var(--muted);">You assigned: <span style="color:var(--text);">${assignedFoods}</span></div>
-      <div style="font-size:12px;color:var(--muted);">They now have: <span style="color:${changed?'var(--gold)':'var(--sage)'};">${currentFoods}</span></div>
+      <div style="font-size:14px;font-weight:600;color:var(--muted);">You assigned: <span style="color:var(--text);">${assignedFoods}</span></div>
+      <div style="font-size:14px;font-weight:600;color:var(--muted);">They now have: <span style="color:${changed?'var(--gold)':'var(--sage)'};">${currentFoods}</span></div>
     </div>`;
   }).join('');
   const assignedAt=snap.assignedAt?new Date(snap.assignedAt).toLocaleString():'Unknown';
   document.getElementById('planCompareBody').innerHTML=
-    `<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Assigned ${assignedAt}</div>${rows}`;
+    `<div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;">Assigned ${assignedAt}</div>${rows}`;
   document.getElementById('planCompareModal').style.display='flex';
 }
 
@@ -3605,7 +3605,7 @@ function renderMealPlanForm(){
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
         <div class="form-label" style="margin-bottom:0;">${meal.name}</div>
         <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:12px;color:var(--muted);">Time:</span>
+          <span style="font-size:14px;font-weight:600;color:var(--muted);">Time:</span>
           <input type="time" value="${mpTimes[meal.id]||''}" onchange="mpTimes['${meal.id}']=this.value||undefined" style="padding:5px 8px;background:var(--surf2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;">
         </div>
       </div>
@@ -3617,7 +3617,7 @@ function renderMealPlanForm(){
       </div>
       <textarea id="mp-note-${meal.id}" class="form-inp" rows="2" placeholder="Optional note for this meal (portion size, instructions, etc.)" onchange="mpNotes['${meal.id}']=this.value" style="font-family:'DM Sans',sans-serif;margin-bottom:8px;">${mpNotes[meal.id]||''}</textarea>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-        <span style="font-size:12px;color:var(--muted);white-space:nowrap;">Set score (only if reporting a day that already happened):</span>
+        <span style="font-size:14px;font-weight:600;color:var(--muted);white-space:nowrap;">Set score (only if reporting a day that already happened):</span>
         <select onchange="mpScores['${meal.id}']=this.value===''?undefined:parseInt(this.value)" style="flex:1;padding:6px 8px;background:var(--surf2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;">
           <option value="" ${mpScores[meal.id]===undefined?'selected':''}>Don't set</option>
           <option value="3" ${mpScores[meal.id]===3?'selected':''}>Good</option>
@@ -3628,10 +3628,10 @@ function renderMealPlanForm(){
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
         <input type="checkbox" ${mpOrder[meal.id]?'checked':''} onchange="mpOrder['${meal.id}']=this.checked" style="accent-color:var(--sage);">
-        <span style="font-size:12px;color:var(--muted);">Ate in ideal order (Protein First)</span>
+        <span style="font-size:14px;font-weight:600;color:var(--muted);">Ate in ideal order (Protein First)</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:12px;color:var(--muted);white-space:nowrap;">Protein on plate:</span>
+        <span style="font-size:14px;font-weight:600;color:var(--muted);white-space:nowrap;">Protein on plate:</span>
         <select onchange="mpProteinPlate['${meal.id}']=this.value===''?undefined:this.value" style="flex:1;padding:6px 8px;background:var(--surf2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;">
           <option value="" ${!mpProteinPlate[meal.id]?'selected':''}>Don't set</option>
           <option value="more" ${mpProteinPlate[meal.id]==='more'?'selected':''}>More than usual</option>
@@ -3860,7 +3860,7 @@ function nutShowClient(clientId){
   document.getElementById('nutClientDetail').innerHTML=
     '<div class="card" style="margin-bottom:14px;">'
       +'<div style="font-size:22px;font-weight:800;margin-bottom:4px;">'+cw.name+'</div>'
-      +(cw.mobile?'<div style="font-size:13px;color:var(--muted);">📱 '+cw.mobile+'</div>':'')
+      +(cw.mobile?'<div style="font-size:15px;font-weight:600;color:var(--muted);">📱 '+cw.mobile+'</div>':'')
     +'</div>'
     +'<div class="card" style="margin-bottom:14px;">'
       +'<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📏 Body Measurements'
@@ -3889,7 +3889,7 @@ function nutShowClient(clientId){
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
             <span class="badge ${statusClass}">${statusLabel}</span>
-            <button onclick="event.stopPropagation();viewPlanComparison('${clientId}',${a.m},${a.w},${a.di})" style="padding:5px 10px;background:none;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--muted);cursor:pointer;">👁 Compare</button>
+            <button onclick="event.stopPropagation();viewPlanComparison('${clientId}',${a.m},${a.w},${a.di})" style="padding:5px 10px;background:none;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;">👁 Compare</button>
             <button onclick="event.stopPropagation();deleteMealPlanAssignment('${clientId}',${a.m},${a.w},${a.di})" style="background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-size:12px;padding:4px 8px;cursor:pointer;">🗑 Delete</button>
           </div>
         </div>`;
@@ -3914,7 +3914,7 @@ function nutShowClient(clientId){
     +'</div>'
     +'<div class="card" style="border-color:var(--terra);">'
       +'<div class="card-title" style="color:var(--terra);">⚠️ Danger Zone</div>'
-      +'<div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Permanently deletes this client\'s nutrition history. Cannot be undone.</div>'
+      +'<div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Permanently deletes this client\'s nutrition history. Cannot be undone.</div>'
       +'<button onclick="deleteClientNutrition(\''+clientId+'\')" style="width:100%;padding:11px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Delete Nutrition Data for '+(cw?cw.name:'this client')+'</button>'
     +'</div>';
   loadMeasurementsForClient(clientId,'nutrition','nutMeasList');
@@ -3957,8 +3957,8 @@ function nutOpenDayPanel(clientId,m,w,di){
       +'<div class="meal-card-title"><span>'+meal.name+'</span><span style="color:var(--gold);">'+['','Poor','OK','Good'][score]+'</span></div>'
       +'<div style="font-size:13px;color:'+(ordered?'#6a9e6e':'var(--muted)')+';margin-bottom:6px;">'+(ordered?'✓ Started with protein, fibre, or fat':'✗ Did not start with protein, fibre, or fat')+'</div>'
       +(plateVal?'<div style="font-size:13px;color:var(--gold);margin-bottom:6px;">Plate: '+({more:'More protein',same:'About the same',less:'Less protein'}[plateVal])+'</div>':'')
-      +(foods.length?'<div style="font-size:13px;color:var(--muted);margin-bottom:6px;">'+foods.join(', ')+'</div>':'')
-      +(note?'<div style="font-size:13px;color:var(--muted);font-style:italic;margin-bottom:6px;">"'+note+'"</div>':'')
+      +(foods.length?'<div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:6px;">'+foods.join(', ')+'</div>':'')
+      +(note?'<div style="font-size:15px;font-weight:600;color:var(--muted);font-style:italic;margin-bottom:6px;">"'+note+'"</div>':'')
       +(photos.length?photos.map(function(url){return'<img class="meal-photo" src="'+url+'">';}).join(''):'')
     +'</div>';
   });
