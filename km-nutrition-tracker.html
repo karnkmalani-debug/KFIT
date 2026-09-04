@@ -2286,6 +2286,23 @@ function setMealTime(m,w,di,mealId,val){
   data[m][w][di].mealTimes[mealId]=val;
   autoSave();
 }
+function autoCaptureMealTime(m,w,di,mealId){
+  // Only auto-fill if nothing's set yet -- never overwrites a manual entry or coach edit.
+  // Only fires for today's actual date -- backfilling a past day shouldn't get "now".
+  ensureData(m,w,di);
+  if(data[m][w][di].mealTimes&&data[m][w][di].mealTimes[mealId])return;
+  var cal=buildCalendar();
+  var day=cal[m]&&cal[m][w]&&cal[m][w][di];
+  if(!day)return;
+  var todayStr=localDateStr(new Date());
+  var dayDateStr=localDateStr(day.date);
+  if(dayDateStr!==todayStr)return;
+  var now=new Date();
+  var hh=String(now.getHours()).padStart(2,'0');
+  var mm=String(now.getMinutes()).padStart(2,'0');
+  if(!data[m][w][di].mealTimes)data[m][w][di].mealTimes={};
+  data[m][w][di].mealTimes[mealId]=hh+':'+mm;
+}
 function toggleHabit(m,w,di,hid){
   ensureData(m,w,di);
   data[m][w][di].habits[hid]=!data[m][w][di].habits[hid];
@@ -2306,6 +2323,7 @@ function toggleFood(m,w,di,mealId,food){
   if(!data[m][w][di].foodLog)data[m][w][di].foodLog={};
   if(!data[m][w][di].foodLog[mealId])data[m][w][di].foodLog[mealId]=[];
   data[m][w][di].foodLog[mealId].push(food);
+  autoCaptureMealTime(m,w,di,mealId);
   autoSave();render();
 }
 function decrementFood(m,w,di,mealId,food){
@@ -2331,6 +2349,7 @@ function addCustomFood(m,w,di,mealId){
   if(!data[m][w][di].foodLog)data[m][w][di].foodLog={};
   if(!data[m][w][di].foodLog[mealId])data[m][w][di].foodLog[mealId]=[];
   data[m][w][di].foodLog[mealId].push(val);
+  autoCaptureMealTime(m,w,di,mealId);
   autoSave();
   render();
 }
