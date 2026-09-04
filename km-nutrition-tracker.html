@@ -14,11 +14,11 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap');
 :root{
-  --bg:#f5f2eb;--surf:#ffffff;--surf2:#ede9e0;--surf3:#e4dfd5;--border:#c8c2b4;
+  --bg:#e8e5df;--surf:#f6f4ef;--surf2:#ece8dd;--surf3:#e0dbcd;--border:#c9c3b6;
   --sage:#3a6e40;--sage-l:#5a8e5e;--sage-d:rgba(58,110,64,.12);
   --terra:#a04828;--terra-d:rgba(160,72,40,.12);
   --gold:#8a6420;--gold-d:rgba(138,100,32,.12);
-  --txt:#1a1814;--txt2:#4a4640;--txt3:#5f564c;--white:#fff;
+  --txt:#211f1a;--txt2:#3d3a32;--txt3:#5a5548;--white:#fff;
   --score-high:#3a6e40;--score-mid:#8a6420;--score-low:#a04828;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -511,7 +511,7 @@ var LS_NOTES='km_nut_notes';
 var appSetup=null; // {startDate, clientName, totalMonths}
 var data=[];       // [month][week][day]
 var weekNotes=[];  // [month][week]
-var ui={activeMonth:0,activeWeek:0,activeDay:0,expandedWeeks:{}};
+var ui={activeMonth:0,activeWeek:0,activeDay:0,expandedWeeks:{},otherWeeksOpen:false};
 var bodyMeasurements=[]; // [{id,date,weight,height,chest,waist,hips,arm,thigh,calf,shoulder,neck,updatedAt}]
 var LS_MEAS='km_nut_measurements';
 const MEAS_FIELDS_NUT=[
@@ -1153,8 +1153,18 @@ function renderTracker(){
     +'</div>'
     +'</div>';
   var weeks=cal[ui.activeMonth]||[];
-  for(var w=0;w<weeks.length;w++){
-    html+=renderWeek(ui.activeMonth,w,cal);
+  html+=renderWeek(ui.activeMonth,ui.activeWeek,cal);
+  var otherWeeksOpen=ui.otherWeeksOpen;
+  var otherCount=weeks.length-1;
+  if(otherCount>0){
+    html+='<div onclick="toggleOtherWeeks()" style="margin:0 16px 10px;font-size:.78rem;font-weight:700;color:var(--sage);text-decoration:underline;cursor:pointer;">'
+      +(otherWeeksOpen?'Hide other weeks':'Other weeks this month ('+otherCount+')')+'</div>';
+    if(otherWeeksOpen){
+      for(var w=0;w<weeks.length;w++){
+        if(w===ui.activeWeek) continue;
+        html+=renderWeek(ui.activeMonth,w,cal);
+      }
+    }
   }
   
   html+='<div style="height:40px;"></div>';
@@ -1943,7 +1953,7 @@ function renderWeek(m,w,cal){
   var wk=weeks[w]||[];
   var activeDays=wk.filter(function(d){return d.active;});
   var wScore=calcWeekScore(m,w,cal);
-  var isOpen=ui.expandedWeeks[m+'-'+w];
+  var isOpen=ui.expandedWeeks[m+'-'+w]!==undefined?ui.expandedWeeks[m+'-'+w]:(m===ui.activeMonth&&w===ui.activeWeek);
   var wn=weekNotes[m]&&weekNotes[m][w]?weekNotes[m][w]:'';
   var html='<div class="week-section">'
     +'<div class="week-head" onclick="toggleWeek('+m+','+w+')">'
@@ -2210,7 +2220,11 @@ function renderWeekSummary(m,w,cal,wn){
 
 // -- EVENT HANDLERS --
 function bindTrackerEvents(){}
-function setMonth(m){ui.activeMonth=m;render();}
+function setMonth(m){ui.activeMonth=m;ui.activeWeek=0;ui.otherWeeksOpen=false;render();}
+function toggleOtherWeeks(){
+  ui.otherWeeksOpen=!ui.otherWeeksOpen;
+  render();
+}
 function toggleWeek(m,w){
   var key=m+'-'+w;
   ui.expandedWeeks[key]=!ui.expandedWeeks[key];
