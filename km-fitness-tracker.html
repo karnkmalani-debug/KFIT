@@ -450,7 +450,7 @@ btn.textContent='Could not copy -- select the address bar manually';
     </div>
     <div class="pw-error" id="pwError"></div>
     <div style="text-align:center;margin-top:14px;">
-      <span onclick="togglePrivacyNote(this)" style="font-size:12px;color:var(--muted);text-decoration:underline;cursor:pointer;">Privacy &amp; data use</span>
+      <span onclick="togglePrivacyNote(this)" style="font-size:12px;color:var(--muted);text-decoration:underline;cursor:pointer;">Privacy &amp; data use</span> &middot; <a href="/terms" target="_blank" style="font-size:12px;color:var(--muted);text-decoration:underline;">Terms</a>
       <div style="display:none;font-size:12px;font-weight:600;color:var(--muted);line-height:1.5;margin-top:8px;text-align:left;">Your workout &amp; nutrition entries are stored securely to power this tracker and improve KFit. Anonymised, aggregate insights (not tied to your identity) may be used or shared for research, product improvement, or partnerships. Your identifiable data is never sold without your separate, explicit consent.</div>
     </div>
     <div id="installWrap" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
@@ -526,7 +526,7 @@ btn.textContent='Could not copy -- select the address bar manually';
     </div>
     <button class="s-btn" onclick="completeSetup()">Enter Tracker →</button>
     <div style="text-align:center;margin-top:14px;">
-      <span onclick="togglePrivacyNote(this)" style="font-size:12px;color:var(--muted);text-decoration:underline;cursor:pointer;">Privacy &amp; data use</span>
+      <span onclick="togglePrivacyNote(this)" style="font-size:12px;color:var(--muted);text-decoration:underline;cursor:pointer;">Privacy &amp; data use</span> &middot; <a href="/terms" target="_blank" style="font-size:12px;color:var(--muted);text-decoration:underline;">Terms</a>
       <div style="display:none;font-size:12px;font-weight:600;color:var(--muted);line-height:1.5;margin-top:8px;text-align:left;">Your workout &amp; nutrition entries are stored securely to power this tracker and improve KFit. Anonymised, aggregate insights (not tied to your identity) may be used or shared for research, product improvement, or partnerships. Your identifiable data is never sold without your separate, explicit consent.</div>
     </div>
     <div style="text-align:center;margin-top:16px;">
@@ -861,6 +861,7 @@ btn.textContent='Could not copy -- select the address bar manually';
     <div style="padding:0 14px 16px;">
       <button class="print-inline" onclick="window.print()">&#128424; Print This Screen</button>
     </div>
+    <div style="text-align:center;padding:8px 14px 20px;font-size:12px;color:var(--muted);">&copy; <span id="copyrightYear"></span> KFit by Karan KM Malani. All rights reserved.</div>
   </div>
 </div>
 
@@ -1650,6 +1651,8 @@ loadLiveRoutineTemplates();
 renderRoutineList();
 renderFaqList();
 renderCardioChips();
+var copyrightYearEl=document.getElementById('copyrightYear');
+if(copyrightYearEl) copyrightYearEl.textContent=new Date().getFullYear();
 var logImportCard=document.getElementById('logImportCard');
 if(logImportCard) logImportCard.style.display=sessions.length?'none':'block';
 var philoBodyFit=document.getElementById('philoBodyFit');

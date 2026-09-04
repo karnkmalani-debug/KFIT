@@ -282,7 +282,7 @@ btn.textContent='Could not copy -- select the address bar manually';
     </div>
     <div class="pw-error" id="pwError"></div>
     <div style="text-align:center;margin-top:14px;">
-      <span onclick="togglePrivacyNote(this)" style="font-size:11px;color:var(--txt2);text-decoration:underline;cursor:pointer;">Privacy &amp; data use</span>
+      <span onclick="togglePrivacyNote(this)" style="font-size:11px;color:var(--txt2);text-decoration:underline;cursor:pointer;">Privacy &amp; data use</span> &middot; <a href="/terms" target="_blank" style="font-size:11px;color:var(--txt2);text-decoration:underline;">Terms</a>
       <div style="display:none;font-size:11px;color:var(--txt2);line-height:1.5;margin-top:8px;text-align:left;">Your nutrition entries are stored securely to power this tracker and improve KFit. Anonymised, aggregate insights (not tied to your identity) may be used or shared for research, product improvement, or partnerships. Your identifiable data is never sold without your separate, explicit consent.</div>
     </div>
     <div id="installWrap" style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
@@ -597,7 +597,7 @@ html+='<p style="font-size:.85rem;color:var(--txt2);margin-bottom:12px;">No mobi
 +'</div>';
 }
 html+='</div>';
-
+html+='<div style="text-align:center;padding:20px 0 8px;font-size:.7rem;color:var(--txt3);">&copy; '+new Date().getFullYear()+' KFit by Karan KM Malani. All rights reserved.</div>';
 html+='</div>';
 return html;
 }
