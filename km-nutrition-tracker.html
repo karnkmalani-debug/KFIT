@@ -71,7 +71,7 @@ body{overflow-x:hidden;}
 .score-btn.s2.active{background:var(--gold-d);border-color:var(--gold);color:var(--gold);}
 .score-btn.s3.active{background:var(--sage-d);border-color:var(--sage);color:var(--sage);}
 .score-btn.s0.active{background:#f0ece4;border-color:var(--txt3);color:var(--txt3);}
-.meal-note-inp{width:100%;background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:.8rem;color:var(--txt);resize:none;margin-top:6px;}
+.meal-note-inp{width:100%;background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:600;color:var(--txt);resize:none;margin-top:6px;}
 .meal-note-inp:focus{outline:none;border-color:var(--sage);}
 .meal-note-inp::placeholder{color:var(--txt3);}
 /* habits */
@@ -2084,24 +2084,24 @@ function renderDayPanel(m,w,di,cal){
           :'<div class="order-reminder"> Remember: eat protein, veg or fat BEFORE the carbs</div>')
       // Secondary details, collapsed by default -- AI Analysis (fun feature, no score impact),
       // plate-check, time eaten, and notes. Kept out of the way of the core daily task.
-      +'<div onclick="toggleMealMore(\''+moreId+'\')" style="margin-top:10px;font-size:.72rem;color:var(--txt3);text-decoration:underline;cursor:pointer;">+ AI analysis, time, notes</div>'
+      +'<div onclick="toggleMealMore(\''+moreId+'\')" style="margin-top:10px;font-size:.82rem;font-weight:700;color:var(--sage);text-decoration:underline;cursor:pointer;">+ Fun extras: AI check, time &amp; notes</div>'
       +'<div id="'+moreId+'" style="display:none;margin-top:8px;">'
         +'<button onclick="snapMeal(\''+meal.id+'\','+m+','+w+','+di+')" style="width:100%;margin-bottom:8px;background:var(--sage-d);border:1px solid var(--sage);border-radius:7px;padding:7px 10px;color:var(--sage);font-size:14px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;">🤖 AI Analysis (macros &amp; calories -- fun feature, doesn\'t affect your score)</button>'
         +(score>0
           ?'<div style="margin-bottom:10px;">'
-            +'<div style="font-size:.72rem;color:var(--txt3);margin-bottom:5px;">How did this plate look?</div>'
+            +'<div style="font-size:.85rem;font-weight:700;color:var(--txt);margin-bottom:6px;">How did this plate look? <span style="font-weight:600;color:var(--txt3);">(doesn\'t affect your score)</span></div>'
             +'<div style="display:flex;gap:6px;">'
             +['more','same','less'].map(function(val){
               var labels={more:'More protein',same:'About the same',less:'Less protein'};
               var active=proteinPlateVal===val;
-              return'<div onclick="setProteinPlate('+m+','+w+','+di+',\''+meal.id+'\',\''+val+'\')" style="flex:1;text-align:center;padding:7px 4px;cursor:pointer;border-radius:7px;font-size:.68rem;font-weight:700;border:1px solid '+(active?'var(--sage)':'var(--border)')+';background:'+(active?'var(--sage-d)':'var(--surf2)')+';color:'+(active?'var(--sage)':'var(--txt3)')+';">'+labels[val]+'</div>';
+              return'<div onclick="setProteinPlate('+m+','+w+','+di+',\''+meal.id+'\',\''+val+'\')" style="flex:1;text-align:center;padding:8px 4px;cursor:pointer;border-radius:7px;font-size:.78rem;font-weight:700;border:1px solid '+(active?'var(--sage)':'var(--border)')+';background:'+(active?'var(--sage-d)':'var(--surf2)')+';color:'+(active?'var(--sage)':'var(--txt)')+';">'+labels[val]+'</div>';
             }).join('')
             +'</div>'
           +'</div>'
           :'')
         +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
-        +'<span style="font-size:.68rem;color:var(--txt3);white-space:nowrap;">Time eaten:</span>'
-        +'<input type="time" class="form-inp" style="padding:6px 8px;font-size:.8rem;width:auto;margin-bottom:0;" value="'+((dd.mealTimes&&dd.mealTimes[meal.id])||'')+'" onchange="setMealTime('+m+','+w+','+di+',\''+meal.id+'\',this.value)">'
+        +'<span style="font-size:.82rem;font-weight:700;color:var(--txt);white-space:nowrap;">Time eaten:</span>'
+        +'<input type="time" class="form-inp" style="padding:6px 8px;font-size:.85rem;font-weight:600;width:auto;margin-bottom:0;" value="'+((dd.mealTimes&&dd.mealTimes[meal.id])||'')+'" onchange="setMealTime('+m+','+w+','+di+',\''+meal.id+'\',this.value)">'
         +'</div>'
         +'<textarea class="meal-note-inp" placeholder="Notes..." rows="1"'
         +' onchange="setMealNote('+m+','+w+','+di+',\''+meal.id+'\',this.value)"'
