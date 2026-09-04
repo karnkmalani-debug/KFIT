@@ -1157,8 +1157,10 @@ function renderTracker(){
   var otherWeeksOpen=ui.otherWeeksOpen;
   var otherCount=weeks.length-1;
   if(otherCount>0){
-    html+='<div onclick="toggleOtherWeeks()" style="margin:0 16px 10px;font-size:.78rem;font-weight:700;color:var(--sage);text-decoration:underline;cursor:pointer;">'
-      +(otherWeeksOpen?'Hide other weeks':'Other weeks this month ('+otherCount+')')+'</div>';
+    html+='<div onclick="toggleOtherWeeks()" style="margin:0 16px 14px;padding:14px 16px;background:var(--surf2);border:1px solid var(--border);border-radius:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">'
+      +'<span style="font-size:.85rem;font-weight:700;color:var(--sage);">'+(otherWeeksOpen?'Hide other weeks':'Other weeks this month ('+otherCount+')')+'</span>'
+      +'<span style="color:var(--sage);font-size:.85rem;">'+(otherWeeksOpen?'\u25B2':'\u25BC')+'</span>'
+      +'</div>';
     if(otherWeeksOpen){
       for(var w=0;w<weeks.length;w++){
         if(w===ui.activeWeek) continue;
@@ -1997,33 +1999,6 @@ function renderDayPanel(m,w,di,cal){
   var dd=(data[m]&&data[m][w]&&data[m][w][di])?data[m][w][di]:{meals:{},habits:{},note:''};
   var html='<div class="day-panel">';
 
-  // ── HEADLINE: Eating Order + Protein First ──
-  var orderTally=calcEatingOrderTally(dd);
-  var proteinTally=calcProteinPlateTally(dd);
-  var orderDots=Array.from({length:Math.max(orderTally.eaten,1)},function(_,i){
-    return i<orderTally.ordered?'●':'○';
-  }).join('');
-  var proteinTrendLabel='Not logged yet';
-  var proteinTrendColor='var(--txt3)';
-  if(proteinTally.total>0){
-    if(proteinTally.more>proteinTally.same+proteinTally.less){proteinTrendLabel='↗ Trending up';proteinTrendColor='#6a9e6e';}
-    else if(proteinTally.less>proteinTally.more+proteinTally.same){proteinTrendLabel='↘ Trending down';proteinTrendColor='#c4694a';}
-    else{proteinTrendLabel='→ About the same';proteinTrendColor='#d4a843';}
-  }
-  html+='<div style="margin:0 16px 14px;background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:14px;">'
-    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
-      +'<div style="font-size:.7rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--txt3);">Eating Order Today</div>'
-    +'</div>'
-    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">'
-      +'<div style="font-size:18px;letter-spacing:3px;color:#6a9e6e;">'+orderDots+'</div>'
-      +'<div style="font-size:.78rem;color:var(--txt3);">'+(orderTally.eaten>0?orderTally.ordered+' of '+orderTally.eaten+' meals started right':'No meals logged yet')+'</div>'
-    +'</div>'
-    +'<div style="border-top:1px solid var(--border);padding-top:12px;">'
-      +'<div style="font-size:.7rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--txt3);margin-bottom:6px;">Protein First Today</div>'
-      +'<div style="font-size:16px;font-weight:700;color:'+proteinTrendColor+';">'+proteinTrendLabel+'</div>'
-    +'</div>'
-  +'</div>';
-
   MEALS.forEach(function(meal){
     var score=dd.meals&&dd.meals[meal.id]?dd.meals[meal.id]:0;
     var ordered=dd.order&&dd.order[meal.id]?true:false;
@@ -2035,6 +2010,55 @@ function renderDayPanel(m,w,di,cal){
       +'<div class="meal-name">'+meal.name+'</div>'
       +(isSnack?'<div style="font-size:.65rem;color:var(--txt3);margin-top:2px;">Optional -- skip won\'t affect score</div>':'')
       +'</div>'
+      // Food log -- type-to-add is the primary action; browsing the full chip
+      // list is secondary and collapsed so it doesn't overwhelm on open.
+      +'<div class="food-log-label">What did you eat?</div>'
+      +'<div class="food-chip-add" style="margin-bottom:8px;">'
+      +'<input class="food-log-add-inp" type="text" id="fi-'+m+'-'+w+'-'+di+'-'+meal.id+'" placeholder="Type food + Add...">'
+      +'<button class="food-log-add-btn" onclick="addCustomFood('+m+','+w+','+di+',\''+meal.id+'\')">Add</button>'
+      +'<button class="food-log-add-btn" style="background:var(--surf2);color:var(--sage);" onclick="attachProofPhoto('+m+','+w+','+di+',\''+meal.id+'\')" title="Attach a photo as proof -- no AI analysis">📷 Add Photo</button>'
+      +'</div>'
+      +(function(){
+        var fl=dd.foodLog&&dd.foodLog[meal.id]?dd.foodLog[meal.id]:[];
+        if(!fl.length) return '';
+        var counts={};
+        fl.forEach(function(f){counts[f]=(counts[f]||0)+1;});
+        var parts=Object.keys(counts).map(function(f){return(counts[f]>1?counts[f]+' ':'')+f;});
+        return '<div style="font-size:.78rem;color:var(--sage);font-weight:700;margin-bottom:8px;">Logged: '+parts.join(', ')+'</div>';
+      })()
+      +(function(){
+        var photos=dd.photos&&dd.photos[meal.id]?dd.photos[meal.id]:[];
+        if(!photos.length) return '';
+        return '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">'
+          +photos.map(function(url,i){
+            return '<div style="position:relative;">'
+              +'<img src="'+url+'" onclick="viewPhoto(\''+url+'\')" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;">'
+              +'<button onclick="deletePhoto('+m+','+w+','+di+',\''+meal.id+'\','+i+')" style="position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--terra);border:none;color:#fff;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">x</button>'
+              +'</div>';
+          }).join('')
+          +'</div>';
+      })()
+      +'<div onclick="toggleMealMore(\'chips'+moreId+'\')" style="font-size:.72rem;color:var(--txt3);text-decoration:underline;cursor:pointer;margin-bottom:10px;">+ Browse food options</div>'
+      +'<div id="chips'+moreId+'" style="display:none;margin-bottom:10px;">'
+      +'<div class="food-chips" id="chips-'+m+'-'+w+'-'+di+'-'+meal.id+'">'
+      +(function(){
+        var fl=dd.foodLog&&dd.foodLog[meal.id]?dd.foodLog[meal.id]:[];
+        var customFoods=dd.customFoods&&dd.customFoods[meal.id]?dd.customFoods[meal.id]:[];
+        var allFoods=(FOOD_OPTIONS[meal.id]||[]).concat(customFoods.filter(function(f){return(FOOD_OPTIONS[meal.id]||[]).indexOf(f)<0;}));
+        return allFoods.map(function(food){
+          var count=fl.filter(function(f){return f===food;}).length;
+          var sel=count>0;
+          var isCustom=customFoods.indexOf(food)>-1;
+          return'<div class="food-chip'+(sel?' selected':'')+'" style="display:inline-flex;align-items:center;gap:6px;">'
+            +'<span onclick="toggleFood('+m+','+w+','+di+',\''+meal.id+'\',\''+food+'\')" style="cursor:pointer;">'+food+(count>1?' \u00d7'+count:'')+'</span>'
+            +(sel?'<button onclick="event.stopPropagation();decrementFood('+m+','+w+','+di+',\''+meal.id+'\',\''+food+'\')" style="background:none;border:none;color:inherit;font-size:1rem;font-weight:800;cursor:pointer;padding:0 2px;line-height:1;">\u2212</button>':'')
+            +'<button class="food-chip-del" onclick="event.stopPropagation();deleteFood('+m+','+w+','+di+',\''+meal.id+'\',\''+food+'\','+isCustom+')">x</button>'
+            +'</div>';
+        }).join('');
+      })()
+      +'</div>'
+      +'</div>'
+      // Score comes after the meal is actually logged, not before
       +'<div class="meal-score-row" style="margin-bottom:6px;">'
       +'<div class="score-btn s0'+(score===0?' active':'')+'" onclick="setMeal('+m+','+w+','+di+',\''+meal.id+'\',0)">--</div>'
       +'<div class="score-btn s1'+(score===1?' active':'')+'" onclick="setMeal('+m+','+w+','+di+',\''+meal.id+'\',1)">1</div>'
@@ -2055,50 +2079,6 @@ function renderDayPanel(m,w,di,cal){
       +(ordered
           ?'<div class="order-reminder-done">\u2713 Started with protein, fibre or fat -- well done!</div>'
           :'<div class="order-reminder"> Remember: eat protein, veg or fat BEFORE the carbs</div>')
-      // Food log -- the core logging action, always visible
-      +'<div class="food-log-label">What did you eat?</div>'
-      +'<div class="food-chips" id="chips-'+m+'-'+w+'-'+di+'-'+meal.id+'">'
-      +(function(){
-        var fl=dd.foodLog&&dd.foodLog[meal.id]?dd.foodLog[meal.id]:[];
-        var customFoods=dd.customFoods&&dd.customFoods[meal.id]?dd.customFoods[meal.id]:[];
-        var allFoods=(FOOD_OPTIONS[meal.id]||[]).concat(customFoods.filter(function(f){return(FOOD_OPTIONS[meal.id]||[]).indexOf(f)<0;}));
-        return allFoods.map(function(food){
-          var count=fl.filter(function(f){return f===food;}).length;
-          var sel=count>0;
-          var isCustom=customFoods.indexOf(food)>-1;
-          return'<div class="food-chip'+(sel?' selected':'')+'" style="display:inline-flex;align-items:center;gap:6px;">'
-            +'<span onclick="toggleFood('+m+','+w+','+di+',\''+meal.id+'\',\''+food+'\')" style="cursor:pointer;">'+food+(count>1?' \u00d7'+count:'')+'</span>'
-            +(sel?'<button onclick="event.stopPropagation();decrementFood('+m+','+w+','+di+',\''+meal.id+'\',\''+food+'\')" style="background:none;border:none;color:inherit;font-size:1rem;font-weight:800;cursor:pointer;padding:0 2px;line-height:1;">\u2212</button>':'')
-            +'<button class="food-chip-del" onclick="event.stopPropagation();deleteFood('+m+','+w+','+di+',\''+meal.id+'\',\''+food+'\','+isCustom+')">x</button>'
-            +'</div>';
-        }).join('');
-      })()
-      +'</div>'
-      +(function(){
-        var fl=dd.foodLog&&dd.foodLog[meal.id]?dd.foodLog[meal.id]:[];
-        if(!fl.length) return '';
-        var counts={};
-        fl.forEach(function(f){counts[f]=(counts[f]||0)+1;});
-        var parts=Object.keys(counts).map(function(f){return(counts[f]>1?counts[f]+' ':'')+f;});
-        return '<div style="font-size:.72rem;color:var(--sage);font-weight:600;margin:6px 0;">'+parts.join(', ')+'</div>';
-      })()
-      +(function(){
-        var photos=dd.photos&&dd.photos[meal.id]?dd.photos[meal.id]:[];
-        if(!photos.length) return '';
-        return '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">'
-          +photos.map(function(url,i){
-            return '<div style="position:relative;">'
-              +'<img src="'+url+'" onclick="viewPhoto(\''+url+'\')" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;">'
-              +'<button onclick="deletePhoto('+m+','+w+','+di+',\''+meal.id+'\','+i+')" style="position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--terra);border:none;color:#fff;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">x</button>'
-              +'</div>';
-          }).join('')
-          +'</div>';
-      })()
-      +'<div class="food-chip-add">'
-      +'<input class="food-log-add-inp" type="text" id="fi-'+m+'-'+w+'-'+di+'-'+meal.id+'" placeholder="Type food + Add...">'
-      +'<button class="food-log-add-btn" onclick="addCustomFood('+m+','+w+','+di+',\''+meal.id+'\')">Add</button>'
-      +'<button class="food-log-add-btn" style="background:var(--surf2);color:var(--sage);" onclick="attachProofPhoto('+m+','+w+','+di+',\''+meal.id+'\')" title="Attach a photo as proof -- no AI analysis">📷 Add Photo</button>'
-      +'</div>'
       // Secondary details, collapsed by default -- AI Analysis (fun feature, no score impact),
       // plate-check, time eaten, and notes. Kept out of the way of the core daily task.
       +'<div onclick="toggleMealMore(\''+moreId+'\')" style="margin-top:10px;font-size:.72rem;color:var(--txt3);text-decoration:underline;cursor:pointer;">+ AI analysis, time, notes</div>'
@@ -2128,6 +2108,33 @@ function renderDayPanel(m,w,di,cal){
       +'</div>';
   });
   html+='</div>';
+  // ── Eating Order + Protein First summary -- placed here, after the meals, since
+  // this is a summary of what already happened today, not an action to take. ──
+  var orderTally=calcEatingOrderTally(dd);
+  var proteinTally=calcProteinPlateTally(dd);
+  var orderDots=Array.from({length:Math.max(orderTally.eaten,1)},function(_,i){
+    return i<orderTally.ordered?'●':'○';
+  }).join('');
+  var proteinTrendLabel='Not logged yet';
+  var proteinTrendColor='var(--txt3)';
+  if(proteinTally.total>0){
+    if(proteinTally.more>proteinTally.same+proteinTally.less){proteinTrendLabel='↗ Trending up';proteinTrendColor='#6a9e6e';}
+    else if(proteinTally.less>proteinTally.more+proteinTally.same){proteinTrendLabel='↘ Trending down';proteinTrendColor='#c4694a';}
+    else{proteinTrendLabel='→ About the same';proteinTrendColor='#d4a843';}
+  }
+  html+='<div style="margin:0 16px 14px;background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:14px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+      +'<div style="font-size:.7rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--txt3);">Eating Order Today</div>'
+    +'</div>'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">'
+      +'<div style="font-size:18px;letter-spacing:3px;color:#6a9e6e;">'+orderDots+'</div>'
+      +'<div style="font-size:.78rem;color:var(--txt3);">'+(orderTally.eaten>0?orderTally.ordered+' of '+orderTally.eaten+' meals started right':'No meals logged yet')+'</div>'
+    +'</div>'
+    +'<div style="border-top:1px solid var(--border);padding-top:12px;">'
+      +'<div style="font-size:.7rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--txt3);margin-bottom:6px;">Protein First Today</div>'
+      +'<div style="font-size:16px;font-weight:700;color:'+proteinTrendColor+';">'+proteinTrendLabel+'</div>'
+    +'</div>'
+  +'</div>';
   // Habits
   html+='<div class="habits-section">';
   html+='<div style="font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--txt3);margin-bottom:10px;">Daily Habits</div>';
