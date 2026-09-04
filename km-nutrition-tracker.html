@@ -1059,9 +1059,7 @@ function renderTracker(){
   // KFit Philosophy card -- expanded automatically the very first time this device opens
   // the tracker (first impression matters most for a cold user trusting the method),
   // collapsed by default afterward so daily logging isn't obstructed.
-  var philoSeen=localStorage.getItem('kmnut_philosophy_seen');
-  var philoOpen=!philoSeen;
-  if(philoOpen) localStorage.setItem('kmnut_philosophy_seen','1');
+  var philoOpen=false;
   html+='<div style="background:var(--surf);border:1px solid var(--border);border-radius:14px;margin-bottom:14px;overflow:hidden;">'
     +'<div onclick="togglePhilosophyCard()" style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:var(--sage);">'
       +'<div style="font-size:.75rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#fff;">The KFit Philosophy</div>'
@@ -2021,11 +2019,11 @@ function renderDayPanel(m,w,di,cal){
     var ordered=dd.order&&dd.order[meal.id]?true:false;
     var proteinPlateVal=(dd.proteinPlate&&dd.proteinPlate[meal.id])||null;
     var isSnack=meal.id==='msnack'||meal.id==='esnack';
+    var moreId='more-'+m+'-'+w+'-'+di+'-'+meal.id;
     html+='<div class="meal-item">'
       +'<div class="meal-head">'
       +'<div class="meal-name">'+meal.name+'</div>'
       +(isSnack?'<div style="font-size:.65rem;color:var(--txt3);margin-top:2px;">Optional -- skip won\'t affect score</div>':'')
-      +'<button onclick="snapMeal(\''+meal.id+'\','+m+','+w+','+di+')" style="background:var(--sage-d);border:1px solid var(--sage);border-radius:7px;padding:5px 10px;color:var(--sage);font-size:15px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;white-space:nowrap;">🤖 AI Analysis</button>'
       +'</div>'
       +'<div class="meal-score-row" style="margin-bottom:6px;">'
       +'<div class="score-btn s0'+(score===0?' active':'')+'" onclick="setMeal('+m+','+w+','+di+',\''+meal.id+'\',0)">--</div>'
@@ -2036,39 +2034,18 @@ function renderDayPanel(m,w,di,cal){
       +(meal.tip?'<div style="font-size:.7rem;color:var(--sage);font-style:italic;margin-bottom:6px;">'+meal.tip+'</div>':'')
       // Order of eating toggle -- only show if meal was eaten
       +(score>0
-        ?'<div onclick="setOrder('+m+','+w+','+di+',\''+meal.id+'\')" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;padding:7px 10px;background:'+(ordered?'var(--sage-d)':'var(--surf2)')+';border:1px solid '+(ordered?'var(--sage)':'var(--border)')+';border-radius:8px;">'
+        ?'<div onclick="setOrder('+m+','+w+','+di+',\''+meal.id+'\')" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer;padding:7px 10px;background:'+(ordered?'var(--sage-d)':'var(--surf2)')+';border:1px solid '+(ordered?'var(--sage)':'var(--border)')+';border-radius:8px;">'
           +'<div style="width:20px;height:20px;border-radius:5px;border:2px solid '+(ordered?'var(--sage)':'var(--border)')+';background:'+(ordered?'var(--sage)':'transparent')+';flex-shrink:0;display:flex;align-items:center;justify-content:center;">'
           +(ordered?'<span style="color:#fff;font-size:17px;font-weight:700;">\u2713</span>':'')
           +'</div>'
           +'<span style="font-size:.75rem;color:'+(ordered?'var(--sage)':'var(--txt3)')+';"> Ate protein / fibre / fat first</span>'
           +'</div>'
-        :'<div style="font-size:.7rem;color:var(--txt3);font-style:italic;margin-bottom:8px;padding:5px 0;"></div>')
-      // Protein First plate-check -- only show if meal was eaten
-      +(score>0
-        ?'<div style="margin-bottom:10px;">'
-          +'<div style="font-size:.72rem;color:var(--txt3);margin-bottom:5px;">How did this plate look?</div>'
-          +'<div style="display:flex;gap:6px;">'
-          +['more','same','less'].map(function(val){
-            var labels={more:'More protein',same:'About the same',less:'Less protein'};
-            var active=proteinPlateVal===val;
-            return'<div onclick="setProteinPlate('+m+','+w+','+di+',\''+meal.id+'\',\''+val+'\')" style="flex:1;text-align:center;padding:7px 4px;cursor:pointer;border-radius:7px;font-size:.68rem;font-weight:700;border:1px solid '+(active?'var(--sage)':'var(--border)')+';background:'+(active?'var(--sage-d)':'var(--surf2)')+';color:'+(active?'var(--sage)':'var(--txt3)')+';">'+labels[val]+'</div>';
-          }).join('')
-          +'</div>'
-        +'</div>'
-        :'')
-      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
-      +'<span style="font-size:.68rem;color:var(--txt3);white-space:nowrap;">Time eaten:</span>'
-      +'<input type="time" class="form-inp" style="padding:6px 8px;font-size:.8rem;width:auto;margin-bottom:0;" value="'+((dd.mealTimes&&dd.mealTimes[meal.id])||'')+'" onchange="setMealTime('+m+','+w+','+di+',\''+meal.id+'\',this.value)">'
-      +'</div>'
-      +'<textarea class="meal-note-inp" placeholder="Notes..." rows="1"'
-      +' onchange="setMealNote('+m+','+w+','+di+',\''+meal.id+'\',this.value)"'
-      +' oninput="setMealNote('+m+','+w+','+di+',\''+meal.id+'\',this.value)">'
-      +((dd.mealNotes&&dd.mealNotes[meal.id])||'')+'</textarea>'
-      // Order of eating reminder -- always shown, not just after a plate score is given
+        :'<div style="font-size:.7rem;color:var(--txt3);font-style:italic;margin-bottom:6px;padding:5px 0;"></div>')
+      // Order of eating reminder -- always shown, grouped right with the checkbox it relates to
       +(ordered
           ?'<div class="order-reminder-done">\u2713 Started with protein, fibre or fat -- well done!</div>'
           :'<div class="order-reminder"> Remember: eat protein, veg or fat BEFORE the carbs</div>')
-      // Food log
+      // Food log -- the core logging action, always visible
       +'<div class="food-log-label">What did you eat?</div>'
       +'<div class="food-chips" id="chips-'+m+'-'+w+'-'+di+'-'+meal.id+'">'
       +(function(){
@@ -2111,6 +2088,32 @@ function renderDayPanel(m,w,di,cal){
       +'<input class="food-log-add-inp" type="text" id="fi-'+m+'-'+w+'-'+di+'-'+meal.id+'" placeholder="Type food + Add...">'
       +'<button class="food-log-add-btn" onclick="addCustomFood('+m+','+w+','+di+',\''+meal.id+'\')">Add</button>'
       +'<button class="food-log-add-btn" style="background:var(--surf2);color:var(--sage);" onclick="attachProofPhoto('+m+','+w+','+di+',\''+meal.id+'\')" title="Attach a photo as proof -- no AI analysis">📷 Add Photo</button>'
+      +'</div>'
+      // Secondary details, collapsed by default -- AI Analysis (fun feature, no score impact),
+      // plate-check, time eaten, and notes. Kept out of the way of the core daily task.
+      +'<div onclick="toggleMealMore(\''+moreId+'\')" style="margin-top:10px;font-size:.72rem;color:var(--txt3);text-decoration:underline;cursor:pointer;">+ AI analysis, time, notes</div>'
+      +'<div id="'+moreId+'" style="display:none;margin-top:8px;">'
+        +'<button onclick="snapMeal(\''+meal.id+'\','+m+','+w+','+di+')" style="width:100%;margin-bottom:8px;background:var(--sage-d);border:1px solid var(--sage);border-radius:7px;padding:7px 10px;color:var(--sage);font-size:14px;font-weight:700;cursor:pointer;font-family:\'DM Sans\',sans-serif;">🤖 AI Analysis (macros &amp; calories -- fun feature, doesn\'t affect your score)</button>'
+        +(score>0
+          ?'<div style="margin-bottom:10px;">'
+            +'<div style="font-size:.72rem;color:var(--txt3);margin-bottom:5px;">How did this plate look?</div>'
+            +'<div style="display:flex;gap:6px;">'
+            +['more','same','less'].map(function(val){
+              var labels={more:'More protein',same:'About the same',less:'Less protein'};
+              var active=proteinPlateVal===val;
+              return'<div onclick="setProteinPlate('+m+','+w+','+di+',\''+meal.id+'\',\''+val+'\')" style="flex:1;text-align:center;padding:7px 4px;cursor:pointer;border-radius:7px;font-size:.68rem;font-weight:700;border:1px solid '+(active?'var(--sage)':'var(--border)')+';background:'+(active?'var(--sage-d)':'var(--surf2)')+';color:'+(active?'var(--sage)':'var(--txt3)')+';">'+labels[val]+'</div>';
+            }).join('')
+            +'</div>'
+          +'</div>'
+          :'')
+        +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+        +'<span style="font-size:.68rem;color:var(--txt3);white-space:nowrap;">Time eaten:</span>'
+        +'<input type="time" class="form-inp" style="padding:6px 8px;font-size:.8rem;width:auto;margin-bottom:0;" value="'+((dd.mealTimes&&dd.mealTimes[meal.id])||'')+'" onchange="setMealTime('+m+','+w+','+di+',\''+meal.id+'\',this.value)">'
+        +'</div>'
+        +'<textarea class="meal-note-inp" placeholder="Notes..." rows="1"'
+        +' onchange="setMealNote('+m+','+w+','+di+',\''+meal.id+'\',this.value)"'
+        +' oninput="setMealNote('+m+','+w+','+di+',\''+meal.id+'\',this.value)">'
+        +((dd.mealNotes&&dd.mealNotes[meal.id])||'')+'</textarea>'
       +'</div>'
       +'</div>';
   });
@@ -2886,6 +2889,10 @@ function showToast(msg){
 }
 
 // -- LOGOUT --
+function toggleMealMore(id){
+  var el=document.getElementById(id);
+  el.style.display=el.style.display==='block'?'none':'block';
+}
 function togglePrivacyNote(el){
   var body=el.nextElementSibling;
   body.style.display=body.style.display==='block'?'none':'block';
