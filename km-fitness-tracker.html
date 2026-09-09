@@ -517,12 +517,7 @@ btn.textContent='Could not copy -- select the address bar manually';
     </div>
     <div class="s-field">
       <label>Weekly Training Target</label>
-      <select id="setupTarget">
-        <option value="3">3 days / week</option>
-        <option value="4" selected>4 days / week</option>
-        <option value="5">5 days / week</option>
-        <option value="6">6 days / week</option>
-      </select>
+      <input type="number" id="setupTarget" min="1" max="21" value="4" placeholder="e.g. 4" inputmode="numeric">
     </div>
     <button class="s-btn" onclick="completeSetup()">Enter Tracker →</button>
     <div style="text-align:center;margin-top:14px;">
