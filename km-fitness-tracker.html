@@ -1270,15 +1270,49 @@ localStorage.setItem('kmfit_mobile',m);
 localStorage.setItem('kmfit_target',document.getElementById('setupTarget').value);
 setUnlocked();
 loadFitnessFromSupabase(function(loaded){
+if(!loaded) registerNewFitnessClient();
 initApp();
 });
 }
+function registerNewFitnessClient(){
+// Writes a minimal row immediately on signup, before any session is logged.
+// Without this, a client who creates a profile but hasn't logged anything
+// yet has zero rows in Supabase and is invisible in Merge -- this closes
+// that gap. syncFitnessToSupabase() deliberately skips writing when
+// everything is empty (to avoid clobbering real data during normal sync),
+// so this is a separate, one-time registration write, not a regular sync.
+var key=getFitClientKey();
+if(key==='unknown')return;
+ensureAnonAuth(function(uid){
+if(!uid)return;
+var payload={
+user_id:uid,
+client_id:key,
+tracker:'fitness',
+data:{
+sessions:[],
+notes:{},
+assignedWorkouts:{},
+deletedSessionIds:[],
+measurements:[],
+routines:[],
+name:localStorage.getItem('kmfit_name'),
+mobile:localStorage.getItem('kmfit_mobile'),
+email:localStorage.getItem('kmfit_email'),
+target:localStorage.getItem('kmfit_target'),
+unit:localStorage.getItem('kmfit_unit')
+},
+updated_at:new Date().toISOString()
+};
+getSBScoped().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'});
+});
+}
 function checkExisting(cb){
-getSB().from('tracker_data').select('client_id').eq('tracker','fitness').like('client_id','%__'+m).then(function(res){
+getSBScoped().from('tracker_data').select('client_id').eq('tracker','fitness').like('client_id','%__'+m).then(function(res){
 if(!res.error&&res.data&&res.data.length){cb(true);return;}
 if(res.error){
 getSB().auth.signInAnonymously().then(function(){
-getSB().from('tracker_data').select('client_id').eq('tracker','fitness').like('client_id','%__'+m).then(function(res2){
+getSBScoped().from('tracker_data').select('client_id').eq('tracker','fitness').like('client_id','%__'+m).then(function(res2){
 cb(!res2.error&&res2.data&&res2.data.length>0);
 });
 });
@@ -1356,14 +1390,14 @@ var mobile=document.getElementById('mobileLoginInput').value.trim().replace(/\D/
 if(!mobile){document.getElementById('pwError').textContent='Enter your mobile number';return;}
 document.getElementById('pwError').textContent='Looking you up...';
 
-getSB().from('tracker_data').select('data,client_id').eq('tracker','fitness').like('client_id','%__'+mobile).then(function(res){
+getSBScoped().from('tracker_data').select('data,client_id').eq('tracker','fitness').like('client_id','%__'+mobile).then(function(res){
 if(!res.error&&res.data&&res.data.length){
 _handleMobileLookupResult(res.data[0],mobile);
 return;
 }
 
 getSB().auth.signInAnonymously().then(function(){
-getSB().from('tracker_data').select('data,client_id').eq('tracker','fitness').like('client_id','%__'+mobile).then(function(res2){
+getSBScoped().from('tracker_data').select('data,client_id').eq('tracker','fitness').like('client_id','%__'+mobile).then(function(res2){
 if(!res2.error&&res2.data&&res2.data.length){
 _handleMobileLookupResult(res2.data[0],mobile);
 return;
@@ -1673,6 +1707,11 @@ if(bp==='Cardio') return;
 const hasAny=document.querySelector('#exBody .ex-block[data-autobp="'+bp+'"]');
 if(!hasAny) autoFillExercisesForBodyPart(bp);
 });
+} else if(localStorage.getItem('kmfit_name')&&localStorage.getItem('kmfit_mobile')){
+// Local profile exists (been through setup before) but nothing in Supabase --
+// this is exactly the "installed, never showed up in Merge" gap. Registering
+// here means simply reopening the app fixes it, no other action needed.
+registerNewFitnessClient();
 }
 applyAssignedWorkoutIfAny();
 });
@@ -3329,6 +3368,49 @@ function getSB(){
 if(!sbClient) sbClient=supabase.createClient(SB_URL,SB_KEY);
 return sbClient;
 }
+// IMPORTANT: replace this with your actual coach id (from `select id from
+// coaches;` after your first Merge login) before uploading. This is the
+// fallback for every existing client who signed up before the coach system
+// existed, and for anyone opening the app without a coach-specific link.
+const KFIT_DEFAULT_COACH_ID='REPLACE_WITH_YOUR_COACH_ID';
+function getClientCoachId(){
+  var stored=localStorage.getItem('kmfit_coach_id');
+  if(stored) return stored;
+  var params=new URLSearchParams(window.location.search);
+  var fromLink=params.get('coach');
+  if(fromLink){
+    localStorage.setItem('kmfit_coach_id',fromLink);
+    return fromLink;
+  }
+  return KFIT_DEFAULT_COACH_ID;
+}
+const COACH_SCOPED_TABLES_CLIENT=['tracker_data','attendance','custom_exercises','app_feedback'];
+function getSBScoped(){
+  const real=getSB();
+  return {
+    from(table){
+      const builder=real.from(table);
+      if(!COACH_SCOPED_TABLES_CLIENT.includes(table)) return builder;
+      const origInsert=builder.insert.bind(builder);
+      const origUpsert=builder.upsert.bind(builder);
+      builder.insert=function(payload,opts){
+        const cid=getClientCoachId();
+        const withCoach=Array.isArray(payload)
+          ? payload.map(function(row){return Object.assign({coach_id:cid},row);})
+          : Object.assign({coach_id:cid},payload);
+        return origInsert(withCoach,opts);
+      };
+      builder.upsert=function(payload,opts){
+        const cid=getClientCoachId();
+        const withCoach=Array.isArray(payload)
+          ? payload.map(function(row){return Object.assign({coach_id:cid},row);})
+          : Object.assign({coach_id:cid},payload);
+        return origUpsert(withCoach,opts);
+      };
+      return builder;
+    }
+  };
+}
 
 function getFitClientKey(){
 var name=(localStorage.getItem('kmfit_name')||'unknown').toLowerCase().replace(/\s+/g,'_');
@@ -3410,7 +3492,7 @@ if((!sessions||sessions.length===0)&&(!deletedSessionIds||deletedSessionIds.leng
 ensureAnonAuth(function(uid){
 if(!uid)return;
 
-getSB().from('tracker_data').select('data').eq('client_id',key).eq('tracker','fitness').then(function(fres){
+getSBScoped().from('tracker_data').select('data').eq('client_id',key).eq('tracker','fitness').then(function(fres){
 var serverAssigned={};
 var serverSessions=[];
 var serverMeasurements=[];
@@ -3486,7 +3568,7 @@ unit:localStorage.getItem('kmfit_unit')
 },
 updated_at:new Date().toISOString()
 };
-getSB().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(res){
+getSBScoped().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(res){
 if(res.error){
 console.error('Supabase write error:', JSON.stringify(res.error));
 toast('Sync error: '+(res.error.message||res.error.code||JSON.stringify(res.error)));
@@ -3524,7 +3606,7 @@ function loadFitnessFromSupabase(callback){
 ensureAnonAuth(function(uid){
 if(!uid){callback(false);return;}
 
-getSB().from('tracker_data').select('data').eq('user_id',uid).eq('tracker','fitness').then(function(res){
+getSBScoped().from('tracker_data').select('data').eq('user_id',uid).eq('tracker','fitness').then(function(res){
 if(!res.error&&res.data&&res.data.length){
 _applyFitnessData(res.data[0].data);
 callback(true);
@@ -3532,12 +3614,12 @@ return;
 }
 
 var key=getFitClientKey();
-getSB().from('tracker_data').select('data').eq('client_id',key).eq('tracker','fitness').then(function(res2){
+getSBScoped().from('tracker_data').select('data').eq('client_id',key).eq('tracker','fitness').then(function(res2){
 if(res2.error||!res2.data||!res2.data.length){
 
 var name=(localStorage.getItem('kmfit_name')||'').toLowerCase().replace(/\s+/g,'_');
 if(!name){callback(false);return;}
-getSB().from('tracker_data').select('data').eq('client_id',name).eq('tracker','fitness').then(function(res3){
+getSBScoped().from('tracker_data').select('data').eq('client_id',name).eq('tracker','fitness').then(function(res3){
 if(res3.error||!res3.data||!res3.data.length){callback(false);return;}
 _applyFitnessData(res3.data[0].data);
 syncFitnessToSupabase();
@@ -3636,7 +3718,7 @@ body_parts: record.bodyParts&&record.bodyParts.length?record.bodyParts.join(', '
 activity: record.activity||'',
 logged_at: new Date().toISOString()
 };
-getSB().from('attendance').insert(payload).then(function(res){
+getSBScoped().from('attendance').insert(payload).then(function(res){
 if(res.error){
 console.warn('Attendance log error (attempt '+attempt+'):',res.error.message);
 if(attempt<3){
@@ -3682,7 +3764,7 @@ activity: record.activity||''
 };
 if(record.newDate) updates.session_date=record.newDate;
 if(record.newTime) updates.session_time=record.newTime;
-getSB().from('attendance')
+getSBScoped().from('attendance')
 .update(updates)
 .eq('client_mobile', record.mobile)
 .eq('session_date', record.date)
@@ -3716,7 +3798,7 @@ var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
 var name=localStorage.getItem('kmfit_name')||'';
 ensureAnonAuth(function(uid){
 if(!uid){callback([]);return;}
-getSB().from('attendance')
+getSBScoped().from('attendance')
 .select('*')
 .eq('client_mobile',mobile)
 .order('session_date',{ascending:false})
@@ -5358,7 +5440,7 @@ function deleteAttendance(date,time){
 var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
 if(!mobile||!date) return;
 ensureAnonAuth(function(){
-getSB().from('attendance')
+getSBScoped().from('attendance')
 .delete()
 .eq('client_mobile', mobile)
 .eq('session_date', date)
@@ -5604,7 +5686,7 @@ body.innerHTML='<div style="font-size:15px;font-weight:600;color:var(--muted);pa
 return;
 }
 body.innerHTML='<div style="font-size:15px;font-weight:600;color:var(--muted);padding:20px 0;text-align:center;">Loading...</div>';
-getSB().from('app_feedback').select('*').eq('submitted_by_mobile',mobile).order('created_at',{ascending:true}).then(function(res){
+getSBScoped().from('app_feedback').select('*').eq('submitted_by_mobile',mobile).order('created_at',{ascending:true}).then(function(res){
 if(res.error){
 body.innerHTML='<div style="font-size:13px;color:var(--terra);padding:20px 0;text-align:center;">Could not load: '+res.error.message+'</div>';
 return;
@@ -5627,7 +5709,7 @@ return rep;
 if(changed){row.replies=newReplies;toUpdate.push(row);}
 });
 toUpdate.forEach(function(row){
-getSB().from('app_feedback').update({replies:row.replies}).eq('id',row.id).then(function(){});
+getSBScoped().from('app_feedback').update({replies:row.replies}).eq('id',row.id).then(function(){});
 });
 }
 function fbTicks(m){
@@ -5669,7 +5751,7 @@ if(!confirm('Delete this message?')) return;
 var row=_fbRows.find(function(r){return r.id===rowId;});
 if(!row) return;
 if(kind==='original'){
-getSB().from('app_feedback').delete().eq('id',rowId).then(function(res){
+getSBScoped().from('app_feedback').delete().eq('id',rowId).then(function(res){
 if(res.error){toast('Could not delete: '+res.error.message);return;}
 _fbRows=_fbRows.filter(function(r){return r.id!==rowId;});
 renderFeedbackChat();
@@ -5677,7 +5759,7 @@ renderFeedbackChat();
 } else {
 var replies=(row.replies||[]).slice();
 replies.splice(replyIndex,1);
-getSB().from('app_feedback').update({replies:replies}).eq('id',rowId).then(function(res){
+getSBScoped().from('app_feedback').update({replies:replies}).eq('id',rowId).then(function(res){
 if(res.error){toast('Could not delete: '+res.error.message);return;}
 row.replies=replies;
 renderFeedbackChat();
@@ -5753,7 +5835,7 @@ if(_fbRows.length){
 var lastRow=_fbRows[_fbRows.length-1];
 var replies=(lastRow.replies||[]).slice();
 replies.push({sender:'client',message:msg,timestamp:new Date().toISOString(),read:false,attachmentUrl:attachment?attachment.url:null,attachmentType:attachment?attachment.type:null});
-getSB().from('app_feedback').update({replies:replies,archived:false}).eq('id',lastRow.id).then(function(res){
+getSBScoped().from('app_feedback').update({replies:replies,archived:false}).eq('id',lastRow.id).then(function(res){
 input.disabled=false;
 if(res.error){toast('Could not send: '+res.error.message);return;}
 lastRow.replies=replies;
@@ -5762,7 +5844,7 @@ clearFbAttachment();
 renderFeedbackChat();
 });
 } else {
-getSB().from('app_feedback').insert({
+getSBScoped().from('app_feedback').insert({
 message:msg,
 tab:'Fitness - '+(tabNames[currentTab]||'Unknown'),
 submitted_by:localStorage.getItem('kmfit_name')||'Client',
@@ -5784,7 +5866,7 @@ renderFeedbackChat();
 }
 
 function loadApprovedExercises(){
-getSB().from('custom_exercises').select('name,body_part').eq('status','approved').then(function(res){
+getSBScoped().from('custom_exercises').select('name,body_part').eq('status','approved').then(function(res){
 if(res.error||!res.data) return;
 var changed=false;
 res.data.forEach(function(row){
@@ -5839,7 +5921,7 @@ toast(name+' added -- just for you ✓');
 return;
 }
 
-getSB().from('custom_exercises').insert({
+getSBScoped().from('custom_exercises').insert({
 name:name,
 body_part:key,
 suggested_by:localStorage.getItem('kmfit_name')||'Client',
@@ -5861,7 +5943,7 @@ toast(name+' added -- sent to your coach for review ✓');
 function reconcileCustomEx(){
 var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
 if(!mobile) return;
-getSB().from('custom_exercises').select('id,name,body_part,status').eq('suggested_by_mobile',mobile).then(function(res){
+getSBScoped().from('custom_exercises').select('id,name,body_part,status').eq('suggested_by_mobile',mobile).then(function(res){
 if(res.error||!res.data) return;
 var remoteById={};
 res.data.forEach(function(r){remoteById[r.id]=r;});

@@ -86,14 +86,26 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </head>
 <body>
 
-<!-- Password Gate -->
+<!-- Coach Auth Gate -->
 <div class="pw-gate" id="pwGate">
   <div class="pw-box">
     <div class="pw-title">K<span style="color:var(--sage)">F</span><span style="color:var(--terra)">it</span> Coach</div>
     <div class="pw-sub">Fitness &amp; Nutrition Dashboard</div>
-    <input class="pw-inp" type="password" id="pwInp" placeholder="Password" onkeydown="if(event.key==='Enter')checkPw()">
-    <button class="pw-btn" onclick="checkPw()">Enter</button>
-    <div class="pw-err" id="pwErr"></div>
+
+    <div id="authStepEmail">
+      <input class="pw-inp" type="email" id="coachEmailInp" placeholder="Your email" autocomplete="email" onkeydown="if(event.key==='Enter')sendCoachMagicLink()">
+      <button class="pw-btn" onclick="sendCoachMagicLink()">Send Login Link</button>
+      <div class="pw-err" id="pwErr"></div>
+    </div>
+
+    <div id="authStepSent" style="display:none;text-align:center;">
+      <div style="font-size:15px;color:var(--muted);line-height:1.6;margin:16px 0;">Check <strong id="sentToEmail" style="color:var(--text);"></strong> for a login link. Tap it on this device to continue.</div>
+      <button class="pw-btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);" onclick="resetCoachAuthForm()">Use a different email</button>
+    </div>
+
+    <div id="authStepChecking" style="display:none;text-align:center;">
+      <div style="font-size:15px;color:var(--muted);">Signing you in&hellip;</div>
+    </div>
   </div>
 </div>
 
@@ -102,6 +114,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="topbar">
     <div class="logo">K<span class="g">F</span><span class="t">it</span></div>
     <div class="page-title" id="pageTitle">Coach</div>
+    <button onclick="coachLogout()" title="Log out" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;">&#128274;</button>
     <button onclick="window.print()" title="Print this screen" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">&#128424;</button>
   </div>
 
@@ -110,6 +123,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <button class="mode-btn" id="modeBtnNutrition" onclick="switchMode('nutrition')">Nutrition</button>
     <button class="mode-btn" id="modeBtnExercises" onclick="switchMode('exercises')">Exercises<span id="exSuggestBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
     <button class="mode-btn" id="modeBtnFeedback" onclick="switchMode('feedback')">Feedback<span id="fbBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
+    <button class="mode-btn" id="modeBtnAccount" onclick="switchMode('account')">Account</button>
   </div>
 
   <!-- ══════════════ EXERCISE SUGGESTIONS SECTION ══════════════ -->
@@ -163,6 +177,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <!-- Dashboard view -->
   <div class="content" id="dashView">
     <div class="stat-grid" id="overallStats"></div>
+    <div id="newSignupsCard" style="display:none;background:var(--surf);border:1px solid var(--gold);border-radius:12px;padding:14px;margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--gold);margin-bottom:8px;">New Sign-ups &mdash; No Sessions Logged Yet</div>
+      <div id="newSignupsList" style="font-size:14px;color:var(--text);line-height:1.8;"></div>
+    </div>
     <div style="display:flex;gap:8px;margin-bottom:12px;">
       <button id="rosterTabClients" class="mode-btn active" style="flex:1;" onclick="setRosterView('clients')">Clients</button>
       <button id="rosterTabAll" class="mode-btn" style="flex:1;" onclick="setRosterView('all')">All Users</button>
@@ -193,6 +211,35 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div id="coachSessActions" style="display:flex;gap:8px;"></div>
       </div>
       <div id="coachSessBody"></div>
+    </div>
+  </div>
+
+  <!-- Account: invite link + billing -->
+  <div id="accSection" style="display:none;">
+    <div class="content">
+      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Invite Clients</div>
+      <div style="background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;">
+        <div style="font-size:14px;color:var(--muted);margin-bottom:10px;line-height:1.6;">Share this link with your clients. Anyone who signs up through it is automatically tagged to your account.</div>
+        <div style="display:flex;gap:8px;">
+          <input id="inviteLinkFit" readonly style="flex:1;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;" value="">
+          <button onclick="copyInviteLink('inviteLinkFit')" style="padding:10px 16px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">Copy</button>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px;">Fitness tracker link</div>
+      </div>
+      <div style="background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;">
+        <div style="display:flex;gap:8px;">
+          <input id="inviteLinkNut" readonly style="flex:1;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;" value="">
+          <button onclick="copyInviteLink('inviteLinkNut')" style="padding:10px 16px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;">Copy</button>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px;">Nutrition tracker link</div>
+      </div>
+
+      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Billing</div>
+      <div id="billingCard" style="background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;">
+        <div id="billingStatusLine" style="font-size:15px;font-weight:700;margin-bottom:8px;">Loading&hellip;</div>
+        <div id="billingSubLine" style="font-size:13px;color:var(--muted);margin-bottom:14px;"></div>
+        <a id="billingActionBtn" href="#" target="_blank" style="display:none;padding:11px 16px;background:var(--sage);border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;text-decoration:none;text-align:center;">Subscribe</a>
+      </div>
     </div>
   </div>
 
@@ -402,7 +449,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </div>
 <script>
 
-const PW='kmfit2025';
 const SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
 const SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
 let sb=null;
@@ -471,32 +517,102 @@ function getSB(){
   if(!sb)sb=supabase.createClient(SB_URL,SB_KEY);
   return sb;
 }
-
-function checkPw(){
-  const val=document.getElementById('pwInp').value;
-  if(val===PW){
-    document.getElementById('pwGate').style.display='none';
-    document.getElementById('mainApp').style.display='block';
-    loadAll();
-    loadApprovedExercisesIntoCoachLib();
-    getSB().from('custom_exercises').select('id').eq('status','pending').then(function(res){
-      if(!res.error&&res.data){
-        var badge=document.getElementById('exSuggestBadge');
-        if(res.data.length){ badge.style.display='inline-block'; badge.textContent=res.data.length; }
-      }
-    });
-    getSB().from('app_feedback').select('id').eq('status','new').then(function(res){
-      if(!res.error&&res.data){
-        var badge=document.getElementById('fbBadge');
-        if(res.data.length){ badge.style.display='inline-block'; badge.textContent=res.data.length; }
-      }
-    });
-  } else {
-    document.getElementById('pwErr').textContent='Incorrect password';
-    document.getElementById('pwInp').value='';
-    setTimeout(()=>document.getElementById('pwErr').textContent='',2500);
-  }
+// Wraps the Supabase client so every insert/upsert on a coach-owned table
+// automatically carries the logged-in coach's id -- satisfies the RLS
+// with-check policy (coach_id = auth.uid()) without hand-editing every
+// call site. select/update/delete pass straight through unmodified; RLS
+// already filters those correctly by coach_id regardless of the app query.
+const COACH_SCOPED_TABLES=['tracker_data','attendance','client_tags','custom_exercises','exercise_videos','routine_templates','app_feedback'];
+function getSBScoped(){
+  const real=getSB();
+  return {
+    from(table){
+      const builder=real.from(table);
+      if(!COACH_SCOPED_TABLES.includes(table)) return builder;
+      const origInsert=builder.insert.bind(builder);
+      const origUpsert=builder.upsert.bind(builder);
+      builder.insert=function(payload,opts){
+        const withCoach=Array.isArray(payload)
+          ? payload.map(function(row){return Object.assign({coach_id:window.currentCoachId},row);})
+          : Object.assign({coach_id:window.currentCoachId},payload);
+        return origInsert(withCoach,opts);
+      };
+      builder.upsert=function(payload,opts){
+        const withCoach=Array.isArray(payload)
+          ? payload.map(function(row){return Object.assign({coach_id:window.currentCoachId},row);})
+          : Object.assign({coach_id:window.currentCoachId},payload);
+        return origUpsert(withCoach,opts);
+      };
+      return builder;
+    }
+  };
 }
+
+async function sendCoachMagicLink(){
+  const email=document.getElementById('coachEmailInp').value.trim();
+  if(!email){document.getElementById('pwErr').textContent='Enter your email';return;}
+  document.getElementById('pwErr').textContent='';
+  const {error}=await getSB().auth.signInWithOtp({email:email,options:{emailRedirectTo:window.location.href}});
+  if(error){document.getElementById('pwErr').textContent=error.message;return;}
+  document.getElementById('sentToEmail').textContent=email;
+  document.getElementById('authStepEmail').style.display='none';
+  document.getElementById('authStepSent').style.display='block';
+}
+function resetCoachAuthForm(){
+  document.getElementById('authStepEmail').style.display='block';
+  document.getElementById('authStepSent').style.display='none';
+  document.getElementById('coachEmailInp').value='';
+}
+async function onCoachAuthenticated(session){
+  window.currentCoachId=session.user.id;
+  window.currentCoachEmail=session.user.email;
+  // First login for this coach -- create their row if it doesn't exist yet.
+  const {data:existing}=await getSB().from('coaches').select('id').eq('id',session.user.id).maybeSingle();
+  if(!existing){
+    const trialEnd=new Date();
+    trialEnd.setDate(trialEnd.getDate()+14);
+    await getSB().from('coaches').insert({id:session.user.id,email:session.user.email,billing_status:'trial',trial_ends_at:trialEnd.toISOString()});
+  }
+  document.getElementById('authStepChecking').style.display='none';
+  document.getElementById('pwGate').style.display='none';
+  document.getElementById('mainApp').style.display='block';
+  loadAll();
+  loadApprovedExercisesIntoCoachLib();
+  getSBScoped().from('custom_exercises').select('id').eq('status','pending').then(function(res){
+    if(!res.error&&res.data){
+      var badge=document.getElementById('exSuggestBadge');
+      if(res.data.length){ badge.style.display='inline-block'; badge.textContent=res.data.length; }
+    }
+  });
+  getSBScoped().from('app_feedback').select('id').eq('status','new').then(function(res){
+    if(!res.error&&res.data){
+      var badge=document.getElementById('fbBadge');
+      if(res.data.length){ badge.style.display='inline-block'; badge.textContent=res.data.length; }
+    }
+  });
+}
+async function coachLogout(){
+  await getSB().auth.signOut();
+  window.location.reload();
+}
+// Runs on page load. onAuthStateChange fires immediately with the current
+// session state on registration (Supabase's own documented behavior), so
+// this single listener handles: resuming an existing session, completing
+// login after a clicked magic-link redirect, AND future logouts -- no
+// separate initial check needed.
+(function initCoachAuth(){
+  document.getElementById('authStepChecking').style.display='block';
+  document.getElementById('authStepEmail').style.display='none';
+  getSB().auth.onAuthStateChange(function(event,session){
+    if(session){ onCoachAuthenticated(session); }
+    else {
+      document.getElementById('authStepChecking').style.display='none';
+      document.getElementById('authStepEmail').style.display='block';
+      document.getElementById('mainApp').style.display='none';
+      document.getElementById('pwGate').style.display='flex';
+    }
+  });
+})();
 
 let taggedClients={fitness:{},nutrition:{}}; // canonical_key -> true, per tracker -- fitness and nutrition rosters are independent
 let rosterView='clients'; // 'clients' | 'all'
@@ -509,7 +625,7 @@ function canonicalClientKey(name,mobile){
 }
 
 async function loadClientTags(){
-  const {data,error}=await getSB().from('client_tags').select('*');
+  const {data,error}=await getSBScoped().from('client_tags').select('*');
   taggedClients={fitness:{},nutrition:{}};
   if(!error&&data){
     data.forEach(t=>{
@@ -520,7 +636,7 @@ async function loadClientTags(){
 }
 
 async function loadApprovedExercisesIntoCoachLib(){
-  const {data,error}=await getSB().from('custom_exercises').select('name,body_part').eq('status','approved');
+  const {data,error}=await getSBScoped().from('custom_exercises').select('name,body_part').eq('status','approved');
   if(error||!data)return;
   data.forEach(function(row){
     var bp=row.body_part||'Other';
@@ -530,7 +646,7 @@ async function loadApprovedExercisesIntoCoachLib(){
 }
 
 async function loadExerciseSuggestions(){
-  const {data,error}=await getSB().from('custom_exercises').select('*').order('created_at',{ascending:false});
+  const {data,error}=await getSBScoped().from('custom_exercises').select('*').order('created_at',{ascending:false});
   if(error){
     document.getElementById('exPendingList').innerHTML='<div class="empty">Error loading suggestions.<br>'+error.message+'</div>';
     document.getElementById('exApprovedList').innerHTML='';
@@ -653,7 +769,7 @@ async function saveRoutineTemplate(){
   const bodyParts=rtBodyPartsFor(_rtCurrentExercises);
   const exercises=_rtCurrentExercises.map(function(ex){ return {ex:ex}; });
   if(_rtEditingId){
-    const {error}=await getSB().from('routine_templates').update({
+    const {error}=await getSBScoped().from('routine_templates').update({
       name:name, body_parts:bodyParts, exercises:exercises, updated_at:Date.now()
     }).eq('id',_rtEditingId);
     if(error){ alert('Error updating: '+error.message); return; }
@@ -668,7 +784,7 @@ async function saveRoutineTemplate(){
       supersets:[],
       updated_at:Date.now()
     };
-    const {error}=await getSB().from('routine_templates').insert(template);
+    const {error}=await getSBScoped().from('routine_templates').insert(template);
     if(error){ alert('Error saving: '+error.message); return; }
   }
   nameInp.value='';
@@ -696,7 +812,7 @@ function cancelEditRoutineTemplate(){
 async function loadRoutineTemplates(){
   const listEl=document.getElementById('rtList');
   if(!listEl) return;
-  const {data,error}=await getSB().from('routine_templates').select('*').order('name',{ascending:true});
+  const {data,error}=await getSBScoped().from('routine_templates').select('*').order('name',{ascending:true});
   if(error){ listEl.innerHTML='<div class="empty">Error loading routines.<br>'+error.message+'</div>'; return; }
   const rows=data||[];
   _rtTemplatesCache=rows;
@@ -718,7 +834,7 @@ async function loadRoutineTemplates(){
 }
 async function deleteRoutineTemplate(id){
   if(!confirm('Delete this routine template? This does not remove it from any client who already has it assigned.')) return;
-  const {error}=await getSB().from('routine_templates').delete().eq('id',id);
+  const {error}=await getSBScoped().from('routine_templates').delete().eq('id',id);
   if(error){ alert('Error deleting: '+error.message); return; }
   loadRoutineTemplates();
 }
@@ -726,7 +842,7 @@ async function deleteRoutineTemplate(id){
 async function loadExerciseVideoList(){
   const listEl=document.getElementById('exVideoList');
   if(!listEl) return;
-  const {data,error}=await getSB().from('exercise_videos').select('*').order('exercise_name',{ascending:true});
+  const {data,error}=await getSBScoped().from('exercise_videos').select('*').order('exercise_name',{ascending:true});
   if(error){
     listEl.innerHTML='<div class="empty">Error loading videos.<br>'+error.message+'</div>';
     return;
@@ -748,7 +864,7 @@ async function saveExerciseVideo(){
   const name=(nameInp.value||'').trim();
   const url=(urlInp.value||'').trim();
   if(!name||!url){alert('Enter both an exercise name and a video URL');return;}
-  const {error}=await getSB().from('exercise_videos').upsert({exercise_name:name,video_url:url,updated_at:new Date().toISOString()},{onConflict:'exercise_name'});
+  const {error}=await getSBScoped().from('exercise_videos').upsert({exercise_name:name,video_url:url,updated_at:new Date().toISOString()},{onConflict:'exercise_name'});
   if(error){alert('Error saving: '+error.message);return;}
   nameInp.value='';
   urlInp.value='';
@@ -758,7 +874,7 @@ async function saveExerciseVideo(){
 async function deleteExerciseVideo(name){
   const ok=confirm('Remove the technique video for "'+name+'"?');
   if(!ok) return;
-  const {error}=await getSB().from('exercise_videos').delete().eq('exercise_name',name);
+  const {error}=await getSBScoped().from('exercise_videos').delete().eq('exercise_name',name);
   if(error){alert('Error deleting: '+error.message);return;}
   loadExerciseVideoList();
 }
@@ -769,7 +885,7 @@ async function approveExercise(id){
   const name=nameInp?nameInp.value.trim():'';
   const bp=bpSel?bpSel.value:'';
   if(!name){alert('Exercise name cannot be empty');return;}
-  const {error}=await getSB().from('custom_exercises').update({name:name,body_part:bp,status:'approved'}).eq('id',id);
+  const {error}=await getSBScoped().from('custom_exercises').update({name:name,body_part:bp,status:'approved'}).eq('id',id);
   if(error){alert('Error approving: '+error.message);return;}
   await loadApprovedExercisesIntoCoachLib();
   loadExerciseSuggestions();
@@ -778,7 +894,7 @@ async function approveExercise(id){
 async function dismissExercise(id){
   const ok=confirm('Dismiss this suggestion? It will not be added anywhere.');
   if(!ok)return;
-  const {error}=await getSB().from('custom_exercises').delete().eq('id',id);
+  const {error}=await getSBScoped().from('custom_exercises').delete().eq('id',id);
   if(error){alert('Error dismissing: '+error.message);return;}
   loadExerciseSuggestions();
 }
@@ -843,7 +959,7 @@ function setFbView(view){
 }
 
 async function loadFeedback(){
-  const {data,error}=await getSB().from('app_feedback').select('*').order('created_at',{ascending:true});
+  const {data,error}=await getSBScoped().from('app_feedback').select('*').order('created_at',{ascending:true});
   const listEl=document.getElementById('fbInboxList');
   if(error){
     listEl.innerHTML='<div class="empty">Error loading feedback.<br>'+error.message+'</div>';
@@ -970,7 +1086,7 @@ async function toggleArchiveConversation(key){
   if(!group) return;
   const shouldArchive=!fbIsArchived(group);
   await Promise.all(group.rows.map(function(row){
-    return getSB().from('app_feedback').update({archived:shouldArchive}).eq('id',row.id);
+    return getSBScoped().from('app_feedback').update({archived:shouldArchive}).eq('id',row.id);
   }));
   if(shouldArchive) _fbOpenKey=null;
   loadFeedback();
@@ -982,7 +1098,7 @@ async function deleteConversation(key){
   const ok=confirm('Delete this entire conversation with '+(group.name||'this client')+'? This removes every message permanently and cannot be undone.');
   if(!ok) return;
   await Promise.all(group.rows.map(function(row){
-    return getSB().from('app_feedback').delete().eq('id',row.id);
+    return getSBScoped().from('app_feedback').delete().eq('id',row.id);
   }));
   _fbOpenKey=null;
   loadFeedback();
@@ -1005,7 +1121,7 @@ function markClientMessagesRead(key){
       row.replies=replies;
       anyChanged=true;
       (function writeReadStatus(attempt){
-        getSB().from('app_feedback').update({read_by_coach:row.read_by_coach,replies:row.replies}).eq('id',row.id).then(function(res){
+        getSBScoped().from('app_feedback').update({read_by_coach:row.read_by_coach,replies:row.replies}).eq('id',row.id).then(function(res){
           if(res.error){
             console.error('Failed to mark feedback read for row',row.id,'(attempt '+attempt+'):',res.error);
             if(attempt===1){
@@ -1077,7 +1193,7 @@ async function sendFeedbackReplyToClient(key){
   const replies=(lastRow.replies||[]).slice();
   replies.push({sender:'coach',message:msg,timestamp:new Date().toISOString(),read:false,attachmentUrl:attachment?attachment.url:null,attachmentType:attachment?attachment.type:null});
   input.disabled=true;
-  const {error}=await getSB().from('app_feedback').update({replies:replies,archived:false}).eq('id',lastRow.id);
+  const {error}=await getSBScoped().from('app_feedback').update({replies:replies,archived:false}).eq('id',lastRow.id);
   input.disabled=false;
   if(error){alert('Error sending reply: '+error.message);return;}
   lastRow.replies=replies;
@@ -1092,12 +1208,12 @@ async function deleteFbMessage(key,rowId,kind,replyIndex){
   const row=group?group.rows.find(function(r){return r.id===rowId;}):null;
   if(!row) return;
   if(kind==='original'){
-    const {error}=await getSB().from('app_feedback').delete().eq('id',rowId);
+    const {error}=await getSBScoped().from('app_feedback').delete().eq('id',rowId);
     if(error){alert('Error deleting: '+error.message);return;}
   } else {
     const replies=(row.replies||[]).slice();
     replies.splice(replyIndex,1);
-    const {error}=await getSB().from('app_feedback').update({replies:replies}).eq('id',rowId);
+    const {error}=await getSBScoped().from('app_feedback').update({replies:replies}).eq('id',rowId);
     if(error){alert('Error deleting: '+error.message);return;}
   }
   loadFeedback();
@@ -1105,13 +1221,41 @@ async function deleteFbMessage(key,rowId,kind,replyIndex){
 
 function loadAll(){
   Promise.all([
-    getSB().from('attendance').select('*').order('session_date',{ascending:false}).order('logged_at',{ascending:false}),
+    getSBScoped().from('attendance').select('*').order('session_date',{ascending:false}).order('logged_at',{ascending:false}),
     loadClientTags()
   ]).then(function(results){
     const res=results[0];
     if(res.error){document.getElementById('clientList').innerHTML='<div class="empty">Error loading data.<br>'+res.error.message+'</div>';return;}
     allRecords=res.data||[];
     renderDash();
+    loadNewSignups();
+  });
+}
+function loadNewSignups(){
+  getSBScoped().from('tracker_data').select('client_id,data').eq('tracker','fitness').then(function(res){
+    if(res.error||!res.data)return;
+    const attendedKeys=new Set(allRecords.map(function(r){return (r.client_mobile||r.client_name||'').toLowerCase().trim();}));
+    const noSession=[];
+    res.data.forEach(function(row){
+      var d=row.data;
+      try{ if(typeof d==='string') d=JSON.parse(d); }catch(e){ return; }
+      if(!d) return;
+      var sessions=d.sessions||[];
+      if(sessions.length>0) return; // has real sessions, belongs in the normal roster instead
+      var name=d.name||row.client_id;
+      var mobile=d.mobile||'';
+      var key=(mobile||name||'').toLowerCase().trim();
+      if(attendedKeys.has(key)) return; // safety: already has attendance under this key somehow
+      noSession.push(name+(mobile?' ('+mobile+')':''));
+    });
+    var card=document.getElementById('newSignupsCard');
+    var list=document.getElementById('newSignupsList');
+    if(noSession.length){
+      card.style.display='block';
+      list.textContent=noSession.join(', ');
+    } else {
+      card.style.display='none';
+    }
   });
 }
 
@@ -1127,11 +1271,11 @@ async function toggleClientTag(canonKey,name,mobile,btnEvent,trackerType){
   if(btnEvent)btnEvent.stopPropagation();
   const tk=trackerType==='nutrition'?'nutrition':'fitness';
   if(taggedClients[tk][canonKey]){
-    const {error}=await getSB().from('client_tags').delete().eq('client_key',canonKey).eq('tracker',tk);
+    const {error}=await getSBScoped().from('client_tags').delete().eq('client_key',canonKey).eq('tracker',tk);
     if(error){alert('Could not remove this tag -- nothing changed. Error: '+error.message);return;}
     delete taggedClients[tk][canonKey];
   } else {
-    const {error}=await getSB().from('client_tags').upsert({client_key:canonKey,name,mobile:mobile||'',tracker:tk},{onConflict:'client_key,tracker'});
+    const {error}=await getSBScoped().from('client_tags').upsert({client_key:canonKey,name,mobile:mobile||'',tracker:tk},{onConflict:'client_key,tracker'});
     if(error){alert('Could not save this tag -- it will not persist after reload. Error: '+error.message);return;}
     taggedClients[tk][canonKey]=true;
   }
@@ -1207,7 +1351,7 @@ function renderDash(){
 
 function togglePaid(mobile,date,time,currentPaid){
   const newPaid=!currentPaid;
-  getSB().from('attendance').update({paid:newPaid}).eq('client_mobile',mobile||'').eq('session_date',date||'').eq('session_time',time||'').then(function(res){
+  getSBScoped().from('attendance').update({paid:newPaid}).eq('client_mobile',mobile||'').eq('session_date',date||'').eq('session_time',time||'').then(function(res){
     if(res.error){
       alert('Could not update payment status: '+res.error.message);
       return;
@@ -1328,7 +1472,7 @@ async function loadClientRoutinesList(clientKey){
   const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
   if(!c){ listEl.innerHTML='<div class="empty">Client not found.</div>'; return; }
   const fitId=buildClientId(c.name,c.mobile);
-  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',fitId).eq('tracker','fitness');
+  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',fitId).eq('tracker','fitness');
   if(error){ listEl.innerHTML='<div class="empty">Error loading: '+error.message+'</div>'; return; }
   let d={};
   if(data&&data.length&&data[0].data) d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
@@ -1350,12 +1494,12 @@ async function deleteClientRoutine(clientKey,routineId){
   const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
   if(!c){ alert('Client not found.'); return; }
   const fitId=buildClientId(c.name,c.mobile);
-  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',fitId).eq('tracker','fitness');
+  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',fitId).eq('tracker','fitness');
   if(error){ alert('Could not load this client\'s data: '+error.message); return; }
   let d={};
   if(data&&data.length&&data[0].data) d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
   d.routines=(d.routines||[]).filter(function(r){ return r.id!==routineId; });
-  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+  const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
     client_id:fitId, tracker:'fitness', data:JSON.stringify(d), updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
   if(saveErr){ alert('Error deleting: '+saveErr.message); return; }
@@ -1366,7 +1510,7 @@ async function populateRtAssignSelect(){
   const sel=document.getElementById('rtAssignSelect');
   if(!sel) return;
   sel.innerHTML='<option value="">Loading routines...</option>';
-  const {data,error}=await getSB().from('routine_templates').select('*').order('name',{ascending:true});
+  const {data,error}=await getSBScoped().from('routine_templates').select('*').order('name',{ascending:true});
   // Re-fetch the element fresh -- if the coach navigated to a different client while this
   // was in flight, don't write into a select that no longer belongs to the visible page.
   const sel2=document.getElementById('rtAssignSelect');
@@ -1387,7 +1531,7 @@ async function populateRtAssignSelect(){
 }
 async function performRoutineAssignment(template,c){
   const fitId=buildClientId(c.name,c.mobile);
-  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',fitId).eq('tracker','fitness');
+  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',fitId).eq('tracker','fitness');
   if(error){ alert('Could not load this client\'s data: '+error.message); return false; }
   let d={};
   if(data&&data.length&&data[0].data) d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
@@ -1404,7 +1548,7 @@ async function performRoutineAssignment(template,c){
     updatedAt:Date.now()
   });
   d.routines=routines;
-  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+  const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
     client_id:fitId, tracker:'fitness', data:JSON.stringify(d), updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
   if(saveErr){ alert('Error assigning: '+saveErr.message); return false; }
@@ -1465,7 +1609,7 @@ async function loadAssignedWorkoutsForClient(key,c){
   const listEl=document.getElementById('assignedWorkoutsList');
   if(!listEl)return;
   const clientId=buildClientId(c.name,c.mobile);
-  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
   if(error||!data||!data.length||!data[0].data){
     listEl.innerHTML='<div style="color:var(--muted);">Nothing assigned yet.</div>';
     return;
@@ -1506,11 +1650,11 @@ async function deleteAssignedWorkout(clientKey,dateStr){
   const c=Object.values(groupClients()).find(c=>(c.mobile||c.name)===clientKey);
   if(!c)return;
   const clientId=buildClientId(c.name,c.mobile);
-  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
   if(error||!data||!data.length||!data[0].data){alert('Could not load this client\'s data.');return;}
   const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
   if(d.assignedWorkouts) delete d.assignedWorkouts[dateStr];
-  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+  const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
     client_id:clientId, tracker:'fitness', data:JSON.stringify(d), updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
   if(saveErr){alert('Error deleting: '+saveErr.message);return;}
@@ -1522,7 +1666,7 @@ async function editAssignedWorkout(clientKey,dateStr){
   const c=Object.values(groupClients()).find(c=>(c.mobile||c.name)===clientKey);
   if(!c)return;
   const clientId=buildClientId(c.name,c.mobile);
-  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
   if(error||!data||!data.length||!data[0].data){alert('Could not load this assignment.');return;}
   const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
   const w=(d.assignedWorkouts||{})[dateStr];
@@ -1625,8 +1769,8 @@ async function deleteClientFitness(clientKey){
   if(!confirm('Delete ALL fitness data for '+c.name+'? This removes their entire session history and attendance record permanently.')) return;
   if(!confirm('This cannot be undone. Really delete '+c.name+'\'s fitness data?')) return;
   const fitId=buildClientId(c.name,c.mobile);
-  const {error:attErr}=await getSB().from('attendance').delete().eq('client_mobile',c.mobile||'');
-  const {error:tdErr}=await getSB().from('tracker_data').delete().eq('client_id',fitId).eq('tracker','fitness');
+  const {error:attErr}=await getSBScoped().from('attendance').delete().eq('client_mobile',c.mobile||'');
+  const {error:tdErr}=await getSBScoped().from('tracker_data').delete().eq('client_id',fitId).eq('tracker','fitness');
   if(attErr||tdErr){alert('Error deleting: '+((attErr&&attErr.message)||(tdErr&&tdErr.message)));return;}
   allRecords=allRecords.filter(function(r){return (r.client_mobile||r.client_name)!==clientKey;});
   alert(c.name+"'s fitness data has been deleted.");
@@ -1638,7 +1782,7 @@ async function deleteClientNutrition(clientId){
   const name=cw?cw.name:clientId;
   if(!confirm('Delete ALL nutrition data for '+name+'? This removes their entire meal log history permanently.')) return;
   if(!confirm('This cannot be undone. Really delete '+name+"'s nutrition data?")) return;
-  const {error}=await getSB().from('tracker_data').delete().eq('client_id',clientId).eq('tracker','nutrition');
+  const {error}=await getSBScoped().from('tracker_data').delete().eq('client_id',clientId).eq('tracker','nutrition');
   if(error){alert('Error deleting: '+error.message);return;}
   allClients=allClients.filter(function(c){return c.client_id!==clientId;});
   alert(name+"'s nutrition data has been deleted.");
@@ -1685,7 +1829,7 @@ function cleanupOrphanedAttendance(clientKey,date,time){
   const clients=groupClients();
   const c=Object.values(clients).find(c=>(c.mobile||c.name)===clientKey);
   if(!c) return;
-  getSB().from('attendance').delete()
+  getSBScoped().from('attendance').delete()
     .eq('client_mobile', c.mobile||'')
     .eq('session_date', date)
     .eq('session_time', time)
@@ -1720,7 +1864,7 @@ function openCoachSession(clientKey, date, time){
   document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">Loading...</div>';
   document.getElementById('coachSessionPanel').style.display='block';
 
-  getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness')
+  getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness')
     .then(function(res){
       if(res.error||!res.data||!res.data.length){
         document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">No session data found.</div>';
@@ -2061,7 +2205,7 @@ let excludeSessionIdFromHistory=null;
 async function loadAsClientSessions(clientId){
   asClientSessions=[];
   if(!clientId)return;
-  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
   if(error||!data||!data.length)return;
   const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
   asClientSessions=(d.sessions||[]).filter(s=>s.id!==excludeSessionIdFromHistory).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -2152,7 +2296,7 @@ let measModalCtx=null;
 async function loadMeasurementsForClient(clientId,tracker,listElId){
   const listEl=document.getElementById(listElId);
   if(!listEl)return;
-  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker',tracker);
+  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker',tracker);
   const useKey=measKeyForTracker(tracker);
   if(error||!data||!data.length||!data[0].data){
     _measCache[listElId]=[];
@@ -2258,7 +2402,7 @@ async function saveMeasurementModal(){
   function finishSave(scansArr){
     if(scansArr.length) entry.scans=scansArr;
     (async function(){
-      const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker',tracker);
+      const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker',tracker);
       if(error){alert('Error loading: '+error.message);return;}
       let d={};
       if(data&&data.length&&data[0].data){
@@ -2274,7 +2418,7 @@ async function saveMeasurementModal(){
         list.push(entry);
       }
       d[useKey]=list;
-      const {error:saveErr}=await getSB().from('tracker_data').upsert({
+      const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
         client_id:clientId, tracker:tracker, data:JSON.stringify(d), updated_at:new Date().toISOString()
       },{onConflict:'client_id,tracker'});
       if(saveErr){alert('Error saving: '+saveErr.message);return;}
@@ -2310,11 +2454,11 @@ async function deleteMeasurementForClient(clientId,tracker,listElId,entryId){
   const ok=confirm('Delete this measurement entry?');
   if(!ok)return;
   const useKey=measKeyForTracker(tracker);
-  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker',tracker);
+  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker',tracker);
   if(error||!data||!data.length||!data[0].data){alert('Could not load this client\'s data.');return;}
   const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
   d[useKey]=(d[useKey]||[]).filter(function(m){return m.id!==entryId;});
-  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+  const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
     client_id:clientId, tracker:tracker, data:JSON.stringify(d), updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
   if(saveErr){alert('Error deleting: '+saveErr.message);return;}
@@ -2863,10 +3007,10 @@ async function deleteCoachSession(){
   if(!ok)return;
   const {attendanceId,sessionId,clientId}=editingContext;
   if(attendanceId){
-    const {error:delErr}=await getSB().from('attendance').delete().eq('id',attendanceId);
+    const {error:delErr}=await getSBScoped().from('attendance').delete().eq('id',attendanceId);
     if(delErr){alert('Error deleting attendance record: '+delErr.message);return;}
   }
-  const {data:existing,error:fetchErr}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+  const {data:existing,error:fetchErr}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
   if(fetchErr){alert('Attendance record deleted, but could not update the tracker: '+fetchErr.message);return;}
   let full={};
   if(existing&&existing.length&&existing[0].data){
@@ -2874,7 +3018,7 @@ async function deleteCoachSession(){
   }
   full.sessions=(full.sessions||[]).filter(x=>x.id!==sessionId);
   full.deletedSessionIds=Array.from(new Set([...(full.deletedSessionIds||[]),sessionId]));
-  const {error:trackerErr}=await getSB().from('tracker_data').upsert({client_id:clientId,tracker:'fitness',data:JSON.stringify(full),updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
+  const {error:trackerErr}=await getSBScoped().from('tracker_data').upsert({client_id:clientId,tracker:'fitness',data:JSON.stringify(full),updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
   if(trackerErr){alert('Attendance record deleted, but the tracker could not be updated: '+trackerErr.message);return;}
   editingContext=null;
   closeAddSession();
@@ -2924,7 +3068,7 @@ async function saveAssignedWorkout(){
   btn.disabled=true; btn.textContent='Assigning...';
 
   const clientKey=clientMobile?clientName.toLowerCase().replace(/\s+/g,'_')+'__'+clientMobile:clientName.toLowerCase().replace(/\s+/g,'_');
-  const {data:fresh,error:fetchErr}=await getSB().from('tracker_data').select('data').eq('client_id',clientKey).eq('tracker','fitness');
+  const {data:fresh,error:fetchErr}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientKey).eq('tracker','fitness');
   if(fetchErr){
     btn.disabled=false; btn.textContent='Assign Workout';
     alert('Could not reach the server -- nothing was assigned. Please try again.');
@@ -2938,7 +3082,7 @@ async function saveAssignedWorkout(){
   const workout={bodyParts:asSelectedBP,exercises:exercisesPayload,supersets:supersetsPayload,cardio:cardioPayload,notes:notesVal};
   dateList.forEach(d=>{ full.assignedWorkouts[d]=workout; });
 
-  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+  const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
     client_id:clientKey, tracker:'fitness', data:JSON.stringify(full), updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
 
@@ -3008,19 +3152,19 @@ async function saveAdminSession(){
     // Snapshot the current attendance row so we can roll back if the tracker write fails
     let attendanceSnapshot=null;
     if(attendanceId){
-      const {data:snap}=await getSB().from('attendance').select('*').eq('id',attendanceId);
+      const {data:snap}=await getSBScoped().from('attendance').select('*').eq('id',attendanceId);
       attendanceSnapshot=snap&&snap.length?snap[0]:null;
     }
 
     if(attendanceId){
-      const {error:attErr}=await getSB().from('attendance').update({
+      const {error:attErr}=await getSBScoped().from('attendance').update({
         session_date:date, session_time:timeStr, duration_secs:durationSecs,
         workout_type:workoutType, body_parts:bodyPartsStr, activity:activityStr
       }).eq('id',attendanceId);
       if(attErr){btn.disabled=false;btn.textContent=origBtnText;alert('Error updating attendance: '+attErr.message);return;}
     }
 
-    const {data:existing,error:fetchErr}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+    const {data:existing,error:fetchErr}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
     if(fetchErr){
       btn.disabled=false;btn.textContent=origBtnText;
       alert('Attendance updated, but could not load the tracker to finish syncing: '+fetchErr.message+'\nPlease try saving again.');
@@ -3041,11 +3185,11 @@ async function saveAdminSession(){
     if(idx>=0) sessions[idx]=updatedSession; else sessions.unshift(updatedSession);
     full.sessions=sessions;
 
-    const {error:trackerErr}=await getSB().from('tracker_data').upsert({client_id:clientId,tracker:'fitness',data:JSON.stringify(full),updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
+    const {error:trackerErr}=await getSBScoped().from('tracker_data').upsert({client_id:clientId,tracker:'fitness',data:JSON.stringify(full),updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
     if(trackerErr){
       // Roll back the attendance update so the two records don't disagree
       if(attendanceId&&attendanceSnapshot){
-        await getSB().from('attendance').update({
+        await getSBScoped().from('attendance').update({
           session_date:attendanceSnapshot.session_date, session_time:attendanceSnapshot.session_time,
           duration_secs:attendanceSnapshot.duration_secs, workout_type:attendanceSnapshot.workout_type,
           body_parts:attendanceSnapshot.body_parts, activity:attendanceSnapshot.activity
@@ -3078,7 +3222,7 @@ async function saveAdminSession(){
     activity:activityStr,
     logged_at:new Date().toISOString()
   };
-  const {data:attData,error:attErr}=await getSB().from('attendance').insert(attendancePayload).select();
+  const {data:attData,error:attErr}=await getSBScoped().from('attendance').insert(attendancePayload).select();
   if(attErr){btn.disabled=false;btn.textContent=origBtnText;alert('Error saving attendance: '+attErr.message);return;}
   const insertedId=attData&&attData.length?attData[0].id:null;
 
@@ -3100,10 +3244,10 @@ async function saveAdminSession(){
     adminAdded:true, updatedAt:Date.now()
   };
 
-  const {data:existing,error:fetchErr}=await getSB().from('tracker_data').select('data').eq('client_id',clientKey).eq('tracker','fitness');
+  const {data:existing,error:fetchErr}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientKey).eq('tracker','fitness');
   if(fetchErr){
     // Roll back the attendance insert so we don't leave a session that's only half-saved
-    if(insertedId)await getSB().from('attendance').delete().eq('id',insertedId);
+    if(insertedId)await getSBScoped().from('attendance').delete().eq('id',insertedId);
     btn.disabled=false;btn.textContent=origBtnText;
     alert('Could not reach the tracker, so nothing was saved. Please try again. Error: '+fetchErr.message);
     return;
@@ -3125,10 +3269,10 @@ async function saveAdminSession(){
     data:JSON.stringify(full),
     updated_at:new Date().toISOString()
   };
-  const {error:trackerErr}=await getSB().from('tracker_data').upsert(trackerPayload,{onConflict:'client_id,tracker'});
+  const {error:trackerErr}=await getSBScoped().from('tracker_data').upsert(trackerPayload,{onConflict:'client_id,tracker'});
   if(trackerErr){
     // Roll back the attendance insert -- otherwise billing shows a session the client's tracker never got
-    if(insertedId)await getSB().from('attendance').delete().eq('id',insertedId);
+    if(insertedId)await getSBScoped().from('attendance').delete().eq('id',insertedId);
     btn.disabled=false;btn.textContent=origBtnText;
     alert('Error saving to tracker, so the attendance record was rolled back. Nothing was saved. Please try again. Error: '+trackerErr.message);
     return;
@@ -3153,19 +3297,23 @@ function switchMode(mode){
   const nutBtn=document.getElementById('modeBtnNutrition');
   const exBtn=document.getElementById('modeBtnExercises');
   const fbBtn=document.getElementById('modeBtnFeedback');
+  const accBtn=document.getElementById('modeBtnAccount');
   const fitSec=document.getElementById('fitSection');
   const nutSec=document.getElementById('nutSection');
   const exSec=document.getElementById('exSection');
   const fbSec=document.getElementById('fbSection');
+  const accSec=document.getElementById('accSection');
   const pageTitle=document.getElementById('pageTitle');
   fitBtn.classList.toggle('active',mode==='fitness');
   nutBtn.classList.toggle('active',mode==='nutrition');
   exBtn.classList.toggle('active',mode==='exercises');
   fbBtn.classList.toggle('active',mode==='feedback');
+  accBtn.classList.toggle('active',mode==='account');
   fitSec.style.display=mode==='fitness'?'block':'none';
   nutSec.style.display=mode==='nutrition'?'block':'none';
   exSec.style.display=mode==='exercises'?'block':'none';
   fbSec.style.display=mode==='feedback'?'block':'none';
+  accSec.style.display=mode==='account'?'block':'none';
   if(mode==='fitness'){
     pageTitle.textContent='Coach · Fitness';
   } else if(mode==='nutrition'){
@@ -3177,9 +3325,62 @@ function switchMode(mode){
   } else if(mode==='feedback'){
     pageTitle.textContent='Coach · Feedback';
     loadFeedback();
+  } else if(mode==='account'){
+    pageTitle.textContent='Coach · Account';
+    loadAccountSection();
   } else {
     pageTitle.textContent='Coach · Exercises';
     loadExerciseSuggestions();
+  }
+}
+function copyInviteLink(inputId){
+  const el=document.getElementById(inputId);
+  el.select();
+  el.setSelectionRange(0,99999);
+  navigator.clipboard.writeText(el.value).then(function(){
+    toast('Link copied');
+  }).catch(function(){
+    document.execCommand('copy');
+    toast('Link copied');
+  });
+}
+async function loadAccountSection(){
+  const coachId=window.currentCoachId;
+  const base=window.location.origin;
+  document.getElementById('inviteLinkFit').value=base+'/km-fitness-tracker?coach='+coachId;
+  document.getElementById('inviteLinkNut').value=base+'/km-nutrition-tracker?coach='+coachId;
+
+  const statusLine=document.getElementById('billingStatusLine');
+  const subLine=document.getElementById('billingSubLine');
+  const actionBtn=document.getElementById('billingActionBtn');
+  statusLine.textContent='Loading…';
+  const {data:coachRow,error}=await getSB().from('coaches').select('billing_status,trial_ends_at').eq('id',coachId).maybeSingle();
+  if(error||!coachRow){
+    statusLine.textContent='Unable to load billing status';
+    statusLine.style.color='var(--terra)';
+    return;
+  }
+  const status=coachRow.billing_status||'trial';
+  if(status==='active'){
+    statusLine.textContent='✓ Active';
+    statusLine.style.color='var(--sage)';
+    subLine.textContent='Your subscription is active.';
+    actionBtn.style.display='none';
+  } else if(status==='trial'){
+    const trialEnd=coachRow.trial_ends_at?new Date(coachRow.trial_ends_at):null;
+    statusLine.textContent='Trial';
+    statusLine.style.color='var(--gold)';
+    subLine.textContent=trialEnd?('Trial ends '+trialEnd.toLocaleDateString()+'.'):'Trial period active.';
+    actionBtn.style.display='block';
+    actionBtn.textContent='Subscribe Now';
+    actionBtn.href='RAZORPAY_SUBSCRIPTION_LINK_HERE';
+  } else {
+    statusLine.textContent='Subscription Inactive';
+    statusLine.style.color='var(--terra)';
+    subLine.textContent='Renew to keep using KFit for Coaches.';
+    actionBtn.style.display='block';
+    actionBtn.textContent='Renew Subscription';
+    actionBtn.href='RAZORPAY_SUBSCRIPTION_LINK_HERE';
   }
 }
 
@@ -3199,7 +3400,7 @@ const MONTHS_SHORT=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct',
 
 function nutLoadAll(){
   Promise.all([
-    getSB().from('tracker_data').select('*').eq('tracker','nutrition'),
+    getSBScoped().from('tracker_data').select('*').eq('tracker','nutrition'),
     Object.keys(taggedClients).length?Promise.resolve():loadClientTags()
   ]).then(function(results){
     const res=results[0];
@@ -3387,7 +3588,7 @@ function closePlanCompare(){
 async function deleteMealPlanAssignment(clientId,m,w,di){
   const ok=confirm('Delete this assigned meal plan? This wipes everything logged for this day, including anything the client added themselves. This cannot be undone.');
   if(!ok)return;
-  const {data:fresh,error:fetchErr}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','nutrition');
+  const {data:fresh,error:fetchErr}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','nutrition');
   if(fetchErr||!fresh||!fresh.length){alert('Could not reach the server -- nothing was changed.');return;}
   const full=typeof fresh[0].data==='string'?JSON.parse(fresh[0].data):fresh[0].data;
   const dataArr=full.data||[];
@@ -3395,7 +3596,7 @@ async function deleteMealPlanAssignment(clientId,m,w,di){
     dataArr[m][w][di]={meals:{},mealNotes:{},habits:{},order:{},proteinPlate:{},note:'',foodLog:{},mealTimes:{}};
   }
   full.data=dataArr;
-  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+  const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
     client_id:clientId, tracker:'nutrition', data:JSON.stringify(full), updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
   if(saveErr){alert('Error deleting: '+saveErr.message);return;}
@@ -3550,7 +3751,7 @@ async function onMpClientChange(){
   const clientId=document.getElementById('mp-client').value;
   if(!clientId){document.getElementById('mp-meals').innerHTML='';return;}
   document.getElementById('mp-meals').innerHTML='<div style="color:var(--muted);text-align:center;padding:20px;">Loading...</div>';
-  const {data,error}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','nutrition');
+  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','nutrition');
   if(error||!data||!data.length||!data[0].data){
     document.getElementById('mp-meals').innerHTML='<div style="color:var(--terra);text-align:center;padding:20px;">Could not load this client\'s program dates.</div>';
     return;
@@ -3666,7 +3867,7 @@ async function clearMpDay(){
   const pos=computeMWDI(cached.setup.startDate,totalMonths,dateStr);
   if(!pos){alert('That date falls outside this client\'s tracked program window.');return;}
 
-  const {data:fresh,error:fetchErr}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','nutrition');
+  const {data:fresh,error:fetchErr}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','nutrition');
   if(fetchErr||!fresh||!fresh.length){alert('Could not reach the server -- nothing was changed.');return;}
   const full=typeof fresh[0].data==='string'?JSON.parse(fresh[0].data):fresh[0].data;
   const dataArr=full.data||[];
@@ -3674,7 +3875,7 @@ async function clearMpDay(){
     dataArr[pos.m][pos.w][pos.di]={meals:{},mealNotes:{},habits:{},order:{},proteinPlate:{},note:'',foodLog:{}};
   }
   full.data=dataArr;
-  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+  const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
     client_id:clientId, tracker:'nutrition', data:JSON.stringify(full), updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
   if(saveErr){alert('Error clearing day: '+saveErr.message);return;}
@@ -3722,7 +3923,7 @@ async function saveMealPlan(){
   btn.disabled=true; btn.textContent='Saving...';
 
   // Re-fetch fresh data right before writing, to avoid clobbering anything the client logged in the meantime
-  const {data:fresh,error:fetchErr}=await getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','nutrition');
+  const {data:fresh,error:fetchErr}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','nutrition');
   if(fetchErr||!fresh||!fresh.length){
     btn.disabled=false; btn.textContent='Save Meal Plan';
     alert('Could not re-fetch client data -- nothing was saved. Please try again.');
@@ -3778,7 +3979,7 @@ async function saveMealPlan(){
   });
   full.data=dataArr;
 
-  const {error:saveErr}=await getSB().from('tracker_data').upsert({
+  const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
     client_id:clientId, tracker:'nutrition', data:JSON.stringify(full), updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
 
