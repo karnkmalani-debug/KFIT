@@ -537,6 +537,50 @@ function getSB(){
 if(!sbClient) sbClient=supabase.createClient(SB_URL,SB_KEY);
 return sbClient;
 }
+// IMPORTANT: replace this with your actual coach id (from `select id from
+// coaches;` after your first Merge login) before uploading. This is the
+// Not yet set -- fill this in with your real coach id (from `select id
+// from coaches;` in Supabase, once you've logged into Merge) once you have
+// it. Until then, this safely defaults to null so saves still work.
+const KFIT_DEFAULT_COACH_ID=null;
+function getClientCoachId(){
+  var stored=localStorage.getItem('kmnut_coach_id');
+  if(stored) return stored;
+  var params=new URLSearchParams(window.location.search);
+  var fromLink=params.get('coach');
+  if(fromLink){
+    localStorage.setItem('kmnut_coach_id',fromLink);
+    return fromLink;
+  }
+  return KFIT_DEFAULT_COACH_ID;
+}
+const COACH_SCOPED_TABLES_CLIENT=['tracker_data','app_feedback'];
+function getSBScoped(){
+  const real=getSB();
+  return {
+    from(table){
+      const builder=real.from(table);
+      if(!COACH_SCOPED_TABLES_CLIENT.includes(table)) return builder;
+      const origInsert=builder.insert.bind(builder);
+      const origUpsert=builder.upsert.bind(builder);
+      builder.insert=function(payload,opts){
+        const cid=getClientCoachId();
+        const withCoach=Array.isArray(payload)
+          ? payload.map(function(row){return Object.assign({coach_id:cid},row);})
+          : Object.assign({coach_id:cid},payload);
+        return origInsert(withCoach,opts);
+      };
+      builder.upsert=function(payload,opts){
+        const cid=getClientCoachId();
+        const withCoach=Array.isArray(payload)
+          ? payload.map(function(row){return Object.assign({coach_id:cid},row);})
+          : Object.assign({coach_id:cid},payload);
+        return origUpsert(withCoach,opts);
+      };
+      return builder;
+    }
+  };
+}
 
 function getClientKey(){
 var name=appSetup&&appSetup.clientName?appSetup.clientName.toLowerCase().replace(/\s+/g,'_'):'unknown';
@@ -683,7 +727,7 @@ tracker:'nutrition',
 data:{setup:appSetup,data:data,weekNotes:weekNotes,ui:ui,mealPlan:mealPlan,bodyMeasurements:bodyMeasurements,mobile:localStorage.getItem('kmnut_mobile'),email:localStorage.getItem('kmnut_email'),vices:getVicesData()},
 updated_at:new Date().toISOString()
 };
-getSB().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(res){
+getSBScoped().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(res){
 if(res.error) console.error('Supabase write error:',res.error);
 });
 });
@@ -693,7 +737,7 @@ function loadFromSupabase(callback){
 ensureAnonAuth(function(uid){
 if(!uid){callback(false);return;}
 
-getSB().from('tracker_data').select('data').eq('user_id',uid).eq('tracker','nutrition').then(function(res){
+getSBScoped().from('tracker_data').select('data').eq('user_id',uid).eq('tracker','nutrition').then(function(res){
 if(!res.error&&res.data&&res.data.length){
 _applyNutData(res.data[0].data);
 callback(true);
@@ -701,11 +745,11 @@ return;
 }
 
 var key=getClientKey();
-getSB().from('tracker_data').select('data').eq('client_id',key).eq('tracker','nutrition').then(function(res2){
+getSBScoped().from('tracker_data').select('data').eq('client_id',key).eq('tracker','nutrition').then(function(res2){
 if(res2.error||!res2.data||!res2.data.length){
 var name=appSetup&&appSetup.clientName?appSetup.clientName.toLowerCase().replace(/\s+/g,'_'):'';
 if(!name){callback(false);return;}
-getSB().from('tracker_data').select('data').eq('client_id',name).eq('tracker','nutrition').then(function(res3){
+getSBScoped().from('tracker_data').select('data').eq('client_id',name).eq('tracker','nutrition').then(function(res3){
 if(res3.error||!res3.data||!res3.data.length){callback(false);return;}
 _applyNutData(res3.data[0].data);
 syncToSupabase();
@@ -978,7 +1022,7 @@ if(!name){showToast('Please enter your name');return;}
 if(!mobile){showToast('Please enter your mobile number');return;}
 if(!dateVal){showToast('Please enter a start date');return;}
 showToast('Checking...');
-getSB().from('tracker_data').select('client_id').eq('tracker','nutrition').like('client_id','%__'+mobile).then(function(res){
+getSBScoped().from('tracker_data').select('client_id').eq('tracker','nutrition').like('client_id','%__'+mobile).then(function(res){
 function proceed(){
 localStorage.setItem('kmnut_mobile',mobile);
 appSetup={clientName:name,startDate:dateVal,totalMonths:_selectedMonths};
@@ -1240,7 +1284,7 @@ body.innerHTML='<div style="font-size:13px;color:var(--txt2);padding:20px 0;text
 return;
 }
 body.innerHTML='<div style="font-size:13px;color:var(--txt2);padding:20px 0;text-align:center;">Loading...</div>';
-getSB().from('app_feedback').select('*').eq('submitted_by_mobile',mobile).order('created_at',{ascending:true}).then(function(res){
+getSBScoped().from('app_feedback').select('*').eq('submitted_by_mobile',mobile).order('created_at',{ascending:true}).then(function(res){
 if(res.error){
 body.innerHTML='<div style="font-size:13px;color:var(--terra);padding:20px 0;text-align:center;">Could not load: '+res.error.message+'</div>';
 return;
@@ -1263,7 +1307,7 @@ return rep;
 if(changed){row.replies=newReplies;toUpdate.push(row);}
 });
 toUpdate.forEach(function(row){
-getSB().from('app_feedback').update({replies:row.replies}).eq('id',row.id).then(function(){});
+getSBScoped().from('app_feedback').update({replies:row.replies}).eq('id',row.id).then(function(){});
 });
 }
 function fbTicks(m){
@@ -1305,7 +1349,7 @@ if(!confirm('Delete this message?')) return;
 var row=_fbRows.find(function(r){return r.id===rowId;});
 if(!row) return;
 if(kind==='original'){
-getSB().from('app_feedback').delete().eq('id',rowId).then(function(res){
+getSBScoped().from('app_feedback').delete().eq('id',rowId).then(function(res){
 if(res.error){showToast('Could not delete: '+res.error.message);return;}
 _fbRows=_fbRows.filter(function(r){return r.id!==rowId;});
 renderFeedbackChat();
@@ -1313,7 +1357,7 @@ renderFeedbackChat();
 } else {
 var replies=(row.replies||[]).slice();
 replies.splice(replyIndex,1);
-getSB().from('app_feedback').update({replies:replies}).eq('id',rowId).then(function(res){
+getSBScoped().from('app_feedback').update({replies:replies}).eq('id',rowId).then(function(res){
 if(res.error){showToast('Could not delete: '+res.error.message);return;}
 row.replies=replies;
 renderFeedbackChat();
@@ -1389,7 +1433,7 @@ if(_fbRows.length){
 var lastRow=_fbRows[_fbRows.length-1];
 var replies=(lastRow.replies||[]).slice();
 replies.push({sender:'client',message:msg,timestamp:new Date().toISOString(),read:false,attachmentUrl:attachment?attachment.url:null,attachmentType:attachment?attachment.type:null});
-getSB().from('app_feedback').update({replies:replies,archived:false}).eq('id',lastRow.id).then(function(res){
+getSBScoped().from('app_feedback').update({replies:replies,archived:false}).eq('id',lastRow.id).then(function(res){
 input.disabled=false;
 if(res.error){showToast('Could not send: '+res.error.message);return;}
 lastRow.replies=replies;
@@ -1398,7 +1442,7 @@ clearFbAttachment();
 renderFeedbackChat();
 });
 } else {
-getSB().from('app_feedback').insert({
+getSBScoped().from('app_feedback').insert({
 message:msg,
 tab:tabLabel,
 submitted_by:(appSetup&&appSetup.clientName)||'Client',
@@ -2918,13 +2962,13 @@ function checkMobileLogin(){
 var mobile=document.getElementById('mobileLoginInput').value.trim().replace(/\D/g,'');
 if(!mobile){document.getElementById('pwError').textContent='Enter your mobile number';return;}
 document.getElementById('pwError').textContent='Looking you up...';
-getSB().from('tracker_data').select('data,client_id').eq('tracker','nutrition').like('client_id','%__'+mobile).then(function(res){
+getSBScoped().from('tracker_data').select('data,client_id').eq('tracker','nutrition').like('client_id','%__'+mobile).then(function(res){
 if(!res.error&&res.data&&res.data.length){
 _handleMobileLookupResult(res.data[0],mobile);
 return;
 }
 getSB().auth.signInAnonymously().then(function(){
-getSB().from('tracker_data').select('data,client_id').eq('tracker','nutrition').like('client_id','%__'+mobile).then(function(res2){
+getSBScoped().from('tracker_data').select('data,client_id').eq('tracker','nutrition').like('client_id','%__'+mobile).then(function(res2){
 if(!res2.error&&res2.data&&res2.data.length){
 _handleMobileLookupResult(res2.data[0],mobile);
 return;

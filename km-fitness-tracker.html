@@ -3372,7 +3372,10 @@ return sbClient;
 // coaches;` after your first Merge login) before uploading. This is the
 // fallback for every existing client who signed up before the coach system
 // existed, and for anyone opening the app without a coach-specific link.
-const KFIT_DEFAULT_COACH_ID='REPLACE_WITH_YOUR_COACH_ID';
+// Not yet set -- fill this in with your real coach id (from `select id
+// from coaches;` in Supabase, once you've logged into Merge) once you have
+// it. Until then, this safely defaults to null so saves still work.
+const KFIT_DEFAULT_COACH_ID=null;
 function getClientCoachId(){
   var stored=localStorage.getItem('kmfit_coach_id');
   if(stored) return stored;
