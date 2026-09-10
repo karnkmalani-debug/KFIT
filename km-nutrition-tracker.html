@@ -542,7 +542,7 @@ return sbClient;
 // Not yet set -- fill this in with your real coach id (from `select id
 // from coaches;` in Supabase, once you've logged into Merge) once you have
 // it. Until then, this safely defaults to null so saves still work.
-const KFIT_DEFAULT_COACH_ID=null;
+const KFIT_DEFAULT_COACH_ID='48bd790c-8097-4bd8-be81-3d76daaa0890';
 function getClientCoachId(){
   var stored=localStorage.getItem('kmnut_coach_id');
   if(stored) return stored;
