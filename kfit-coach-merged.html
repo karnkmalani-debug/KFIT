@@ -104,7 +104,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       <input class="pw-inp" type="text" id="coachOtpInp" placeholder="Code from email" inputmode="numeric" maxlength="12" autocomplete="one-time-code" onkeydown="if(event.key==='Enter')verifyCoachOtpCode()" style="text-align:center;letter-spacing:4px;">
       <button class="pw-btn" onclick="verifyCoachOtpCode()">Verify Code</button>
       <div class="pw-err" id="pwErr2" style="margin-top:8px;"></div>
-      <button class="pw-btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);margin-top:10px;" onclick="resetCoachAuthForm()">Use a different email</button>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="pw-btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);flex:1;" onclick="resendCoachCode()">Resend Code</button>
+        <button class="pw-btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);flex:1;" onclick="resetCoachAuthForm()">Different Email</button>
+      </div>
     </div>
 
     <div id="authStepChecking" style="display:none;text-align:center;">
@@ -563,6 +566,15 @@ async function sendCoachMagicLink(){
   document.getElementById('sentToEmail').textContent=email;
   document.getElementById('authStepEmail').style.display='none';
   document.getElementById('authStepSent').style.display='block';
+}
+async function resendCoachCode(){
+  const errEl=document.getElementById('pwErr2');
+  if(!pendingCoachEmail){errEl.textContent='Something went wrong -- tap "Different Email" and try again';return;}
+  errEl.textContent='Sending a new code…';
+  const {error}=await getSB().auth.signInWithOtp({email:pendingCoachEmail,options:{emailRedirectTo:window.location.href}});
+  if(error){errEl.textContent=error.message;return;}
+  errEl.textContent='New code sent to '+pendingCoachEmail;
+  document.getElementById('coachOtpInp').value='';
 }
 async function verifyCoachOtpCode(){
   const code=document.getElementById('coachOtpInp').value.trim();
