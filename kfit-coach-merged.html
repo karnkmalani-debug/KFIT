@@ -100,7 +100,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
     <div id="authStepSent" style="display:none;text-align:center;">
       <div style="font-size:15px;color:var(--muted);line-height:1.6;margin:16px 0;">Check <strong id="sentToEmail" style="color:var(--text);"></strong> for a login link. Tap it on this device to continue.</div>
-      <button class="pw-btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);" onclick="resetCoachAuthForm()">Use a different email</button>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Or, if you're checking that email on a different device, enter the 6-digit code from it here:</div>
+      <input class="pw-inp" type="text" id="coachOtpInp" placeholder="6-digit code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" onkeydown="if(event.key==='Enter')verifyCoachOtpCode()" style="text-align:center;letter-spacing:4px;">
+      <button class="pw-btn" onclick="verifyCoachOtpCode()">Verify Code</button>
+      <div class="pw-err" id="pwErr2" style="margin-top:8px;"></div>
+      <button class="pw-btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);margin-top:10px;" onclick="resetCoachAuthForm()">Use a different email</button>
     </div>
 
     <div id="authStepChecking" style="display:none;text-align:center;">
@@ -548,20 +552,36 @@ function getSBScoped(){
   };
 }
 
+let pendingCoachEmail='';
 async function sendCoachMagicLink(){
   const email=document.getElementById('coachEmailInp').value.trim();
   if(!email){document.getElementById('pwErr').textContent='Enter your email';return;}
   document.getElementById('pwErr').textContent='';
   const {error}=await getSB().auth.signInWithOtp({email:email,options:{emailRedirectTo:window.location.href}});
   if(error){document.getElementById('pwErr').textContent=error.message;return;}
+  pendingCoachEmail=email;
   document.getElementById('sentToEmail').textContent=email;
   document.getElementById('authStepEmail').style.display='none';
   document.getElementById('authStepSent').style.display='block';
+}
+async function verifyCoachOtpCode(){
+  const code=document.getElementById('coachOtpInp').value.trim();
+  const errEl=document.getElementById('pwErr2');
+  if(!code){errEl.textContent='Enter the code from the email';return;}
+  if(!pendingCoachEmail){errEl.textContent='Something went wrong -- tap "Use a different email" and try again';return;}
+  errEl.textContent='';
+  const {data,error}=await getSB().auth.verifyOtp({email:pendingCoachEmail,token:code,type:'email'});
+  if(error){errEl.textContent=error.message;return;}
+  // onAuthStateChange fires automatically once verifyOtp succeeds and
+  // establishes the session -- no extra handling needed here.
 }
 function resetCoachAuthForm(){
   document.getElementById('authStepEmail').style.display='block';
   document.getElementById('authStepSent').style.display='none';
   document.getElementById('coachEmailInp').value='';
+  document.getElementById('coachOtpInp').value='';
+  document.getElementById('pwErr2').textContent='';
+  pendingCoachEmail='';
 }
 async function onCoachAuthenticated(session){
   window.currentCoachId=session.user.id;
