@@ -100,8 +100,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
     <div id="authStepSent" style="display:none;text-align:center;">
       <div style="font-size:15px;color:var(--muted);line-height:1.6;margin:16px 0;">Check <strong id="sentToEmail" style="color:var(--text);"></strong> for a login link. Tap it on this device to continue.</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Or, if you're checking that email on a different device, enter the 6-digit code from it here:</div>
-      <input class="pw-inp" type="text" id="coachOtpInp" placeholder="6-digit code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" onkeydown="if(event.key==='Enter')verifyCoachOtpCode()" style="text-align:center;letter-spacing:4px;">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Or, if you're checking that email on a different device, enter the code from it here:</div>
+      <input class="pw-inp" type="text" id="coachOtpInp" placeholder="Code from email" inputmode="numeric" maxlength="12" autocomplete="one-time-code" onkeydown="if(event.key==='Enter')verifyCoachOtpCode()" style="text-align:center;letter-spacing:4px;">
       <button class="pw-btn" onclick="verifyCoachOtpCode()">Verify Code</button>
       <div class="pw-err" id="pwErr2" style="margin-top:8px;"></div>
       <button class="pw-btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);margin-top:10px;" onclick="resetCoachAuthForm()">Use a different email</button>
