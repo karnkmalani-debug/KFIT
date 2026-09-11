@@ -363,6 +363,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="content" id="nutDashView">
     <div class="stat-grid" id="nutOverallStats"></div>
     <button onclick="openMealPlan()" style="width:100%;padding:11px;margin-bottom:12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;color:#fff;cursor:pointer;">+ Assign Meal Plan</button>
+    <button onclick="openDietTemplateModal()" style="width:100%;padding:11px;margin-bottom:12px;background:none;border:1px solid var(--sage);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;color:var(--sage);cursor:pointer;">📋 Diet Templates</button>
     <div style="display:flex;gap:8px;margin-bottom:12px;">
       <button id="nutRosterTabClients" class="mode-btn active" style="flex:1;" onclick="setNutRosterView('clients')">Clients</button>
       <button id="nutRosterTabAll" class="mode-btn" style="flex:1;" onclick="setNutRosterView('all')">All Users</button>
@@ -394,6 +395,40 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       </div>
       <div id="mp-meals"></div>
       <button id="mp-save-btn" onclick="saveMealPlan()" style="width:100%;margin-top:16px;padding:14px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#fff;cursor:pointer;">Save Meal Plan</button>
+    </div>
+  </div>
+
+  <!-- Diet Template Library modal -->
+  <div id="dietTemplateModal" style="display:none;position:fixed;inset:0;z-index:502;background:rgba(0,0,0,.6);overflow-y:auto;-webkit-overflow-scrolling:touch;">
+    <div style="max-width:520px;margin:20px auto;background:var(--bg);border-radius:14px;padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:-20px -20px 16px -20px;padding:16px 20px;position:sticky;top:0;background:var(--bg);z-index:5;border-radius:14px 14px 0 0;">
+        <div style="font-size:18px;font-weight:800;">Diet Templates</div>
+        <button onclick="closeDietTemplateModal()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">✕</button>
+      </div>
+      <div style="font-size:14px;font-weight:600;color:var(--muted);margin-bottom:14px;">Build a reusable daily or weekly plan with either/or options per meal. Save it here, then send it to a client -- or they can pick it themselves from their own tracker.</div>
+      <div class="form-group">
+        <div class="form-label">Paste a Plan to Auto-Fill (optional)</div>
+        <textarea id="dt-paste-box" class="form-inp" rows="6" placeholder="Paste from Google Docs, Notes, WhatsApp, etc. Example:&#10;&#10;Monday&#10;Breakfast: Eggs + toast / Oats + peanut butter&#10;Lunch: Dal rice + salad&#10;Dinner: Grilled chicken + veggies&#10;&#10;Tuesday&#10;Breakfast: ..." style="font-family:'DM Sans',sans-serif;"></textarea>
+        <button type="button" onclick="importDietPaste()" style="width:100%;margin-top:8px;padding:10px;background:none;border:1px solid var(--sage);border-radius:8px;color:var(--sage);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Import Pasted Text</button>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px;">One line per meal: <b>Meal: option / option</b>. Put a day name alone on its own line (e.g. "Monday") to start a new day for weekly plans -- skip day names entirely for a daily plan.</div>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Template Name</div>
+        <input type="text" id="dt-name" class="form-inp" placeholder="e.g. Standard Cut Plan">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Type</div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" id="dt-type-daily" onclick="setDtType('daily')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--sage);background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Daily</button>
+          <button type="button" id="dt-type-weekly" onclick="setDtType('weekly')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Weekly</button>
+        </div>
+      </div>
+      <div id="dt-day-tabs" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;"></div>
+      <div id="dt-day-body"></div>
+      <button onclick="saveDietTemplate()" style="width:100%;margin-top:16px;padding:14px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#fff;cursor:pointer;">Save Template</button>
+      <div onclick="cancelEditDietTemplate()" style="text-align:center;margin-top:8px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;text-decoration:underline;">Cancel editing</div>
+      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:24px 0 10px;">Your Templates</div>
+      <div id="dtList"><div class="empty">Loading...</div></div>
     </div>
   </div>
 
@@ -529,7 +564,7 @@ function getSB(){
 // with-check policy (coach_id = auth.uid()) without hand-editing every
 // call site. select/update/delete pass straight through unmodified; RLS
 // already filters those correctly by coach_id regardless of the app query.
-const COACH_SCOPED_TABLES=['tracker_data','attendance','client_tags','custom_exercises','exercise_videos','routine_templates','app_feedback'];
+const COACH_SCOPED_TABLES=['tracker_data','attendance','client_tags','custom_exercises','exercise_videos','routine_templates','app_feedback','diet_templates'];
 function getSBScoped(){
   const real=getSB();
   return {
@@ -3917,6 +3952,264 @@ async function clearMpDay(){
   alert('Day cleared ✓');
 }
 
+function blankDtDay(){
+  const meals={};
+  MEALS.forEach(function(m){meals[m.id]=[];});
+  return {meals:meals};
+}
+const DT_DAY_HEADER_RE=[
+  {re:/^(sunday|sun)\s*:?\s*$/i,idx:0},
+  {re:/^(monday|mon)\s*:?\s*$/i,idx:1},
+  {re:/^(tuesday|tues|tue)\s*:?\s*$/i,idx:2},
+  {re:/^(wednesday|wed)\s*:?\s*$/i,idx:3},
+  {re:/^(thursday|thurs|thu)\s*:?\s*$/i,idx:4},
+  {re:/^(friday|fri)\s*:?\s*$/i,idx:5},
+  {re:/^(saturday|sat)\s*:?\s*$/i,idx:6}
+];
+const DT_MEAL_LINE_RE=[
+  {id:'breakfast',re:/^breakfast\s*[:\-]\s*(.*)$/i},
+  {id:'msnack',re:/^(morning\s*snack|am\s*snack|snack\s*1)\s*[:\-]\s*(.*)$/i},
+  {id:'lunch',re:/^lunch\s*[:\-]\s*(.*)$/i},
+  {id:'esnack',re:/^(evening\s*snack|afternoon\s*snack|pm\s*snack|snack\s*2)\s*[:\-]\s*(.*)$/i},
+  {id:'dinner',re:/^dinner\s*[:\-]\s*(.*)$/i}
+];
+function parseDietPasteText(text){
+  const lines=text.split(/\r?\n/);
+  let weekly=false;
+  let currentDayIdx=0;
+  const tempDays={};
+  const skipped=[];
+  lines.forEach(function(raw){
+    const line=raw.trim();
+    if(!line) return;
+    for(let i=0;i<DT_DAY_HEADER_RE.length;i++){
+      if(DT_DAY_HEADER_RE[i].re.test(line)){
+        currentDayIdx=DT_DAY_HEADER_RE[i].idx;
+        weekly=true;
+        if(!tempDays[currentDayIdx]) tempDays[currentDayIdx]=blankDtDay();
+        return;
+      }
+    }
+    let matchedMeal=null, optsText=null;
+    for(let i=0;i<DT_MEAL_LINE_RE.length;i++){
+      const m=line.match(DT_MEAL_LINE_RE[i].re);
+      if(m){matchedMeal=DT_MEAL_LINE_RE[i].id; optsText=m[m.length-1]; break;}
+    }
+    if(matchedMeal){
+      if(!tempDays[currentDayIdx]) tempDays[currentDayIdx]=blankDtDay();
+      const opts=optsText.split(/\s*\/\s*|\s+or\s+/i).map(function(s){return s.trim();}).filter(Boolean);
+      if(opts.length){
+        tempDays[currentDayIdx].meals[matchedMeal]=tempDays[currentDayIdx].meals[matchedMeal].concat(opts);
+      }
+    } else {
+      skipped.push(line);
+    }
+  });
+  return {weekly:weekly,tempDays:tempDays,skipped:skipped};
+}
+function applyParsedDietData(parsed){
+  setDtType(parsed.weekly?'weekly':'daily');
+  Object.keys(parsed.tempDays).forEach(function(k){
+    const idx=parsed.weekly?parseInt(k,10):0;
+    if(_dtDays[idx]) _dtDays[idx]=parsed.tempDays[k];
+  });
+  renderDtDayTabs();
+  renderDtDayBody();
+}
+function importDietPaste(){
+  const box=document.getElementById('dt-paste-box');
+  const text=box.value;
+  if(!text||!text.trim()){alert('Paste your diet plan text first');return;}
+  const parsed=parseDietPasteText(text);
+  const mealCount=Object.values(parsed.tempDays).reduce(function(sum,d){
+    return sum+MEALS.filter(function(m){return (d.meals[m.id]||[]).length;}).length;
+  },0);
+  if(!mealCount){
+    alert('Could not find any recognizable meals in that text.\n\nUse one line per meal, like:\nBreakfast: Eggs + toast / Oats + peanut butter\n\nAdd a day name alone on its own line (e.g. "Monday") to start a weekly plan.');
+    return;
+  }
+  applyParsedDietData(parsed);
+  let msg='Imported '+mealCount+' meal'+(mealCount===1?'':'s')+(parsed.weekly?' across '+Object.keys(parsed.tempDays).length+' day(s)':'')+'. Review below, then hit Save Template.';
+  if(parsed.skipped.length){
+    msg+='\n\n'+parsed.skipped.length+' line(s) not recognized and skipped:\n'+parsed.skipped.slice(0,5).join('\n')+(parsed.skipped.length>5?'\n...':'');
+  }
+  alert(msg);
+  box.value='';
+}
+let _dtDays=[]; let _dtType='daily'; let _dtActiveDay=0; let _dtEditingId=null; let _dtTemplatesCache=[];
+function openDietTemplateModal(){
+  document.getElementById('dietTemplateModal').style.display='block';
+  document.body.style.overflow='hidden';
+  if(!_dtDays.length) setDtType('daily');
+  loadDietTemplates();
+}
+function closeDietTemplateModal(){
+  document.getElementById('dietTemplateModal').style.display='none';
+  document.body.style.overflow='';
+}
+function setDtType(type){
+  _dtType=type;
+  const dBtn=document.getElementById('dt-type-daily'), wBtn=document.getElementById('dt-type-weekly');
+  dBtn.style.background=type==='daily'?'var(--sage)':'none';
+  dBtn.style.color=type==='daily'?'#fff':'var(--muted)';
+  dBtn.style.borderColor=type==='daily'?'var(--sage)':'var(--border)';
+  wBtn.style.background=type==='weekly'?'var(--sage)':'none';
+  wBtn.style.color=type==='weekly'?'#fff':'var(--muted)';
+  wBtn.style.borderColor=type==='weekly'?'var(--sage)':'var(--border)';
+  _dtDays=type==='daily'?[blankDtDay()]:DAYS_SHORT.map(function(){return blankDtDay();});
+  _dtActiveDay=0;
+  renderDtDayTabs();
+  renderDtDayBody();
+}
+function renderDtDayTabs(){
+  const el=document.getElementById('dt-day-tabs');
+  if(_dtType==='daily'){el.innerHTML='';return;}
+  el.innerHTML=DAYS_SHORT.map(function(d,i){
+    const active=i===_dtActiveDay;
+    return '<button type="button" onclick="switchDtDay('+i+')" style="padding:7px 10px;border-radius:8px;border:1px solid '+(active?'var(--sage)':'var(--border)')+';background:'+(active?'var(--sage)':'none')+';color:'+(active?'#fff':'var(--muted)')+';font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">'+d+'</button>';
+  }).join('');
+}
+function switchDtDay(i){
+  _dtActiveDay=i;
+  renderDtDayTabs();
+  renderDtDayBody();
+}
+function renderDtDayBody(){
+  const day=_dtDays[_dtActiveDay];
+  if(!day) return;
+  document.getElementById('dt-day-body').innerHTML=MEALS.map(function(meal){
+    const opts=day.meals[meal.id]||[];
+    return '<div class="form-group">'
+      +'<div class="form-label">'+meal.name+'</div>'
+      +'<div style="margin-bottom:8px;">'
+      +opts.map(function(opt,idx){
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--surf2);border-radius:6px;margin-bottom:5px;">'
+          +'<span style="font-size:13px;color:var(--text);">'+(opts.length>1?'Option '+(idx+1)+': ':'')+opt+'</span>'
+          +'<span onclick="removeDtOption('+_dtActiveDay+',\''+meal.id+'\','+idx+')" style="cursor:pointer;color:var(--terra);font-size:14px;padding:0 4px;">&#10005;</span>'
+          +'</div>';
+      }).join('')
+      +'</div>'
+      +'<div style="display:flex;gap:6px;">'
+      +'<input type="text" id="dt-newopt-'+meal.id+'" placeholder="Add option, e.g. Eggs + toast" style="flex:1;padding:8px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:13px;">'
+      +'<button type="button" onclick="addDtOption('+_dtActiveDay+',\''+meal.id+'\')" style="padding:8px 14px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">+</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+function addDtOption(dayIdx,mealId){
+  const inp=document.getElementById('dt-newopt-'+mealId);
+  const val=(inp.value||'').trim();
+  if(!val) return;
+  _dtDays[dayIdx].meals[mealId].push(val);
+  inp.value='';
+  renderDtDayBody();
+}
+function removeDtOption(dayIdx,mealId,idx){
+  _dtDays[dayIdx].meals[mealId].splice(idx,1);
+  renderDtDayBody();
+}
+async function saveDietTemplate(){
+  const name=(document.getElementById('dt-name').value||'').trim();
+  if(!name){alert('Name this template first');return;}
+  const hasAnyOption=_dtDays.some(function(d){return MEALS.some(function(m){return (d.meals[m.id]||[]).length;});});
+  if(!hasAnyOption){alert('Add at least one option to at least one meal');return;}
+  const payload={name:name,type:_dtType,days:_dtDays,client_id:null,updated_at:new Date().toISOString()};
+  if(_dtEditingId){
+    const {error}=await getSBScoped().from('diet_templates').update(payload).eq('id',_dtEditingId);
+    if(error){alert('Error updating: '+error.message);return;}
+    _dtEditingId=null;
+  } else {
+    const {error}=await getSBScoped().from('diet_templates').insert(payload);
+    if(error){alert('Error saving: '+error.message);return;}
+  }
+  document.getElementById('dt-name').value='';
+  setDtType('daily');
+  const saveBtn=document.querySelector('#dietTemplateModal button[onclick="saveDietTemplate()"]');
+  if(saveBtn) saveBtn.textContent='Save Template';
+  loadDietTemplates();
+}
+function editDietTemplate(id){
+  const t=_dtTemplatesCache.find(function(x){return x.id===id;});
+  if(!t){alert('Could not find that template -- try reloading');return;}
+  _dtEditingId=id;
+  document.getElementById('dt-name').value=t.name;
+  setDtType(t.type);
+  _dtDays=(t.days&&t.days.length)?JSON.parse(JSON.stringify(t.days)):_dtDays;
+  renderDtDayTabs();
+  renderDtDayBody();
+  const saveBtn=document.querySelector('#dietTemplateModal button[onclick="saveDietTemplate()"]');
+  if(saveBtn) saveBtn.textContent='Update Template';
+  document.getElementById('dt-name').scrollIntoView({behavior:'smooth',block:'center'});
+}
+function cancelEditDietTemplate(){
+  _dtEditingId=null;
+  document.getElementById('dt-name').value='';
+  setDtType('daily');
+  const saveBtn=document.querySelector('#dietTemplateModal button[onclick="saveDietTemplate()"]');
+  if(saveBtn) saveBtn.textContent='Save Template';
+}
+async function loadDietTemplates(){
+  const listEl=document.getElementById('dtList');
+  if(!listEl) return;
+  const {data,error}=await getSBScoped().from('diet_templates').select('*').is('client_id',null).order('name',{ascending:true});
+  if(error){listEl.innerHTML='<div class="empty">Error loading templates.<br>'+error.message+'</div>';return;}
+  const rows=data||[];
+  _dtTemplatesCache=rows;
+  listEl.innerHTML=rows.length?rows.map(function(r){
+    return '<div class="client-card" id="dtRow_'+r.id+'" style="cursor:default;">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">'
+      +'<div style="min-width:0;">'
+        +'<div style="font-weight:700;color:var(--text);font-size:14px;">'+r.name+'</div>'
+        +'<div style="font-size:14px;font-weight:600;color:var(--muted);">'+(r.type==='weekly'?'Weekly':'Daily')+'</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;">'
+      +'<button onclick="toggleDtAssignPicker(\''+r.id+'\')" style="padding:7px 12px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>'
+      +'<button onclick="editDietTemplate(\''+r.id+'\')" style="padding:7px 12px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Edit</button>'
+      +'<button onclick="deleteDietTemplate(\''+r.id+'\')" style="padding:7px 12px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Delete</button>'
+      +'</div>'
+      +'</div>'
+      +'</div>';
+  }).join(''):'<div class="empty">No diet templates yet -- build one above.</div>';
+}
+async function deleteDietTemplate(id){
+  if(!confirm('Delete this template? Clients currently assigned to it will lose access to it.')) return;
+  const {error}=await getSBScoped().from('diet_templates').delete().eq('id',id);
+  if(error){alert('Error deleting: '+error.message);return;}
+  loadDietTemplates();
+}
+function toggleDtAssignPicker(templateId){
+  const existing=document.getElementById('dtInlineAssign_'+templateId);
+  document.querySelectorAll('[id^="dtInlineAssign_"]').forEach(function(el){el.remove();});
+  if(existing) return;
+  const row=document.getElementById('dtRow_'+templateId);
+  if(!row) return;
+  const picker=document.createElement('div');
+  picker.id='dtInlineAssign_'+templateId;
+  picker.style.cssText='margin-top:8px;padding:10px;background:var(--surf2);border-radius:8px;';
+  picker.innerHTML='<select id="dtInlinePick_'+templateId+'" style="width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:13px;margin-bottom:8px;">'
+    +'<option value="">-- Choose a client --</option>'
+    +allClients.map(function(c){return '<option value="'+c.client_id+'">'+c.name+'</option>';}).join('')
+    +'</select>'
+    +'<button onclick="confirmDtAssign(\''+templateId+'\')" style="width:100%;padding:8px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Assign</button>';
+  row.appendChild(picker);
+}
+async function confirmDtAssign(templateId){
+  const sel=document.getElementById('dtInlinePick_'+templateId);
+  const clientId=sel.value;
+  if(!clientId){alert('Pick a client first');return;}
+  const {data,error:fetchErr}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','nutrition');
+  if(fetchErr||!data||!data.length){alert('Could not load that client\'s data');return;}
+  const full=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
+  full.assignedDietTemplateId=templateId;
+  const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
+    client_id:clientId,tracker:'nutrition',data:JSON.stringify(full),updated_at:new Date().toISOString()
+  },{onConflict:'client_id,tracker'});
+  if(saveErr){alert('Error assigning: '+saveErr.message);return;}
+  const c=allClients.find(function(x){return x.client_id===clientId;});
+  const t=_dtTemplatesCache.find(function(x){return x.id===templateId;});
+  alert('"'+(t?t.name:'Template')+'" assigned to '+(c?c.name:'client')+' \u2713');
+  document.getElementById('dtInlineAssign_'+templateId).remove();
+}
 function toggleMpFood(mealId,food,btn){
   const set=mpSelections[mealId];
   if(set.has(food)){
