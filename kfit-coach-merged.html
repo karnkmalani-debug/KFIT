@@ -153,6 +153,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:20px 0 10px;">Routine Templates</div>
       <div class="client-card" style="cursor:default;margin-bottom:10px;">
         <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Build a routine once here -- exercises only, no reps or weight -- then assign it to any client from their page. It shows up in their own "My Routines" list, tagged as yours.</div>
+        <textarea id="rt-paste-box" class="form-inp" rows="4" placeholder="Paste a routine from Google Docs, Notes, WhatsApp, etc. -- one exercise per line, or comma-separated:&#10;&#10;Barbell Squat&#10;Leg Press&#10;Walking Lunges" style="width:100%;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;margin-bottom:8px;"></textarea>
+        <button type="button" onclick="importRtPaste()" style="width:100%;padding:9px;margin-bottom:10px;background:none;border:1px solid var(--sage);border-radius:8px;color:var(--sage);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Import Pasted Exercises</button>
         <input type="text" id="rtName" placeholder="Routine name (e.g. Push Day A)" style="width:100%;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;margin-bottom:10px;">
         <div style="position:relative;margin-bottom:8px;">
           <input type="text" id="rtExSearch" placeholder="Search exercise to add..." autocomplete="off" oninput="handleRtExSearch(this)" style="width:100%;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
@@ -804,6 +806,27 @@ function addRtExercise(name){
   document.getElementById('rtExSearch').value='';
   document.getElementById('rtExSuggestions').style.display='none';
   renderRtExList();
+}
+function importRtPaste(){
+  const box=document.getElementById('rt-paste-box');
+  const text=box.value;
+  if(!text||!text.trim()){alert('Paste your routine text first');return;}
+  const lines=text.split(/\r?\n/);
+  let added=0;
+  lines.forEach(function(raw){
+    raw.split(',').forEach(function(part){
+      let name=part.trim().replace(/^[\-\*\u2022\d]+[\.\)]?\s*/,'').trim();
+      if(!name) return;
+      if(!_rtCurrentExercises.includes(name)){
+        _rtCurrentExercises.push(name);
+        added++;
+      }
+    });
+  });
+  renderRtExList();
+  box.value='';
+  if(added) alert(added+' exercise'+(added===1?'':'s')+' added -- review the list below, then Save.');
+  else alert('Nothing new to add -- those may already be in the list, or the text was empty.');
 }
 function removeRtExercise(idx){
   _rtCurrentExercises.splice(idx,1);
@@ -3399,6 +3422,16 @@ function switchMode(mode){
     pageTitle.textContent='Coach · Exercises';
     loadExerciseSuggestions();
   }
+}
+function toast(msg){
+  const existing=document.getElementById('_kfitToast');
+  if(existing) existing.remove();
+  const el=document.createElement('div');
+  el.id='_kfitToast';
+  el.textContent=msg;
+  el.style.cssText='position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--surf3,#222);color:var(--text,#fff);border:1px solid var(--sage,#3a6e40);border-radius:10px;padding:10px 18px;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,.4);';
+  document.body.appendChild(el);
+  setTimeout(function(){el.remove();},2200);
 }
 function copyInviteLink(inputId){
   const el=document.getElementById(inputId);
