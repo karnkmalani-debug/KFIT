@@ -352,6 +352,8 @@ btn.textContent='Could not copy -- select the address bar manually';
 </div>
 <div id="headerClientName" style="font-size:1.3rem;font-weight:900;color:var(--txt);padding:8px 20px 0;font-family:'Playfair Display',serif;"></div>
 
+<div id="myPlanCard" style="padding:0 20px;"></div>
+
 <div id="appRoot"></div>
 <!-- SNAP MODAL -->
 <div id="snapModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.75);align-items:flex-end;justify-content:center;">
@@ -507,6 +509,9 @@ var LS_NOTES='km_nut_notes';
 var appSetup=null;
 var data=[];
 var weekNotes=[];
+var myAssignedTemplateId=null;
+var myAssignedTemplate=null;
+var myTemplateLibrary=[];
 var ui={activeMonth:0,activeWeek:0,activeDay:0,expandedWeeks:{},otherWeeksOpen:false};
 var bodyMeasurements=[];
 var LS_MEAS='km_nut_measurements';
@@ -542,7 +547,7 @@ return sbClient;
 // Not yet set -- fill this in with your real coach id (from `select id
 // from coaches;` in Supabase, once you've logged into Merge) once you have
 // it. Until then, this safely defaults to null so saves still work.
-const KFIT_DEFAULT_COACH_ID='48bd790c-8097-4bd8-be81-3d76daaa0890';
+const KFIT_DEFAULT_COACH_ID=null;
 function getClientCoachId(){
   var stored=localStorage.getItem('kmnut_coach_id');
   if(stored) return stored;
@@ -724,13 +729,106 @@ var payload={
 user_id:uid,
 client_id:getClientKey(),
 tracker:'nutrition',
-data:{setup:appSetup,data:data,weekNotes:weekNotes,ui:ui,mealPlan:mealPlan,bodyMeasurements:bodyMeasurements,mobile:localStorage.getItem('kmnut_mobile'),email:localStorage.getItem('kmnut_email'),vices:getVicesData()},
+data:{setup:appSetup,data:data,weekNotes:weekNotes,ui:ui,mealPlan:mealPlan,bodyMeasurements:bodyMeasurements,mobile:localStorage.getItem('kmnut_mobile'),email:localStorage.getItem('kmnut_email'),vices:getVicesData(),assignedDietTemplateId:myAssignedTemplateId},
 updated_at:new Date().toISOString()
 };
 getSBScoped().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(res){
 if(res.error) console.error('Supabase write error:',res.error);
 });
 });
+}
+
+function loadMyDietTemplateSection(){
+var coachId=getClientCoachId();
+if(!coachId){renderMyPlanCard();return;}
+getSB().from('diet_templates').select('*').eq('coach_id',coachId).is('client_id',null).order('name',{ascending:true}).then(function(res){
+myTemplateLibrary=(res&&!res.error&&res.data)?res.data:[];
+if(myAssignedTemplateId){
+var found=myTemplateLibrary.find(function(t){return t.id===myAssignedTemplateId;});
+if(found){myAssignedTemplate=found;renderMyPlanCard();return;}
+getSB().from('diet_templates').select('*').eq('id',myAssignedTemplateId).maybeSingle().then(function(res2){
+myAssignedTemplate=(res2&&!res2.error)?res2.data:null;
+renderMyPlanCard();
+});
+return;
+}
+renderMyPlanCard();
+});
+}
+
+function activeDtDay(){
+var cal=buildCalendar();
+var wk=cal[ui.activeMonth]&&cal[ui.activeMonth][ui.activeWeek];
+var day=wk&&wk[ui.activeDay];
+return day?day.dow:new Date().getDay();
+}
+
+function renderMyPlanCard(){
+var el=document.getElementById('myPlanCard');
+if(!el)return;
+if(!myAssignedTemplate&&!myTemplateLibrary.length){el.innerHTML='';return;}
+
+if(!myAssignedTemplate){
+el.innerHTML='<div class="client-card" style="cursor:default;margin-bottom:12px;">'
++'<div style="font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--sage);margin-bottom:8px;">📋 Plans From Your Coach</div>'
++myTemplateLibrary.map(function(t){
+return '<button onclick="selectMyTemplate(\''+t.id+'\')" style="width:100%;text-align:left;padding:10px 12px;margin-bottom:6px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--txt);font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:600;cursor:pointer;">'+t.name+' <span style="color:var(--txt3);font-weight:400;">('+(t.type==='weekly'?'Weekly':'Daily')+')</span></button>';
+}).join('')
++'</div>';
+return;
+}
+
+var dow=myAssignedTemplate.type==='weekly'?activeDtDay():0;
+var day=(myAssignedTemplate.days||[])[dow];
+var mealsHtml=day?MEALS.map(function(meal){
+var opts=(day.meals&&day.meals[meal.id])||[];
+if(!opts.length)return'';
+return '<div style="margin-bottom:8px;">'
++'<div style="font-size:12px;font-weight:700;color:var(--txt3);margin-bottom:4px;">'+meal.name+'</div>'
++'<div style="display:flex;flex-wrap:wrap;gap:6px;">'
++opts.map(function(opt){
+return '<button onclick="logDtOption(\''+meal.id+'\',\''+opt.replace(/'/g,"\\'")+'\')" style="padding:7px 12px;border-radius:20px;border:1px solid var(--sage);background:transparent;color:var(--sage);font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">'+opt+'</button>';
+}).join('')
++'</div>'
++'</div>';
+}).join(''):'<div style="color:var(--txt3);font-size:13px;">Nothing set for this day.</div>';
+
+el.innerHTML='<div class="client-card" style="cursor:default;margin-bottom:12px;">'
++'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
++'<div style="font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--sage);">📋 '+myAssignedTemplate.name+'</div>'
++(myTemplateLibrary.length>1?'<span onclick="clearMyTemplate()" style="font-size:12px;font-weight:600;color:var(--txt3);cursor:pointer;text-decoration:underline;">Change</span>':'')
++'</div>'
++mealsHtml
++'<div style="font-size:11px;color:var(--txt3);margin-top:4px;">Tap an option to log it for the day you have open below.</div>'
++'</div>';
+}
+
+function selectMyTemplate(templateId){
+myAssignedTemplateId=templateId;
+myAssignedTemplate=myTemplateLibrary.find(function(t){return t.id===templateId;})||null;
+autoSave();
+renderMyPlanCard();
+}
+
+function clearMyTemplate(){
+myAssignedTemplateId=null;
+myAssignedTemplate=null;
+autoSave();
+renderMyPlanCard();
+}
+
+function logDtOption(mealId,foodText){
+var m=ui.activeMonth,w=ui.activeWeek,di=ui.activeDay;
+ensureData(m,w,di);
+if(!data[m][w][di].foodLog)data[m][w][di].foodLog={};
+if(!data[m][w][di].foodLog[mealId])data[m][w][di].foodLog[mealId]=[];
+if(data[m][w][di].foodLog[mealId].indexOf(foodText)<0){
+data[m][w][di].foodLog[mealId].push(foodText);
+}
+autoCaptureMealTime(m,w,di,mealId);
+autoSave();
+render();
+showToast('Logged from your plan ✓');
 }
 
 function loadFromSupabase(callback){
@@ -770,6 +868,7 @@ if(d.setup)appSetup=d.setup;
 if(d.weekNotes)weekNotes=d.weekNotes;
 if(d.ui)ui=d.ui;
 if(d.mealPlan)mealPlan=d.mealPlan;
+if(d.assignedDietTemplateId)myAssignedTemplateId=d.assignedDietTemplateId;
 var localRaw=localStorage.getItem(LS_DATA);
 var localData=[];
 try{localData=JSON.parse(localRaw)||[];}catch(e){}
@@ -3237,6 +3336,7 @@ if(el&&n2) el.textContent=n2;
 updateHeaderName();
 render();
 }
+loadMyDietTemplateSection();
 });
 showMobilePromptIfNeeded();
 }

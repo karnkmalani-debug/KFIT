@@ -2450,7 +2450,7 @@ var _exerciseVideos={};
 
 var _liveTemplates={};
 function loadLiveRoutineTemplates(){
-getSB().from('routine_templates').select('*').then(function(res){
+getSB().from('routine_templates').select('*').eq('coach_id',getClientCoachId()).then(function(res){
 if(res.error){ console.error('Could not load routine templates:',res.error); return; }
 if(!res.data) return;
 _liveTemplates={};
@@ -2460,7 +2460,7 @@ renderRoutineList();
 }
 
 function loadExerciseVideos(){
-getSB().from('exercise_videos').select('*').then(function(res){
+getSB().from('exercise_videos').select('*').eq('coach_id',getClientCoachId()).then(function(res){
 if(res.error){ console.error('Could not load technique videos:',res.error); return; }
 if(!res.data) return;
 res.data.forEach(function(row){ _exerciseVideos[row.exercise_name]=row.video_url; });
@@ -3375,7 +3375,7 @@ return sbClient;
 // Not yet set -- fill this in with your real coach id (from `select id
 // from coaches;` in Supabase, once you've logged into Merge) once you have
 // it. Until then, this safely defaults to null so saves still work.
-const KFIT_DEFAULT_COACH_ID='48bd790c-8097-4bd8-be81-3d76daaa0890';
+const KFIT_DEFAULT_COACH_ID=null;
 function getClientCoachId(){
   var stored=localStorage.getItem('kmfit_coach_id');
   if(stored) return stored;
