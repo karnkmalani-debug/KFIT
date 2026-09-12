@@ -743,9 +743,9 @@ async function coachLogout(){
   });
 })();
 
-let taggedClients={fitness:{},nutrition:{}}; // canonical_key -> true, per tracker -- fitness and nutrition rosters are independent
+window.taggedClients = window.taggedClients || {fitness:{},nutrition:{}}; // canonical_key -> true, per tracker -- fitness and nutrition rosters are independent
 let rosterView='clients'; // 'clients' | 'all'
-let nutRosterView='clients';
+window.nutRosterView = window.nutRosterView || 'clients';
 
 function canonicalClientKey(name,mobile){
   const m=(mobile||'').replace(/\D/g,'');
@@ -3542,7 +3542,7 @@ async function loadAccountSection(){
   }
 }
 
-let allClients=[];
+window.allClients = window.allClients || [];
 let currentClientId=null;
 
 // ── Mirrors the nutrition tracker's own constants exactly ──
