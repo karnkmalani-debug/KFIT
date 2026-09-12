@@ -5411,6 +5411,11 @@ const totM=moS.reduce((a,s)=>a+getSessDur(s),0);
 const totY=yrS.reduce((a,s)=>a+getSessDur(s),0);
 const totA=sessions.reduce((a,s)=>a+getSessDur(s),0);
 
+const getSessCal=s=>{var c=getSessionCalorieEstimate(s);return c?c.value:0;};
+const calW=wkS.reduce((a,s)=>a+getSessCal(s),0);
+const calM=moS.reduce((a,s)=>a+getSessCal(s),0);
+const calA=sessions.reduce((a,s)=>a+getSessCal(s),0);
+
 document.getElementById('restStatsSection').innerHTML=`
 <div class="card">
 <div class="card-title">Total Time Trained <span>&#9201;</span></div>
@@ -5418,6 +5423,12 @@ document.getElementById('restStatsSection').innerHTML=`
 <div class="rst-row"><span class="rst-label">This month</span><span class="rst-val">${totM?fmtDur(totM):'--'}</span></div>
 <div class="rst-row"><span class="rst-label">This year</span><span class="rst-val">${totY?fmtDur(totY):'--'}</span></div>
 <div class="rst-row"><span class="rst-label">All time</span><span class="rst-val">${totA?fmtDur(totA):'--'}</span></div>
+</div>
+<div class="card">
+<div class="card-title">Calories Burned &#128293;</div>
+<div class="rst-row"><span class="rst-label">This week</span><span class="rst-val">${calW?calW+' kcal':'--'}</span></div>
+<div class="rst-row"><span class="rst-label">This month</span><span class="rst-val">${calM?calM+' kcal':'--'}</span></div>
+<div class="rst-row"><span class="rst-label">All time</span><span class="rst-val">${calA?calA+' kcal':'--'}</span></div>
 </div>
 <div class="card">
 <div class="card-title">Avg Session Duration <span>&#128336;</span></div>
@@ -5624,6 +5635,25 @@ toast('Could not fully load this session -- please try again or tell your coach'
 window._editingSessionId=id;
 }
 
+// Reusable per-session calorie estimate -- uses the stored value from save
+// time if present, otherwise computes on the fly (for sessions saved before
+// this feature existed, or via any path that didn't compute it) using the
+// same inputs saveSession() uses.
+function getSessionCalorieEstimate(s){
+if(s.estCalories) return s.estCalories;
+var _sessDur=s.duration||(s.cardio&&s.cardio.length?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60:0);
+var _cSecs=(s.cardio||[]).reduce((a,c)=>a+((parseInt(c.duration)||0)*60),0);
+var _hasStr=(s.exercises&&s.exercises.some(e=>e.type!=='cardio'))||(s.supersets&&s.supersets.length>0);
+var _strSecs=_hasStr?Math.max(0,(_sessDur||0)-_cSecs):0;
+var _avgRest=(s.restTimes&&s.restTimes.length)?(s.restTimes.reduce((a,b)=>a+b,0)/s.restTimes.length):s.avgRestManual;
+return computeSessionCalories({
+strengthSecs:_strSecs,
+avgRestSec:_avgRest,
+cardioBlocks:(s.cardio||[]).map(c=>({ex:c.ex,duration:c.duration,intensity:c.intensity})),
+profile:getClientProfile()
+});
+}
+
 function openDetail(id){
 const s=sessions.find(s=>s.id===id);
 if(!s)return;
@@ -5764,21 +5794,7 @@ const _effectiveTags=[...(s.bodyParts||[])];
 if((s.cardio&&s.cardio.length)&&_effectiveTags.indexOf('Cardio')===-1) _effectiveTags.push('Cardio');
 const _prInfo=getSessionPRInfo(s,prMap8);
 const _prPillHtml=_prInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_prInfo.count} P.R.</span>`:'';
-// Older sessions saved before this feature existed have no s.estCalories --
-// compute it on the fly from what was actually stored (same inputs as at
-// save time) so history never shows blank just because it's an old entry.
-const _sessCal=s.estCalories||(function(){
-var _cSecs=(s.cardio||[]).reduce((a,c)=>a+((parseInt(c.duration)||0)*60),0);
-var _hasStr=(s.exercises&&s.exercises.some(e=>e.type!=='cardio'))||(s.supersets&&s.supersets.length>0);
-var _strSecs=_hasStr?Math.max(0,(_sessDur||0)-_cSecs):0;
-var _avgRest=(s.restTimes&&s.restTimes.length)?(s.restTimes.reduce((a,b)=>a+b,0)/s.restTimes.length):s.avgRestManual;
-return computeSessionCalories({
-strengthSecs:_strSecs,
-avgRestSec:_avgRest,
-cardioBlocks:(s.cardio||[]).map(c=>({ex:c.ex,duration:c.duration,intensity:c.intensity})),
-profile:getClientProfile()
-});
-})();
+const _sessCal=getSessionCalorieEstimate(s);
 const _calBadge=_sessCal?`<span style="color:var(--flame);font-size:16px;font-weight:800;">&#128293; ${_sessCal.isRange?(_sessCal.low+'-'+_sessCal.high):_sessCal.value} kcal</span>`:'';
 document.getElementById('dBody').innerHTML=`
 ${_effectiveTags.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${_effectiveTags.map(b=>`<span class="sess-tag${_prInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')}${_prPillHtml}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}${_calBadge}</div>`:''}
