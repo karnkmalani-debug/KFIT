@@ -519,6 +519,19 @@ btn.textContent='Could not copy -- select the address bar manually';
       <label>Weekly Training Target</label>
       <input type="number" id="setupTarget" min="1" max="21" value="4" placeholder="e.g. 4" inputmode="numeric">
     </div>
+    <div class="s-field">
+      <label>Age <span style="color:var(--terra);">*</span></label>
+      <input type="number" id="setupAge" min="10" max="100" placeholder="e.g. 32" inputmode="numeric">
+    </div>
+    <div class="s-field">
+      <label>Sex <span style="color:var(--terra);">*</span></label>
+      <select id="setupGender">
+        <option value="">Select</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4;">Used only to estimate calories burned per session -- affects resting metabolic rate.</div>
+    </div>
     <button class="s-btn" onclick="completeSetup()">Enter Tracker →</button>
     <div style="text-align:center;margin-top:14px;">
       <span onclick="togglePrivacyNote(this)" style="font-size:12px;color:var(--muted);text-decoration:underline;cursor:pointer;">Privacy &amp; data use</span> &middot; <a href="/terms" target="_blank" style="font-size:12px;color:var(--muted);text-decoration:underline;">Terms</a>
@@ -701,10 +714,22 @@ btn.textContent='Could not copy -- select the address bar manually';
 
     <div class="card" id="calBurnCard" style="padding:10px 14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:14px;font-weight:700;color:var(--text);">🔥 Est. Calories Burned</span>
+        <span style="font-size:14px;font-weight:700;color:var(--text);">🔥 Est. Calories Burned <span onclick="showCalorieInfo()" style="cursor:pointer;color:var(--muted);font-weight:600;">ⓘ</span></span>
         <span id="calBurnRange" style="font-size:15px;font-weight:800;color:var(--flame);">--</span>
       </div>
       <div id="calBurnNote" style="font-size:12px;color:var(--muted);margin-top:3px;"></div>
+      <div id="calBurnProfilePrompt" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Add these once for a precise number instead of a range:</div>
+        <div style="display:flex;gap:6px;">
+          <input type="number" id="calProfileAge" placeholder="Age" min="10" max="100" inputmode="numeric" style="width:70px;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+          <select id="calProfileGender" style="flex:1;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+            <option value="">Sex</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+          <button onclick="saveCalProfileQuick()" style="padding:8px 12px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Save</button>
+        </div>
+      </div>
     </div>
 
     <div class="card" id="sessionRestCard" style="display:none;padding:10px 14px;">
@@ -991,6 +1016,7 @@ btn.textContent='Could not copy -- select the address bar manually';
   <div id="saveConfirmCard" style="text-align:center;transform:scale(.85);opacity:0;transition:transform .25s cubic-bezier(.34,1.56,.64,1),opacity .2s;">
     <div style="width:96px;height:96px;border-radius:50%;background:var(--sage);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:52px;color:#0c0c0a;font-weight:900;box-shadow:0 8px 30px rgba(0,0,0,.4);">&#10003;</div>
     <div style="font-size:26px;font-weight:900;color:#fff;font-family:Georgia,serif;">Session Saved</div>
+    <div id="saveConfirmCal" style="font-size:16px;font-weight:700;color:var(--flame);margin-top:6px;"></div>
   </div>
 </div>
 
@@ -1275,13 +1301,19 @@ if(!isNaN(v))inp.value=String(v);
 function completeSetup(){
 const n=document.getElementById('setupName').value.trim();
 const m=document.getElementById('setupMobile').value.trim().replace(/\D/g,'');
+const age=document.getElementById('setupAge').value.trim();
+const gender=document.getElementById('setupGender').value;
 if(!n){toast('Enter your name');return;}
 if(!m){toast('Enter your mobile number');return;}
+if(!age||+age<10||+age>100){toast('Enter a valid age');return;}
+if(!gender){toast('Select your sex');return;}
 toast('Checking...');
 function proceedWithSetup(){
 localStorage.setItem('kmfit_name',n);
 localStorage.setItem('kmfit_mobile',m);
 localStorage.setItem('kmfit_target',document.getElementById('setupTarget').value);
+localStorage.setItem('kmfit_age',age);
+localStorage.setItem('kmfit_gender',gender);
 setUnlocked();
 loadFitnessFromSupabase(function(loaded){
 if(!loaded) registerNewFitnessClient();
@@ -1314,6 +1346,8 @@ name:localStorage.getItem('kmfit_name'),
 mobile:localStorage.getItem('kmfit_mobile'),
 email:localStorage.getItem('kmfit_email'),
 target:localStorage.getItem('kmfit_target'),
+age:localStorage.getItem('kmfit_age'),
+gender:localStorage.getItem('kmfit_gender'),
 unit:localStorage.getItem('kmfit_unit')
 },
 updated_at:new Date().toISOString()
@@ -3230,10 +3264,12 @@ histEl.innerHTML=
 +'</div>';
 }
 
-function showSaveConfirmation(){
+function showSaveConfirmation(estCal){
 var overlay=document.getElementById('saveConfirmOverlay');
 var card=document.getElementById('saveConfirmCard');
 if(!overlay||!card) return;
+var calEl=document.getElementById('saveConfirmCal');
+if(calEl) calEl.textContent=estCal?('~'+(estCal.isRange?(estCal.low+'-'+estCal.high):estCal.value)+' kcal burned'):'';
 overlay.style.display='flex';
 
 void card.offsetWidth;
@@ -3330,6 +3366,14 @@ window._editingSessionId=null;
 var _hd=document.getElementById('headerDate');
 if(_hd){_hd.style.opacity='';_hd.title='Tap to change date';_hd.style.cursor='pointer';}
 }
+var _cardioSecsTotal=cardioBlocks.reduce(function(a,c){return a+((parseInt(c.duration)||0)*60);},0);
+var _strengthSecs=hasStrengthWork?Math.max(0,(finalDur||0)-_cardioSecsTotal):0;
+var _estCal=computeSessionCalories({
+strengthSecs:_strengthSecs,
+avgRestSec:avgRestSecFromPage(),
+cardioBlocks:cardioBlocks.map(function(c){return {ex:c.ex,duration:c.duration,intensity:c.intensity};}),
+profile:getClientProfile()
+});
 sessions.unshift({
 id:_newId,
 client:document.getElementById('clientName').value.trim()||'Client',
@@ -3342,10 +3386,11 @@ avgRestManual: currentRestTimes.length===0?manualAvgRest:null,
 duration: finalDur||null,
 unit: weightUnit,
 notes:document.getElementById('sessNotes').value,
+estCalories:_estCal,
 updatedAt: Date.now()
 });
 saveSessions();
-showSaveConfirmation();
+showSaveConfirmation(_estCal);
 
 var _attRecord={
 client: document.getElementById('clientName').value.trim()||'Client',
@@ -3651,6 +3696,8 @@ name:localStorage.getItem('kmfit_name'),
 mobile:localStorage.getItem('kmfit_mobile'),
 email:localStorage.getItem('kmfit_email'),
 target:localStorage.getItem('kmfit_target'),
+age:localStorage.getItem('kmfit_age'),
+gender:localStorage.getItem('kmfit_gender'),
 unit:localStorage.getItem('kmfit_unit')
 },
 updated_at:new Date().toISOString()
@@ -3765,6 +3812,8 @@ routines=Object.values(rMap).sort(function(a,b){return (b.updatedAt||0)-(a.updat
 }
 if(d.name)localStorage.setItem('kmfit_name',d.name);
 if(d.target)localStorage.setItem('kmfit_target',d.target);
+if(d.age)localStorage.setItem('kmfit_age',d.age);
+if(d.gender)localStorage.setItem('kmfit_gender',d.gender);
 if(d.unit)localStorage.setItem('kmfit_unit',d.unit);
 localStorage.setItem('kmfit_sessions',JSON.stringify(sessions));
 localStorage.setItem('kmfit_notes',JSON.stringify(notes));
@@ -4283,17 +4332,90 @@ h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
 estimateSessionCalories();
 }
 
-// -- Rough calorie-burn estimate: MET-based (light-to-vigorous resistance training
-// range, 3.5-6.0 METs per the Compendium of Physical Activities) x latest logged
-// bodyweight x session duration. This is an approximation, not a measured value --
-// real calorie burn depends on heart rate/effort we don't have without a wearable.
-const CAL_MET_LOW=3.5, CAL_MET_HIGH=6.0, CAL_DEFAULT_KG=70, CAL_FALLBACK_SEC_PER_SET=45;
+// ══════════════════════════════════════════════════════════════════
+// CALORIE BURN ESTIMATE ENGINE
+// Two layers, both from the Compendium of Physical Activities:
+//   1. STRENGTH: MET is picked from your actual average rest time
+//      (well-supported research finding: rest length affects calories
+//      per minute far more than how much weight is on the bar -- a
+//      heavy set with 3min rest and a light set with 3min rest burn
+//      about the same average rate, because so much of that time is
+//      spent resting either way).
+//   2. CARDIO: MET is looked up per activity + the intensity you
+//      already select (Easy/Moderate/Hard/Max), since different
+//      cardio activities have genuinely different energy costs at
+//      the same perceived effort.
+// Both apply their MET to your PERSONAL resting rate (Mifflin-St Jeor,
+// needs age/sex/height/weight) when available -- the "corrected MET"
+// method used by serious fitness calculators -- rather than a flat
+// population average. Falls back to a generic default and a wider
+// range when age/sex/height aren't filled in yet.
+// ══════════════════════════════════════════════════════════════════
+const CARDIO_MET={
+'Running (Treadmill)':{Easy:7.0,Moderate:9.8,Hard:11.8,Max:14.5},
+'Running (Outdoor)':{Easy:7.0,Moderate:9.8,Hard:11.8,Max:14.5},
+'Cycling (Bike)':{Easy:4.0,Moderate:6.8,Hard:8.5,Max:11.0},
+'Cycling (Stationary)':{Easy:4.0,Moderate:6.8,Hard:8.5,Max:11.0},
+'Rowing Machine':{Easy:4.8,Moderate:7.0,Hard:8.5,Max:12.0},
+'Elliptical':{Easy:4.5,Moderate:5.5,Hard:7.0,Max:9.0},
+'Stair Climber':{Easy:4.0,Moderate:8.8,Hard:9.0,Max:12.0},
+'Jump Rope':{Easy:8.8,Moderate:11.0,Hard:12.3,Max:13.5},
+'Swimming':{Easy:5.5,Moderate:7.0,Hard:9.8,Max:11.0},
+'Walking':{Easy:2.8,Moderate:3.5,Hard:4.5,Max:5.5},
+'HIIT':{Easy:6.0,Moderate:8.0,Hard:10.0,Max:12.0},
+'Sprint Intervals':{Easy:8.0,Moderate:10.0,Hard:12.0,Max:15.0},
+'Battle Ropes':{Easy:6.0,Moderate:8.0,Hard:10.0,Max:12.0},
+'Assault Bike':{Easy:6.0,Moderate:8.5,Hard:11.0,Max:14.0},
+'Ski Erg':{Easy:5.0,Moderate:7.0,Hard:9.0,Max:11.0}
+};
+const CARDIO_MET_DEFAULT={Easy:4.0,Moderate:6.0,Hard:8.0,Max:10.0};
+const CAL_DEFAULT_KG=70, CAL_DEFAULT_HEIGHT_CM=170, CAL_DEFAULT_AGE=35;
+const CAL_FALLBACK_SEC_PER_SET=45;
+
 function latestClientWeightKg(){
 for(var i=0;i<measurements.length;i++){
 if(measurements[i].weight!=null && !isNaN(measurements[i].weight)) return measurements[i].weight;
 }
 return null;
 }
+function latestClientHeightCm(){
+for(var i=0;i<measurements.length;i++){
+if(measurements[i].height!=null && !isNaN(measurements[i].height)) return measurements[i].height;
+}
+return null;
+}
+function getClientProfile(){
+var age=parseInt(localStorage.getItem('kmfit_age'))||null;
+var gender=localStorage.getItem('kmfit_gender')||null;
+var weight=latestClientWeightKg();
+var height=latestClientHeightCm();
+return {
+age:age, gender:gender, weight:weight, height:height,
+isComplete: !!(age&&gender&&weight&&height)
+};
+}
+// Mifflin-St Jeor -- kcal/day at rest, then /24 for kcal/hour. This is
+// the "corrected MET" personalization: MET x thisPerHour x hours,
+// instead of MET x a fixed 1kcal/kg/hr population assumption.
+function personalRMRPerHour(weightKg,heightCm,age,gender){
+if(!weightKg||!heightCm||!age||!gender) return null;
+var bmr=gender==='male'
+?(10*weightKg+6.25*heightCm-5*age+5)
+:(10*weightKg+6.25*heightCm-5*age-161);
+return bmr/24;
+}
+// Population-average fallback (~1 kcal/kg/hr, the standard MET denominator).
+function fallbackRMRPerHour(weightKg){ return weightKg*1.0; }
+
+// Rest-driven strength MET: shorter average rest = higher effective
+// intensity. Returns a single MET (not a range) once rest data exists.
+function strengthMETFromRest(avgRestSec){
+if(!avgRestSec) return null;
+if(avgRestSec<=45) return 6.0;
+if(avgRestSec<=90) return 5.0;
+return 3.5;
+}
+
 function countLoggedSetsOnPage(){
 var count=0;
 document.querySelectorAll('.reps-input').forEach(function(r){
@@ -4302,10 +4424,79 @@ if((r.value&&r.value!=='--')||(w&&w.value&&w.value!=='--')) count++;
 });
 return count;
 }
+function avgRestSecFromPage(){
+if(currentRestTimes&&currentRestTimes.length) return currentRestTimes.reduce(function(a,b){return a+b;},0)/currentRestTimes.length;
+var manual=(document.getElementById('avgRestInput')||{}).value;
+return manual?parseInt(manual):null;
+}
+
+// Core, reusable calculator -- used both for the live in-progress badge
+// AND at save time (fed the session's final saved data instead of the
+// live DOM), so a session's stored estimate matches what was shown when
+// it was saved rather than drifting if bodyweight changes later.
+function computeSessionCalories(opts){
+// opts: {strengthSecs, avgRestSec, cardioBlocks: [{ex,duration,intensity}], profile}
+var profile=opts.profile||getClientProfile();
+var weight=profile.weight||CAL_DEFAULT_KG;
+var height=profile.height||CAL_DEFAULT_HEIGHT_CM;
+var age=profile.age||CAL_DEFAULT_AGE;
+var gender=profile.gender||'male';
+var personalized=profile.isComplete;
+var rmrPerHour=personalized?personalRMRPerHour(weight,height,age,gender):null;
+
+var total=0, totalLow=0, totalHigh=0;
+var parts=[];
+
+if(opts.strengthSecs){
+var hours=opts.strengthSecs/3600;
+var restMET=strengthMETFromRest(opts.avgRestSec);
+if(restMET&&personalized){
+var kcal=restMET*rmrPerHour*hours;
+total+=kcal; totalLow+=kcal; totalHigh+=kcal;
+parts.push('Strength: ~'+Math.round(kcal)+' kcal ('+restMET.toFixed(1)+' MET from your avg rest)');
+} else if(restMET){
+var kcalG=restMET*fallbackRMRPerHour(weight)*hours;
+total+=kcalG; totalLow+=kcalG; totalHigh+=kcalG;
+parts.push('Strength: ~'+Math.round(kcalG)+' kcal ('+restMET.toFixed(1)+' MET from your avg rest, generic bodyweight)');
+} else {
+// no rest data at all -- fall back to a light-to-vigorous range
+var lowK=3.5*(personalized?rmrPerHour:fallbackRMRPerHour(weight))*hours;
+var highK=6.0*(personalized?rmrPerHour:fallbackRMRPerHour(weight))*hours;
+totalLow+=lowK; totalHigh+=highK; total+=(lowK+highK)/2;
+parts.push('Strength: ~'+Math.round(lowK)+'-'+Math.round(highK)+' kcal (no rest logged -- range)');
+}
+}
+
+(opts.cardioBlocks||[]).forEach(function(c){
+var mins=parseInt(c.duration)||0;
+if(!mins) return;
+var metTable=CARDIO_MET[c.ex]||CARDIO_MET_DEFAULT;
+var met=metTable[c.intensity]||metTable.Moderate;
+var hrs=mins/60;
+var kcal=met*(personalized?rmrPerHour:fallbackRMRPerHour(weight))*hrs;
+total+=kcal; totalLow+=kcal; totalHigh+=kcal;
+parts.push((c.ex||'Cardio')+': ~'+Math.round(kcal)+' kcal ('+met+' MET'+(c.intensity?', '+c.intensity:'')+')');
+});
+
+if(!parts.length) return null;
+return {
+value:Math.round(total),
+low:Math.round(totalLow),
+high:Math.round(totalHigh),
+isRange: Math.round(totalLow)!==Math.round(totalHigh),
+personalized:personalized,
+breakdown:parts
+};
+}
+
 function estimateSessionCalories(){
 var rangeEl=document.getElementById('calBurnRange');
 var noteEl=document.getElementById('calBurnNote');
+var profileEl=document.getElementById('calBurnProfilePrompt');
 if(!rangeEl) return;
+var profile=getClientProfile();
+if(profileEl) profileEl.style.display=profile.isComplete?'none':'block';
+
 var timerSecs=durRunning?durElapsed+Math.floor((Date.now()-durStart)/1000):durElapsed;
 var manualRaw=(document.getElementById('durManual')||{}).value||'';
 var manualMin=parseInt(manualRaw)||0;
@@ -4315,23 +4506,56 @@ if(!secs){
 var sets=countLoggedSetsOnPage();
 if(sets>0){ secs=sets*CAL_FALLBACK_SEC_PER_SET; usedFallback=true; }
 }
-if(!secs){ rangeEl.textContent='--'; noteEl.textContent='Log sets or start the timer to see an estimate.'; return; }
-var bw=latestClientWeightKg();
-var bwSource=bw?'':' (default -- no bodyweight logged yet)';
-bw=bw||CAL_DEFAULT_KG;
-var hours=secs/3600;
-var low=Math.round(CAL_MET_LOW*bw*hours);
-var high=Math.round(CAL_MET_HIGH*bw*hours);
-rangeEl.textContent='~'+low+'-'+high+' kcal';
-noteEl.textContent=(usedFallback?'Rough guess from sets logged (no timer running). ':'Based on session time. ')+bw+'kg'+bwSource+' -- range covers light to vigorous effort.';
+
+var cardioNow=[];
+document.querySelectorAll('#exBody .cardio-block, .cardio-block').forEach(function(){});
+if(typeof cardioBlocks!=='undefined'&&cardioBlocks.length){
+cardioBlocks.forEach(function(c){ cardioNow.push({ex:c.ex,duration:c.duration,intensity:c.intensity}); });
+}
+
+if(!secs&&!cardioNow.length){ rangeEl.textContent='--'; if(noteEl) noteEl.textContent='Log sets, cardio, or start the timer to see an estimate.'; return; }
+
+var result=computeSessionCalories({
+strengthSecs:secs,
+avgRestSec:avgRestSecFromPage(),
+cardioBlocks:cardioNow,
+profile:profile
+});
+if(!result){ rangeEl.textContent='--'; return; }
+
+rangeEl.textContent=result.isRange?('~'+result.low+'-'+result.high+' kcal'):('~'+result.value+' kcal');
+if(noteEl){
+noteEl.textContent=(usedFallback?'Rough guess from sets logged (no timer running). ':'')
++(result.personalized?'Personalized to your age/sex/weight/height.':'Using generic defaults -- add your details below for a precise number.');
+}
 }
 let _calBurnDebounce=null;
 document.addEventListener('input',function(e){
-if(e.target&&(e.target.classList.contains('reps-input')||e.target.classList.contains('weight-input'))){
+if(e.target&&(e.target.classList.contains('reps-input')||e.target.classList.contains('weight-input')||e.target.classList.contains('cardio-input')||e.target.classList.contains('intensity-sel'))){
 clearTimeout(_calBurnDebounce);
 _calBurnDebounce=setTimeout(estimateSessionCalories,300);
 }
 });
+document.addEventListener('change',function(e){
+if(e.target&&e.target.classList.contains('intensity-sel')){
+clearTimeout(_calBurnDebounce);
+_calBurnDebounce=setTimeout(estimateSessionCalories,150);
+}
+});
+function saveCalProfileQuick(){
+var age=document.getElementById('calProfileAge').value.trim();
+var gender=document.getElementById('calProfileGender').value;
+if(!age||+age<10||+age>100){toast('Enter a valid age');return;}
+if(!gender){toast('Select sex');return;}
+localStorage.setItem('kmfit_age',age);
+localStorage.setItem('kmfit_gender',gender);
+syncFitnessToSupabase();
+estimateSessionCalories();
+toast('Saved -- estimate updated');
+}
+function showCalorieInfo(){
+showBlockingAlert('How this estimate works:\n\nStrength sets: your average rest time between sets picks the intensity (short rest = higher effective MET, since research shows heavy-but-long-rest and light-but-long-rest sessions burn about the same per minute -- rest matters more than the weight on the bar).\n\nCardio: each activity has its own MET value at Easy/Moderate/Hard/Max, from the Compendium of Physical Activities.\n\nBoth are scaled to your personal resting metabolic rate (Mifflin-St Jeor formula, from age, sex, height, weight) when you\'ve filled those in -- otherwise a generic default is used and shown as a wider range.\n\nThis is always an estimate, not a measured value -- real calorie burn depends on heart rate and effort we don\'t have without a wearable.');
+}
 
 function fmtDur(secs){
 if(!secs)return'--';
@@ -5540,8 +5764,24 @@ const _effectiveTags=[...(s.bodyParts||[])];
 if((s.cardio&&s.cardio.length)&&_effectiveTags.indexOf('Cardio')===-1) _effectiveTags.push('Cardio');
 const _prInfo=getSessionPRInfo(s,prMap8);
 const _prPillHtml=_prInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_prInfo.count} P.R.</span>`:'';
+// Older sessions saved before this feature existed have no s.estCalories --
+// compute it on the fly from what was actually stored (same inputs as at
+// save time) so history never shows blank just because it's an old entry.
+const _sessCal=s.estCalories||(function(){
+var _cSecs=(s.cardio||[]).reduce((a,c)=>a+((parseInt(c.duration)||0)*60),0);
+var _hasStr=(s.exercises&&s.exercises.some(e=>e.type!=='cardio'))||(s.supersets&&s.supersets.length>0);
+var _strSecs=_hasStr?Math.max(0,(_sessDur||0)-_cSecs):0;
+var _avgRest=(s.restTimes&&s.restTimes.length)?(s.restTimes.reduce((a,b)=>a+b,0)/s.restTimes.length):s.avgRestManual;
+return computeSessionCalories({
+strengthSecs:_strSecs,
+avgRestSec:_avgRest,
+cardioBlocks:(s.cardio||[]).map(c=>({ex:c.ex,duration:c.duration,intensity:c.intensity})),
+profile:getClientProfile()
+});
+})();
+const _calBadge=_sessCal?`<span style="color:var(--flame);font-size:16px;font-weight:800;">&#128293; ${_sessCal.isRange?(_sessCal.low+'-'+_sessCal.high):_sessCal.value} kcal</span>`:'';
 document.getElementById('dBody').innerHTML=`
-${_effectiveTags.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${_effectiveTags.map(b=>`<span class="sess-tag${_prInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')}${_prPillHtml}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:''}
+${_effectiveTags.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${_effectiveTags.map(b=>`<span class="sess-tag${_prInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')}${_prPillHtml}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}${_calBadge}</div>`:''}
 ${durLine}
 ${cardioSection}
 ${_hasRealOrder?_interleavedSection:ssSection+exSection}
