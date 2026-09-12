@@ -3468,10 +3468,8 @@ function switchMode(mode){
     pageTitle.textContent='Coach · Fitness';
   } else if(mode==='nutrition'){
     pageTitle.textContent='Coach · Nutrition';
-    if(!nutDataLoaded){
-      nutDataLoaded=true;
-      nutLoadAll();
-    }
+    nutDataLoaded=true;
+    nutLoadAll();
   } else if(mode==='feedback'){
     pageTitle.textContent='Coach · Feedback';
     loadFeedback();
