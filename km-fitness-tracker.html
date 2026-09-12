@@ -530,6 +530,12 @@ btn.textContent='Could not copy -- select the address bar manually';
   </div>
 </div>
 
+<div id="accessBlockedScreen" style="display:none;position:fixed;inset:0;z-index:1200;background:#0c0c0a;align-items:center;justify-content:center;flex-direction:column;padding:32px;text-align:center;">
+  <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:900;color:#fff;margin-bottom:14px;">K<span style="color:#6a9e6e;">F</span><span style="color:#c4694a;">it</span></div>
+  <div style="font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:10px;">Access Paused</div>
+  <div style="font-size:.95rem;color:var(--muted);line-height:1.6;max-width:320px;">Your coach has paused your access to this tracker. Please get in touch with them directly to sort this out.</div>
+</div>
+
 <div id="mainApp">
   <div class="header">
     <div style="display:flex;align-items:center;gap:8px;min-width:0;">
@@ -690,7 +696,15 @@ btn.textContent='Could not copy -- select the address bar manually';
 
     <div class="card" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
       <span style="font-size:14px;font-weight:700;color:var(--text);">Session Duration</span>
-      <span style="font-size:13px;font-weight:600;color:var(--muted);">Timer at top, or <input class="dur-manual-input" type="text" id="durManual" placeholder="45" inputmode="text" style="width:44px;padding:4px 8px;margin-left:4px;"> min</span>
+      <span style="font-size:13px;font-weight:600;color:var(--muted);">Timer at top, or <input class="dur-manual-input" type="text" id="durManual" placeholder="45" inputmode="text" style="width:44px;padding:4px 8px;margin-left:4px;" oninput="estimateSessionCalories()"> min</span>
+    </div>
+
+    <div class="card" id="calBurnCard" style="padding:10px 14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:14px;font-weight:700;color:var(--text);">🔥 Est. Calories Burned</span>
+        <span id="calBurnRange" style="font-size:15px;font-weight:800;color:var(--flame);">--</span>
+      </div>
+      <div id="calBurnNote" style="font-size:12px;color:var(--muted);margin-top:3px;"></div>
     </div>
 
     <div class="card" id="sessionRestCard" style="display:none;padding:10px 14px;">
@@ -1708,6 +1722,7 @@ if(cn&&!cn.value) cn.value=clientName;
 loadData();
 weightUnit = localStorage.getItem('kmfit_unit')||'kg';
 setUnit(weightUnit, true);
+checkClientAccess();
 const custom=getCustomEx();
 for(const bp in custom){
 if(!EX_LIB[bp])EX_LIB[bp]=[];
@@ -3463,6 +3478,33 @@ var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
 return mobile?name+'__'+mobile:name;
 }
 
+// -- Per-client kill switch: mirrors canonicalClientKey() in kfit-coach-merged.html
+// exactly (mobile digits, else lowercase trimmed name) -- must match so a
+// coach's toggle in Merge and this check line up on the same key. Fails
+// open (allows access) on any error or missing data -- this gate should
+// only ever block someone the coach explicitly blocked, never by accident.
+function _accessKey(){
+  var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
+  if(mobile) return mobile;
+  return (localStorage.getItem('kmfit_name')||'').toLowerCase().trim();
+}
+function checkClientAccess(){
+  var coachId=getClientCoachId();
+  if(!coachId) return; // no coach linked -- nothing to gate against
+  var key=_accessKey();
+  if(!key) return;
+  getSB().from('client_access_kill_switch').select('status').eq('coach_id',coachId).eq('client_key',key).maybeSingle().then(function(res){
+    if(res.error||!res.data) return; // no row, or read failed -- fail open
+    if(res.data.status==='inactive'){
+      document.getElementById('mainApp').style.display='none';
+      document.getElementById('setupScreen').style.display='none';
+      document.getElementById('pwGate').style.display='none';
+      var blockEl=document.getElementById('accessBlockedScreen');
+      if(blockEl) blockEl.style.display='flex';
+    }
+  }).catch(function(){});
+}
+
 function ensureAnonAuth(callback){
 var sb=getSB();
 var done=false;
@@ -3712,6 +3754,7 @@ var mMap={};
 (d.measurements||[]).forEach(function(m){if(m.id)mMap[m.id]=m;});
 localM.forEach(function(m){if(m.id&&(!mMap[m.id]||(m.updatedAt||0)>(mMap[m.id].updatedAt||0)))mMap[m.id]=m;});
 measurements=Object.values(mMap).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+if(typeof estimateSessionCalories==='function') estimateSessionCalories();
 }
 if(d.routines){
 var localR=routines||[];
@@ -4237,7 +4280,58 @@ const s=secs%60;
 document.getElementById('durDisplay').textContent=
 h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
 : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+estimateSessionCalories();
 }
+
+// -- Rough calorie-burn estimate: MET-based (light-to-vigorous resistance training
+// range, 3.5-6.0 METs per the Compendium of Physical Activities) x latest logged
+// bodyweight x session duration. This is an approximation, not a measured value --
+// real calorie burn depends on heart rate/effort we don't have without a wearable.
+const CAL_MET_LOW=3.5, CAL_MET_HIGH=6.0, CAL_DEFAULT_KG=70, CAL_FALLBACK_SEC_PER_SET=45;
+function latestClientWeightKg(){
+for(var i=0;i<measurements.length;i++){
+if(measurements[i].weight!=null && !isNaN(measurements[i].weight)) return measurements[i].weight;
+}
+return null;
+}
+function countLoggedSetsOnPage(){
+var count=0;
+document.querySelectorAll('.reps-input').forEach(function(r){
+var w=r.closest('.set-row')?r.closest('.set-row').querySelector('.weight-input'):null;
+if((r.value&&r.value!=='--')||(w&&w.value&&w.value!=='--')) count++;
+});
+return count;
+}
+function estimateSessionCalories(){
+var rangeEl=document.getElementById('calBurnRange');
+var noteEl=document.getElementById('calBurnNote');
+if(!rangeEl) return;
+var timerSecs=durRunning?durElapsed+Math.floor((Date.now()-durStart)/1000):durElapsed;
+var manualRaw=(document.getElementById('durManual')||{}).value||'';
+var manualMin=parseInt(manualRaw)||0;
+var secs=timerSecs||(manualMin*60);
+var usedFallback=false;
+if(!secs){
+var sets=countLoggedSetsOnPage();
+if(sets>0){ secs=sets*CAL_FALLBACK_SEC_PER_SET; usedFallback=true; }
+}
+if(!secs){ rangeEl.textContent='--'; noteEl.textContent='Log sets or start the timer to see an estimate.'; return; }
+var bw=latestClientWeightKg();
+var bwSource=bw?'':' (default -- no bodyweight logged yet)';
+bw=bw||CAL_DEFAULT_KG;
+var hours=secs/3600;
+var low=Math.round(CAL_MET_LOW*bw*hours);
+var high=Math.round(CAL_MET_HIGH*bw*hours);
+rangeEl.textContent='~'+low+'-'+high+' kcal';
+noteEl.textContent=(usedFallback?'Rough guess from sets logged (no timer running). ':'Based on session time. ')+bw+'kg'+bwSource+' -- range covers light to vigorous effort.';
+}
+let _calBurnDebounce=null;
+document.addEventListener('input',function(e){
+if(e.target&&(e.target.classList.contains('reps-input')||e.target.classList.contains('weight-input'))){
+clearTimeout(_calBurnDebounce);
+_calBurnDebounce=setTimeout(estimateSessionCalories,300);
+}
+});
 
 function fmtDur(secs){
 if(!secs)return'--';

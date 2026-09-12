@@ -116,6 +116,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 </div>
 
+<!-- Coach Billing Kill Switch -->
+<div class="pw-gate" id="billingGate" style="display:none;">
+  <div class="pw-box">
+    <div class="pw-title">K<span style="color:var(--sage)">F</span><span style="color:var(--terra)">it</span> Coach</div>
+    <div class="pw-sub" id="billingGateTitle">Subscription Inactive</div>
+    <div style="font-size:15px;color:var(--muted);line-height:1.6;margin:16px 0;text-align:center;" id="billingGateMsg">Renew your KFit subscription to keep using the coach dashboard. Your clients' data is safe and untouched.</div>
+    <a class="pw-btn" id="billingGateBtn" href="RAZORPAY_SUBSCRIPTION_LINK_HERE" style="display:block;text-align:center;text-decoration:none;">Subscribe Now</a>
+    <button class="pw-btn" style="background:transparent;border:1px solid var(--border);color:var(--muted);margin-top:8px;" onclick="coachLogout()">Log Out</button>
+  </div>
+</div>
+
 <!-- Main -->
 <div id="mainApp" style="display:none;">
   <div class="topbar">
@@ -578,7 +589,7 @@ function getSB(){
 // with-check policy (coach_id = auth.uid()) without hand-editing every
 // call site. select/update/delete pass straight through unmodified; RLS
 // already filters those correctly by coach_id regardless of the app query.
-const COACH_SCOPED_TABLES=['tracker_data','attendance','client_tags','custom_exercises','exercise_videos','routine_templates','app_feedback','diet_templates'];
+const COACH_SCOPED_TABLES=['tracker_data','attendance','client_tags','custom_exercises','exercise_videos','routine_templates','app_feedback','diet_templates','client_access_kill_switch'];
 function getSBScoped(){
   const real=getSB();
   return {
@@ -648,14 +659,21 @@ async function onCoachAuthenticated(session){
   window.currentCoachId=session.user.id;
   window.currentCoachEmail=session.user.email;
   // First login for this coach -- create their row if it doesn't exist yet.
-  const {data:existing}=await getSB().from('coaches').select('id').eq('id',session.user.id).maybeSingle();
+  const {data:existing}=await getSB().from('coaches').select('id,billing_status,trial_ends_at').eq('id',session.user.id).maybeSingle();
+  let coachRow=existing;
   if(!existing){
     const trialEnd=new Date();
     trialEnd.setDate(trialEnd.getDate()+14);
-    await getSB().from('coaches').insert({id:session.user.id,email:session.user.email,billing_status:'trial',trial_ends_at:trialEnd.toISOString()});
+    const {data:inserted}=await getSB().from('coaches').insert({id:session.user.id,email:session.user.email,billing_status:'trial',trial_ends_at:trialEnd.toISOString()}).select().maybeSingle();
+    coachRow=inserted||{billing_status:'trial',trial_ends_at:trialEnd.toISOString()};
   }
   document.getElementById('authStepChecking').style.display='none';
   document.getElementById('pwGate').style.display='none';
+  if(!isCoachAccessAllowed(coachRow)){
+    showBillingGate(coachRow);
+    return;
+  }
+  document.getElementById('billingGate').style.display='none';
   document.getElementById('mainApp').style.display='block';
   loadAll();
   loadApprovedExercisesIntoCoachLib();
@@ -671,6 +689,37 @@ async function onCoachAuthenticated(session){
       if(res.data.length){ badge.style.display='inline-block'; badge.textContent=res.data.length; }
     }
   });
+}
+// Kill switch: blocks the whole coach dashboard once a trial has expired or
+// billing is inactive. 'active' always passes. 'trial' passes until
+// trial_ends_at. Anything else (including a missing row, which shouldn't
+// happen but fails closed rather than open) is blocked.
+function isCoachAccessAllowed(coachRow){
+  if(!coachRow) return false;
+  const status=coachRow.billing_status||'trial';
+  if(status==='active') return true;
+  if(status==='trial'){
+    if(!coachRow.trial_ends_at) return true;
+    return new Date(coachRow.trial_ends_at)>=new Date();
+  }
+  return false;
+}
+function showBillingGate(coachRow){
+  const status=coachRow?(coachRow.billing_status||'trial'):'trial';
+  const titleEl=document.getElementById('billingGateTitle');
+  const msgEl=document.getElementById('billingGateMsg');
+  const btnEl=document.getElementById('billingGateBtn');
+  if(status==='trial'){
+    titleEl.textContent='Trial Ended';
+    msgEl.textContent='Your 14-day free trial has ended. Subscribe to keep using the coach dashboard -- your clients\' data is safe and untouched.';
+    btnEl.textContent='Subscribe Now';
+  } else {
+    titleEl.textContent='Subscription Inactive';
+    msgEl.textContent='Renew your KFit subscription to keep using the coach dashboard. Your clients\' data is safe and untouched.';
+    btnEl.textContent='Renew Subscription';
+  }
+  document.getElementById('mainApp').style.display='none';
+  document.getElementById('billingGate').style.display='flex';
 }
 const COACH_HELP_SECTIONS={
   fitness:{title:'Fitness Tab',body:
@@ -744,6 +793,7 @@ async function coachLogout(){
 })();
 
 window.taggedClients = window.taggedClients || {fitness:{},nutrition:{}}; // canonical_key -> true, per tracker -- fitness and nutrition rosters are independent
+window.clientAccess = window.clientAccess || {}; // canonical_key -> 'active'|'inactive' -- per-client kill switch, independent of coach billing
 let rosterView='clients'; // 'clients' | 'all'
 window.nutRosterView = window.nutRosterView || 'clients';
 
@@ -762,6 +812,30 @@ async function loadClientTags(){
       taggedClients[tk][t.client_key]=true;
     });
   }
+}
+
+async function loadClientAccess(){
+  const {data,error}=await getSBScoped().from('client_access_kill_switch').select('client_key,status').eq('coach_id',window.currentCoachId);
+  clientAccess={};
+  if(!error&&data){
+    data.forEach(function(row){ clientAccess[row.client_key]=row.status; });
+  }
+}
+
+async function toggleClientAccess(canonKey,name,mobile,btnEvent,trackerType){
+  if(btnEvent)btnEvent.stopPropagation();
+  const current=clientAccess[canonKey]||'active';
+  const next=current==='inactive'?'active':'inactive';
+  if(next==='inactive'){
+    const ok=await showConfirm('Block this client\'s tracker access?','They will see a "paused" screen instead of the app until you switch this back on.');
+    if(!ok)return;
+  }
+  const {error}=await getSBScoped().from('client_access_kill_switch').upsert({client_key:canonKey,status:next},{onConflict:'coach_id,client_key'});
+  if(error){alert('Could not update access -- nothing changed. Error: '+error.message);return;}
+  clientAccess[canonKey]=next;
+  const tk=trackerType==='nutrition'?'nutrition':'fitness';
+  if(tk==='fitness') renderDash();
+  else if(typeof nutRenderDash==='function'&&document.getElementById('nutClientList')) nutRenderDash();
 }
 
 async function loadApprovedExercisesIntoCoachLib(){
@@ -1372,7 +1446,8 @@ async function deleteFbMessage(key,rowId,kind,replyIndex){
 function loadAll(){
   Promise.all([
     getSBScoped().from('attendance').select('*').eq('coach_id',window.currentCoachId).order('session_date',{ascending:false}).order('logged_at',{ascending:false}),
-    loadClientTags()
+    loadClientTags(),
+    loadClientAccess()
   ]).then(function(results){
     const res=results[0];
     if(res.error){document.getElementById('clientList').innerHTML='<div class="empty">Error loading data.<br>'+res.error.message+'</div>';return;}
@@ -1482,19 +1557,22 @@ function renderDash(){
     const recencyBadge=daysSince===null?'':daysSince<=7?`<span class="badge badge-sage">Active</span>`:daysSince<=14?`<span class="badge badge-gold">${daysSince}d ago</span>`:`<span class="badge badge-terra">${daysSince}d ago</span>`;
     const isTagged=!!taggedClients.fitness[canonicalClientKey(c.name,c.mobile)];
     const tagBtn=`<button onclick="toggleClientTag('${canonicalClientKey(c.name,c.mobile).replace(/'/g,"\\'")}','${(c.name||'').replace(/'/g,"\\'")}','${(c.mobile||'').replace(/'/g,"\\'")}',event,'fitness')" style="padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${isTagged?'var(--sage)':'var(--border)'};background:${isTagged?'var(--sage)':'transparent'};color:${isTagged?'#fff':'var(--muted)'};">${isTagged?'★ Client':'☆ Mark as Client'}</button>`;
+    const isBlocked=clientAccess[canonicalClientKey(c.name,c.mobile)]==='inactive';
+    const accessBtn=`<button onclick="toggleClientAccess('${canonicalClientKey(c.name,c.mobile).replace(/'/g,"\\'")}','${(c.name||'').replace(/'/g,"\\'")}','${(c.mobile||'').replace(/'/g,"\\'")}',event,'fitness')" style="padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${isBlocked?'var(--terra)':'var(--border)'};background:${isBlocked?'var(--terra)':'transparent'};color:${isBlocked?'#fff':'var(--muted)'};">${isBlocked?'🔒 Blocked':'🔓 Access'}</button>`;
     const unpaidN=isTagged?c.records.filter(r=>!r.paid).length:0;
     const unpaidBadge=unpaidN?`<span class="badge" style="background:var(--terra);color:#fff;">${unpaidN} unpaid</span>`:'';
+    const blockedBadge=isBlocked?`<span class="badge" style="background:var(--terra);color:#fff;">Blocked</span>`:'';
     return`<div class="client-card" onclick="showClient('${key.replace(/'/g,"\\'")}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
         <div class="client-name">${c.name}</div>
-        <div style="display:flex;gap:6px;align-items:center;">${unpaidBadge}${recencyBadge}</div>
+        <div style="display:flex;gap:6px;align-items:center;">${blockedBadge}${unpaidBadge}${recencyBadge}</div>
       </div>
       <div class="client-meta">
         <span>📅 Last: ${lastDate?lastDate.getDate()+' '+M[lastDate.getMonth()]+' '+lastDate.getFullYear():'—'}</span>
         <span>🗓 This month: ${monthSessions}</span>
         <span>💪 Total: ${totalSessions}</span>
       </div>
-      <div style="margin-top:10px;" onclick="event.stopPropagation();">${tagBtn}</div>
+      <div style="margin-top:10px;display:flex;gap:8px;" onclick="event.stopPropagation();">${tagBtn}${accessBtn}</div>
     </div>`;
   }).join('');
 }
@@ -3435,6 +3513,10 @@ async function saveAdminSession(){
   alert('Session saved ✓');
 }
 
+document.getElementById('pwInp').addEventListener('keydown',function(e){
+  if(e.key==='Enter')checkPw();
+});
+
 // ── Mode switcher: toggles between Fitness, Nutrition, and Exercises sections ──
 let exDataLoaded=false;
 window.nutDataLoaded = window.nutDataLoaded || false;
@@ -3561,7 +3643,8 @@ function nutLoadAll(){
   Promise.race([
     Promise.all([
       getSBScoped().from('tracker_data').select('*').eq('tracker','nutrition'),
-      Object.keys(taggedClients).length?Promise.resolve():loadClientTags()
+      Object.keys(taggedClients).length?Promise.resolve():loadClientTags(),
+      Object.keys(clientAccess).length?Promise.resolve():loadClientAccess()
     ]),
     timeout
   ]).then(function(results){
@@ -4474,16 +4557,19 @@ function nutRenderDash(){
     const orderPct=weekOrderTotal>0?Math.round(weekOrderOK/weekOrderTotal*100):null;
     const isTagged=!!taggedClients.nutrition[canonicalClientKey(c.name,c.mobile)];
     const tagBtn=`<button onclick="toggleClientTag('${canonicalClientKey(c.name,c.mobile).replace(/'/g,"\\'")}','${(c.name||'').replace(/'/g,"\\'")}','${(c.mobile||'').replace(/'/g,"\\'")}',event,'nutrition')" style="padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${isTagged?'var(--sage)':'var(--border)'};background:${isTagged?'var(--sage)':'transparent'};color:${isTagged?'#fff':'var(--muted)'};">${isTagged?'★ Client':'☆ Mark as Client'}</button>`;
+    const isBlocked=clientAccess[canonicalClientKey(c.name,c.mobile)]==='inactive';
+    const accessBtn=`<button onclick="toggleClientAccess('${canonicalClientKey(c.name,c.mobile).replace(/'/g,"\\'")}','${(c.name||'').replace(/'/g,"\\'")}','${(c.mobile||'').replace(/'/g,"\\'")}',event,'nutrition')" style="padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${isBlocked?'var(--terra)':'var(--border)'};background:${isBlocked?'var(--terra)':'transparent'};color:${isBlocked?'#fff':'var(--muted)'};">${isBlocked?'🔒 Blocked':'🔓 Access'}</button>`;
+    const blockedBadge=isBlocked?`<span class="badge" style="background:var(--terra);color:#fff;">Blocked</span>`:'';
     return `<div class="client-card" onclick="nutShowClient('${c.client_id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div class="client-name">${c.name}</div>${recencyBadge}
+        <div class="client-name">${c.name}</div><div style="display:flex;gap:6px;align-items:center;">${blockedBadge}${recencyBadge}</div>
       </div>
       <div class="client-meta">
         <span>\ud83d\udcc5 Last: ${last?last.date.getDate()+' '+MONTHS_SHORT[last.date.getMonth()]:'\u2014'}</span>
         <span>\ud83d\uddd3 This week: ${cw.weekDays.length} days</span>
         ${orderPct!==null?`<span>\ud83e\udd57 Order: ${orderPct}%</span>`:''}
       </div>
-      <div style="margin-top:10px;" onclick="event.stopPropagation();">${tagBtn}</div>
+      <div style="margin-top:10px;display:flex;gap:8px;" onclick="event.stopPropagation();">${tagBtn}${accessBtn}</div>
     </div>`;
   }).join('');
 }

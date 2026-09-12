@@ -340,6 +340,12 @@ btn.textContent='Could not copy -- select the address bar manually';
   </div>
 </div>
 
+<div id="accessBlockedScreen" style="display:none;position:fixed;inset:0;z-index:1200;background:var(--bg,#faf8f3);align-items:center;justify-content:center;flex-direction:column;padding:32px;text-align:center;">
+  <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:900;color:var(--txt,#211f1a);margin-bottom:14px;">K<span style="color:var(--sage,#3a6e40);">F</span><span style="color:var(--terra,#c4694a);">it</span></div>
+  <div style="font-size:1.1rem;font-weight:700;color:var(--txt,#211f1a);margin-bottom:10px;">Access Paused</div>
+  <div style="font-size:.95rem;color:var(--txt2,#3d3a32);line-height:1.6;max-width:320px;">Your coach has paused your access to this tracker. Please get in touch with them directly to sort this out.</div>
+</div>
+
 <div id="mainContent" style="display:none;">
 <div class="topbar">
   <div class="brand">K<span class="g">F</span><span class="t">it</span> Nutrition</div>
@@ -585,6 +591,32 @@ function getSBScoped(){
       return builder;
     }
   };
+}
+
+// -- Per-client kill switch: mirrors canonicalClientKey() in kfit-coach-merged.html
+// exactly (mobile digits, else lowercase trimmed name) -- must match so a
+// coach's toggle in Merge and this check line up on the same key. Fails
+// open (allows access) on any error or missing data -- this gate should
+// only ever block someone the coach explicitly blocked, never by accident.
+function _accessKey(){
+  var mobile=(localStorage.getItem('kmnut_mobile')||'').replace(/\D/g,'');
+  if(mobile) return mobile;
+  return (localStorage.getItem('kmnut_name')||'').toLowerCase().trim();
+}
+function checkClientAccess(){
+  var coachId=getClientCoachId();
+  if(!coachId) return; // no coach linked -- nothing to gate against
+  var key=_accessKey();
+  if(!key) return;
+  getSB().from('client_access_kill_switch').select('status').eq('coach_id',coachId).eq('client_key',key).maybeSingle().then(function(res){
+    if(res.error||!res.data) return; // no row, or read failed -- fail open
+    if(res.data.status==='inactive'){
+      document.getElementById('mainContent').style.display='none';
+      var gate=document.getElementById('pwGate'); if(gate) gate.style.display='none';
+      var blockEl=document.getElementById('accessBlockedScreen');
+      if(blockEl) blockEl.style.display='flex';
+    }
+  }).catch(function(){});
 }
 
 function getClientKey(){
@@ -3055,6 +3087,7 @@ var entryStep=document.getElementById('mobileStepEntry'); if(entryStep) entrySte
 var otpInp=document.getElementById('otpInput'); if(otpInp) otpInp.value='';
 document.getElementById('mainContent').style.display='block';
 render();
+checkClientAccess();
 
 syncToSupabase();
 }
@@ -3235,6 +3268,7 @@ document.getElementById('pwGate').style.display='none';
 document.getElementById('mainContent').style.display='block';
 loadState();
 render();
+checkClientAccess();
 loadFromSupabase(function(loaded){ if(loaded) render(); });
 }
 
@@ -3330,6 +3364,7 @@ document.getElementById('pwGate').style.display='none';
 document.getElementById('mainContent').style.display='block';
 loadState();
 render();
+checkClientAccess();
 var n=appSetup&&appSetup.clientName?appSetup.clientName:'';
 var el=document.getElementById('headerClientName');
 if(el&&n) el.textContent=n;
