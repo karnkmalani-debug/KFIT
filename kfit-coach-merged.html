@@ -3559,6 +3559,7 @@ const DAYS_SHORT=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MONTHS_SHORT=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function nutLoadAll(){
+  alert('DEBUG 1: nutLoadAll started');
   try{
   const timeoutMs=12000;
   const timeout=new Promise(function(_,reject){
@@ -3572,6 +3573,7 @@ function nutLoadAll(){
     timeout
   ]).then(function(results){
     const res=results[0];
+    alert('DEBUG 2: got response -- error='+(res.error?res.error.message:'none')+', rows='+(res.data?res.data.length:'null'));
     if(res.error){
       document.getElementById('nutClientList').innerHTML='<div class="empty">Error loading data.<br>'+res.error.message+'</div>';
       return;
