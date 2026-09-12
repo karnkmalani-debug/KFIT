@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KFit Coach TESTBUILD101</title>
+<title>KFit Coach TESTBUILD102</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700;800;900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -3558,6 +3558,7 @@ const DAYS_SHORT=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MONTHS_SHORT=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function nutLoadAll(){
+  document.body.insertAdjacentHTML('afterbegin','<div id="_dbgBanner2" style="position:fixed;top:60px;left:0;right:0;z-index:99999;background:#ff0;color:#000;font-size:16px;font-weight:900;padding:10px;text-align:center;">DEBUG: nutLoadAll function body STARTED</div>');
   const listElImmediate=document.getElementById('nutClientList');
   if(listElImmediate) listElImmediate.innerHTML='<div class="empty" style="color:#0f0;background:#000;">DEBUG 1: nutLoadAll STARTED (code version 100)</div>';
   try{
