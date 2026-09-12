@@ -121,6 +121,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="topbar">
     <div class="logo">K<span class="g">F</span><span class="t">it</span></div>
     <div class="page-title" id="pageTitle">Coach</div>
+    <button onclick="showCoachHelp()" title="Help" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;">?</button>
     <button onclick="coachLogout()" title="Log out" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;">&#128274;</button>
     <button onclick="window.print()" title="Print this screen" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">&#128424;</button>
   </div>
@@ -400,6 +401,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     </div>
   </div>
 
+  <!-- Coach Help modal -->
+  <div id="coachHelpModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.65);overflow-y:auto;-webkit-overflow-scrolling:touch;">
+    <div style="max-width:560px;margin:20px auto;background:var(--bg);border-radius:14px;padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:-20px -20px 16px -20px;padding:16px 20px;position:sticky;top:0;background:var(--bg);z-index:5;border-radius:14px 14px 0 0;border-bottom:1px solid var(--border);">
+        <div style="font-size:18px;font-weight:800;">How Merge Works</div>
+        <button onclick="closeCoachHelp()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">✕</button>
+      </div>
+      <div id="coachHelpBody" style="font-size:14px;line-height:1.6;color:var(--text);"></div>
+    </div>
+  </div>
+
   <!-- Diet Template Library modal -->
   <div id="dietTemplateModal" style="display:none;position:fixed;inset:0;z-index:502;background:rgba(0,0,0,.6);overflow-y:auto;-webkit-overflow-scrolling:touch;">
     <div style="max-width:520px;margin:20px auto;background:var(--bg);border-radius:14px;padding:20px;">
@@ -659,6 +671,54 @@ async function onCoachAuthenticated(session){
       if(res.data.length){ badge.style.display='inline-block'; badge.textContent=res.data.length; }
     }
   });
+}
+const COACH_HELP_SECTIONS={
+  fitness:{title:'Fitness Tab',body:
+    '<b>Client list</b> shows everyone who has logged at least one fitness session. Tap a client to see their sessions, notes, and stats.<br><br>'
+    +'<b>New Sign-ups card</b> (appears above the list when relevant) shows people who have set up a profile on the tracker but haven\'t logged a session yet -- so you know someone joined even before they start showing up as a "real" client.<br><br>'
+    +'<b>Client tags</b> let you label clients (e.g. needs follow-up) for your own organisation -- clients never see these.'},
+  nutrition:{title:'Nutrition Tab',body:
+    '<b>Client list</b> works the same as Fitness -- tap a client, then a day, to see their Eating Order and Protein First scores plus whatever they logged.<br><br>'
+    +'<b>+ Assign Meal Plan</b> lets you fill in specific food/macro content for a client on specific dates -- this writes directly into their calendar, for one client at a time.<br><br>'
+    +'<b>📋 Diet Templates</b> is different -- it\'s a reusable library. Build a daily or weekly plan once (with either/or options per meal), save it, then either hit Send to assign it to a specific client, or leave it in your shared library so clients can pick it themselves from their own tracker. You can also paste a plan in from Google Docs/Notes instead of building it option by option.'},
+  exercises:{title:'Exercises Tab',body:
+    '<b>Routine Templates</b> are reusable workouts -- exercise names only, no reps or weight -- that you build once and assign to any client. They show up in that client\'s own "My Routines" list, tagged as coming from you. You can paste a list of exercises in instead of adding them one by one.<br><br>'
+    +'<b>Technique videos</b> attach a reference video to a specific exercise name -- when a client picks that exercise while logging, your video shows up automatically.'},
+  feedback:{title:'Feedback Tab',body:
+    'Shows messages clients send you from inside their own tracker (there\'s a feedback button in their app too). You can reply, and replies show up back in their tracker. Anything with the red badge is unread.'},
+  account:{title:'Account Tab',body:
+    '<b>Invite links</b> are what you send new clients -- one for Fitness, one for Nutrition. Opening that link tags them to you automatically, so their data lands under your account and nobody else\'s.<br><br>'
+    +'<b>Billing</b> shows your own subscription status with KFit itself (trial or active) -- this is about you paying for KFit, not about your clients paying you.'},
+  general:{title:'The Big Picture',body:
+    'Everything in Merge is scoped to you specifically -- coach_id keeps your clients, routines, videos, and diet templates completely separate from any other coach using KFit, even though you\'re all on the same app.<br><br>'
+    +'Anything marked "coach-only" or built in Merge (tags, notes, the New Sign-ups card) is invisible to clients -- they only ever see their own tracker.'}
+};
+function showCoachHelp(){
+  let active='general';
+  ['fitness','nutrition','exercises','feedback','account'].forEach(function(m){
+    const btn=document.getElementById('modeBtn'+m.charAt(0).toUpperCase()+m.slice(1));
+    if(btn&&btn.classList.contains('active')) active=m;
+  });
+  renderCoachHelp(active);
+  document.getElementById('coachHelpModal').style.display='block';
+  document.body.style.overflow='hidden';
+}
+function closeCoachHelp(){
+  document.getElementById('coachHelpModal').style.display='none';
+  document.body.style.overflow='';
+}
+function renderCoachHelp(key){
+  const order=['fitness','nutrition','exercises','feedback','account','general'];
+  const body=document.getElementById('coachHelpBody');
+  let html='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;">';
+  order.forEach(function(k){
+    const active=k===key;
+    html+='<button onclick="renderCoachHelp(\''+k+'\')" style="padding:6px 10px;border-radius:8px;border:1px solid '+(active?'var(--sage)':'var(--border)')+';background:'+(active?'var(--sage)':'none')+';color:'+(active?'#fff':'var(--muted)')+';font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">'+COACH_HELP_SECTIONS[k].title+'</button>';
+  });
+  html+='</div>';
+  html+='<div style="font-size:15px;font-weight:800;margin-bottom:8px;">'+COACH_HELP_SECTIONS[key].title+'</div>';
+  html+='<div>'+COACH_HELP_SECTIONS[key].body+'</div>';
+  body.innerHTML=html;
 }
 async function coachLogout(){
   await getSB().auth.signOut();
@@ -1311,7 +1371,7 @@ async function deleteFbMessage(key,rowId,kind,replyIndex){
 
 function loadAll(){
   Promise.all([
-    getSBScoped().from('attendance').select('*').order('session_date',{ascending:false}).order('logged_at',{ascending:false}),
+    getSBScoped().from('attendance').select('*').eq('coach_id',window.currentCoachId).order('session_date',{ascending:false}).order('logged_at',{ascending:false}),
     loadClientTags()
   ]).then(function(results){
     const res=results[0];
