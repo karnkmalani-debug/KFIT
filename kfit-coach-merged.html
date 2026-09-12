@@ -3546,15 +3546,15 @@ window.allClients = window.allClients || [];
 let currentClientId=null;
 
 // ── Mirrors the nutrition tracker's own constants exactly ──
-const MEALS=[
+window.MEALS = window.MEALS || [
   {id:'breakfast',name:'Breakfast'},
   {id:'msnack',name:'Morning Snack'},
   {id:'lunch',name:'Lunch'},
   {id:'esnack',name:'Evening Snack'},
   {id:'dinner',name:'Dinner'}
 ];
-const DAYS_SHORT=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const MONTHS_SHORT=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+window.DAYS_SHORT = window.DAYS_SHORT || ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+window.MONTHS_SHORT = window.MONTHS_SHORT || ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 function nutLoadAll(){
   try{
@@ -3690,26 +3690,26 @@ function setNutRosterView(v){
   nutRenderDash();
 }
 
-const FOOD_OPTIONS={
+window.FOOD_OPTIONS = window.FOOD_OPTIONS || {
   breakfast:['Eggs','Oats','Poha','Idli','Dosa','Paratha','Upma','Fruit','Curd','Protein Shake','Milk','Toast','Nuts','Coffee','Green Tea'],
   msnack:['Nuts','Fruit','Curd','Protein Shake','Roasted Chana','Green Tea','Sprouts','Dates','Coffee'],
   lunch:['Dal','Sabzi','Roti','Rice','Chicken','Fish','Salad','Paneer','Curd','Protein Shake','Nuts','Coffee'],
   esnack:['Tea','Nuts','Fruit','Protein Shake','Samosa','Sandwich','Sprouts','Green Tea'],
   dinner:['Dal','Sabzi','Roti','Rice','Chicken','Fish','Salad','Soup','Paneer','Khichdi','Green Tea','Nuts','Protein Shake']
 };
-const HABITS=[
+window.HABITS = window.HABITS || [
   {id:'sunset',text:'Had dinner close to sunset / early evening'},
   {id:'fast12',text:'Maintained a 12-hour overnight fast'}
 ];
-let mpSelections={}; // mealId -> Set of chosen foods
-let mpNotes={};       // mealId -> note text
-let mpScores={};      // mealId -> score (0-3) or undefined if left unset
-let mpOrder={};        // mealId -> bool ("ate in ideal order")
-let mpProteinPlate={}; // mealId -> 'more'|'same'|'less'|undefined
-let mpHabits={};       // habitId -> bool
-let mpDayNote='';      // day-level note
-let mpTimes={};        // mealId -> "HH:MM" or undefined
-let mpClientCache={}; // client_id -> {setup, data, mobile}
+window.mpSelections = window.mpSelections || {}; // mealId -> Set of chosen foods
+window.mpNotes = window.mpNotes || {};       // mealId -> note text
+window.mpScores = window.mpScores || {};      // mealId -> score (0-3) or undefined if left unset
+window.mpOrder = window.mpOrder || {};        // mealId -> bool ("ate in ideal order")
+window.mpProteinPlate = window.mpProteinPlate || {}; // mealId -> 'more'|'same'|'less'|undefined
+window.mpHabits = window.mpHabits || {};       // habitId -> bool
+window.mpDayNote = window.mpDayNote || '';      // day-level note
+window.mpTimes = window.mpTimes || {};        // mealId -> "HH:MM" or undefined
+window.mpClientCache = window.mpClientCache || {}; // client_id -> {setup, data, mobile}
 
 function mwdiToDate(startDateStr,m,w,di){
   const start=new Date(startDateStr+'T00:00:00');
@@ -3878,7 +3878,7 @@ function renderDowRow(containerId,onToggle){
   ).join('');
 }
 
-let mpSelectedDOW=[0,1,2,3,4,5,6]; // all days on by default -- coach narrows down if needed
+window.mpSelectedDOW = window.mpSelectedDOW || [0,1,2,3,4,5,6]; // all days on by default -- coach narrows down if needed
 
 function toggleMpDow(dow,btn){
   if(mpSelectedDOW.includes(dow)){
@@ -4074,7 +4074,7 @@ function blankDtDay(){
   MEALS.forEach(function(m){meals[m.id]=[];});
   return {meals:meals};
 }
-const DT_DAY_HEADER_RE=[
+window.DT_DAY_HEADER_RE = window.DT_DAY_HEADER_RE || [
   {re:/^(sunday|sun)\s*:?\s*$/i,idx:0},
   {re:/^(monday|mon)\s*:?\s*$/i,idx:1},
   {re:/^(tuesday|tues|tue)\s*:?\s*$/i,idx:2},
@@ -4083,7 +4083,7 @@ const DT_DAY_HEADER_RE=[
   {re:/^(friday|fri)\s*:?\s*$/i,idx:5},
   {re:/^(saturday|sat)\s*:?\s*$/i,idx:6}
 ];
-const DT_MEAL_LINE_RE=[
+window.DT_MEAL_LINE_RE = window.DT_MEAL_LINE_RE || [
   {id:'breakfast',re:/^breakfast\s*[:\-]\s*(.*)$/i},
   {id:'msnack',re:/^(morning\s*snack|am\s*snack|snack\s*1)\s*[:\-]\s*(.*)$/i},
   {id:'lunch',re:/^lunch\s*[:\-]\s*(.*)$/i},
@@ -4153,7 +4153,7 @@ function importDietPaste(){
   alert(msg);
   box.value='';
 }
-let _dtDays=[]; let _dtType='daily'; let _dtActiveDay=0; let _dtEditingId=null; let _dtTemplatesCache=[];
+window._dtDays = window._dtDays || []; window._dtType = window._dtType || 'daily'; window._dtActiveDay = window._dtActiveDay || 0; window._dtEditingId = window._dtEditingId || null; window._dtTemplatesCache = window._dtTemplatesCache || [];
 function openDietTemplateModal(){
   document.getElementById('dietTemplateModal').style.display='block';
   document.body.style.overflow='hidden';
