@@ -797,6 +797,112 @@ window.clientAccess = window.clientAccess || {}; // canonical_key -> 'active'|'i
 let rosterView='clients'; // 'clients' | 'all'
 window.nutRosterView = window.nutRosterView || 'clients';
 
+// ══════════════════════════════════════════════════════════════════
+// CALORIE ESTIMATE ENGINE -- mirrors km-fitness-tracker.html exactly,
+// so a session a coach adds/backfills here computes and stores the
+// same estCalories the client's own tracker would have. See that
+// file's comments for the full rationale (rest-time-driven strength
+// MET, per-activity cardio MET table, Mifflin-St Jeor personalization).
+// ══════════════════════════════════════════════════════════════════
+const CARDIO_MET={
+'Running (Treadmill)':{Easy:7.0,Moderate:9.8,Hard:11.8,Max:14.5},
+'Running (Outdoor)':{Easy:7.0,Moderate:9.8,Hard:11.8,Max:14.5},
+'Cycling (Bike)':{Easy:4.0,Moderate:6.8,Hard:8.5,Max:11.0},
+'Cycling (Stationary)':{Easy:4.0,Moderate:6.8,Hard:8.5,Max:11.0},
+'Rowing Machine':{Easy:4.8,Moderate:7.0,Hard:8.5,Max:12.0},
+'Elliptical':{Easy:4.5,Moderate:5.5,Hard:7.0,Max:9.0},
+'Stair Climber':{Easy:4.0,Moderate:8.8,Hard:9.0,Max:12.0},
+'Jump Rope':{Easy:8.8,Moderate:11.0,Hard:12.3,Max:13.5},
+'Swimming':{Easy:5.5,Moderate:7.0,Hard:9.8,Max:11.0},
+'Walking':{Easy:2.8,Moderate:3.5,Hard:4.5,Max:5.5},
+'HIIT':{Easy:6.0,Moderate:8.0,Hard:10.0,Max:12.0},
+'Sprint Intervals':{Easy:8.0,Moderate:10.0,Hard:12.0,Max:15.0},
+'Battle Ropes':{Easy:6.0,Moderate:8.0,Hard:10.0,Max:12.0},
+'Assault Bike':{Easy:6.0,Moderate:8.5,Hard:11.0,Max:14.0},
+'Ski Erg':{Easy:5.0,Moderate:7.0,Hard:9.0,Max:11.0}
+};
+const CARDIO_MET_DEFAULT={Easy:4.0,Moderate:6.0,Hard:8.0,Max:10.0};
+const CAL_DEFAULT_KG=70, CAL_DEFAULT_HEIGHT_CM=170, CAL_DEFAULT_AGE=35;
+function personalRMRPerHour(weightKg,heightCm,age,gender){
+if(!weightKg||!heightCm||!age||!gender) return null;
+var bmr=gender==='male'
+?(10*weightKg+6.25*heightCm-5*age+5)
+:(10*weightKg+6.25*heightCm-5*age-161);
+return bmr/24;
+}
+function fallbackRMRPerHour(weightKg){ return weightKg*1.0; }
+function strengthMETFromRest(avgRestSec){
+if(!avgRestSec) return null;
+if(avgRestSec<=45) return 6.0;
+if(avgRestSec<=90) return 5.0;
+return 3.5;
+}
+function computeSessionCalories(opts){
+var profile=opts.profile||{};
+var weight=profile.weight||CAL_DEFAULT_KG;
+var height=profile.height||CAL_DEFAULT_HEIGHT_CM;
+var age=profile.age||CAL_DEFAULT_AGE;
+var gender=profile.gender||'male';
+var personalized=profile.isComplete;
+var rmrPerHour=personalized?personalRMRPerHour(weight,height,age,gender):null;
+var total=0, totalLow=0, totalHigh=0;
+if(opts.strengthSecs){
+var hours=opts.strengthSecs/3600;
+var restMET=strengthMETFromRest(opts.avgRestSec);
+if(restMET&&personalized){
+var kcal=restMET*rmrPerHour*hours;
+total+=kcal; totalLow+=kcal; totalHigh+=kcal;
+} else if(restMET){
+var kcalG=restMET*fallbackRMRPerHour(weight)*hours;
+total+=kcalG; totalLow+=kcalG; totalHigh+=kcalG;
+} else {
+var lowK=3.5*(personalized?rmrPerHour:fallbackRMRPerHour(weight))*hours;
+var highK=6.0*(personalized?rmrPerHour:fallbackRMRPerHour(weight))*hours;
+totalLow+=lowK; totalHigh+=highK; total+=(lowK+highK)/2;
+}
+}
+(opts.cardioBlocks||[]).forEach(function(c){
+var mins=parseInt(c.duration)||0;
+if(!mins) return;
+var metTable=CARDIO_MET[c.ex]||CARDIO_MET_DEFAULT;
+var met=metTable[c.intensity]||metTable.Moderate;
+var hrs=mins/60;
+var kcal=met*(personalized?rmrPerHour:fallbackRMRPerHour(weight))*hrs;
+total+=kcal; totalLow+=kcal; totalHigh+=kcal;
+});
+if(!opts.strengthSecs&&!(opts.cardioBlocks&&opts.cardioBlocks.length)) return null;
+return {
+value:Math.round(total), low:Math.round(totalLow), high:Math.round(totalHigh),
+isRange:Math.round(totalLow)!==Math.round(totalHigh), personalized:personalized
+};
+}
+// Reads the client's age/sex/latest weight+height straight from their own
+// tracker_data blob (Merge has no client-side localStorage to read from).
+function getClientProfileFromFull(full){
+var age=full&&full.age?parseInt(full.age):null;
+var gender=full&&full.gender?full.gender:null;
+var weight=null, height=null;
+if(full&&full.measurements&&full.measurements.length){
+var sorted=full.measurements.slice().sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+for(var i=0;i<sorted.length;i++){
+if(weight==null&&sorted[i].weight!=null) weight=sorted[i].weight;
+if(height==null&&sorted[i].height!=null) height=sorted[i].height;
+}
+}
+return {age:age,gender:gender,weight:weight,height:height,isComplete:!!(age&&gender&&weight&&height)};
+}
+function estCaloriesForCoachSession(full,exercisesPayload,supersetsPayload,cardioPayload,durationSecs,avgRestVal){
+var cardioSecsTotal=(cardioPayload||[]).reduce(function(a,c){return a+((parseInt(c.duration)||0)*60);},0);
+var hasStrength=(exercisesPayload&&exercisesPayload.length>0)||(supersetsPayload&&supersetsPayload.length>0);
+var strengthSecs=hasStrength?Math.max(0,(durationSecs||0)-cardioSecsTotal):0;
+return computeSessionCalories({
+strengthSecs:strengthSecs,
+avgRestSec:avgRestVal||null,
+cardioBlocks:(cardioPayload||[]).map(function(c){return {ex:c.ex,duration:c.duration,intensity:c.intensity};}),
+profile:getClientProfileFromFull(full)
+});
+}
+
 function canonicalClientKey(name,mobile){
   const m=(mobile||'').replace(/\D/g,'');
   if(m)return m;
@@ -2278,11 +2384,19 @@ function renderCoachSession(s,allSessions){
   // Body parts
   const _coachPrInfo=getSessionPRInfoCoach(s,prMap8,allSessions);
   const _coachPrPill=_coachPrInfo.count?`<span style="padding:4px 12px;background:var(--gold);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#171200;">🏆 ${_coachPrInfo.count} P.R.</span>`:'';
+  const sessDur=s.duration||(s.cardio&&s.cardio.length?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60:0);
+  const _sessCal=s.estCalories||(function(){
+    var _cSecs=(s.cardio||[]).reduce((a,c)=>a+((parseInt(c.duration)||0)*60),0);
+    var _hasStr=(s.exercises&&s.exercises.length>0)||(s.supersets&&s.supersets.length>0);
+    var _strSecs=_hasStr?Math.max(0,(sessDur||0)-_cSecs):0;
+    var _avgRest=(s.restTimes&&s.restTimes.length)?(s.restTimes.reduce((a,b)=>a+b,0)/s.restTimes.length):s.avgRestManual;
+    return computeSessionCalories({strengthSecs:_strSecs,avgRestSec:_avgRest,cardioBlocks:(s.cardio||[]).map(c=>({ex:c.ex,duration:c.duration,intensity:c.intensity})),profile:{}});
+  })();
+  const _calBadgeCoach=_sessCal?`<span style="color:var(--terra);font-size:14px;font-weight:800;">&#128293; ${_sessCal.isRange?(_sessCal.low+'-'+_sessCal.high):_sessCal.value} kcal</span>`:'';
   const bpHtml=(s.bodyParts&&s.bodyParts.length)?
-    `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${s.bodyParts.map(b=>_coachPrInfo.bodyParts.has(b)?`<span style="padding:4px 12px;background:var(--gold);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#171200;">${b}</span>`:`<span style="padding:4px 12px;background:var(--gold-d);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold);">${b}</span>`).join('')}${_coachPrPill}${_exCount?`<span style="color:var(--muted);font-size:14px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}</div>`:'' ;
+    `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">${s.bodyParts.map(b=>_coachPrInfo.bodyParts.has(b)?`<span style="padding:4px 12px;background:var(--gold);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#171200;">${b}</span>`:`<span style="padding:4px 12px;background:var(--gold-d);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--gold);">${b}</span>`).join('')}${_coachPrPill}${_exCount?`<span style="color:var(--muted);font-size:14px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}${_calBadgeCoach}</div>`:'' ;
 
   // Duration
-  const sessDur=s.duration||(s.cardio&&s.cardio.length?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60:0);
   const durHtml=sessDur?`<div class="card">
     <div class="card-title">Session Duration</div>
     <div style="display:flex;justify-content:space-between;"><span style="font-size:16px;font-weight:600;">Total time</span><span style="font-size:22px;font-weight:800;color:var(--sage);">${fmtDurCoach(sessDur)}</span></div>
@@ -3408,7 +3522,8 @@ async function saveAdminSession(){
       id:sessionId, client:clientName, date, timeOfDay:timeStr,
       bodyParts:asSelectedBP, exercises:exercisesPayload, supersets:supersetsPayload,
       cardio:cardioPayload, restTimes:[], avgRestManual:avgRestVal, duration:durationSecs, unit:asUnit,
-      notes:notesVal, adminAdded:true, updatedAt:Date.now()
+      notes:notesVal, estCalories:estCaloriesForCoachSession(full,exercisesPayload,supersetsPayload,cardioPayload,durationSecs,avgRestVal),
+      adminAdded:true, updatedAt:Date.now()
     };
     if(idx>=0) sessions[idx]=updatedSession; else sessions.unshift(updatedSession);
     full.sessions=sessions;
@@ -3484,6 +3599,7 @@ async function saveAdminSession(){
   if(existing&&existing.length&&existing[0].data){
     full=typeof existing[0].data==='string'?JSON.parse(existing[0].data):existing[0].data;
   }
+  newSession.estCalories=estCaloriesForCoachSession(full,exercisesPayload,supersetsPayload,cardioPayload,durationSecs,avgRestVal);
   const sessions=full.sessions||[];
   sessions.unshift(newSession);
   full.sessions=sessions;
