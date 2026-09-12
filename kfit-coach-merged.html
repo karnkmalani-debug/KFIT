@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KFit Coach TESTBUILD105</title>
+<title>KFit Coach</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700;800;900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -3440,8 +3440,8 @@ document.getElementById('pwInp').addEventListener('keydown',function(e){
 });
 
 // ── Mode switcher: toggles between Fitness, Nutrition, and Exercises sections ──
-let nutDataLoaded=false;
 let exDataLoaded=false;
+window.nutDataLoaded = window.nutDataLoaded || false;
 function switchMode(mode){
   const fitBtn=document.getElementById('modeBtnFitness');
   const nutBtn=document.getElementById('modeBtnNutrition');
@@ -3468,15 +3468,8 @@ function switchMode(mode){
     pageTitle.textContent='Coach · Fitness';
   } else if(mode==='nutrition'){
     pageTitle.textContent='Coach · Nutrition';
-    document.title='STEP1 before nutDataLoaded';
-    nutDataLoaded=true;
-    document.title='STEP2 before calling nutLoadAll';
-    try{
-      nutLoadAll();
-      document.title='STEP3 nutLoadAll call returned OK';
-    }catch(callErr){
-      document.title='STEP3-ERROR: '+(callErr&&callErr.message?callErr.message:String(callErr));
-    }
+    window.nutDataLoaded=true;
+    nutLoadAll();
   } else if(mode==='feedback'){
     pageTitle.textContent='Coach · Feedback';
     loadFeedback();
@@ -3577,7 +3570,6 @@ function nutLoadAll(){
     timeout
   ]).then(function(results){
     const res=results[0];
-    document.getElementById('nutClientList').innerHTML='<div class="empty" style="color:#0f0;background:#000;">DEBUG 2: got response -- error='+(res.error?res.error.message:'none')+', rows='+(res.data?res.data.length:'null')+'</div>';
     if(res.error){
       document.getElementById('nutClientList').innerHTML='<div class="empty">Error loading data.<br>'+res.error.message+'</div>';
       return;
@@ -3604,13 +3596,11 @@ function nutLoadAll(){
     if(skipped.length) console.warn('Skipped unreadable nutrition rows for client_id(s):',skipped.join(', '));
     nutRenderDash();
   }).catch(function(err){
-    alert('DEBUG 3: promise FAILED -- '+(err&&err.message?err.message:String(err)));
     console.error('Nutrition load failed:',err);
     const el=document.getElementById('nutClientList');
     if(el) el.innerHTML='<div class="empty">Something went wrong loading this list.<br>'+(err&&err.message?err.message:'Unknown error')+'<br><br>Try closing and reopening this tab.</div>';
   });
   }catch(syncErr){
-    alert('DEBUG 4: SYNC error before request even started -- '+(syncErr&&syncErr.message?syncErr.message:String(syncErr)));
     console.error('Nutrition load threw synchronously:',syncErr);
     const el=document.getElementById('nutClientList');
     if(el) el.innerHTML='<div class="empty">Something went wrong starting the load.<br>'+(syncErr&&syncErr.message?syncErr.message:'Unknown error')+'</div>';
