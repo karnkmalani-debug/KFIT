@@ -1304,7 +1304,12 @@ unit:localStorage.getItem('kmfit_unit')
 },
 updated_at:new Date().toISOString()
 };
-getSBScoped().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'});
+getSBScoped().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(){
+var deviceId=localStorage.getItem('kfit_device_id');
+if(deviceId&&deviceId!==key){
+getSBScoped().from('tracker_data').delete().eq('client_id',deviceId).eq('tracker','fitness').then(function(){});
+}
+});
 });
 }
 function checkExisting(cb){
@@ -1344,6 +1349,10 @@ if(isPw)backToMobileEntry();
 
 function _completeFitnessLogin(match,mobile){
 var d=match.data;
+var deviceId=localStorage.getItem('kfit_device_id');
+if(deviceId&&deviceId!==match.client_id){
+getSBScoped().from('tracker_data').delete().eq('client_id',deviceId).eq('tracker','fitness').then(function(){});
+}
 if(d.sessions) sessions=d.sessions;
 if(d.notes) notes=d.notes;
 if(d.name) localStorage.setItem('kmfit_name',d.name);
@@ -1589,6 +1598,37 @@ var loader=document.getElementById('appLoader');
 if(loader) loader.style.display='none';
 }
 
+function getOrCreateSharedDeviceId(){
+var id=localStorage.getItem('kfit_device_id');
+if(!id){
+id='device_'+Math.random().toString(36).slice(2)+Date.now().toString(36);
+localStorage.setItem('kfit_device_id',id);
+}
+return id;
+}
+function registerDeviceSeen(){
+try{
+var deviceId=getOrCreateSharedDeviceId();
+if(!localStorage.getItem('kmfit_device_seen')){
+localStorage.setItem('kmfit_device_seen','1');
+getSBScoped().from('tracker_data').upsert({
+client_id:deviceId,
+tracker:'fitness',
+data:{name:'(App opened -- not set up yet)',mobile:'',sessions:[]},
+updated_at:new Date().toISOString()
+},{onConflict:'client_id,tracker'}).then(function(){});
+}
+if(!localStorage.getItem('kmnut_device_seen')){
+localStorage.setItem('kmnut_device_seen','1');
+getSBScoped().from('tracker_data').upsert({
+client_id:deviceId,
+tracker:'nutrition',
+data:{name:'(App opened -- not set up yet)',mobile:'',sessions:[]},
+updated_at:new Date().toISOString()
+},{onConflict:'client_id,tracker'}).then(function(){});
+}
+}catch(e){}
+}
 function initApp(){
 
 var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -1616,6 +1656,7 @@ var inp=document.getElementById('mobileLoginInput');
 if(inp) inp.value=mobile;
 }
 document.getElementById('pwGate').style.display='flex';
+registerDeviceSeen();
 document.getElementById('setupScreen').style.display='none';
 document.getElementById('mainApp').style.display='none';
 }

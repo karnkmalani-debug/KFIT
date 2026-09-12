@@ -3568,8 +3568,16 @@ function nutLoadAll(){
       document.getElementById('nutClientList').innerHTML='<div class="empty">Error loading data.<br>'+res.error.message+'</div>';
       return;
     }
+    const skipped=[];
     allClients=(res.data||[]).map(function(row){
-      const d=typeof row.data==='string'?JSON.parse(row.data):row.data;
+      let d;
+      try{
+        d=typeof row.data==='string'?JSON.parse(row.data):row.data;
+        if(!d||typeof d!=='object') throw new Error('empty or non-object data');
+      }catch(e){
+        skipped.push(row.client_id);
+        return null;
+      }
       return{
         client_id:row.client_id,
         name:(d.setup&&d.setup.clientName)||row.client_id,
@@ -3578,8 +3586,13 @@ function nutLoadAll(){
         data:d.data,
         updated_at:row.updated_at
       };
-    });
+    }).filter(function(c){return c!==null;});
+    if(skipped.length) console.warn('Skipped unreadable nutrition rows for client_id(s):',skipped.join(', '));
     nutRenderDash();
+  }).catch(function(err){
+    console.error('Nutrition load failed:',err);
+    const el=document.getElementById('nutClientList');
+    if(el) el.innerHTML='<div class="empty">Something went wrong loading this list.<br>'+(err&&err.message?err.message:'Unknown error')+'<br><br>Try closing and reopening this tab.</div>';
   });
 }
 
