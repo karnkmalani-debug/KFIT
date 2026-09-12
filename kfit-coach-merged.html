@@ -3600,11 +3600,13 @@ function nutLoadAll(){
     if(skipped.length) console.warn('Skipped unreadable nutrition rows for client_id(s):',skipped.join(', '));
     nutRenderDash();
   }).catch(function(err){
+    alert('DEBUG 3: promise FAILED -- '+(err&&err.message?err.message:String(err)));
     console.error('Nutrition load failed:',err);
     const el=document.getElementById('nutClientList');
     if(el) el.innerHTML='<div class="empty">Something went wrong loading this list.<br>'+(err&&err.message?err.message:'Unknown error')+'<br><br>Try closing and reopening this tab.</div>';
   });
   }catch(syncErr){
+    alert('DEBUG 4: SYNC error before request even started -- '+(syncErr&&syncErr.message?syncErr.message:String(syncErr)));
     console.error('Nutrition load threw synchronously:',syncErr);
     const el=document.getElementById('nutClientList');
     if(el) el.innerHTML='<div class="empty">Something went wrong starting the load.<br>'+(syncErr&&syncErr.message?syncErr.message:'Unknown error')+'</div>';
