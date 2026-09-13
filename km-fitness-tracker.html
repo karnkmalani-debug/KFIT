@@ -157,8 +157,8 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .quick-add-section{margin-bottom:10px;}
 .quick-add-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-bottom:6px;}
 .quick-add-label{font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
-.quick-add-toggle{font-size:18px;color:var(--muted);transition:transform .2s;line-height:1;}
-.quick-add-toggle.open{transform:rotate(180deg);}
+.quick-add-toggle{font-size:14px;color:var(--muted);transition:transform .2s;line-height:1;width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:var(--surf2);border:1px solid var(--border);border-radius:7px;flex-shrink:0;}
+.quick-add-toggle.open{transform:rotate(180deg);border-color:var(--sage);color:var(--sage);}
 .quick-add-body{display:none;}
 .quick-add-body.open{display:block;}
 .ex-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}
@@ -640,6 +640,43 @@ btn.textContent='Could not copy -- select the address bar manually';
     <div class="card" id="bpCard">
       <div class="card-title">Select Body Part to Train</div>
       <div class="bp-grid" id="bpGrid"></div>
+      <div class="quick-add-section" style="margin-top:12px;">
+        <div class="quick-add-header" onclick="toggleMyRoutines()">
+          <span class="quick-add-label">My Routines</span>
+          <span class="quick-add-toggle" id="myRoutinesToggle">⌄</span>
+        </div>
+        <div class="quick-add-body" id="myRoutinesBody">
+          <div id="routineEmptyMsg" style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:12px;line-height:1.7;">Tap <span onclick="toggleInlineRoutineBuilder()" style="color:var(--sage);font-weight:900;text-transform:uppercase;letter-spacing:.3px;text-decoration:underline;cursor:pointer;">Add exercises</span> to build a list right here, then <span onclick="trySetInlineRoutine()" style="color:var(--sage);font-weight:900;text-transform:uppercase;letter-spacing:.3px;text-decoration:underline;cursor:pointer;">set a routine</span> to save it for reuse -- push day, a specific week's plan, whatever you want.</div>
+          <div id="inlineRoutineBuilder" style="display:none;margin-bottom:12px;">
+            <div style="position:relative;margin-bottom:8px;">
+              <input type="text" id="inlineRoutineSearch" placeholder="Search exercise to add..." autocomplete="off" oninput="handleInlineRoutineSearch(this)" style="width:100%;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
+              <div id="inlineRoutineSuggestions" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--surf3);border:1px solid var(--border);border-radius:8px;overflow:hidden;z-index:60;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5);"></div>
+            </div>
+            <div id="inlineRoutineExList" style="margin-bottom:8px;"></div>
+            <button onclick="trySetInlineRoutine()" style="width:100%;padding:10px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Set a Routine</button>
+          </div>
+          <select id="routineSelect" onchange="onRoutineSelectChange(this)" style="display:none;width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;margin-bottom:10px;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%278%27 viewBox=%270 0 12 8%27%3E%3Cpath d=%27M1 1l5 5 5-5%27 stroke=%27%23c9a84c%27 stroke-width=%271.8%27 fill=%27none%27 stroke-linecap=%27round%27/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 12px center;"></select>
+          <div id="routineDetail" style="display:none;background:var(--surf2);border-radius:8px;padding:12px;">
+            <div id="routineDetailName" style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px;"></div>
+            <div id="routineDetailMeta" style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;"></div>
+            <div style="display:flex;gap:6px;">
+              <button onclick="loadRoutine(_routineSelectedId)" style="flex:1;padding:8px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Load</button>
+              <button onclick="renameRoutine(_routineSelectedId)" style="padding:8px 10px;background:none;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;">Rename</button>
+              <button onclick="deleteRoutine(_routineSelectedId)" style="padding:8px 10px;background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="quick-add-section">
+        <div class="quick-add-header" onclick="toggleSuggestedStrengthRoutines()">
+          <span class="quick-add-label">KFit Suggested Strength Routines</span>
+          <span class="quick-add-toggle" id="suggestedStrengthRoutinesToggle">⌄</span>
+        </div>
+        <div class="quick-add-body" id="suggestedStrengthRoutinesBody">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Classic Push/Pull/Legs split, built on evidence-based volume guidance -- compounds first while you're fresh, sensible sets per muscle group. Loads the same way as your own routines; tweak anything after.</div>
+          <div id="suggestedStrengthRoutinesList"></div>
+        </div>
+      </div>
     </div>
 
     <div class="card">
@@ -714,7 +751,7 @@ btn.textContent='Could not copy -- select the address bar manually';
       </div>
       <div class="quick-add-section">
         <div class="quick-add-header" onclick="toggleSuggestedRoutines()">
-          <span class="quick-add-label">Suggested Routines</span>
+          <span class="quick-add-label">KFit Suggested Routines</span>
           <span class="quick-add-toggle" id="suggestedRoutinesToggle">⌄</span>
         </div>
         <div class="quick-add-body" id="suggestedRoutinesBody">
@@ -723,29 +760,6 @@ btn.textContent='Could not copy -- select the address bar manually';
         </div>
       </div>
       <div id="functionalBlocksList"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span>My Routines</span></div>
-      <div id="routineEmptyMsg" style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:12px;line-height:1.7;">Tap <span onclick="toggleInlineRoutineBuilder()" style="color:var(--sage);font-weight:900;text-transform:uppercase;letter-spacing:.3px;text-decoration:underline;cursor:pointer;">Add exercises</span> to build a list right here, then <span onclick="trySetInlineRoutine()" style="color:var(--sage);font-weight:900;text-transform:uppercase;letter-spacing:.3px;text-decoration:underline;cursor:pointer;">set a routine</span> to save it for reuse -- push day, a specific week's plan, whatever you want.</div>
-      <div id="inlineRoutineBuilder" style="display:none;margin-bottom:12px;">
-        <div style="position:relative;margin-bottom:8px;">
-          <input type="text" id="inlineRoutineSearch" placeholder="Search exercise to add..." autocomplete="off" oninput="handleInlineRoutineSearch(this)" style="width:100%;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
-          <div id="inlineRoutineSuggestions" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--surf3);border:1px solid var(--border);border-radius:8px;overflow:hidden;z-index:60;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5);"></div>
-        </div>
-        <div id="inlineRoutineExList" style="margin-bottom:8px;"></div>
-        <button onclick="trySetInlineRoutine()" style="width:100%;padding:10px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Set a Routine</button>
-      </div>
-      <select id="routineSelect" onchange="onRoutineSelectChange(this)" style="display:none;width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;margin-bottom:10px;-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%278%27 viewBox=%270 0 12 8%27%3E%3Cpath d=%27M1 1l5 5 5-5%27 stroke=%27%23c9a84c%27 stroke-width=%271.8%27 fill=%27none%27 stroke-linecap=%27round%27/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 12px center;"></select>
-      <div id="routineDetail" style="display:none;background:var(--surf2);border-radius:8px;padding:12px;">
-        <div id="routineDetailName" style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px;"></div>
-        <div id="routineDetailMeta" style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;"></div>
-        <div style="display:flex;gap:6px;">
-          <button onclick="loadRoutine(_routineSelectedId)" style="flex:1;padding:8px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Load</button>
-          <button onclick="renameRoutine(_routineSelectedId)" style="padding:8px 10px;background:none;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;">Rename</button>
-          <button onclick="deleteRoutine(_routineSelectedId)" style="padding:8px 10px;background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;">Delete</button>
-        </div>
-      </div>
     </div>
 
     <div class="card" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
@@ -1102,6 +1116,17 @@ btn.textContent='Could not copy -- select the address bar manually';
   </div>
 </div>
 
+<div id="saveAsRoutineOffer" style="display:none;position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--surf3);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:340px;width:100%;box-shadow:0 14px 40px rgba(0,0,0,.55);">
+    <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px;">Save this as a routine?</div>
+    <div style="font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:16px;">This combination of exercises isn't in your saved routines yet -- name it now to load it again in one tap next time.</div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="dismissSaveAsRoutineOffer()" style="flex:1;padding:11px;background:none;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Not now</button>
+      <button onclick="confirmSaveAsRoutineOffer()" style="flex:1;padding:11px;background:var(--sage);border:none;border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Save it</button>
+    </div>
+  </div>
+</div>
+
 <div id="blockingAlert" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:360px;width:100%;text-align:center;">
     <div id="blockingAlertMsg" style="font-size:17px;color:var(--text);line-height:1.5;margin-bottom:20px;"></div>
@@ -1127,7 +1152,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 </div>
 
 <script>
-const BODY_PARTS = ['Back','Chest','Shoulders','Biceps','Triceps','Legs','Core','Cardio'];
+const BODY_PARTS = ['Full Body','Back','Chest','Shoulders','Biceps','Triceps','Legs','Core','Cardio'];
 const EX_LIB = {
 'Back':['Pull-Ups','Chin-Ups','Lat Pulldown Wide','Lat Pulldown Close','Lat Pulldown Neutral Grip','Seated Row Close','Seated Row Wide','Chest Supported Row Wide','Chest Supported Row Close','Bent Over Barbell Row','Bent Over Dumbbell Row','Single Arm Dumbbell Row','T-Bar Row','Cable Row','Deadlift','Lat Prayer (Cable Pullover)','Straight Arm Pulldown','Face Pulls','Shrugs','Reverse Fly (Cable)'],
 'Chest':['Barbell Bench Press (Flat)','Barbell Bench Press (Incline)','Barbell Bench Press (Decline)','Dumbbell Press (Flat)','Dumbbell Press (Incline)','Dumbbell Press (Decline)','Dumbbell Fly (Flat)','Dumbbell Fly (Incline)','Dumbbell Fly (Decline)','Chest Press Machine','Machine Fly','Cable Fly (Low to High)','Cable Fly (High to Low)','Cable Fly (Mid)','Smith Machine Bench Press (Flat)','Smith Machine Bench Press (Incline)','Smith Machine Bench Press (Decline)','Push-Ups','Deficit Push Ups','Dips (Chest Focus)'],
@@ -1390,6 +1415,20 @@ if(toggle)toggle.classList.toggle('open',open);
 function toggleSuggestedRoutines(){
 const body=document.getElementById('suggestedRoutinesBody');
 const toggle=document.getElementById('suggestedRoutinesToggle');
+if(!body)return;
+const open=body.classList.toggle('open');
+if(toggle)toggle.classList.toggle('open',open);
+}
+function toggleMyRoutines(){
+const body=document.getElementById('myRoutinesBody');
+const toggle=document.getElementById('myRoutinesToggle');
+if(!body)return;
+const open=body.classList.toggle('open');
+if(toggle)toggle.classList.toggle('open',open);
+}
+function toggleSuggestedStrengthRoutines(){
+const body=document.getElementById('suggestedStrengthRoutinesBody');
+const toggle=document.getElementById('suggestedStrengthRoutinesToggle');
 if(!body)return;
 const open=body.classList.toggle('open');
 if(toggle)toggle.classList.toggle('open',open);
@@ -1922,6 +1961,7 @@ loadLiveRoutineTemplates();
 retryPendingAttendance();
 renderRoutineList();
 renderSuggestedRoutines();
+renderSuggestedStrengthRoutines();
 renderFaqList();
 renderCardioChips();
 renderFunctionalChips();
@@ -2386,7 +2426,11 @@ showBpNotif('Cardio','🏃','Loaded your cardio from '+(daysAgo>0?'<b style="col
 }
 function getExList(){
 var bps=selectedBP.filter(function(bp){return bp!=='Cardio';});
-return bps.length===0?ALL_EX.filter(function(e){return !CARDIO_EX.has(e)&&!FUNCTIONAL_EX.has(e);}):bps.flatMap(bp=>EX_LIB[bp]||[]);
+const realBps=bps.filter(function(bp){return bp!=='Full Body';});
+const generalList=ALL_EX.filter(function(e){return !CARDIO_EX.has(e)&&!FUNCTIONAL_EX.has(e);});
+if(realBps.length===0) return generalList;
+const filtered=realBps.flatMap(bp=>EX_LIB[bp]||[]);
+return filtered.length?filtered:generalList;
 }
 function populateSel(sel){
 const cur=sel.value;
@@ -3002,15 +3046,9 @@ document.getElementById('inlineRoutineBuilder').style.display='none';
 renderRoutineList();
 toast('Routine "'+name.trim()+'" saved');
 }
-function saveCurrentAsRoutine(){
+function captureCurrentExerciseStructure(){
 const exBlocks=[...document.querySelectorAll('#exBody .ex-block')];
 const supersetBlocks=[...document.querySelectorAll('#exBody .superset-block')];
-if(!exBlocks.length && !supersetBlocks.length){
-toast('Add some exercises first, then save as a routine');
-return;
-}
-const name=prompt('Name this routine (e.g. "Push Day A", "Week 3 Legs"):');
-if(!name||!name.trim()) return;
 const exercises=exBlocks.map(function(block){
 const sel=block.querySelector('.ex-select');
 return sel&&sel.value?{ex:sel.value}:null;
@@ -3019,7 +3057,44 @@ const supersets=supersetBlocks.map(function(block){
 const names=[...block.querySelectorAll('.ss-ex-select')].map(function(s){return s.value;}).filter(Boolean);
 return names.length?{exercises:names.map(function(n){return {ex:n};})}:null;
 }).filter(Boolean);
-if(!exercises.length && !supersets.length){
+const functionalNames=(functionalBlocks||[]).map(function(f){return f.ex;}).filter(Boolean);
+return {exercises,supersets,functionalNames,bodyParts:[...selectedBP]};
+}
+function allExerciseNamesFromStructure(structure){
+const names=structure.exercises.map(function(e){return e.ex;});
+structure.supersets.forEach(function(ss){ ss.exercises.forEach(function(e){names.push(e.ex);}); });
+structure.functionalNames.forEach(function(n){names.push(n);});
+return names;
+}
+function nameSetKey(names){
+return [...new Set(names)].sort().join('|');
+}
+function matchesKnownRoutine(names){
+const key=nameSetKey(names);
+if(!key) return true; // nothing to offer
+const knownKeys=[];
+routines.forEach(function(r){
+knownKeys.push(nameSetKey(allExerciseNamesFromStructure({exercises:r.exercises||[],supersets:r.supersets||[],functionalNames:[]})));
+});
+SUGGESTED_ROUTINES.forEach(function(r){
+const n=[];
+r.circuits.forEach(function(c){ c.exercises.forEach(function(e){n.push(e);}); });
+knownKeys.push(nameSetKey(n));
+});
+SUGGESTED_STRENGTH_ROUTINES.forEach(function(r){
+knownKeys.push(nameSetKey(r.exercises.map(function(e){return e.ex;})));
+});
+return knownKeys.includes(key);
+}
+function saveCurrentAsRoutine(){
+const structure=captureCurrentExerciseStructure();
+if(!structure.exercises.length && !structure.supersets.length){
+toast('Add some exercises first, then save as a routine');
+return;
+}
+const name=prompt('Name this routine (e.g. "Push Day A", "Week 3 Legs"):');
+if(!name||!name.trim()) return;
+if(!structure.exercises.length && !structure.supersets.length){
 toast('Pick at least one exercise before saving');
 return;
 }
@@ -3027,9 +3102,50 @@ const routine={
 id:'rt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
 name:name.trim(),
 createdBy:'client',
-bodyParts:[...selectedBP],
-exercises:exercises,
-supersets:supersets,
+bodyParts:structure.bodyParts,
+exercises:structure.exercises,
+supersets:structure.supersets,
+createdAt:new Date().toISOString(),
+updatedAt:Date.now()
+};
+routines.unshift(routine);
+localStorage.setItem('kmfit_routines',JSON.stringify(routines));
+syncFitnessToSupabase();
+renderRoutineList();
+toast('Routine "'+routine.name+'" saved \u2713');
+}
+
+let _pendingRoutineOffer=null;
+function maybeOfferSaveAsRoutine(structure){
+const names=allExerciseNamesFromStructure(structure);
+if(names.length<2) return; // trivial (0-1 exercises) -- not worth offering
+if(matchesKnownRoutine(names)) return; // already a known routine, nothing new to save
+_pendingRoutineOffer=structure;
+setTimeout(function(){
+var el=document.getElementById('saveAsRoutineOffer');
+if(el) el.style.display='flex';
+},1600); // let the brief save-confirmation checkmark finish first
+}
+function dismissSaveAsRoutineOffer(){
+var el=document.getElementById('saveAsRoutineOffer');
+if(el) el.style.display='none';
+_pendingRoutineOffer=null;
+}
+function confirmSaveAsRoutineOffer(){
+var el=document.getElementById('saveAsRoutineOffer');
+if(el) el.style.display='none';
+if(!_pendingRoutineOffer) return;
+const structure=_pendingRoutineOffer;
+_pendingRoutineOffer=null;
+const name=prompt('Name this routine (e.g. "Push Day A", "Week 3 Legs"):');
+if(!name||!name.trim()) return;
+const routine={
+id:'rt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+name:name.trim(),
+createdBy:'client',
+bodyParts:structure.bodyParts,
+exercises:structure.exercises,
+supersets:structure.supersets,
 createdAt:new Date().toISOString(),
 updatedAt:Date.now()
 };
@@ -3052,22 +3168,168 @@ toast('Routine "'+routine.name+'" saved \u2713');
 // any self-built routine.
 // ══════════════════════════════════════════════════════════════════
 const SUGGESTED_ROUTINES=[
-{name:'20-Min Functional Foundations',durationMin:20,bodyParts:['Functional'],circuits:[
+{name:'KFit 20-Min Functional Foundations',durationMin:20,bodyParts:['Functional'],circuits:[
 {label:'Circuit',exercises:['Goblet Squat','Push-Ups','Glute Bridge','Bent Over Dumbbell Row','Mountain Climbers','Plank']}
 ]},
-{name:'30-Min Full Body Circuit',durationMin:30,bodyParts:['Functional'],circuits:[
+{name:'KFit 30-Min Full Body Circuit',durationMin:30,bodyParts:['Functional'],circuits:[
 {label:'Circuit',exercises:['Bulgarian Split Squat','Push-Ups','Romanian Deadlift','Single Arm Dumbbell Row','Russian Twist',"Farmer's Carry",'Jumping Jacks','Wall Sit']}
 ]},
-{name:'45-Min Strength + Conditioning',durationMin:45,bodyParts:['Functional'],circuits:[
+{name:'KFit 45-Min Strength + Conditioning',durationMin:45,bodyParts:['Functional'],circuits:[
 {label:'Circuit A -- Strength',exercises:['Goblet Squat','Push-Ups','Romanian Deadlift','Bent Over Dumbbell Row','Walking Lunges','Dead Bug']},
 {label:'Circuit B -- Conditioning',exercises:['Mountain Climbers','Bear Crawl','Jumping Jacks','Plank']}
 ]},
-{name:'60-Min Complete Functional Athlete',durationMin:60,bodyParts:['Functional'],circuits:[
+{name:'KFit 60-Min Complete Functional Athlete',durationMin:60,bodyParts:['Functional'],circuits:[
 {label:'Circuit A -- Lower Body & Power',exercises:['Goblet Squat','Bulgarian Split Squat','Romanian Deadlift','Walking Lunges','Glute Bridge Hold']},
 {label:'Circuit B -- Upper Body & Core',exercises:['Push-Ups','Single Arm Dumbbell Row','Dumbbell Shoulder Press','Side Plank','Russian Twist']},
 {label:'Circuit C -- Conditioning Finisher',exercises:['Burpees','Mountain Climbers','High Knees',"Farmer's Carry"]}
 ]}
 ];
+// ══════════════════════════════════════════════════════════════════
+// SUGGESTED STRENGTH ROUTINES -- KFit's own presets: Push/Pull/Legs plus
+// an alternating Full Body A/B pair. Built on evidence-based hypertrophy
+// guidance (Renaissance Periodization / Dr. Mike Israetel's volume
+// landmarks, cross-checked against Menno Henselmans and Milo Wolf's
+// published positions, plus Schoenfeld et al.'s frequency meta-analyses
+// for the Full Body pair specifically):
+// - PPL: 2-10 working sets per muscle per session, staying under the
+//   ~10-12 set "junk volume" point; compounds first while fresh.
+// - Full Body A/B: since each muscle gets hit 2-3x/week instead of once,
+//   per-session volume is deliberately lower (2-3 sets per muscle, not
+//   3-4+) -- this is the key difference from PPL, not a smaller version
+//   of the same thing. A and B alternate exercise angles/variants for
+//   the same movement patterns (squat, hinge, push, pull, core) so nothing
+//   goes stale, matching Israetel/Menno's exercise-variation guidance --
+//   evidence-based full body programming is an alternating pair, not one
+//   routine repeated identically every session.
+// ══════════════════════════════════════════════════════════════════
+const SUGGESTED_STRENGTH_ROUTINES=[
+{name:'KFit Push Day (Chest, Shoulders, Triceps)',bodyParts:['Chest','Shoulders','Triceps'],exercises:[
+{ex:'Barbell Bench Press (Flat)',sets:4},
+{ex:'Barbell Overhead Press',sets:3},
+{ex:'Dumbbell Press (Incline)',sets:3},
+{ex:'Lateral Raises (Dumbbell)',sets:3},
+{ex:'Tricep Pushdown (Rope)',sets:3},
+{ex:'Overhead Tricep Extension (Dumbbell)',sets:3}
+]},
+{name:'KFit Pull Day (Back, Biceps)',bodyParts:['Back','Biceps'],exercises:[
+{ex:'Bent Over Barbell Row',sets:4},
+{ex:'Lat Pulldown Wide',sets:3},
+{ex:'Seated Row Close',sets:3},
+{ex:'Face Pulls',sets:3},
+{ex:'Barbell Curl',sets:3},
+{ex:'Hammer Curl',sets:3}
+]},
+{name:'KFit Leg Day (Quads, Hamstrings, Glutes)',bodyParts:['Legs'],exercises:[
+{ex:'Barbell Squat',sets:4},
+{ex:'Romanian Deadlift',sets:3},
+{ex:'Leg Press',sets:3},
+{ex:'Lying Hamstring Curl',sets:3},
+{ex:'Walking Lunges',sets:3},
+{ex:'Standing Calf Raise',sets:4}
+]},
+{name:'KFit Full Body A',bodyParts:['Full Body'],exercises:[
+{ex:'Barbell Squat',sets:3},
+{ex:'Barbell Bench Press (Flat)',sets:3},
+{ex:'Bent Over Barbell Row',sets:3},
+{ex:'Romanian Deadlift',sets:3},
+{ex:'Barbell Overhead Press',sets:2},
+{ex:'Russian Twist',sets:2}
+]},
+{name:'KFit Full Body B',bodyParts:['Full Body'],exercises:[
+{ex:'Leg Press',sets:3},
+{ex:'Dumbbell Press (Incline)',sets:3},
+{ex:'Lat Pulldown Wide',sets:3},
+{ex:'Walking Lunges',sets:3},
+{ex:'Lateral Raises (Dumbbell)',sets:2},
+{ex:'Dead Bug',sets:2}
+]},
+// Upper/Lower A/B -- classic 4-day split, hits each muscle 2x/week (the
+// evidence-backed sweet spot per Schoenfeld/Grgic/Krieger; a 3rd weekly
+// hit shows inconclusive further benefit). Per-session volume runs
+// higher than Full Body's (4-8 sets/muscle vs 2-4) since each muscle is
+// trained half as often -- this is the middle ground between Full Body's
+// high frequency/low per-session volume and PPL's low frequency/high
+// per-session volume. A/B varies exercise angle per muscle for the same
+// staleness-avoidance reason as the other alternating pairs.
+{name:'KFit Upper A',bodyParts:['Chest','Back','Shoulders','Biceps','Triceps'],exercises:[
+{ex:'Barbell Bench Press (Flat)',sets:4},
+{ex:'Bent Over Barbell Row',sets:4},
+{ex:'Barbell Overhead Press',sets:3},
+{ex:'Lat Pulldown Wide',sets:3},
+{ex:'Barbell Curl',sets:2},
+{ex:'Tricep Pushdown (Rope)',sets:2}
+]},
+{name:'KFit Lower A',bodyParts:['Legs'],exercises:[
+{ex:'Barbell Squat',sets:4},
+{ex:'Romanian Deadlift',sets:3},
+{ex:'Leg Press',sets:3},
+{ex:'Lying Hamstring Curl',sets:3},
+{ex:'Standing Calf Raise',sets:3}
+]},
+{name:'KFit Upper B',bodyParts:['Chest','Back','Shoulders','Biceps','Triceps'],exercises:[
+{ex:'Dumbbell Press (Incline)',sets:4},
+{ex:'Seated Row Close',sets:4},
+{ex:'Dumbbell Shoulder Press',sets:3},
+{ex:'Lat Pulldown Close',sets:3},
+{ex:'Hammer Curl',sets:2},
+{ex:'Overhead Tricep Extension (Dumbbell)',sets:2}
+]},
+{name:'KFit Lower B',bodyParts:['Legs'],exercises:[
+{ex:'Bulgarian Split Squat',sets:3},
+{ex:'Stiff Leg Deadlift',sets:3},
+{ex:'Walking Lunges',sets:3},
+{ex:'Seated Hamstring Curl',sets:3},
+{ex:'Seated Calf Raise',sets:3}
+]}
+];
+function renderSuggestedStrengthRoutines(){
+var el=document.getElementById('suggestedStrengthRoutinesList');
+if(!el) return;
+el.innerHTML=SUGGESTED_STRENGTH_ROUTINES.map(function(r,i){
+var totalSets=r.exercises.reduce(function(a,e){return a+e.sets;},0);
+return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">'
++'<div><div style="font-size:14px;font-weight:700;color:var(--text);">'+r.name+'</div>'
++'<div style="font-size:12px;color:var(--muted);margin-top:2px;">'+r.exercises.length+' exercises, '+totalSets+' total sets</div></div>'
++'<button onclick="loadSuggestedStrengthRoutine('+i+')" style="flex-shrink:0;padding:7px 14px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Load</button>'
++'</div>';
+}).join('');
+}
+function loadSuggestedStrengthRoutine(idx){
+var r=SUGGESTED_STRENGTH_ROUTINES[idx];
+if(!r) return;
+var hasExistingWork=document.querySelectorAll('#exBody .ex-block, #exBody .superset-block').length>0 || (cardioBlocks&&cardioBlocks.length>0) || (functionalBlocks&&functionalBlocks.length>0);
+if(hasExistingWork && !confirm('Load "'+r.name+'"? This starts a fresh set of exercises. Anything you\'ve started here but haven\'t saved yet will be cleared. Your saved sessions and routines are never affected.')) return;
+document.getElementById('exBody').innerHTML='';
+cardioBlocks=[];
+functionalBlocks=[];
+if(typeof renderCardioBlocks==='function') renderCardioBlocks();
+if(typeof renderFunctionalBlocks==='function') renderFunctionalBlocks();
+document.querySelectorAll('.bp-btn').forEach(function(b){ b.classList.remove('active'); });
+selectedBP=[];
+r.bodyParts.forEach(function(bp){
+var btn=[...document.querySelectorAll('.bp-btn')].find(function(b){ return b.textContent.trim()===bp; });
+if(btn) btn.classList.add('active');
+if(!selectedBP.includes(bp)) selectedBP.push(bp);
+});
+renderExChips();
+r.exercises.forEach(function(e){
+addExRow();
+var blocks=document.querySelectorAll('#exBody .ex-block');
+var newBlock=blocks[blocks.length-1];
+var sel=newBlock.querySelector('.ex-select');
+if(![...sel.options].some(function(o){ return o.value===e.ex; })){
+var opt=document.createElement('option');
+opt.value=e.ex; opt.textContent=e.ex;
+sel.appendChild(opt);
+}
+sel.value=e.ex;
+onExChange(sel);
+var setsEl=newBlock.querySelector('.sets-select');
+if(setsEl){ setsEl.value=e.sets; updateSetRows(setsEl); }
+});
+toast('Loaded "'+r.name+'" -- adjust weights/reps as you like');
+}
+
 function renderSuggestedRoutines(){
 var el=document.getElementById('suggestedRoutinesList');
 if(!el) return;
@@ -3169,6 +3431,10 @@ sel.appendChild(opt);
 }
 sel.value=e.ex;
 onExChange(sel);
+if(e.sets){
+var setsEl=newBlock.querySelector('.sets-select');
+if(setsEl){ setsEl.value=e.sets; updateSetRows(setsEl); }
+}
 });
 if(typeof renderFunctionalBlocks==='function') renderFunctionalBlocks();
 eff.supersets.forEach(function(ss){
@@ -3668,6 +3934,7 @@ updatedAt: Date.now()
 });
 saveSessions();
 showSaveConfirmation(_estCal);
+var _capturedStructure=captureCurrentExerciseStructure();
 
 var _attRecord={
 client: document.getElementById('clientName').value.trim()||'Client',
@@ -3710,6 +3977,7 @@ renderCardioBlocks();
 renderFunctionalBlocks();
 clearLog(); renderHistory(); renderStats();
 if(saveBtn) saveBtn.disabled=false;
+maybeOfferSaveAsRoutine(_capturedStructure);
 }
 
 function clearLog(){
@@ -6358,7 +6626,7 @@ const HELP_TEXT=[
 {title:'Log a Workout',body:
 '<b>1. Tap the body part you\'re training</b><br>See buttons like Back, Chest, Legs, Cardio? Tap the one(s) you\'re training today. You can tap more than one (e.g. Chest + Shoulders). The right exercises show up below by themselves -- you never have to search for them.<br><br>'+
 '<b>1b. Or just search for any exercise directly</b><br>There\'s a search box above your exercise list -- type any exercise\'s name, from any body part, whether or not you\'ve tapped that body part above. It\'s forgiving about word order, so "flat bench press barbell" still finds "Barbell Bench Press (Flat)." Tap a suggestion and it gets added, its body part gets ticked on automatically, and your history for it shows up right away.<br><br>'+
-'<b>1c. Save and reuse your own routines</b><br>Built a combination of exercises you want to repeat -- a specific push day, a week\'s plan, anything? In the My Routines box, tap <b>Add exercises</b> to search and build a list right there (no need to log real sets first), then tap <b>Set a Routine</b> to name and save it, however many you like. If you\'d rather build it the long way, add exercises normally on this page first, then tap Set a Routine -- it saves whatever\'s currently on the page instead. Next time, tap "Load" from the dropdown and it rebuilds that exact exercise list instantly -- a fresh, blank set of exercises ready to log new numbers against, with your history for each one still showing. Loading a routine only clears whatever\'s currently unsaved on the page; it never touches anything you\'ve already saved. Routines with a "(Coach)" tag were sent to you by your coach -- you can load, rename, or delete them just like your own. Below My Routines, <b>Suggested Functional Routines</b> are four ready-made circuits (20/30/45/60 min) built around proper movement-pattern rotation -- no building required, just tap Load and adjust from there.<br><br>'+
+'<b>1c. Save and reuse your own routines</b><br>Built a combination of exercises you want to repeat -- a specific push day, a week\'s plan, anything? In the Select Body Part card, open <b>My Routines</b> and tap <b>Add exercises</b> to search and build a list right there (no need to log real sets first), then tap <b>Set a Routine</b> to name and save it, however many you like. If you\'d rather build it the long way, add exercises normally on this page first, then tap Set a Routine -- it saves whatever\'s currently on the page instead. Next time, tap "Load" from the dropdown and it rebuilds that exact exercise list instantly -- a fresh, blank set of exercises ready to log new numbers against, with your history for each one still showing. Loading a routine only clears whatever\'s currently unsaved on the page; it never touches anything you\'ve already saved. Routines with a "(Coach)" tag were sent to you by your coach -- you can load, rename, or delete them just like your own. Right below My Routines, open <b>KFit Suggested Strength Routines</b> for Push/Pull/Legs, an alternating Full Body A/B pair, and an alternating Upper/Lower A/B pair -- all built on published evidence-based volume guidance, no building required, just tap Load. Inside the Functional/Isometric card, open <b>KFit Suggested Routines</b> for four ready-made circuits (20/30/45/60 min) built around proper movement-pattern rotation. And if you log a combination of exercises that isn\'t already one of your saved routines, tapping Save Session will offer to save it as a new routine right then -- name it and it\'s ready to load again next time.<br><br>'+
 '<b>2. For each exercise, fill in your sets</b><br>Every exercise shows boxes for Reps and Weight, one row per set. Just type the numbers in as you finish each set. Did an extra set that isn\'t shown? Tap "+ Add Set" to add another row.<br><br>'+
 '<b>3. The H button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "H" (for Help). Tap it once for every rep in that set where someone helped you finish (a spot) -- it\'ll show a number like "H 2". Tapped it by mistake, or want to lower the count? Press and hold the button to subtract one. Didn\'t need help at all? Just leave it alone.<br><br>'+
 '<b>3b. The LP button (lengthened partials)</b><br>Works exactly the same way as H, right next to it. Tap "LP" once for every rep in that set done as a lengthened partial -- a shorter rep performed in the stretched position of the movement (e.g. the bottom half of a leg extension or bicep curl), a technique some research suggests builds muscle as well as full-range reps for certain exercises. Same as H: tap to add one, press and hold to subtract one. Like H and drop sets, LP reps are excluded from your Personal Records, since a partial-range rep isn\'t really the same lift as a full-range one.<br><br>'+

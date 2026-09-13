@@ -370,6 +370,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div onclick="addAsCardio()" style="padding:8px;border:1px dashed var(--border);border-radius:8px;text-align:center;color:var(--sage);font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;">+ Add Cardio</div>
       </div>
 
+      <div id="as-functional-section" style="display:block;">
+        <div class="form-label" style="margin-bottom:8px;">Functional / Isometric</div>
+        <div id="as-functional-blocks"></div>
+        <div onclick="addAsFunctional()" style="padding:8px;border:1px dashed var(--border);border-radius:8px;text-align:center;color:var(--sage);font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;">+ Add Functional Movement</div>
+      </div>
+
       <div class="form-group">
         <div class="form-label">Notes</div>
         <textarea id="as-notes" class="form-inp" rows="3" placeholder="Optional notes for this session" style="resize:vertical;font-family:'DM Sans',sans-serif;"></textarea>
@@ -737,13 +743,17 @@ const COACH_HELP_SECTIONS={
   fitness:{title:'Fitness Tab',body:
     '<b>Client list</b> shows everyone who has logged at least one fitness session. Tap a client to see their sessions, notes, and stats.<br><br>'
     +'<b>New Sign-ups card</b> (appears above the list when relevant) shows people who have set up a profile on the tracker but haven\'t logged a session yet -- so you know someone joined even before they start showing up as a "real" client.<br><br>'
-    +'<b>Client tags</b> let you label clients (e.g. needs follow-up) for your own organisation -- clients never see these.'},
+    +'<b>Client tags</b> let you label clients (e.g. needs follow-up) for your own organisation -- clients never see these.<br><br>'
+    +'<b>🔓 Access / 🔒 Blocked</b> is a kill switch -- tap it to instantly cut off a specific client\'s tracker access (they\'ll see a "paused" screen instead of the app) without touching anyone else\'s. Tap again any time to restore it. This is separate from your own KFit subscription in the Account tab -- it\'s about one client, not your whole account.<br><br>'
+    +'<b>🧘 KFit Suggested Functional Routines</b> and <b>💪 KFit Suggested Strength Routines</b>, inside each client\'s own page, are ready-built by KFit itself -- circuits, Push/Pull/Legs, Full Body A/B, Upper/Lower A/B, grounded in published training research. One tap on "Send" writes the full structure straight into that client\'s own routines, no building required.'},
   nutrition:{title:'Nutrition Tab',body:
     '<b>Client list</b> works the same as Fitness -- tap a client, then a day, to see their Eating Order and Protein First scores plus whatever they logged.<br><br>'
     +'<b>+ Assign Meal Plan</b> lets you fill in specific food/macro content for a client on specific dates -- this writes directly into their calendar, for one client at a time.<br><br>'
-    +'<b>📋 Diet Templates</b> is different -- it\'s a reusable library. Build a daily or weekly plan once (with either/or options per meal), save it, then either hit Send to assign it to a specific client, or leave it in your shared library so clients can pick it themselves from their own tracker. You can also paste a plan in from Google Docs/Notes instead of building it option by option.'},
+    +'<b>📋 Diet Templates</b> is different -- it\'s a reusable library. Build a daily or weekly plan once (with either/or options per meal), save it, then either hit Send to assign it to a specific client, or leave it in your shared library so clients can pick it themselves from their own tracker. You can also paste a plan in from Google Docs/Notes instead of building it option by option.<br><br>'
+    +'<b>🔥 Calories</b> (inside a client\'s page) is separate from Eating Order/Protein First entirely -- only relevant if you or that client are using the optional Calorie tab in their tracker. You can set their daily target here and see their recent logging, but you don\'t have to use this at all if you coach by Protein First instead.<br><br>'
+    +'<b>🔓 Access / 🔒 Blocked</b> works the same as in Fitness -- an instant, reversible kill switch for that one client, shared across both trackers (blocking them here blocks Fitness too, since it\'s the same person).'},
   exercises:{title:'Exercises Tab',body:
-    '<b>Routine Templates</b> are reusable workouts -- exercise names only, no reps or weight -- that you build once and assign to any client. They show up in that client\'s own "My Routines" list, tagged as coming from you. You can paste a list of exercises in instead of adding them one by one.<br><br>'
+    '<b>Routine Templates</b> are reusable workouts -- exercise names only, no reps or weight -- that you build once and assign to any client. They show up in that client\'s own "My Routines" list, tagged as coming from you. You can paste a list of exercises in instead of adding them one by one. Functional/isometric movements (Plank, Wall Sit, Dead Hang, and so on) are searchable here too, so an all-functional or mixed routine works the same way -- your client\'s tracker knows to log those as time (and optional weight) instead of reps.<br><br>'
     +'<b>Technique videos</b> attach a reference video to a specific exercise name -- when a client picks that exercise while logging, your video shows up automatically.'},
   feedback:{title:'Feedback Tab',body:
     'Shows messages clients send you from inside their own tracker (there\'s a feedback button in their app too). You can reply, and replies show up back in their tracker. Anything with the red badge is unread.'},
@@ -834,6 +844,16 @@ const CARDIO_MET={
 'Ski Erg':{Easy:5.0,Moderate:7.0,Hard:9.0,Max:11.0}
 };
 const CARDIO_MET_DEFAULT={Easy:4.0,Moderate:6.0,Hard:8.0,Max:10.0};
+// Matches km-fitness-tracker.html exactly -- static holds burn meaningfully
+// less than dynamic bodyweight movement, so this needs differentiated
+// values, not one flat number.
+const FUNCTIONAL_MET={
+'Plank':3.0,'Side Plank':3.0,'Wall Sit':3.5,'Dead Hang':2.5,'Glute Bridge Hold':2.5,
+'Hollow Body Hold':3.5,'Superman Hold':2.5,'Bird Dog Hold':2.5,'Split Squat Hold':3.5,
+'Push-Up Hold':3.0,'Squat Hold':3.5,'Farmer\'s Carry':4.5,
+'Bear Crawl':6.0,'Jumping Jacks':7.0,'Mountain Climbers':8.0,'High Knees':8.0,'Burpees':10.0
+};
+const FUNCTIONAL_MET_DEFAULT=4.0;
 function personalRMRPerHour(weightKg,heightCm,age,gender){
 if(!weightKg||!heightCm||!age||!gender) return null;
 var bmr=gender==='male'
@@ -877,7 +897,15 @@ var hrs=mins/60;
 var kcal=met*rmrPerHour*hrs;
 total+=kcal; totalLow+=kcal; totalHigh+=kcal;
 });
-if(!opts.strengthSecs&&!(opts.cardioBlocks&&opts.cardioBlocks.length)) return null;
+(opts.functionalBlocks||[]).forEach(function(f){
+var secs=parseInt(f.duration)||0;
+if(!secs) return;
+var met=FUNCTIONAL_MET[f.ex]||FUNCTIONAL_MET_DEFAULT;
+var hrs=secs/3600;
+var kcal=met*rmrPerHour*hrs;
+total+=kcal; totalLow+=kcal; totalHigh+=kcal;
+});
+if(!opts.strengthSecs&&!(opts.cardioBlocks&&opts.cardioBlocks.length)&&!(opts.functionalBlocks&&opts.functionalBlocks.length)) return null;
 return {
 value:Math.round(total), low:Math.round(totalLow), high:Math.round(totalHigh),
 isRange:Math.round(totalLow)!==Math.round(totalHigh), personalized:true
@@ -898,14 +926,16 @@ if(height==null&&sorted[i].height!=null) height=sorted[i].height;
 }
 return {age:age,gender:gender,weight:weight,height:height,isComplete:!!(age&&gender&&weight&&height)};
 }
-function estCaloriesForCoachSession(full,exercisesPayload,supersetsPayload,cardioPayload,durationSecs,avgRestVal){
+function estCaloriesForCoachSession(full,exercisesPayload,supersetsPayload,cardioPayload,durationSecs,avgRestVal,functionalPayload){
 var cardioSecsTotal=(cardioPayload||[]).reduce(function(a,c){return a+((parseInt(c.duration)||0)*60);},0);
+var functionalSecsTotal=(functionalPayload||[]).reduce(function(a,f){return a+(parseInt(f.duration)||0);},0);
 var hasStrength=(exercisesPayload&&exercisesPayload.length>0)||(supersetsPayload&&supersetsPayload.length>0);
-var strengthSecs=hasStrength?Math.max(0,(durationSecs||0)-cardioSecsTotal):0;
+var strengthSecs=hasStrength?Math.max(0,(durationSecs||0)-cardioSecsTotal-functionalSecsTotal):0;
 return computeSessionCalories({
 strengthSecs:strengthSecs,
 avgRestSec:avgRestVal||null,
 cardioBlocks:(cardioPayload||[]).map(function(c){return {ex:c.ex,duration:c.duration,intensity:c.intensity};}),
+functionalBlocks:(functionalPayload||[]).map(function(f){return {ex:f.ex,duration:f.duration};}),
 profile:getClientProfileFromFull(full)
 });
 }
@@ -1043,7 +1073,7 @@ function scoreRtExerciseMatches(query){
   if(!q) return [];
   const words=q.split(/\s+/).filter(function(w){ return w.length>=3; });
   if(!words.length) return [];
-  const allNames=[...new Set(Object.values(EX_LIB).flat())].filter(function(n){
+  const allNames=[...new Set([...Object.values(EX_LIB).flat(),...FUNCTIONAL_LIST])].filter(function(n){
     return !(EX_LIB['Cardio']||[]).includes(n);
   });
   return allNames.map(function(name){
@@ -1115,6 +1145,7 @@ function renderRtExList(){
 function rtBodyPartsFor(exercises){
   const bps=new Set();
   exercises.forEach(function(ex){
+    if(FUNCTIONAL_LIST.includes(ex)){ bps.add('Functional'); return; }
     Object.keys(EX_LIB).forEach(function(bp){
       if(bp!=='Cardio'&&(EX_LIB[bp]||[]).includes(ex)) bps.add(bp);
     });
@@ -1815,6 +1846,30 @@ function showClient(key){
       <div id="clientRoutinesList">Loading...</div>
     </div>
     <div class="card" style="margin-bottom:14px;">
+      <div class="card-title">🧘 KFit Suggested Functional Routines</div>
+      <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;">Four ready-made circuits, built around proper movement-pattern rotation -- one tap sends the full structure to this client's own routines.</div>
+      ${SUGGESTED_ROUTINES.map((r,i)=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--text);">${r.name}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">${r.supersets.map(c=>c.exercises.length+' ex').join(' + ')} \u00d7 3 rounds each</div>
+          </div>
+          <button onclick="sendSuggestedRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="flex-shrink:0;padding:7px 14px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
+        </div>`).join('')}
+    </div>
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-title">💪 KFit Suggested Strength Routines</div>
+      <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;">Classic Push/Pull/Legs split, built on evidence-based volume guidance -- one tap sends the full structure, with set counts, to this client's own routines.</div>
+      ${SUGGESTED_STRENGTH_ROUTINES.map((r,i)=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--text);">${r.name}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">${r.exercises.length} exercises, ${r.exercises.reduce((a,e)=>a+e.sets,0)} total sets</div>
+          </div>
+          <button onclick="sendSuggestedStrengthRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="flex-shrink:0;padding:7px 14px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
+        </div>`).join('')}
+    </div>
+    <div class="card" style="margin-bottom:14px;">
       <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📋 Assigned Workouts
         <button onclick="openAddSession('${key.replace(/'/g,"\\'")}');setAsMode('assign');" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Assign Another Workout</button>
       </div>
@@ -1934,6 +1989,33 @@ async function performRoutineAssignment(template,c){
   },{onConflict:'client_id,tracker'});
   if(saveErr){ alert('Error assigning: '+saveErr.message); return false; }
   return true;
+}
+async function sendSuggestedRoutine(idx,clientKey){
+  const r=SUGGESTED_ROUTINES[idx];
+  if(!r) return;
+  const clients=groupClients();
+  const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
+  if(!c){ alert('Client not found.'); return; }
+  // performRoutineAssignment reads body_parts (snake_case, matching the
+  // routine_templates table column) -- bridge that here rather than
+  // renaming bodyParts everywhere else in this file.
+  const syntheticTemplate={ name:r.name, body_parts:r.bodyParts, exercises:[], supersets:r.supersets };
+  const ok=await performRoutineAssignment(syntheticTemplate,c);
+  if(!ok) return;
+  alert('"'+r.name+'" sent to '+c.name+' \u2713');
+  loadClientRoutinesList(clientKey);
+}
+async function sendSuggestedStrengthRoutine(idx,clientKey){
+  const r=SUGGESTED_STRENGTH_ROUTINES[idx];
+  if(!r) return;
+  const clients=groupClients();
+  const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
+  if(!c){ alert('Client not found.'); return; }
+  const syntheticTemplate={ name:r.name, body_parts:r.bodyParts, exercises:r.exercises, supersets:[] };
+  const ok=await performRoutineAssignment(syntheticTemplate,c);
+  if(!ok) return;
+  alert('"'+r.name+'" sent to '+c.name+' \u2713');
+  loadClientRoutinesList(clientKey);
 }
 async function assignRoutineToClient(clientKey){
   const sel=document.getElementById('rtAssignSelect');
@@ -2083,6 +2165,9 @@ async function editAssignedWorkout(clientKey,dateStr){
   asCardioBlocks=(w.cardio||[]).map(c2=>({id:Date.now()+Math.random(),ex:c2.ex||'',duration:c2.duration||'',intensity:c2.intensity||''}));
   renderAsCardio();
   if(asCardioBlocks.length) document.getElementById('as-cardio-section').style.display='block';
+
+  asFunctionalBlocks=(w.functional||[]).map(f=>({id:Date.now()+Math.random(),ex:f.ex||'',duration:f.duration||'',weight:f.weight||''}));
+  renderAsFunctional();
 
   document.getElementById('as-notes').value=w.notes||'';
   document.getElementById('as-modal-title').textContent='Edit Assigned Workout';
@@ -2431,13 +2516,14 @@ function renderCoachSession(s,allSessions){
   // Body parts
   const _coachPrInfo=getSessionPRInfoCoach(s,prMap8,allSessions);
   const _coachPrPill=_coachPrInfo.count?`<span style="padding:4px 12px;background:var(--gold);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#171200;">🏆 ${_coachPrInfo.count} P.R.</span>`:'';
-  const sessDur=s.duration||(s.cardio&&s.cardio.length?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60:0);
+  const sessDur=s.duration||(((s.cardio&&s.cardio.length)?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60:0)+((s.functional&&s.functional.length)?s.functional.reduce((a,f)=>a+(parseInt(f.duration)||0),0):0));
   const _sessCal=s.estCalories||(function(){
     var _cSecs=(s.cardio||[]).reduce((a,c)=>a+((parseInt(c.duration)||0)*60),0);
+    var _fSecs=(s.functional||[]).reduce((a,f)=>a+(parseInt(f.duration)||0),0);
     var _hasStr=(s.exercises&&s.exercises.length>0)||(s.supersets&&s.supersets.length>0);
-    var _strSecs=_hasStr?Math.max(0,(sessDur||0)-_cSecs):0;
+    var _strSecs=_hasStr?Math.max(0,(sessDur||0)-_cSecs-_fSecs):0;
     var _avgRest=(s.restTimes&&s.restTimes.length)?(s.restTimes.reduce((a,b)=>a+b,0)/s.restTimes.length):s.avgRestManual;
-    return computeSessionCalories({strengthSecs:_strSecs,avgRestSec:_avgRest,cardioBlocks:(s.cardio||[]).map(c=>({ex:c.ex,duration:c.duration,intensity:c.intensity})),profile:{}});
+    return computeSessionCalories({strengthSecs:_strSecs,avgRestSec:_avgRest,cardioBlocks:(s.cardio||[]).map(c=>({ex:c.ex,duration:c.duration,intensity:c.intensity})),functionalBlocks:(s.functional||[]).map(f=>({ex:f.ex,duration:f.duration})),profile:{}});
   })();
   const _calBadgeCoach=_sessCal?`<span style="color:var(--terra);font-size:14px;font-weight:800;">&#128293; ${_sessCal.isRange?(_sessCal.low+'-'+_sessCal.high):_sessCal.value} kcal</span>`:'';
   const bpHtml=(s.bodyParts&&s.bodyParts.length)?
@@ -2458,6 +2544,18 @@ function renderCoachSession(s,allSessions){
         ${c.duration?`<span style="color:var(--sage);">${c.duration} min</span> `:''}
         ${c.distance?`<span style="color:var(--gold);">${c.distance}km</span> `:''}
         ${c.intensity?`<span style="color:var(--terra);">Intensity: ${c.intensity}</span>`:''}
+      </div>
+    </div>`).join('')}
+  </div>`:'';
+
+  // Functional / Isometric
+  const functionalHtml=(s.functional&&s.functional.length)?`<div class="card">
+    <div class="card-title">Functional / Isometric</div>
+    ${s.functional.map(f=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:16px;font-weight:700;">${f.ex}</div>
+      <div style="text-align:right;font-family:'DM Mono',monospace;font-size:14px;">
+        ${f.duration?`<span style="color:var(--terra);">${f.duration}s</span> `:''}
+        ${f.weight?`<span style="color:var(--gold);">${f.weight}${asUnit||'kg'}</span>`:''}
       </div>
     </div>`).join('')}
   </div>`:'';
@@ -2530,7 +2628,7 @@ function renderCoachSession(s,allSessions){
   // Notes
   const notesHtml=s.notes?`<div class="card"><div class="card-title">Notes</div><p style="font-size:15px;line-height:1.65;color:var(--muted);">${s.notes}</p></div>`:'';
 
-  document.getElementById('coachSessBody').innerHTML=bpHtml+durHtml+cardioHtml+(_hasRealOrderCoach?_interleavedCoach:ssHtml+exHtml)+restHtml+notesHtml;
+  document.getElementById('coachSessBody').innerHTML=bpHtml+durHtml+cardioHtml+functionalHtml+(_hasRealOrderCoach?_interleavedCoach:ssHtml+exHtml)+restHtml+notesHtml;
 }
 
 function fmtDurCoach(secs){
@@ -2563,6 +2661,112 @@ function calcStreak(records){
 
 const BP_LIST=['Chest','Back','Shoulders','Arms','Legs','Core'];
 const CARDIO_LIST=['Running (Treadmill)','Running (Outdoor)','Cycling','Rowing Machine','Jump Rope','Walking','Zumba','HIIT','Swimming','Elliptical'];
+const FUNCTIONAL_LIST=['Plank','Side Plank','Wall Sit','Dead Hang','Glute Bridge Hold','Hollow Body Hold','Superman Hold','Bird Dog Hold','Split Squat Hold','Push-Up Hold','Squat Hold','Farmer\'s Carry','Bear Crawl','Jumping Jacks','Mountain Climbers','High Knees','Burpees'];
+// Same four presets as km-fitness-tracker.html's SUGGESTED_ROUTINES (see that
+// file for the circuit-training research behind the design). Structured
+// directly as {num, exercises} here since that's the shape
+// performRoutineAssignment() already knows how to write into a client's own
+// routines list -- reusing it as-is rather than building a parallel path.
+const SUGGESTED_ROUTINES=[
+{name:'KFit 20-Min Functional Foundations',durationMin:20,bodyParts:['Functional'],supersets:[
+{num:1,exercises:['Goblet Squat','Push-Ups','Glute Bridge','Bent Over Dumbbell Row','Mountain Climbers','Plank'].map(ex=>({ex:ex}))}
+]},
+{name:'KFit 30-Min Full Body Circuit',durationMin:30,bodyParts:['Functional'],supersets:[
+{num:1,exercises:['Bulgarian Split Squat','Push-Ups','Romanian Deadlift','Single Arm Dumbbell Row','Russian Twist','Farmer\'s Carry','Jumping Jacks','Wall Sit'].map(ex=>({ex:ex}))}
+]},
+{name:'KFit 45-Min Strength + Conditioning',durationMin:45,bodyParts:['Functional'],supersets:[
+{num:1,exercises:['Goblet Squat','Push-Ups','Romanian Deadlift','Bent Over Dumbbell Row','Walking Lunges','Dead Bug'].map(ex=>({ex:ex}))},
+{num:2,exercises:['Mountain Climbers','Bear Crawl','Jumping Jacks','Plank'].map(ex=>({ex:ex}))}
+]},
+{name:'KFit 60-Min Complete Functional Athlete',durationMin:60,bodyParts:['Functional'],supersets:[
+{num:1,exercises:['Goblet Squat','Bulgarian Split Squat','Romanian Deadlift','Walking Lunges','Glute Bridge Hold'].map(ex=>({ex:ex}))},
+{num:2,exercises:['Push-Ups','Single Arm Dumbbell Row','Dumbbell Shoulder Press','Side Plank','Russian Twist'].map(ex=>({ex:ex}))},
+{num:3,exercises:['Burpees','Mountain Climbers','High Knees','Farmer\'s Carry'].map(ex=>({ex:ex}))}
+]}
+];
+// Same presets as km-fitness-tracker.html's SUGGESTED_STRENGTH_ROUTINES
+// (see that file for the RP/Israetel volume-landmark research and the
+// Schoenfeld et al. frequency meta-analyses behind the Full Body A/B
+// pair specifically). Flat exercises array with a sets count per
+// exercise -- performRoutineAssignment already reads template.exercises
+// directly, no bridging needed the way supersets needed for the
+// functional presets.
+const SUGGESTED_STRENGTH_ROUTINES=[
+{name:'KFit Push Day (Chest, Shoulders, Triceps)',bodyParts:['Chest','Shoulders','Triceps'],exercises:[
+{ex:'Barbell Bench Press (Flat)',sets:4},
+{ex:'Barbell Overhead Press',sets:3},
+{ex:'Dumbbell Press (Incline)',sets:3},
+{ex:'Lateral Raises (Dumbbell)',sets:3},
+{ex:'Tricep Pushdown (Rope)',sets:3},
+{ex:'Overhead Tricep Extension (Dumbbell)',sets:3}
+]},
+{name:'KFit Pull Day (Back, Biceps)',bodyParts:['Back','Biceps'],exercises:[
+{ex:'Bent Over Barbell Row',sets:4},
+{ex:'Lat Pulldown Wide',sets:3},
+{ex:'Seated Row Close',sets:3},
+{ex:'Face Pulls',sets:3},
+{ex:'Barbell Curl',sets:3},
+{ex:'Hammer Curl',sets:3}
+]},
+{name:'KFit Leg Day (Quads, Hamstrings, Glutes)',bodyParts:['Legs'],exercises:[
+{ex:'Barbell Squat',sets:4},
+{ex:'Romanian Deadlift',sets:3},
+{ex:'Leg Press',sets:3},
+{ex:'Lying Hamstring Curl',sets:3},
+{ex:'Walking Lunges',sets:3},
+{ex:'Standing Calf Raise',sets:4}
+]},
+{name:'KFit Full Body A',bodyParts:['Full Body'],exercises:[
+{ex:'Barbell Squat',sets:3},
+{ex:'Barbell Bench Press (Flat)',sets:3},
+{ex:'Bent Over Barbell Row',sets:3},
+{ex:'Romanian Deadlift',sets:3},
+{ex:'Barbell Overhead Press',sets:2},
+{ex:'Russian Twist',sets:2}
+]},
+{name:'KFit Full Body B',bodyParts:['Full Body'],exercises:[
+{ex:'Leg Press',sets:3},
+{ex:'Dumbbell Press (Incline)',sets:3},
+{ex:'Lat Pulldown Wide',sets:3},
+{ex:'Walking Lunges',sets:3},
+{ex:'Lateral Raises (Dumbbell)',sets:2},
+{ex:'Dead Bug',sets:2}
+]},
+// Upper/Lower A/B -- same as km-fitness-tracker.html (see that file for
+// the frequency-research reasoning: each muscle 2x/week is the
+// evidence-backed sweet spot per Schoenfeld/Grgic/Krieger, and per-session
+// volume runs higher than Full Body's for that reason).
+{name:'KFit Upper A',bodyParts:['Chest','Back','Shoulders','Biceps','Triceps'],exercises:[
+{ex:'Barbell Bench Press (Flat)',sets:4},
+{ex:'Bent Over Barbell Row',sets:4},
+{ex:'Barbell Overhead Press',sets:3},
+{ex:'Lat Pulldown Wide',sets:3},
+{ex:'Barbell Curl',sets:2},
+{ex:'Tricep Pushdown (Rope)',sets:2}
+]},
+{name:'KFit Lower A',bodyParts:['Legs'],exercises:[
+{ex:'Barbell Squat',sets:4},
+{ex:'Romanian Deadlift',sets:3},
+{ex:'Leg Press',sets:3},
+{ex:'Lying Hamstring Curl',sets:3},
+{ex:'Standing Calf Raise',sets:3}
+]},
+{name:'KFit Upper B',bodyParts:['Chest','Back','Shoulders','Biceps','Triceps'],exercises:[
+{ex:'Dumbbell Press (Incline)',sets:4},
+{ex:'Seated Row Close',sets:4},
+{ex:'Dumbbell Shoulder Press',sets:3},
+{ex:'Lat Pulldown Close',sets:3},
+{ex:'Hammer Curl',sets:2},
+{ex:'Overhead Tricep Extension (Dumbbell)',sets:2}
+]},
+{name:'KFit Lower B',bodyParts:['Legs'],exercises:[
+{ex:'Bulgarian Split Squat',sets:3},
+{ex:'Stiff Leg Deadlift',sets:3},
+{ex:'Walking Lunges',sets:3},
+{ex:'Seated Hamstring Curl',sets:3},
+{ex:'Seated Calf Raise',sets:3}
+]}
+];
 const EX_LIB={
   'Back':['Pull-Ups','Chin-Ups','Lat Pulldown Wide','Lat Pulldown Close','Lat Pulldown Neutral Grip','Seated Row Close','Seated Row Wide','Chest Supported Row Wide','Chest Supported Row Close','Bent Over Barbell Row','Bent Over Dumbbell Row','Single Arm Dumbbell Row','T-Bar Row','Cable Row','Deadlift','Lat Prayer (Cable Pullover)','Straight Arm Pulldown','Face Pulls','Shrugs','Reverse Fly (Cable)'],
   'Chest':['Barbell Bench Press (Flat)','Barbell Bench Press (Incline)','Barbell Bench Press (Decline)','Dumbbell Press (Flat)','Dumbbell Press (Incline)','Dumbbell Press (Decline)','Dumbbell Fly (Flat)','Dumbbell Fly (Incline)','Dumbbell Fly (Decline)','Chest Press Machine','Machine Fly','Cable Fly (Low to High)','Cable Fly (High to Low)','Cable Fly (Mid)','Smith Machine Bench Press (Flat)','Smith Machine Bench Press (Incline)','Smith Machine Bench Press (Decline)','Push-Ups','Deficit Push Ups','Dips (Chest Focus)'],
@@ -2575,6 +2779,7 @@ const EX_LIB={
 let currentClientKey=null;
 let asSelectedBP=[];
 let asCardioBlocks=[];
+let asFunctionalBlocks=[];
 let asExercises=[];
 let editingContext=null; // {attendanceId, sessionId, clientId, origDate, origTime} when editing an existing session
 const BP_TO_EXLIB={'Chest':['Chest'],'Back':['Back'],'Shoulders':['Shoulders'],'Arms':['Biceps','Triceps'],'Legs':['Legs'],'Core':['Core']};
@@ -2883,6 +3088,7 @@ function openAddSession(clientKey){
   document.getElementById('as-client-mobile').style.display='none';
   asSelectedBP=[];
   asCardioBlocks=[];
+  asFunctionalBlocks=[];
   asExercises=[];
   asSupersets=[];
   asClientSessions=[];
@@ -2996,6 +3202,47 @@ function updateAsCardio(id,field,val){
 function removeAsCardio(id){
   asCardioBlocks=asCardioBlocks.filter(b=>b.id!==id);
   renderAsCardio();
+}
+
+function addAsFunctional(){
+  const id=Date.now();
+  asFunctionalBlocks.push({id,ex:'',duration:'',weight:''});
+  renderAsFunctional();
+}
+
+function renderAsFunctional(){
+  document.getElementById('as-functional-blocks').innerHTML=asFunctionalBlocks.map(b=>`
+    <div class="as-cardio-block">
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:8px;align-items:center;">
+        <select class="form-inp" onchange="updateAsFunctional(${b.id},'ex',this.value)" style="font-size:14px;">
+          <option value="">-- Movement --</option>
+          ${FUNCTIONAL_LIST.map(f=>`<option value="${f}"${f===b.ex?' selected':''}>${f}</option>`).join('')}
+        </select>
+        <button onclick="removeAsFunctional(${b.id})" style="background:none;border:none;color:var(--muted2);font-size:18px;cursor:pointer;">✕</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div>
+          <div class="form-label">Time (sec)</div>
+          <input class="form-inp" type="number" inputmode="numeric" placeholder="--" value="${b.duration}" oninput="updateAsFunctional(${b.id},'duration',this.value)">
+        </div>
+        <div>
+          <div class="form-label">Weight (${asUnit||'kg'}, optional)</div>
+          <input class="form-inp" type="text" inputmode="decimal" placeholder="--" value="${b.weight||''}" oninput="updateAsFunctional(${b.id},'weight',this.value)">
+        </div>
+      </div>
+    </div>`).join('');
+  autoDetectAsType();
+}
+
+function updateAsFunctional(id,field,val){
+  const b=asFunctionalBlocks.find(b=>b.id===id);
+  if(b)b[field]=val;
+  autoDetectAsType();
+}
+
+function removeAsFunctional(id){
+  asFunctionalBlocks=asFunctionalBlocks.filter(b=>b.id!==id);
+  renderAsFunctional();
 }
 
 let asSupersets=[]; // [{id, exercises:[{id,ex,sets,setData}]}]
@@ -3375,6 +3622,10 @@ function editCoachSession(){
     document.getElementById('as-cardio-section').style.display='block';
   }
 
+  // Functional
+  asFunctionalBlocks=(s.functional||[]).map(f=>({id:Date.now()+Math.random(),ex:f.ex||'',duration:f.duration||'',weight:f.weight||''}));
+  renderAsFunctional();
+
   editingContext={attendanceId,sessionId:s.id,clientId,origDate:date,origTime:time};
 }
 
@@ -3447,10 +3698,11 @@ async function saveAssignedWorkout(){
 
   const exercisesPayload=asExercises.filter(b=>b.ex).map(b=>({ex:b.ex,sets:b.sets,setData:b.setData}));
   const cardioPayload=asCardioBlocks.filter(b=>b.ex).map(b=>({ex:b.ex,duration:b.duration,intensity:b.intensity}));
+  const functionalPayload=asFunctionalBlocks.filter(b=>b.ex).map(b=>({ex:b.ex,duration:b.duration,weight:b.weight}));
   const supersetsPayload=asSupersets.map((ss,i)=>({num:i+1,exercises:ss.exercises.filter(e=>e.ex).map(e=>({ex:e.ex,sets:e.sets,setData:e.setData}))})).filter(ss=>ss.exercises.length);
   const notesVal=document.getElementById('as-notes').value.trim();
-  if(!exercisesPayload.length&&!supersetsPayload.length&&!cardioPayload.length){
-    alert('Add at least one exercise, superset, or cardio activity');return;
+  if(!exercisesPayload.length&&!supersetsPayload.length&&!cardioPayload.length&&!functionalPayload.length){
+    alert('Add at least one exercise, superset, cardio activity, or functional movement');return;
   }
 
   const btn=document.getElementById('as-save-btn');
@@ -3468,7 +3720,7 @@ async function saveAssignedWorkout(){
     full=typeof fresh[0].data==='string'?JSON.parse(fresh[0].data):fresh[0].data;
   }
   if(!full.assignedWorkouts) full.assignedWorkouts={};
-  const workout={bodyParts:asSelectedBP,exercises:exercisesPayload,supersets:supersetsPayload,cardio:cardioPayload,notes:notesVal};
+  const workout={bodyParts:asSelectedBP,exercises:exercisesPayload,supersets:supersetsPayload,cardio:cardioPayload,functional:functionalPayload,notes:notesVal};
   dateList.forEach(d=>{ full.assignedWorkouts[d]=workout; });
 
   const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
@@ -3525,6 +3777,7 @@ async function saveAdminSession(){
   const durationSecs=durationMins?durationMins*60:null;
   const exercisesPayload=asExercises.filter(b=>b.ex).map(b=>({ex:b.ex,sets:b.sets,setData:b.setData}));
   const cardioPayload=asCardioBlocks.filter(b=>b.ex).map(b=>({ex:b.ex,duration:b.duration,intensity:b.intensity}));
+  const functionalPayload=asFunctionalBlocks.filter(b=>b.ex).map(b=>({ex:b.ex,duration:b.duration,weight:b.weight}));
   const supersetsPayload=asSupersets.map((ss,i)=>({num:i+1,exercises:ss.exercises.filter(e=>e.ex).map(e=>({ex:e.ex,sets:e.sets,setData:e.setData}))})).filter(ss=>ss.exercises.length);
   const avgRestVal=parseInt(document.getElementById('as-avg-rest').value)||null;
   const activityStr=cardioPayload.length?cardioPayload.map(c=>c.ex).filter(Boolean).join(', '):'';
@@ -3568,8 +3821,8 @@ async function saveAdminSession(){
     const updatedSession={
       id:sessionId, client:clientName, date, timeOfDay:timeStr,
       bodyParts:asSelectedBP, exercises:exercisesPayload, supersets:supersetsPayload,
-      cardio:cardioPayload, restTimes:[], avgRestManual:avgRestVal, duration:durationSecs, unit:asUnit,
-      notes:notesVal, estCalories:estCaloriesForCoachSession(full,exercisesPayload,supersetsPayload,cardioPayload,durationSecs,avgRestVal),
+      cardio:cardioPayload, functional:functionalPayload, restTimes:[], avgRestManual:avgRestVal, duration:durationSecs, unit:asUnit,
+      notes:notesVal, estCalories:estCaloriesForCoachSession(full,exercisesPayload,supersetsPayload,cardioPayload,durationSecs,avgRestVal,functionalPayload),
       adminAdded:true, updatedAt:Date.now()
     };
     if(idx>=0) sessions[idx]=updatedSession; else sessions.unshift(updatedSession);
@@ -3626,6 +3879,7 @@ async function saveAdminSession(){
     exercises:exercisesPayload,
     supersets:supersetsPayload,
     cardio:cardioPayload,
+    functional:functionalPayload,
     restTimes:[],
     avgRestManual:avgRestVal,
     duration:durationSecs,
@@ -3646,7 +3900,7 @@ async function saveAdminSession(){
   if(existing&&existing.length&&existing[0].data){
     full=typeof existing[0].data==='string'?JSON.parse(existing[0].data):existing[0].data;
   }
-  newSession.estCalories=estCaloriesForCoachSession(full,exercisesPayload,supersetsPayload,cardioPayload,durationSecs,avgRestVal);
+  newSession.estCalories=estCaloriesForCoachSession(full,exercisesPayload,supersetsPayload,cardioPayload,durationSecs,avgRestVal,functionalPayload);
   const sessions=full.sessions||[];
   sessions.unshift(newSession);
   full.sessions=sessions;
