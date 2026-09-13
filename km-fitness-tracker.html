@@ -712,6 +712,16 @@ btn.textContent='Could not copy -- select the address bar manually';
           </div>
         </div>
       </div>
+      <div class="quick-add-section">
+        <div class="quick-add-header" onclick="toggleSuggestedRoutines()">
+          <span class="quick-add-label">Suggested Routines</span>
+          <span class="quick-add-toggle" id="suggestedRoutinesToggle">⌄</span>
+        </div>
+        <div class="quick-add-body" id="suggestedRoutinesBody">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Ready-made circuits by time available -- each rotates through squat, push, hinge, pull, core, and carry movements so nothing gets overworked. Loads the same way as your own routines; tweak anything after.</div>
+          <div id="suggestedRoutinesList"></div>
+        </div>
+      </div>
       <div id="functionalBlocksList"></div>
     </div>
 
@@ -736,12 +746,6 @@ btn.textContent='Could not copy -- select the address bar manually';
           <button onclick="deleteRoutine(_routineSelectedId)" style="padding:8px 10px;background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;">Delete</button>
         </div>
       </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title"><span>Suggested Functional Routines 🧘</span></div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.5;">Ready-made circuits by time available -- each rotates through squat, push, hinge, pull, core, and carry movements so nothing gets overworked. Loads the same way as your own routines; tweak anything after.</div>
-      <div id="suggestedRoutinesList"></div>
     </div>
 
     <div class="card" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
@@ -1379,6 +1383,13 @@ renderFunctionalChips();addFunctionalBlock(name);toast(`v ${name} added`);
 function toggleFunctionalChips(){
 const body=document.getElementById('functionalChipsBody');
 const toggle=document.getElementById('functionalChipsToggle');
+if(!body)return;
+const open=body.classList.toggle('open');
+if(toggle)toggle.classList.toggle('open',open);
+}
+function toggleSuggestedRoutines(){
+const body=document.getElementById('suggestedRoutinesBody');
+const toggle=document.getElementById('suggestedRoutinesToggle');
 if(!body)return;
 const open=body.classList.toggle('open');
 if(toggle)toggle.classList.toggle('open',open);
