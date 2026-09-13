@@ -530,7 +530,15 @@ btn.textContent='Could not copy -- select the address bar manually';
         <option value="male">Male</option>
         <option value="female">Female</option>
       </select>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4;">Used only to estimate calories burned per session -- affects resting metabolic rate.</div>
+    </div>
+    <div class="s-field">
+      <label>Height (cm) <span style="color:var(--terra);">*</span></label>
+      <input type="number" id="setupHeight" min="100" max="250" placeholder="e.g. 175" inputmode="numeric">
+    </div>
+    <div class="s-field">
+      <label>Weight (kg) <span style="color:var(--terra);">*</span></label>
+      <input type="number" id="setupWeight" min="30" max="250" step="0.1" placeholder="e.g. 70" inputmode="decimal">
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4;">These four are only used to estimate calories burned per session -- weight can be updated any time in Body Measurements.</div>
     </div>
     <button class="s-btn" onclick="completeSetup()">Enter Tracker →</button>
     <div style="text-align:center;margin-top:14px;">
@@ -719,15 +727,19 @@ btn.textContent='Could not copy -- select the address bar manually';
       </div>
       <div id="calBurnNote" style="font-size:12px;color:var(--muted);margin-top:3px;"></div>
       <div id="calBurnProfilePrompt" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Add these once for a precise number instead of a range:</div>
-        <div style="display:flex;gap:6px;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Add these -- all four are needed to show calories burned:</div>
+        <div style="display:flex;gap:6px;margin-bottom:6px;">
           <input type="number" id="calProfileAge" placeholder="Age" min="10" max="100" inputmode="numeric" style="width:70px;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
           <select id="calProfileGender" style="flex:1;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
             <option value="">Sex</option>
             <option value="male">Male</option>
             <option value="female">Female</option>
           </select>
-          <button onclick="saveCalProfileQuick()" style="padding:8px 12px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Save</button>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <input type="number" id="calProfileHeight" placeholder="Height (cm)" min="100" max="250" inputmode="numeric" style="width:100px;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+          <input type="number" id="calProfileWeight" placeholder="Weight (kg)" min="30" max="250" step="0.1" inputmode="decimal" style="width:100px;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+          <button onclick="saveCalProfileQuick()" style="flex:1;padding:8px 12px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Save</button>
         </div>
       </div>
     </div>
@@ -1303,10 +1315,14 @@ const n=document.getElementById('setupName').value.trim();
 const m=document.getElementById('setupMobile').value.trim().replace(/\D/g,'');
 const age=document.getElementById('setupAge').value.trim();
 const gender=document.getElementById('setupGender').value;
+const height=document.getElementById('setupHeight').value.trim();
+const weight=document.getElementById('setupWeight').value.trim();
 if(!n){toast('Enter your name');return;}
 if(!m){toast('Enter your mobile number');return;}
 if(!age||+age<10||+age>100){toast('Enter a valid age');return;}
 if(!gender){toast('Select your sex');return;}
+if(!height||+height<100||+height>250){toast('Enter a valid height in cm');return;}
+if(!weight||+weight<30||+weight>250){toast('Enter a valid weight in kg');return;}
 toast('Checking...');
 function proceedWithSetup(){
 localStorage.setItem('kmfit_name',n);
@@ -1314,6 +1330,16 @@ localStorage.setItem('kmfit_mobile',m);
 localStorage.setItem('kmfit_target',document.getElementById('setupTarget').value);
 localStorage.setItem('kmfit_age',age);
 localStorage.setItem('kmfit_gender',gender);
+// Seed the first Body Measurements entry directly in storage -- measurements
+// isn't loaded into memory yet at this point in the flow, so write straight
+// to localStorage rather than pushing onto the (not-yet-populated) global.
+try{
+var existingMeas=JSON.parse(localStorage.getItem('kmfit_measurements')||'[]');
+if(!existingMeas.length){
+existingMeas=[{id:'m_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),date:localDateStr(),updatedAt:Date.now(),weight:parseFloat(weight),height:parseFloat(height)}];
+localStorage.setItem('kmfit_measurements',JSON.stringify(existingMeas));
+}
+}catch(e){}
 setUnlocked();
 loadFitnessFromSupabase(function(loaded){
 if(!loaded) registerNewFitnessClient();
@@ -1340,7 +1366,7 @@ sessions:[],
 notes:{},
 assignedWorkouts:{},
 deletedSessionIds:[],
-measurements:[],
+measurements:JSON.parse(localStorage.getItem('kmfit_measurements')||'[]'),
 routines:[],
 name:localStorage.getItem('kmfit_name'),
 mobile:localStorage.getItem('kmfit_mobile'),
@@ -4369,7 +4395,6 @@ const CARDIO_MET={
 'Ski Erg':{Easy:5.0,Moderate:7.0,Hard:9.0,Max:11.0}
 };
 const CARDIO_MET_DEFAULT={Easy:4.0,Moderate:6.0,Hard:8.0,Max:10.0};
-const CAL_DEFAULT_KG=70, CAL_DEFAULT_HEIGHT_CM=170, CAL_DEFAULT_AGE=35;
 const CAL_FALLBACK_SEC_PER_SET=45;
 
 function latestClientWeightKg(){
@@ -4404,8 +4429,6 @@ var bmr=gender==='male'
 :(10*weightKg+6.25*heightCm-5*age-161);
 return bmr/24;
 }
-// Population-average fallback (~1 kcal/kg/hr, the standard MET denominator).
-function fallbackRMRPerHour(weightKg){ return weightKg*1.0; }
 
 // Rest-driven strength MET: shorter average rest = higher effective
 // intensity. Returns a single MET (not a range) once rest data exists.
@@ -4436,13 +4459,14 @@ return manual?parseInt(manual):null;
 // it was saved rather than drifting if bodyweight changes later.
 function computeSessionCalories(opts){
 // opts: {strengthSecs, avgRestSec, cardioBlocks: [{ex,duration,intensity}], profile}
+// Age, sex, height, and weight are all mandatory now -- no generic-default
+// fallback. A calorie number without real inputs isn't an estimate, it's
+// a guess dressed up as one, and that's exactly what erodes trust in a
+// tracking feature (an incomplete profile returns null, not a number).
 var profile=opts.profile||getClientProfile();
-var weight=profile.weight||CAL_DEFAULT_KG;
-var height=profile.height||CAL_DEFAULT_HEIGHT_CM;
-var age=profile.age||CAL_DEFAULT_AGE;
-var gender=profile.gender||'male';
-var personalized=profile.isComplete;
-var rmrPerHour=personalized?personalRMRPerHour(weight,height,age,gender):null;
+if(!profile.isComplete) return null;
+var weight=profile.weight, height=profile.height, age=profile.age, gender=profile.gender;
+var rmrPerHour=personalRMRPerHour(weight,height,age,gender);
 
 var total=0, totalLow=0, totalHigh=0;
 var parts=[];
@@ -4450,18 +4474,14 @@ var parts=[];
 if(opts.strengthSecs){
 var hours=opts.strengthSecs/3600;
 var restMET=strengthMETFromRest(opts.avgRestSec);
-if(restMET&&personalized){
+if(restMET){
 var kcal=restMET*rmrPerHour*hours;
 total+=kcal; totalLow+=kcal; totalHigh+=kcal;
 parts.push('Strength: ~'+Math.round(kcal)+' kcal ('+restMET.toFixed(1)+' MET from your avg rest)');
-} else if(restMET){
-var kcalG=restMET*fallbackRMRPerHour(weight)*hours;
-total+=kcalG; totalLow+=kcalG; totalHigh+=kcalG;
-parts.push('Strength: ~'+Math.round(kcalG)+' kcal ('+restMET.toFixed(1)+' MET from your avg rest, generic bodyweight)');
 } else {
 // no rest data at all -- fall back to a light-to-vigorous range
-var lowK=3.5*(personalized?rmrPerHour:fallbackRMRPerHour(weight))*hours;
-var highK=6.0*(personalized?rmrPerHour:fallbackRMRPerHour(weight))*hours;
+var lowK=3.5*rmrPerHour*hours;
+var highK=6.0*rmrPerHour*hours;
 totalLow+=lowK; totalHigh+=highK; total+=(lowK+highK)/2;
 parts.push('Strength: ~'+Math.round(lowK)+'-'+Math.round(highK)+' kcal (no rest logged -- range)');
 }
@@ -4473,7 +4493,7 @@ if(!mins) return;
 var metTable=CARDIO_MET[c.ex]||CARDIO_MET_DEFAULT;
 var met=metTable[c.intensity]||metTable.Moderate;
 var hrs=mins/60;
-var kcal=met*(personalized?rmrPerHour:fallbackRMRPerHour(weight))*hrs;
+var kcal=met*rmrPerHour*hrs;
 total+=kcal; totalLow+=kcal; totalHigh+=kcal;
 parts.push((c.ex||'Cardio')+': ~'+Math.round(kcal)+' kcal ('+met+' MET'+(c.intensity?', '+c.intensity:'')+')');
 });
@@ -4484,7 +4504,7 @@ value:Math.round(total),
 low:Math.round(totalLow),
 high:Math.round(totalHigh),
 isRange: Math.round(totalLow)!==Math.round(totalHigh),
-personalized:personalized,
+personalized:true,
 breakdown:parts
 };
 }
@@ -4515,6 +4535,12 @@ cardioBlocks.forEach(function(c){ cardioNow.push({ex:c.ex,duration:c.duration,in
 
 if(!secs&&!cardioNow.length){ rangeEl.textContent='--'; if(noteEl) noteEl.textContent='Log sets, cardio, or start the timer to see an estimate.'; return; }
 
+if(!profile.isComplete){
+rangeEl.textContent='--';
+if(noteEl) noteEl.textContent='Add age, sex, height & weight below to see calories burned.';
+return;
+}
+
 var result=computeSessionCalories({
 strengthSecs:secs,
 avgRestSec:avgRestSecFromPage(),
@@ -4525,8 +4551,7 @@ if(!result){ rangeEl.textContent='--'; return; }
 
 rangeEl.textContent=result.isRange?('~'+result.low+'-'+result.high+' kcal'):('~'+result.value+' kcal');
 if(noteEl){
-noteEl.textContent=(usedFallback?'Rough guess from sets logged (no timer running). ':'')
-+(result.personalized?'Personalized to your age/sex/weight/height.':'Using generic defaults -- add your details below for a precise number.');
+noteEl.textContent=(usedFallback?'Rough guess from sets logged (no timer running). ':'')+'Personalized to your age/sex/weight/height.';
 }
 }
 let _calBurnDebounce=null;
@@ -4545,10 +4570,20 @@ _calBurnDebounce=setTimeout(estimateSessionCalories,150);
 function saveCalProfileQuick(){
 var age=document.getElementById('calProfileAge').value.trim();
 var gender=document.getElementById('calProfileGender').value;
+var height=document.getElementById('calProfileHeight').value.trim();
+var weight=document.getElementById('calProfileWeight').value.trim();
 if(!age||+age<10||+age>100){toast('Enter a valid age');return;}
 if(!gender){toast('Select sex');return;}
+if(!height||+height<100||+height>250){toast('Enter a valid height in cm');return;}
+if(!weight||+weight<30||+weight>250){toast('Enter a valid weight in kg');return;}
 localStorage.setItem('kmfit_age',age);
 localStorage.setItem('kmfit_gender',gender);
+var todayStr=localDateStr();
+var idx=measurements.findIndex(function(m){return m.date===todayStr;});
+if(idx>-1){ measurements[idx].height=parseFloat(height); measurements[idx].weight=parseFloat(weight); measurements[idx].updatedAt=Date.now(); }
+else{ measurements.push({id:'m_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),date:todayStr,updatedAt:Date.now(),weight:parseFloat(weight),height:parseFloat(height)}); }
+measurements.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+localStorage.setItem('kmfit_measurements',JSON.stringify(measurements));
 syncFitnessToSupabase();
 estimateSessionCalories();
 toast('Saved -- estimate updated');

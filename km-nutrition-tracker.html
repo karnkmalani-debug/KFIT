@@ -645,6 +645,266 @@ callback(r.data.user.id);
 function getVicesData(){
 try{return JSON.parse(localStorage.getItem('kmnut_vices')||'{}');}catch(e){return {};}
 }
+// ══════════════════════════════════════════════════════════════════
+// CALORIE TRACKING -- separate, optional, off by default in spirit
+// (nothing forces a client to use this). Deliberately NOT a food
+// database or itemized macro tracker -- research on why people quit
+// calorie apps points at manual food-database entry (5-15 min/day)
+// and perfectionism (miss one log -> abandon the whole day -> quit)
+// as the two biggest failure modes. So: one quick number + optional
+// label, no guilt for gaps, remaining-calories is the one number that
+// actually motivates (Target - Logged), and history stays factual
+// rather than punitive about misses or overages.
+function getCalorieData(){
+try{return JSON.parse(localStorage.getItem('kmnut_calories')||'{}');}catch(e){return {target:null,log:{}};}
+}
+function saveCalorieData(c){
+localStorage.setItem('kmnut_calories',JSON.stringify(c));
+localStorage.setItem('kmnut_calories_backup',JSON.stringify(c));
+syncToSupabase();
+}
+function setCalorieTarget(val){
+var c=getCalorieData();
+c.target=val?parseInt(val):null;
+saveCalorieData(c);
+render();
+}
+function addCalorieEntry(dateStr,amount,label){
+var amt=parseInt(amount);
+if(!amt||amt<=0){showToast('Enter a calorie amount');return;}
+var c=getCalorieData();
+if(!c.log) c.log={};
+if(!c.log[dateStr]) c.log[dateStr]=[];
+c.log[dateStr].push({id:'c_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),amount:amt,label:(label||'').trim(),time:Date.now()});
+saveCalorieData(c);
+render();
+}
+function deleteCalorieEntry(dateStr,entryId){
+var c=getCalorieData();
+if(!c.log||!c.log[dateStr]) return;
+c.log[dateStr]=c.log[dateStr].filter(function(e){return e.id!==entryId;});
+if(!c.log[dateStr].length) delete c.log[dateStr];
+saveCalorieData(c);
+render();
+}
+function dayCalorieTotal(c,dateStr){
+return ((c.log&&c.log[dateStr])||[]).reduce(function(a,e){return a+(e.amount||0);},0);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SUGGEST A TARGET -- reads the client's own fitness-tracker profile
+// (age/sex/height/weight, already mandatory there) by matching the
+// SAME client_id format both trackers use (name+mobile), then computes
+// a suggested calorie target via Mifflin-St Jeor + a standard TDEE
+// activity multiplier + a deficit/surplus goal. Nothing forces this --
+// it's an optional suggestion the client can apply or ignore, and the
+// manual target field above always works regardless of whether a
+// matching fitness profile exists.
+// ══════════════════════════════════════════════════════════════════
+var calSuggestState={open:false,loading:false,notFound:false,profile:null,activity:'moderate',goalDelta:-500};
+var ACTIVITY_MULT={sedentary:1.2,light:1.375,moderate:1.55,active:1.725,veryActive:1.9};
+var ACTIVITY_LABELS={sedentary:'Sedentary (little/no exercise)',light:'Light (1-3 days/week)',moderate:'Moderate (3-5 days/week)',active:'Active (6-7 days/week)',veryActive:'Very active (physical job or 2x/day)'};
+
+function fitnessClientIdForCurrentUser(){
+var name=appSetup&&appSetup.clientName?appSetup.clientName.toLowerCase().replace(/\s+/g,'_'):'';
+var mobile=(localStorage.getItem('kmnut_mobile')||'').replace(/\D/g,'');
+if(!name||!mobile) return null;
+return name+'__'+mobile;
+}
+function openCalorieSuggest(){
+calSuggestState.open=true;
+calSuggestState.loading=true;
+calSuggestState.notFound=false;
+render();
+var fitId=fitnessClientIdForCurrentUser();
+if(!fitId){
+calSuggestState.loading=false;
+calSuggestState.notFound=true;
+render();
+return;
+}
+getSB().from('tracker_data').select('data').eq('client_id',fitId).eq('tracker','fitness').then(function(res){
+calSuggestState.loading=false;
+if(res.error||!res.data||!res.data.length){ calSuggestState.notFound=true; render(); return; }
+var d=typeof res.data[0].data==='string'?JSON.parse(res.data[0].data):res.data[0].data;
+var age=d.age?parseInt(d.age):null;
+var gender=d.gender||null;
+var weight=null,height=null;
+if(d.measurements&&d.measurements.length){
+var sorted=d.measurements.slice().sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+for(var i=0;i<sorted.length;i++){
+if(weight==null&&sorted[i].weight!=null) weight=sorted[i].weight;
+if(height==null&&sorted[i].height!=null) height=sorted[i].height;
+}
+}
+if(!age||!gender||!weight||!height){ calSuggestState.notFound=true; render(); return; }
+calSuggestState.profile={age:age,gender:gender,weight:weight,height:height};
+render();
+}).catch(function(){ calSuggestState.loading=false; calSuggestState.notFound=true; render(); });
+}
+function closeCalorieSuggest(){
+calSuggestState.open=false;
+render();
+}
+function setSuggestActivity(v){ calSuggestState.activity=v; render(); }
+function setSuggestGoal(v){ calSuggestState.goalDelta=parseInt(v); render(); }
+function computeSuggestedTarget(){
+var p=calSuggestState.profile;
+if(!p) return null;
+var bmr=p.gender==='male'
+?(10*p.weight+6.25*p.height-5*p.age+5)
+:(10*p.weight+6.25*p.height-5*p.age-161);
+var tdee=bmr*ACTIVITY_MULT[calSuggestState.activity];
+return Math.max(1200,Math.round(tdee+calSuggestState.goalDelta));
+}
+function applySuggestedTarget(){
+var val=computeSuggestedTarget();
+if(!val) return;
+calSuggestState.open=false;
+setCalorieTarget(val);
+}
+function renderCalorieSuggestPanel(){
+var html='<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);">';
+if(calSuggestState.loading){
+html+='<div style="font-size:13px;color:var(--txt2);text-align:center;padding:10px 0;">Looking for your fitness profile...</div>';
+html+='</div>';
+return html;
+}
+if(calSuggestState.notFound){
+html+='<div style="font-size:13px;color:var(--txt2);line-height:1.5;">Couldn\'t find a matching fitness tracker profile -- this needs the same name and mobile number on both trackers, plus age/sex/height/weight filled in there. No problem, just set your target manually above.</div>';
+html+='<div style="text-align:center;margin-top:8px;"><span onclick="closeCalorieSuggest()" style="font-size:12px;color:var(--txt2);text-decoration:underline;cursor:pointer;">Close</span></div>';
+html+='</div>';
+return html;
+}
+if(!calSuggestState.profile){ html+='</div>'; return html; }
+var suggested=computeSuggestedTarget();
+html+='<div style="font-size:12px;color:var(--txt2);margin-bottom:10px;">Using your fitness profile: '+calSuggestState.profile.age+'yo, '+calSuggestState.profile.weight+'kg, '+calSuggestState.profile.height+'cm.</div>';
+html+='<div style="margin-bottom:10px;">';
+html+='<div style="font-size:12px;color:var(--txt2);margin-bottom:4px;">Activity level</div>';
+html+='<select onchange="setSuggestActivity(this.value)" style="width:100%;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--txt);font-family:\'DM Sans\',sans-serif;font-size:13px;">';
+Object.keys(ACTIVITY_MULT).forEach(function(k){
+html+='<option value="'+k+'"'+(calSuggestState.activity===k?' selected':'')+'>'+ACTIVITY_LABELS[k]+'</option>';
+});
+html+='</select>';
+html+='</div>';
+html+='<div style="margin-bottom:12px;">';
+html+='<div style="font-size:12px;color:var(--txt2);margin-bottom:4px;">Goal</div>';
+html+='<select onchange="setSuggestGoal(this.value)" style="width:100%;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--txt);font-family:\'DM Sans\',sans-serif;font-size:13px;">';
+[[-750,'Lose faster (~0.75kg/week)'],[-500,'Lose (~0.5kg/week)'],[-250,'Lose slowly (~0.25kg/week)'],[0,'Maintain'],[250,'Gain slowly (~0.25kg/week)'],[500,'Gain (~0.5kg/week)']].forEach(function(g){
+html+='<option value="'+g[0]+'"'+(calSuggestState.goalDelta===g[0]?' selected':'')+'>'+g[1]+'</option>';
+});
+html+='</select>';
+html+='</div>';
+html+='<div style="text-align:center;padding:10px;background:var(--surf2);border-radius:8px;margin-bottom:10px;">';
+html+='<div style="font-size:24px;font-weight:800;color:var(--sage);">'+suggested+'</div>';
+html+='<div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;">Suggested daily target</div>';
+html+='</div>';
+html+='<div style="display:flex;gap:8px;">';
+html+='<button onclick="applySuggestedTarget()" style="flex:1;padding:10px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Use This</button>';
+html+='<button onclick="closeCalorieSuggest()" style="padding:10px 14px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--txt2);font-family:\'DM Sans\',sans-serif;font-size:13px;cursor:pointer;">Cancel</button>';
+html+='</div>';
+html+='<div style="font-size:11px;color:var(--txt3);margin-top:8px;text-align:center;">This is a starting estimate, not a prescription -- adjust based on how your weight actually trends over a few weeks.</div>';
+html+='</div>';
+return html;
+}
+
+function renderCaloriesView(){
+var c=getCalorieData();
+var today=new Date();
+var todayStr=localDateStr(today);
+var target=c.target;
+var loggedToday=dayCalorieTotal(c,todayStr);
+var remaining=target?target-loggedToday:null;
+
+var html='<div style="padding:16px;">';
+
+// Today card -- Target / Logged / Remaining, the one view that actually
+// motivates people to keep going (per adherence research). Remaining
+// shown factually, not alarmingly, whether under or over.
+html+='<div style="background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px;">';
+html+='<div style="font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--txt2);margin-bottom:14px;">Today</div>';
+html+='<div style="display:flex;justify-content:space-between;gap:8px;text-align:center;">';
+html+='<div style="flex:1;"><div style="font-size:22px;font-weight:800;color:var(--txt);">'+(target||'--')+'</div><div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">Target</div></div>';
+html+='<div style="flex:1;"><div style="font-size:22px;font-weight:800;color:var(--sage);">'+loggedToday+'</div><div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">Logged</div></div>';
+html+='<div style="flex:1;"><div style="font-size:22px;font-weight:800;color:'+(remaining==null?'var(--txt2)':remaining<0?'var(--terra)':'var(--gold)')+';">'+(remaining==null?'--':(remaining<0?('+'+Math.abs(remaining)):remaining))+'</div><div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">'+(remaining!=null&&remaining<0?'Over':'Remaining')+'</div></div>';
+html+='</div>';
+html+='<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);display:flex;align-items:center;gap:8px;">';
+html+='<span style="font-size:13px;color:var(--txt2);">Daily target</span>';
+html+='<input type="number" id="calTargetInput" value="'+(target||'')+'" placeholder="e.g. 2000" inputmode="numeric" style="width:80px;padding:6px 8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--txt);font-family:\'DM Sans\',sans-serif;font-size:13px;">';
+html+='<button onclick="setCalorieTarget(document.getElementById(\'calTargetInput\').value)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Set</button>';
+html+='</div>';
+if(!calSuggestState.open){
+html+='<div style="margin-top:10px;text-align:center;">';
+html+='<span onclick="openCalorieSuggest()" style="font-size:12px;color:var(--sage);text-decoration:underline;cursor:pointer;">Suggest a target for me →</span>';
+html+='</div>';
+} else {
+html+=renderCalorieSuggestPanel();
+}
+html+='</div>';
+
+// Quick add -- the single most important interaction. One number, one
+// optional label, one tap. No food database, no required categorization.
+html+='<div style="background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">';
+html+='<div style="font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--txt2);margin-bottom:10px;">Log Calories</div>';
+html+='<div style="display:flex;gap:8px;margin-bottom:8px;">';
+html+='<input type="number" id="calAmountInput" placeholder="kcal" inputmode="numeric" style="width:90px;padding:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--txt);font-family:\'DM Sans\',sans-serif;font-size:15px;">';
+html+='<input type="text" id="calLabelInput" placeholder="What was it? (optional)" style="flex:1;padding:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--txt);font-family:\'DM Sans\',sans-serif;font-size:14px;">';
+html+='</div>';
+html+='<button onclick="submitCalorieEntry(\''+todayStr+'\')" style="width:100%;padding:12px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">+ Log It</button>';
+html+='<div style="font-size:12px;color:var(--txt3);margin-top:8px;text-align:center;">A rough number logged beats a perfect one skipped -- log what you can.</div>';
+html+='</div>';
+
+// Today's entries
+var todayEntries=(c.log&&c.log[todayStr])||[];
+if(todayEntries.length){
+html+='<div style="background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">';
+html+='<div style="font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--txt2);margin-bottom:10px;">Today\'s Entries</div>';
+todayEntries.slice().reverse().forEach(function(e){
+html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">';
+html+='<div><span style="font-size:15px;font-weight:700;color:var(--txt);">'+e.amount+' kcal</span>'+(e.label?'<span style="font-size:13px;color:var(--txt2);margin-left:8px;">'+e.label+'</span>':'')+'</div>';
+html+='<button onclick="deleteCalorieEntry(\''+todayStr+'\',\''+e.id+'\')" style="background:none;border:none;color:var(--txt3);font-size:16px;cursor:pointer;padding:0 4px;">&#10005;</button>';
+html+='</div>';
+});
+html+='</div>';
+}
+
+// Recent history -- factual, not punitive. No streaks, no red X's for
+// gap days -- a missed day is just not shown, not called out.
+html+='<div style="background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;">';
+html+='<div style="font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--txt2);margin-bottom:10px;">Recent Days</div>';
+var days=[];
+for(var i=1;i<=13;i++){
+var d=new Date(today);
+d.setDate(today.getDate()-i);
+days.push(localDateStr(d));
+}
+var hasHistory=false;
+days.forEach(function(dateStr){
+var total=dayCalorieTotal(c,dateStr);
+if(!total) return;
+hasHistory=true;
+var d2=new Date(dateStr+'T12:00:00');
+var DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+var MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var label=DN[d2.getDay()]+' '+d2.getDate()+' '+MN[d2.getMonth()];
+var diff=target?total-target:null;
+html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">';
+html+='<span style="font-size:14px;color:var(--txt);">'+label+'</span>';
+html+='<span style="font-size:14px;font-weight:700;color:var(--txt);">'+total+' kcal'+(diff!=null?' <span style="font-size:12px;font-weight:600;color:'+(diff>0?'var(--terra)':'var(--sage)')+';">('+(diff>0?'+':'')+diff+')</span>':'')+'</span>';
+html+='</div>';
+});
+if(!hasHistory) html+='<div style="font-size:13px;color:var(--txt3);padding:6px 0;">Nothing logged yet in the last two weeks -- that\'s fine, just start whenever works.</div>';
+html+='</div>';
+
+html+='</div>';
+return html;
+}
+function submitCalorieEntry(dateStr){
+var amt=document.getElementById('calAmountInput').value;
+var label=document.getElementById('calLabelInput').value;
+addCalorieEntry(dateStr,amt,label);
+}
+
 function saveVicesData(v){
 
 localStorage.setItem('kmnut_vices',JSON.stringify(v));
@@ -761,7 +1021,7 @@ var payload={
 user_id:uid,
 client_id:getClientKey(),
 tracker:'nutrition',
-data:{setup:appSetup,data:data,weekNotes:weekNotes,ui:ui,mealPlan:mealPlan,bodyMeasurements:bodyMeasurements,mobile:localStorage.getItem('kmnut_mobile'),email:localStorage.getItem('kmnut_email'),vices:getVicesData(),assignedDietTemplateId:myAssignedTemplateId},
+data:{setup:appSetup,data:data,weekNotes:weekNotes,ui:ui,mealPlan:mealPlan,bodyMeasurements:bodyMeasurements,mobile:localStorage.getItem('kmnut_mobile'),email:localStorage.getItem('kmnut_email'),vices:getVicesData(),calories:getCalorieData(),assignedDietTemplateId:myAssignedTemplateId},
 updated_at:new Date().toISOString()
 };
 getSBScoped().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(res){
@@ -925,6 +1185,18 @@ if(!remoteVices[date]) remoteVices[date]=localVices[date];
 });
 localStorage.setItem('kmnut_vices',JSON.stringify(remoteVices));
 localStorage.setItem('kmnut_vices_backup',JSON.stringify(remoteVices));
+}
+
+if(d.calories){
+var localCal=getCalorieData();
+var remoteCal=d.calories;
+var mergedLog=remoteCal.log||{};
+Object.keys(localCal.log||{}).forEach(function(date){
+if(!mergedLog[date]) mergedLog[date]=localCal.log[date];
+});
+var mergedCal={target:(remoteCal.target!=null?remoteCal.target:localCal.target),log:mergedLog};
+localStorage.setItem('kmnut_calories',JSON.stringify(mergedCal));
+localStorage.setItem('kmnut_calories_backup',JSON.stringify(mergedCal));
 }
 
 if(d.bodyMeasurements){
@@ -1185,6 +1457,7 @@ var html='';
 var activeView=ui.activeView||'track';
 html+='<div class="nav-tabs">'
 +'<div class="ntab'+(activeView==='track'?' active':'')+'" onclick="setView(\'track\')">Track</div>'
++'<div class="ntab'+(activeView==='calories'?' active':'')+'" onclick="setView(\'calories\')">Calories</div>'
 +'<div class="ntab'+(activeView==='analytics'?' active':'')+'" onclick="setView(\'analytics\')">Analytics</div>'
 +'<div class="ntab'+(activeView==='progress'?' active':'')+'" onclick="setView(\'progress\')">Progress</div>'
 +'<div class="ntab'+(activeView==='vices'?' active':'')+'" onclick="setView(\'vices\')">Vices</div>'
@@ -1194,6 +1467,11 @@ html+='<div class="help-strip">'
 +'<button class="feedback-btn" onclick="openFeedback()" title="Send feedback">&#128172;</button>'
 +'<button class="help-btn" onclick="showHelp(\''+activeView+'\')" title="What is this page?">?</button>'
 +'</div>';
+
+if(activeView==='calories'){
+html+=renderCaloriesView();
+return html;
+}
 
 if(activeView==='analytics'){
 html+=renderAnalyticsView(cal);
@@ -1372,6 +1650,7 @@ progress:{title:'Progress',body:
 '<b>Got a DEXA or InBody scan?</b><br>Tap "Upload Scan / Report" to attach the photo or PDF to that date\'s entry -- it\'s saved here so you and your coach can look back on it any time.<br><br>'+
 '<b>Heads up</b><br>This measurements log is separate from the one in the Fitness tracker -- logging your weight here won\'t show up there, and vice versa.'},
 vices:{title:'Vices',body:'Log anything outside your regular eating plan here -- a dessert, a drink, a cheat meal, whatever it was. This isn\'t about guilt -- keeping it separate from your normal meals just gives your coach the full, honest picture without throwing off your daily meal scores.'},
+calories:{title:'Calories',body:'A simple, separate calorie log -- just enter a number and, if you want, a quick label like "lunch" or "snack". Set a daily target if your coach wants you working toward one. Remaining shows Target minus what you\'ve logged so far today.<br><br><b>Not sure what your target should be?</b> Tap "Suggest a target for me" -- if you use the fitness tracker too (same name and mobile number there), it\'ll pull your age/sex/height/weight from that profile and work out a starting number based on your activity level and goal. Just a starting point, not a rule.<br><br><b>This isn\'t a food database and it won\'t ask you to weigh anything.</b> A rough number logged beats a precise one you never get around to. Missed a day? No streaks get broken and nothing turns red -- just pick back up whenever.'},
 account:{title:'Account',body:'Your profile details -- your name, mobile number, and programme settings. This is also where you go to log out, or to update your login details if you switch to a new phone.'}
 };
 function showHelp(view){

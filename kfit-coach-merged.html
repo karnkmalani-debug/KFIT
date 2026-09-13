@@ -822,7 +822,6 @@ const CARDIO_MET={
 'Ski Erg':{Easy:5.0,Moderate:7.0,Hard:9.0,Max:11.0}
 };
 const CARDIO_MET_DEFAULT={Easy:4.0,Moderate:6.0,Hard:8.0,Max:10.0};
-const CAL_DEFAULT_KG=70, CAL_DEFAULT_HEIGHT_CM=170, CAL_DEFAULT_AGE=35;
 function personalRMRPerHour(weightKg,heightCm,age,gender){
 if(!weightKg||!heightCm||!age||!gender) return null;
 var bmr=gender==='male'
@@ -830,7 +829,6 @@ var bmr=gender==='male'
 :(10*weightKg+6.25*heightCm-5*age-161);
 return bmr/24;
 }
-function fallbackRMRPerHour(weightKg){ return weightKg*1.0; }
 function strengthMETFromRest(avgRestSec){
 if(!avgRestSec) return null;
 if(avgRestSec<=45) return 6.0;
@@ -838,26 +836,23 @@ if(avgRestSec<=90) return 5.0;
 return 3.5;
 }
 function computeSessionCalories(opts){
+// Age, sex, height, and weight are all mandatory -- no generic-default
+// fallback, matching km-fitness-tracker.html exactly. An incomplete
+// profile returns null rather than a fabricated number.
 var profile=opts.profile||{};
-var weight=profile.weight||CAL_DEFAULT_KG;
-var height=profile.height||CAL_DEFAULT_HEIGHT_CM;
-var age=profile.age||CAL_DEFAULT_AGE;
-var gender=profile.gender||'male';
-var personalized=profile.isComplete;
-var rmrPerHour=personalized?personalRMRPerHour(weight,height,age,gender):null;
+if(!profile.isComplete) return null;
+var weight=profile.weight, height=profile.height, age=profile.age, gender=profile.gender;
+var rmrPerHour=personalRMRPerHour(weight,height,age,gender);
 var total=0, totalLow=0, totalHigh=0;
 if(opts.strengthSecs){
 var hours=opts.strengthSecs/3600;
 var restMET=strengthMETFromRest(opts.avgRestSec);
-if(restMET&&personalized){
+if(restMET){
 var kcal=restMET*rmrPerHour*hours;
 total+=kcal; totalLow+=kcal; totalHigh+=kcal;
-} else if(restMET){
-var kcalG=restMET*fallbackRMRPerHour(weight)*hours;
-total+=kcalG; totalLow+=kcalG; totalHigh+=kcalG;
 } else {
-var lowK=3.5*(personalized?rmrPerHour:fallbackRMRPerHour(weight))*hours;
-var highK=6.0*(personalized?rmrPerHour:fallbackRMRPerHour(weight))*hours;
+var lowK=3.5*rmrPerHour*hours;
+var highK=6.0*rmrPerHour*hours;
 totalLow+=lowK; totalHigh+=highK; total+=(lowK+highK)/2;
 }
 }
@@ -867,13 +862,13 @@ if(!mins) return;
 var metTable=CARDIO_MET[c.ex]||CARDIO_MET_DEFAULT;
 var met=metTable[c.intensity]||metTable.Moderate;
 var hrs=mins/60;
-var kcal=met*(personalized?rmrPerHour:fallbackRMRPerHour(weight))*hrs;
+var kcal=met*rmrPerHour*hrs;
 total+=kcal; totalLow+=kcal; totalHigh+=kcal;
 });
 if(!opts.strengthSecs&&!(opts.cardioBlocks&&opts.cardioBlocks.length)) return null;
 return {
 value:Math.round(total), low:Math.round(totalLow), high:Math.round(totalHigh),
-isRange:Math.round(totalLow)!==Math.round(totalHigh), personalized:personalized
+isRange:Math.round(totalLow)!==Math.round(totalHigh), personalized:true
 };
 }
 // Reads the client's age/sex/latest weight+height straight from their own
