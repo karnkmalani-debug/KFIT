@@ -119,8 +119,7 @@ body{overflow-x:hidden;}
 .extend-btn{display:block;width:calc(100% - 32px);margin:16px 16px 0;padding:14px;border-radius:12px;border:1px dashed var(--border);background:transparent;font-size:.85rem;font-weight:600;color:var(--txt3);cursor:pointer;}
 .extend-btn:active{background:var(--surf2);}
 .sec-pad{padding:0 0 120px;}
-.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--txt);border-radius:20px;padding:9px 18px;font-size:.78rem;color:var(--white);opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;z-index:700;}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast{display:none;}
 .chevron{transition:transform .2s;display:inline-block;color:var(--txt3);font-size:.8rem;}
 .chevron.open{transform:rotate(90deg);}
 
@@ -386,7 +385,13 @@ btn.textContent='Could not copy -- select the address bar manually';
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" style="display:none;"></div>
+<div id="toastModal" style="display:none;position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:340px;width:100%;display:flex;align-items:flex-start;gap:12px;box-shadow:0 14px 40px rgba(0,0,0,.3);">
+    <div id="toastModalMsg" style="flex:1;font-size:15px;font-weight:600;line-height:1.5;color:var(--txt);padding-top:2px;"></div>
+    <button onclick="closeToastModal()" aria-label="Close" style="flex-shrink:0;width:34px;height:34px;border-radius:50%;background:var(--surf2);border:none;color:var(--txt2);font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">&#10005;</button>
+  </div>
+</div>
 </div>
 
 <script>
@@ -3310,8 +3315,11 @@ showToast('v Analysis copied -- paste in your chat');
 }
 
 function showToast(msg){
-var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
-clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('show');},2200);
+document.getElementById('toastModalMsg').textContent=msg;
+document.getElementById('toastModal').style.display='flex';
+}
+function closeToastModal(){
+document.getElementById('toastModal').style.display='none';
 }
 
 function toggleMealMore(id){
