@@ -698,6 +698,24 @@ btn.textContent='Could not copy -- select the address bar manually';
     </div>
 
     <div class="card">
+      <div class="card-title">Functional / Isometric 🧘</div>
+      <div class="quick-add-section">
+        <div class="quick-add-header" onclick="toggleFunctionalChips()">
+          <span class="quick-add-label">Movements</span>
+          <span class="quick-add-toggle" id="functionalChipsToggle">⌄</span>
+        </div>
+        <div class="quick-add-body" id="functionalChipsBody">
+          <div class="ex-chips" id="functionalChips" style="margin-bottom:8px;"></div>
+          <div class="custom-ex-add-row">
+            <input class="custom-ex-inp" type="text" id="customFunctionalInp" placeholder="Add movement (e.g. Ring Hold)...">
+            <button class="custom-ex-add-btn" onclick="addCustomFunctional()">Add</button>
+          </div>
+        </div>
+      </div>
+      <div id="functionalBlocksList"></div>
+    </div>
+
+    <div class="card">
       <div class="card-title"><span>My Routines</span></div>
       <div id="routineEmptyMsg" style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:12px;line-height:1.7;">Tap <span onclick="toggleInlineRoutineBuilder()" style="color:var(--sage);font-weight:900;text-transform:uppercase;letter-spacing:.3px;text-decoration:underline;cursor:pointer;">Add exercises</span> to build a list right here, then <span onclick="trySetInlineRoutine()" style="color:var(--sage);font-weight:900;text-transform:uppercase;letter-spacing:.3px;text-decoration:underline;cursor:pointer;">set a routine</span> to save it for reuse -- push day, a specific week's plan, whatever you want.</div>
       <div id="inlineRoutineBuilder" style="display:none;margin-bottom:12px;">
@@ -720,33 +738,15 @@ btn.textContent='Could not copy -- select the address bar manually';
       </div>
     </div>
 
+    <div class="card">
+      <div class="card-title"><span>Suggested Functional Routines 🧘</span></div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.5;">Ready-made circuits by time available -- each rotates through squat, push, hinge, pull, core, and carry movements so nothing gets overworked. Loads the same way as your own routines; tweak anything after.</div>
+      <div id="suggestedRoutinesList"></div>
+    </div>
+
     <div class="card" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
       <span style="font-size:14px;font-weight:700;color:var(--text);">Session Duration</span>
       <span style="font-size:13px;font-weight:600;color:var(--muted);">Timer at top, or <input class="dur-manual-input" type="text" id="durManual" placeholder="45" inputmode="text" style="width:44px;padding:4px 8px;margin-left:4px;" oninput="estimateSessionCalories()"> min</span>
-    </div>
-
-    <div class="card" id="calBurnCard" style="padding:10px 14px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:14px;font-weight:700;color:var(--text);">🔥 Est. Calories Burned <span onclick="showCalorieInfo()" style="cursor:pointer;color:var(--muted);font-weight:600;">ⓘ</span></span>
-        <span id="calBurnRange" style="font-size:15px;font-weight:800;color:var(--flame);">--</span>
-      </div>
-      <div id="calBurnNote" style="font-size:12px;color:var(--muted);margin-top:3px;"></div>
-      <div id="calBurnProfilePrompt" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Add these -- all four are needed to show calories burned:</div>
-        <div style="display:flex;gap:6px;margin-bottom:6px;">
-          <input type="number" id="calProfileAge" placeholder="Age" min="10" max="100" inputmode="numeric" style="width:70px;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
-          <select id="calProfileGender" style="flex:1;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
-            <option value="">Sex</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:6px;">
-          <input type="number" id="calProfileHeight" placeholder="Height (cm)" min="100" max="250" inputmode="numeric" style="width:100px;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
-          <input type="number" id="calProfileWeight" placeholder="Weight (kg)" min="30" max="250" step="0.1" inputmode="decimal" style="width:100px;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
-          <button onclick="saveCalProfileQuick()" style="flex:1;padding:8px 12px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Save</button>
-        </div>
-      </div>
     </div>
 
     <div class="card" id="sessionRestCard" style="display:none;padding:10px 14px;">
@@ -780,6 +780,30 @@ btn.textContent='Could not copy -- select the address bar manually';
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
         <div style="font-size:13px;color:var(--muted);line-height:1.5;">Coming from another app or a spreadsheet? Bring your history in.</div>
         <button onclick="openImportModal()" style="padding:9px 14px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">Import Data</button>
+      </div>
+    </div>
+
+    <div class="card" id="calBurnCard" style="padding:10px 14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:14px;font-weight:700;color:var(--text);">🔥 Est. Calories Burned <span onclick="showCalorieInfo()" style="cursor:pointer;color:var(--muted);font-weight:600;">ⓘ</span></span>
+        <span id="calBurnRange" style="font-size:15px;font-weight:800;color:var(--flame);">--</span>
+      </div>
+      <div id="calBurnNote" style="font-size:12px;color:var(--muted);margin-top:3px;"></div>
+      <div id="calBurnProfilePrompt" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;">Add these -- all four are needed to show calories burned:</div>
+        <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <input type="number" id="calProfileAge" placeholder="Age" min="10" max="100" inputmode="numeric" style="width:70px;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+          <select id="calProfileGender" style="flex:1;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+            <option value="">Sex</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <input type="number" id="calProfileHeight" placeholder="Height (cm)" min="100" max="250" inputmode="numeric" style="width:100px;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+          <input type="number" id="calProfileWeight" placeholder="Weight (kg)" min="30" max="250" step="0.1" inputmode="decimal" style="width:100px;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+          <button onclick="saveCalProfileQuick()" style="flex:1;padding:8px 12px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Save</button>
+        </div>
       </div>
     </div>
 
@@ -1107,11 +1131,14 @@ const EX_LIB = {
 'Biceps':['Barbell Curl','EZ Bar Curl','Dumbbell Curl','Hammer Curl','Preacher Curl (Barbell)','Preacher Curl (Dumbbell)','Preacher Curl (EZ Bar)','Cable Curl','Incline Dumbbell Curl','Concentration Curl','Cross Body Curl','Reverse Curl','Zottman Curl','Bayesian Curl'],
 'Triceps':['Tricep Pushdown (Bar)','Tricep Pushdown (Rope)','Overhead Tricep Extension (Dumbbell)','Overhead Tricep Extension (EZ Bar)','Overhead Tricep Extension (Cable)','Skull Crushers (Barbell)','Skull Crushers (EZ Bar)','Skull Crushers (Dumbbell)','Close Grip Bench Press','Dips (Tricep Focus)','Single Arm Pushdown (Cable)','Kickback (Dumbbell)','Kickback (Cable)'],
 'Legs':['Barbell Squat','Front Squat','Goblet Squat','Sumo Squat','Bulgarian Split Squat','Hack Squat','Leg Press','Leg Extension','Lying Hamstring Curl','Seated Hamstring Curl','Romanian Deadlift','Single Leg RDL','Stiff Leg Deadlift','Hip Thrust (Barbell)','Hip Thrust (Dumbbell)','Glute Bridge','Walking Lunges','Reverse Lunges','Forward Lunges','Step-Ups','Good Mornings','Nordic Curl','Calf Raise (Leg Press Machine)','Standing Calf Raise','Seated Calf Raise'],
-'Core':['Plank','Side Plank','Hanging Leg Raise','Cable Crunch','Crunches','Decline Crunches','Russian Twist','Ab Wheel Rollout','Dead Bug','Pallof Press','Reverse Crunch','Dragon Flag','Hollow Body Hold','Landmine Twist'],
-'Cardio':['Running (Treadmill)','Running (Outdoor)','Cycling (Bike)','Cycling (Stationary)','Rowing Machine','Elliptical','Stair Climber','Jump Rope','Swimming','Walking','HIIT','Sprint Intervals','Battle Ropes','Assault Bike','Ski Erg']
+'Core':['Hanging Leg Raise','Cable Crunch','Crunches','Decline Crunches','Russian Twist','Ab Wheel Rollout','Dead Bug','Pallof Press','Reverse Crunch','Dragon Flag','Landmine Twist'],
+'Cardio':['Running (Treadmill)','Running (Outdoor)','Cycling (Bike)','Cycling (Stationary)','Rowing Machine','Elliptical','Stair Climber','Jump Rope','Swimming','Walking','HIIT','Sprint Intervals','Battle Ropes','Assault Bike','Ski Erg'],
+'Functional':['Plank','Side Plank','Wall Sit','Dead Hang','Glute Bridge Hold','Hollow Body Hold','Superman Hold','Bird Dog Hold','Split Squat Hold','Push-Up Hold','Farmer\'s Carry','Squat Hold','Bear Crawl','Jumping Jacks','Mountain Climbers','High Knees','Burpees']
 };
 const ALL_EX = Object.values(EX_LIB).flat();
 const CARDIO_EX = new Set(EX_LIB['Cardio']);
+const FUNCTIONAL_EX = new Set(EX_LIB['Functional']);
+function isFunctional(exName){ return FUNCTIONAL_EX.has(exName); }
 
 let selectedBP=[], sessions=[], notes={}, assignedWorkouts={}, deletedSessionIds=[], measurements=[], routines=[];
 const MEAS_FIELDS=[
@@ -1312,6 +1339,83 @@ value="${b.distance||''}" onblur="autoFixNum(this)" oninput="updateCardio(${b.id
 }
 function updateCardio(id,field,val){
 const b=cardioBlocks.find(b=>b.id===id);
+if(b)b[field]=val;draftSave();
+}
+
+const CUSTOM_FUNCTIONAL_KEY='kmfit_custom_functional';
+function getCustomFunctional(){try{return JSON.parse(localStorage.getItem(CUSTOM_FUNCTIONAL_KEY)||'[]');}catch(e){return[];}}
+function saveCustomFunctional(arr){localStorage.setItem(CUSTOM_FUNCTIONAL_KEY,JSON.stringify(arr));}
+const DELETED_FUNCTIONAL_KEY='kmfit_deleted_functional';
+function getDeletedFunctional(){try{return new Set(JSON.parse(localStorage.getItem(DELETED_FUNCTIONAL_KEY)||'[]'));}catch(e){return new Set();}}
+function saveDeletedFunctional(s){localStorage.setItem(DELETED_FUNCTIONAL_KEY,JSON.stringify([...s]));}
+
+function renderFunctionalChips(){
+const chips=document.getElementById('functionalChips');
+if(!chips)return;
+const deleted=getDeletedFunctional();
+const custom=getCustomFunctional();
+const all=[...EX_LIB['Functional'],...custom.filter(e=>!EX_LIB['Functional'].includes(e))].filter(e=>!deleted.has(e));
+chips.innerHTML=all.map(ex=>
+`<div class="cardio-chip" onclick="addFunctionalBlock('${ex.replace(/'/g,"\\'")}')">${ex}<button class="ex-chip-del" onclick="event.stopPropagation();deleteFunctionalEx('${ex.replace(/'/g,"\\'")}')" style="margin-left:3px;">&#10005;</button></div>`
+).join('');
+}
+function deleteFunctionalEx(name){
+const del=getDeletedFunctional();del.add(name);saveDeletedFunctional(del);
+renderFunctionalChips();toast(`Removed: ${name}`);
+}
+function addCustomFunctional(){
+const inp=document.getElementById('customFunctionalInp');
+if(!inp)return;
+const name=inp.value.trim();
+if(!name){toast('Enter movement name');return;}
+const custom=getCustomFunctional();
+if(!custom.includes(name))custom.push(name);
+saveCustomFunctional(custom);
+if(!EX_LIB['Functional'].includes(name)){EX_LIB['Functional'].push(name);FUNCTIONAL_EX.add(name);}
+const del=getDeletedFunctional();del.delete(name);saveDeletedFunctional(del);
+inp.value='';
+renderFunctionalChips();addFunctionalBlock(name);toast(`v ${name} added`);
+}
+function toggleFunctionalChips(){
+const body=document.getElementById('functionalChipsBody');
+const toggle=document.getElementById('functionalChipsToggle');
+if(!body)return;
+const open=body.classList.toggle('open');
+if(toggle)toggle.classList.toggle('open',open);
+}
+
+let functionalBlocks=[];
+function addFunctionalBlock(exName){
+const id=Date.now();
+functionalBlocks.push({id,ex:exName,duration:'',weight:''});
+renderFunctionalBlocks();
+}
+function removeFunctionalBlock(id){
+functionalBlocks=functionalBlocks.filter(b=>b.id!==id);
+renderFunctionalBlocks();
+}
+function renderFunctionalBlocks(){
+const cont=document.getElementById('functionalBlocksList');
+if(!cont)return;
+cont.innerHTML=functionalBlocks.map(b=>`
+<div class="cardio-log-block">
+<div class="cardio-log-name"> ${b.ex}
+<button class="del-btn" onclick="removeFunctionalBlock(${b.id})">&#10005;</button>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+<div><div class="cardio-field-label">Time (sec)</div>
+<input class="cardio-field-inp" type="text" inputmode="numeric" placeholder="--"
+value="${b.duration}" onblur="autoFixNum(this)" oninput="updateFunctional(${b.id},'duration',this.value)">
+</div>
+<div><div class="cardio-field-label">Weight (${weightUnit||'kg'}, optional)</div>
+<input class="cardio-field-inp" type="text" inputmode="decimal" placeholder="--"
+value="${b.weight||''}" onblur="autoFixNum(this)" oninput="updateFunctional(${b.id},'weight',this.value)">
+</div>
+</div>
+</div>`).join('');
+}
+function updateFunctional(id,field,val){
+const b=functionalBlocks.find(b=>b.id===id);
 if(b)b[field]=val;draftSave();
 }
 
@@ -1652,7 +1756,7 @@ tx.objectStore('flags').delete('unlocked');
 if(restTmr){clearInterval(restTmr);restTmr=null;}
 if(durTmr){clearInterval(durTmr);durTmr=null;}
 restLeft=0; durElapsed=0; durRunning=false; durStart=null;
-currentRestTimes=[]; cardioBlocks=[]; selectedBP=[];
+currentRestTimes=[]; cardioBlocks=[]; functionalBlocks=[]; selectedBP=[];
 const rb=document.querySelector('.rest-bar');
 if(rb) rb.classList.remove('visible');
 draftClear();
@@ -1806,8 +1910,10 @@ loadExerciseVideos();
 loadLiveRoutineTemplates();
 retryPendingAttendance();
 renderRoutineList();
+renderSuggestedRoutines();
 renderFaqList();
 renderCardioChips();
+renderFunctionalChips();
 var copyrightYearEl=document.getElementById('copyrightYear');
 if(copyrightYearEl) copyrightYearEl.textContent=new Date().getFullYear();
 var logImportCard=document.getElementById('logImportCard');
@@ -1902,6 +2008,13 @@ w.cardio.forEach(c=>{
 cardioBlocks.push({id:Date.now()+Math.random(),ex:c.ex,duration:c.duration||'',distance:'',intensity:c.intensity||''});
 });
 renderCardioBlocks();
+}
+
+if(w.functional&&w.functional.length){
+w.functional.forEach(f=>{
+functionalBlocks.push({id:Date.now()+Math.random(),ex:f.ex,duration:f.duration||'',weight:f.weight||''});
+});
+renderFunctionalBlocks();
 }
 
 if(w.notes){
@@ -2262,7 +2375,7 @@ showBpNotif('Cardio','🏃','Loaded your cardio from '+(daysAgo>0?'<b style="col
 }
 function getExList(){
 var bps=selectedBP.filter(function(bp){return bp!=='Cardio';});
-return bps.length===0?ALL_EX.filter(function(e){return !CARDIO_EX.has(e);}):bps.flatMap(bp=>EX_LIB[bp]||[]);
+return bps.length===0?ALL_EX.filter(function(e){return !CARDIO_EX.has(e)&&!FUNCTIONAL_EX.has(e);}):bps.flatMap(bp=>EX_LIB[bp]||[]);
 }
 function populateSel(sel){
 const cur=sel.value;
@@ -2313,6 +2426,23 @@ container.innerHTML=`<div class="cardio-header"><span>Duration</span><span>Dista
 <option value="Max"${container._cint==='Max'?' selected':''}>Max</option>
 </select>
 </div>`;
+return;
+}
+if(isFunctional(exName||'')){
+// One row per round -- hold time (and optional load, e.g. a weighted plank)
+// typically varies round to round as fatigue sets in, same reason strength
+// sets get one row each rather than a single shared value.
+const existingRows=[...container.querySelectorAll('.functional-row')];
+const fVals=existingRows.map(r=>({duration:r.querySelector('.functional-duration-input').value,weight:r.querySelector('.functional-weight-input').value}));
+container.innerHTML=`<div class="set-header"><span></span><span>Time (sec)</span><span class="wt-label">${weightUnit} (optional)</span></div>`;
+for(let i=0;i<count;i++){
+const row=document.createElement('div');
+row.className='set-row functional-row';
+row.innerHTML=`<span class="set-num">R${i+1}</span>
+<input class="functional-duration-input" type="number" inputmode="numeric" min="0" max="999" placeholder="--" value="${fVals[i]?.duration||''}" onblur="autoFixNum(this)">
+<input class="functional-weight-input" type="text" inputmode="decimal" placeholder="--" value="${fVals[i]?.weight||''}" onblur="autoFixNum(this)">`;
+container.appendChild(row);
+}
 return;
 }
 const existingAll=[...container.querySelectorAll('.set-row')];
@@ -2898,6 +3028,65 @@ syncFitnessToSupabase();
 renderRoutineList();
 toast('Routine "'+routine.name+'" saved \u2713');
 }
+// ══════════════════════════════════════════════════════════════════
+// SUGGESTED FUNCTIONAL ROUTINES -- four ready-made circuits by time
+// available. Built on standard circuit-training programming (NASM/ACE
+// guidance): 6-10 exercises per circuit, 3 rounds as the default full
+// workout, and movement patterns rotated (squat -> push -> hinge ->
+// pull -> core -> carry/cardio -> isometric) so the same muscle group
+// never repeats back-to-back -- the single most common mistake in
+// circuit design per that research. Duration scales via exercise count
+// and number of circuits, not by fiddling rounds per circuit; the
+// round count is still adjustable per exercise after loading, same as
+// any self-built routine.
+// ══════════════════════════════════════════════════════════════════
+const SUGGESTED_ROUTINES=[
+{name:'20-Min Functional Foundations',durationMin:20,bodyParts:['Functional'],circuits:[
+{label:'Circuit',exercises:['Goblet Squat','Push-Ups','Glute Bridge','Bent Over Dumbbell Row','Mountain Climbers','Plank']}
+]},
+{name:'30-Min Full Body Circuit',durationMin:30,bodyParts:['Functional'],circuits:[
+{label:'Circuit',exercises:['Bulgarian Split Squat','Push-Ups','Romanian Deadlift','Single Arm Dumbbell Row','Russian Twist',"Farmer's Carry",'Jumping Jacks','Wall Sit']}
+]},
+{name:'45-Min Strength + Conditioning',durationMin:45,bodyParts:['Functional'],circuits:[
+{label:'Circuit A -- Strength',exercises:['Goblet Squat','Push-Ups','Romanian Deadlift','Bent Over Dumbbell Row','Walking Lunges','Dead Bug']},
+{label:'Circuit B -- Conditioning',exercises:['Mountain Climbers','Bear Crawl','Jumping Jacks','Plank']}
+]},
+{name:'60-Min Complete Functional Athlete',durationMin:60,bodyParts:['Functional'],circuits:[
+{label:'Circuit A -- Lower Body & Power',exercises:['Goblet Squat','Bulgarian Split Squat','Romanian Deadlift','Walking Lunges','Glute Bridge Hold']},
+{label:'Circuit B -- Upper Body & Core',exercises:['Push-Ups','Single Arm Dumbbell Row','Dumbbell Shoulder Press','Side Plank','Russian Twist']},
+{label:'Circuit C -- Conditioning Finisher',exercises:['Burpees','Mountain Climbers','High Knees',"Farmer's Carry"]}
+]}
+];
+function renderSuggestedRoutines(){
+var el=document.getElementById('suggestedRoutinesList');
+if(!el) return;
+el.innerHTML=SUGGESTED_ROUTINES.map(function(r,i){
+var circuitSummary=r.circuits.map(function(c){return c.exercises.length+' ex \u00d7 3 rounds';}).join(' + ');
+return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">'
++'<div><div style="font-size:14px;font-weight:700;color:var(--text);">'+r.name+'</div>'
++'<div style="font-size:12px;color:var(--muted);margin-top:2px;">'+circuitSummary+'</div></div>'
++'<button onclick="loadSuggestedRoutine('+i+')" style="flex-shrink:0;padding:7px 14px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Load</button>'
++'</div>';
+}).join('');
+}
+function loadSuggestedRoutine(idx){
+var r=SUGGESTED_ROUTINES[idx];
+if(!r) return;
+var hasExistingWork=document.querySelectorAll('#exBody .ex-block, #exBody .superset-block').length>0 || (cardioBlocks&&cardioBlocks.length>0) || (functionalBlocks&&functionalBlocks.length>0);
+if(hasExistingWork && !confirm('Load "'+r.name+'"? This starts a fresh set of exercises. Anything you\'ve started here but haven\'t saved yet will be cleared. Your saved sessions and routines are never affected.')) return;
+document.getElementById('exBody').innerHTML='';
+cardioBlocks=[];
+functionalBlocks=[];
+if(typeof renderCardioBlocks==='function') renderCardioBlocks();
+if(typeof renderFunctionalBlocks==='function') renderFunctionalBlocks();
+document.querySelectorAll('.bp-btn').forEach(function(b){ b.classList.remove('active'); });
+selectedBP=[];
+r.circuits.forEach(function(c){
+loadRoutineSuperset({exercises:c.exercises.map(function(ex){return {ex:ex};})});
+});
+toast('Loaded "'+r.name+'" -- '+r.durationMin+' min, adjust rounds/weights as you like');
+}
+
 function loadRoutineSuperset(ssData){
 addSupersetBlock();
 const ssBlocks=document.querySelectorAll('#exBody .superset-block');
@@ -2941,7 +3130,9 @@ const hasExistingWork=document.querySelectorAll('#exBody .ex-block, #exBody .sup
 if(hasExistingWork && !confirm('Load "'+eff.name+'"? This starts a fresh set of exercises from that routine -- anything you\'ve started here but haven\'t saved yet will be cleared. Your saved sessions and routines are never affected.')) return;
 document.getElementById('exBody').innerHTML='';
 cardioBlocks=[];
+functionalBlocks=[];
 if(typeof renderCardioBlocks==='function') renderCardioBlocks();
+if(typeof renderFunctionalBlocks==='function') renderFunctionalBlocks();
 
 document.querySelectorAll('.bp-btn').forEach(function(b){ b.classList.remove('active'); });
 selectedBP=[];
@@ -2952,6 +3143,10 @@ if(!selectedBP.includes(bp)) selectedBP.push(bp);
 });
 renderExChips();
 eff.exercises.forEach(function(e){
+if(isFunctional(e.ex)){
+functionalBlocks.push({id:Date.now()+Math.random(),ex:e.ex,duration:'',weight:''});
+return;
+}
 addExRow();
 const blocks=document.querySelectorAll('#exBody .ex-block');
 const newBlock=blocks[blocks.length-1];
@@ -2964,6 +3159,7 @@ sel.appendChild(opt);
 sel.value=e.ex;
 onExChange(sel);
 });
+if(typeof renderFunctionalBlocks==='function') renderFunctionalBlocks();
 eff.supersets.forEach(function(ss){
 loadRoutineSuperset(ss);
 });
@@ -3187,6 +3383,13 @@ if(isCardio(ex)){
 const dur=exBlock.querySelector('.ss-cardio-dur')?.value||'';
 const intensity=exBlock.querySelector('.ss-cardio-int')?.value||'';
 exercises.push({ex,type:'cardio',duration:dur,intensity});
+} else if(isFunctional(ex)){
+const setsCount=+exBlock.querySelector('.sets-select').value;
+const setData=[];
+exBlock.querySelectorAll('.functional-row').forEach((row,i)=>{
+setData.push({set:i+1,duration:row.querySelector('.functional-duration-input')?.value||'',weight:row.querySelector('.functional-weight-input')?.value||''});
+});
+exercises.push({ex,type:'functional',sets:setsCount,setData});
 } else {
 const setsCount=+exBlock.querySelector('.sets-select').value;
 const setData=[];
@@ -3375,7 +3578,7 @@ exercises.push({ex,sets:setsCount,setData,order:_exOrder.get(block)});
 }
 });
 if(incompleteMsg){showBlockingAlert(incompleteMsg);return;}
-if(!exercises.length && !cardioBlocks.length){showBlockingAlert('Add at least one exercise or cardio activity');return;}
+if(!exercises.length && !cardioBlocks.length && !functionalBlocks.length){showBlockingAlert('Add at least one exercise, cardio activity, or functional movement');return;}
 const timerDur = durRunning ? durElapsed+Math.floor((Date.now()-durStart)/1000) : durElapsed;
 const manualRaw = document.getElementById('durManual').value.trim();
 let finalDur = null;
@@ -3392,6 +3595,11 @@ if(!finalDur) finalDur = timerDur || null;
 if(!finalDur && cardioBlocks.length){
 const cardioMins=cardioBlocks.reduce((a,c)=>a+(parseInt(c.duration)||0),0);
 if(cardioMins>0) finalDur=cardioMins*60;
+}
+
+if(!finalDur && functionalBlocks.length){
+const functionalSecs=functionalBlocks.reduce((a,f)=>a+(parseInt(f.duration)||0),0);
+if(functionalSecs>0) finalDur=functionalSecs;
 }
 
 const hasStrengthWork=exercises.some(e=>e.type!=='cardio');
@@ -3422,11 +3630,13 @@ var _hd=document.getElementById('headerDate');
 if(_hd){_hd.style.opacity='';_hd.title='Tap to change date';_hd.style.cursor='pointer';}
 }
 var _cardioSecsTotal=cardioBlocks.reduce(function(a,c){return a+((parseInt(c.duration)||0)*60);},0);
-var _strengthSecs=hasStrengthWork?Math.max(0,(finalDur||0)-_cardioSecsTotal):0;
+var _functionalSecsTotal=functionalBlocks.reduce(function(a,f){return a+(parseInt(f.duration)||0);},0);
+var _strengthSecs=hasStrengthWork?Math.max(0,(finalDur||0)-_cardioSecsTotal-_functionalSecsTotal):0;
 var _estCal=computeSessionCalories({
 strengthSecs:_strengthSecs,
 avgRestSec:avgRestSecFromPage(),
 cardioBlocks:cardioBlocks.map(function(c){return {ex:c.ex,duration:c.duration,intensity:c.intensity};}),
+functionalBlocks:functionalBlocks.map(function(f){return {ex:f.ex,duration:f.duration};}),
 profile:getClientProfile()
 });
 sessions.unshift({
@@ -3436,6 +3646,7 @@ date, timeOfDay:_timeStr,
 bodyParts:[...selectedBP], exercises,
 supersets:collectSupersets(_exOrder),
 cardio:[...cardioBlocks],
+functional:[...functionalBlocks],
 restTimes:[...currentRestTimes],
 avgRestManual: currentRestTimes.length===0?manualAvgRest:null,
 duration: finalDur||null,
@@ -3483,7 +3694,9 @@ document.getElementById('durStopBtn').style.display='none';
 document.getElementById('durManual').value='';
 document.getElementById('sessionRestCard').style.display='none';
 cardioBlocks=[];
+functionalBlocks=[];
 renderCardioBlocks();
+renderFunctionalBlocks();
 clearLog(); renderHistory(); renderStats();
 if(saveBtn) saveBtn.disabled=false;
 }
@@ -4424,6 +4637,20 @@ const CARDIO_MET={
 'Ski Erg':{Easy:5.0,Moderate:7.0,Hard:9.0,Max:11.0}
 };
 const CARDIO_MET_DEFAULT={Easy:4.0,Moderate:6.0,Hard:8.0,Max:10.0};
+// Static holds burn meaningfully less than dynamic bodyweight movement --
+// research consistently notes isometrics are "a supporting player, not the
+// star" for calorie burn (Compendium of Physical Activities-aligned
+// estimates). Weight isn't factored into this MET even when logged --
+// there's no well-established formula for how much a loaded hold adds to
+// energy cost, so the field stays purely for progression tracking, not
+// calorie precision.
+const FUNCTIONAL_MET={
+'Plank':3.0,'Side Plank':3.0,'Wall Sit':3.5,'Dead Hang':2.5,'Glute Bridge Hold':2.5,
+'Hollow Body Hold':3.5,'Superman Hold':2.5,'Bird Dog Hold':2.5,'Split Squat Hold':3.5,
+'Push-Up Hold':3.0,'Squat Hold':3.5,'Farmer\'s Carry':4.5,
+'Bear Crawl':6.0,'Jumping Jacks':7.0,'Mountain Climbers':8.0,'High Knees':8.0,'Burpees':10.0
+};
+const FUNCTIONAL_MET_DEFAULT=4.0;
 const CAL_FALLBACK_SEC_PER_SET=45;
 
 function latestClientWeightKg(){
@@ -4525,6 +4752,16 @@ var hrs=mins/60;
 var kcal=met*rmrPerHour*hrs;
 total+=kcal; totalLow+=kcal; totalHigh+=kcal;
 parts.push((c.ex||'Cardio')+': ~'+Math.round(kcal)+' kcal ('+met+' MET'+(c.intensity?', '+c.intensity:'')+')');
+});
+
+(opts.functionalBlocks||[]).forEach(function(f){
+var secs=parseInt(f.duration)||0;
+if(!secs) return;
+var met=FUNCTIONAL_MET[f.ex]||FUNCTIONAL_MET_DEFAULT;
+var hrs=secs/3600;
+var kcal=met*rmrPerHour*hrs;
+total+=kcal; totalLow+=kcal; totalHigh+=kcal;
+parts.push((f.ex||'Functional')+': ~'+Math.round(kcal)+' kcal ('+met+' MET)');
 });
 
 if(!parts.length) return null;
@@ -5119,7 +5356,7 @@ return '<div style="margin-bottom:10px;"><div style="font-size:14px;font-weight:
 }
 var out='<div style="font-size:18px;font-weight:800;margin-bottom:2px;">'+D[d.getDay()]+', '+d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear()+(s.timeOfDay?' - '+s.timeOfDay:'')+'</div>';
 out+='<div style="font-size:13px;margin-bottom:12px;">'+(s.client||'')+((s.bodyParts&&s.bodyParts.length)?' &middot; '+s.bodyParts.join(', '):'')+'</div>';
-var dur=s.duration||((s.cardio&&s.cardio.length)?s.cardio.reduce(function(a,c){return a+(parseInt(c.duration)||0);},0)*60:0);
+var dur=s.duration||((s.cardio&&s.cardio.length)?s.cardio.reduce(function(a,c){return a+(parseInt(c.duration)||0);},0)*60:0)+((s.functional&&s.functional.length)?s.functional.reduce(function(a,f){return a+(parseInt(f.duration)||0);},0):0);
 if(dur) out+='<div style="font-size:13px;margin-bottom:6px;">Duration: '+fmtDur(dur)+'</div>';
 var avg=sessRestAvg(s);
 if(avg) out+='<div style="font-size:13px;margin-bottom:12px;">Average rest: '+fmtSecs(avg)+'</div>';
@@ -5129,6 +5366,10 @@ var ssHtml=(s.supersets||[]).map(function(ss){
 var inner=(ss.exercises||[]).map(function(e){
 if(e.type==='cardio'){
 return '<div style="font-size:14px;font-weight:700;margin-bottom:4px;">'+e.ex+(e.duration?' — '+e.duration+' min':'')+(e.intensity?' — '+e.intensity:'')+'</div>';
+}
+if(e.type==='functional'){
+var fRows=(e.setData||[]).filter(function(r){return r.duration;}).map(function(r){return r.duration+'s'+(r.weight?' @ '+r.weight+(s.unit||'kg'):'');}).join(', ');
+return '<div style="font-size:14px;font-weight:700;margin-bottom:4px;">'+e.ex+(fRows?' — '+fRows:'')+'</div>';
 }
 return exTable(e);
 }).join('');
@@ -5646,6 +5887,11 @@ return {id:Date.now()+Math.random(), ex:c.ex||'', duration:c.duration||'', dista
 });
 renderCardioBlocks();
 
+functionalBlocks=(s.functional||[]).map(function(f){
+return {id:Date.now()+Math.random(), ex:f.ex||'', duration:f.duration||'', weight:f.weight||''};
+});
+renderFunctionalBlocks();
+
 currentRestTimes=s.restTimes?[...s.restTimes]:[];
 updateSessionRestCard();
 var ari2=document.getElementById('avgRestInput');
@@ -5678,6 +5924,12 @@ var durInp=exBlock.querySelector('.ss-cardio-dur');
 var intSel=exBlock.querySelector('.ss-cardio-int');
 if(durInp) durInp.value=e.duration||'';
 if(intSel) intSel.value=e.intensity||'';
+} else if(e.type==='functional'){
+var setsEl=exBlock.querySelector('.sets-select');
+var setCount=e.sets||(e.setData?e.setData.length:3)||3;
+if(setsEl) setsEl.value=setCount;
+generateSetRows(exBlock.querySelector('.set-rows'),setCount,e.ex);
+restoreFunctionalSetData(exBlock.querySelector('.set-rows'),e.setData);
 } else {
 var setsEl=exBlock.querySelector('.sets-select');
 var setCount=e.sets||(e.setData?e.setData.filter(function(x){return !x.dropset;}).length:3)||3;
@@ -5707,13 +5959,15 @@ function getSessionCalorieEstimate(s){
 if(s.estCalories) return s.estCalories;
 var _sessDur=s.duration||(s.cardio&&s.cardio.length?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60:0);
 var _cSecs=(s.cardio||[]).reduce((a,c)=>a+((parseInt(c.duration)||0)*60),0);
+var _fSecs=(s.functional||[]).reduce((a,f)=>a+(parseInt(f.duration)||0),0);
 var _hasStr=(s.exercises&&s.exercises.some(e=>e.type!=='cardio'))||(s.supersets&&s.supersets.length>0);
-var _strSecs=_hasStr?Math.max(0,(_sessDur||0)-_cSecs):0;
+var _strSecs=_hasStr?Math.max(0,(_sessDur||0)-_cSecs-_fSecs):0;
 var _avgRest=(s.restTimes&&s.restTimes.length)?(s.restTimes.reduce((a,b)=>a+b,0)/s.restTimes.length):s.avgRestManual;
 return computeSessionCalories({
 strengthSecs:_strSecs,
 avgRestSec:_avgRest,
 cardioBlocks:(s.cardio||[]).map(c=>({ex:c.ex,duration:c.duration,intensity:c.intensity})),
+functionalBlocks:(s.functional||[]).map(f=>({ex:f.ex,duration:f.duration})),
 profile:getClientProfile()
 });
 }
@@ -5758,6 +6012,19 @@ ${s.cardio.map(c=>`
 ${c.intensity?`<div class="rst-row"><span class="rst-label" style="color:var(--text);font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.03em;">Intensity</span><span style="color:var(--terra);font-size:19px;font-weight:800;font-family:'DM Mono',monospace;">${c.intensity.toUpperCase()}</span></div>`:''}
 <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);color:var(--text);font-size:22px;font-weight:800;letter-spacing:.02em;">${c.ex}</div>
 ${c.distance?`<div style="margin-top:6px;color:var(--gold);font-size:16px;font-weight:700;font-family:'DM Mono',monospace;">${c.distance}km</div>`:''}
+</div>`).join('')}
+</div>`:'';
+
+const functionalSection=(s.functional&&s.functional.length)?`
+<div class="card">
+<div class="card-title" style="color:var(--text);font-size:13px;font-weight:800;">FUNCTIONAL / ISOMETRIC</div>
+${s.functional.map(f=>`
+<div style="margin-bottom:10px;padding-top:10px;border-top:1px solid var(--border);">
+<div style="color:var(--text);font-size:20px;font-weight:800;">${f.ex}</div>
+<div style="display:flex;gap:16px;margin-top:6px;font-family:'DM Mono',monospace;">
+${f.duration?`<span style="color:var(--flame);font-size:18px;font-weight:700;">${f.duration}s</span>`:''}
+${f.weight?`<span style="color:var(--gold);font-size:16px;font-weight:700;">${f.weight}${s.unit||'kg'}</span>`:''}
+</div>
 </div>`).join('')}
 </div>`:'';
 
@@ -5816,7 +6083,7 @@ const ssSection=_combined.filter(i=>i.kind==='ss').map(i=>i.html).join('');
 const _hasRealOrder=(s.exercises||[]).some(e=>e.order!=null)||(s.supersets||[]).some(ss=>ss.order!=null);
 const _interleavedSection=_hasRealOrder?_combined.map(i=>i.kind==='ex'?`<div class="card">${i.html}</div>`:i.html).join(''):'';
 function ssBodyHtml(ss,uLabel,prMap8,s){
-return ss.exercises.filter(e=>e.type==='cardio'||(e.setData||[]).some(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()))).map(e=>{
+return ss.exercises.filter(e=>e.type==='cardio'||e.type==='functional'||(e.setData||[]).some(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()))).map(e=>{
 if(e.type==='cardio'){
 return`<div style="margin-bottom:16px;border-left:3px solid var(--sage);padding-left:10px;">
 <div style="font-size:17px;font-weight:700;margin-bottom:6px;color:var(--text);">${e.ex}</div>
@@ -5824,6 +6091,13 @@ return`<div style="margin-bottom:16px;border-left:3px solid var(--sage);padding-
 ${e.duration?`<span style="color:var(--sage)">${e.duration} min</span>`:''}
 ${e.intensity?`<span style="color:var(--terra)">Intensity: ${e.intensity}</span>`:''}
 </div>
+</div>`;
+}
+if(e.type==='functional'){
+const fRows=(e.setData||[]).filter(r=>r.duration);
+return`<div style="margin-bottom:16px;border-left:3px solid var(--flame);padding-left:10px;">
+<div style="font-size:17px;font-weight:700;margin-bottom:8px;color:var(--text);">${e.ex}</div>
+${fRows.map(r=>`<div style="display:flex;gap:16px;font-family:'DM Mono',monospace;font-size:15px;margin-bottom:4px;"><span style="color:var(--text);opacity:.6;">R${r.set}</span><span style="color:var(--flame);font-weight:700;">${r.duration}s</span>${r.weight?`<span style="color:var(--gold);">${r.weight}${uLabel}</span>`:''}</div>`).join('')}
 </div>`;
 }
 const ssRealSets=(e.setData||[]).filter(r=>(r.reps&&String(r.reps).trim())||(r.weight&&String(r.weight).trim()));
@@ -5856,6 +6130,7 @@ ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-s
 }
 const _effectiveTags=[...(s.bodyParts||[])];
 if((s.cardio&&s.cardio.length)&&_effectiveTags.indexOf('Cardio')===-1) _effectiveTags.push('Cardio');
+if((s.functional&&s.functional.length)&&_effectiveTags.indexOf('Functional')===-1) _effectiveTags.push('Functional');
 const _prInfo=getSessionPRInfo(s,prMap8);
 const _prPillHtml=_prInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_prInfo.count} P.R.</span>`:'';
 const _sessCal=getSessionCalorieEstimate(s);
@@ -5864,6 +6139,7 @@ document.getElementById('dBody').innerHTML=`
 ${_effectiveTags.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${_effectiveTags.map(b=>`<span class="sess-tag${_prInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')}${_prPillHtml}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}${_calBadge}</div>`:''}
 ${durLine}
 ${cardioSection}
+${functionalSection}
 ${_hasRealOrder?_interleavedSection:ssSection+exSection}
 ${restSec}
 ${s.notes?`<div class="card"><div class="card-title">Notes</div><p style="font-size:17px;line-height:1.65;color:var(--muted)">${s.notes}</p></div>`:''}
@@ -6071,7 +6347,7 @@ const HELP_TEXT=[
 {title:'Log a Workout',body:
 '<b>1. Tap the body part you\'re training</b><br>See buttons like Back, Chest, Legs, Cardio? Tap the one(s) you\'re training today. You can tap more than one (e.g. Chest + Shoulders). The right exercises show up below by themselves -- you never have to search for them.<br><br>'+
 '<b>1b. Or just search for any exercise directly</b><br>There\'s a search box above your exercise list -- type any exercise\'s name, from any body part, whether or not you\'ve tapped that body part above. It\'s forgiving about word order, so "flat bench press barbell" still finds "Barbell Bench Press (Flat)." Tap a suggestion and it gets added, its body part gets ticked on automatically, and your history for it shows up right away.<br><br>'+
-'<b>1c. Save and reuse your own routines</b><br>Built a combination of exercises you want to repeat -- a specific push day, a week\'s plan, anything? In the My Routines box, tap <b>Add exercises</b> to search and build a list right there (no need to log real sets first), then tap <b>Set a Routine</b> to name and save it, however many you like. If you\'d rather build it the long way, add exercises normally on this page first, then tap Set a Routine -- it saves whatever\'s currently on the page instead. Next time, tap "Load" from the dropdown and it rebuilds that exact exercise list instantly -- a fresh, blank set of exercises ready to log new numbers against, with your history for each one still showing. Loading a routine only clears whatever\'s currently unsaved on the page; it never touches anything you\'ve already saved. Routines with a "(Coach)" tag were sent to you by your coach -- you can load, rename, or delete them just like your own.<br><br>'+
+'<b>1c. Save and reuse your own routines</b><br>Built a combination of exercises you want to repeat -- a specific push day, a week\'s plan, anything? In the My Routines box, tap <b>Add exercises</b> to search and build a list right there (no need to log real sets first), then tap <b>Set a Routine</b> to name and save it, however many you like. If you\'d rather build it the long way, add exercises normally on this page first, then tap Set a Routine -- it saves whatever\'s currently on the page instead. Next time, tap "Load" from the dropdown and it rebuilds that exact exercise list instantly -- a fresh, blank set of exercises ready to log new numbers against, with your history for each one still showing. Loading a routine only clears whatever\'s currently unsaved on the page; it never touches anything you\'ve already saved. Routines with a "(Coach)" tag were sent to you by your coach -- you can load, rename, or delete them just like your own. Below My Routines, <b>Suggested Functional Routines</b> are four ready-made circuits (20/30/45/60 min) built around proper movement-pattern rotation -- no building required, just tap Load and adjust from there.<br><br>'+
 '<b>2. For each exercise, fill in your sets</b><br>Every exercise shows boxes for Reps and Weight, one row per set. Just type the numbers in as you finish each set. Did an extra set that isn\'t shown? Tap "+ Add Set" to add another row.<br><br>'+
 '<b>3. The H button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "H" (for Help). Tap it once for every rep in that set where someone helped you finish (a spot) -- it\'ll show a number like "H 2". Tapped it by mistake, or want to lower the count? Press and hold the button to subtract one. Didn\'t need help at all? Just leave it alone.<br><br>'+
 '<b>3b. The LP button (lengthened partials)</b><br>Works exactly the same way as H, right next to it. Tap "LP" once for every rep in that set done as a lengthened partial -- a shorter rep performed in the stretched position of the movement (e.g. the bottom half of a leg extension or bicep curl), a technique some research suggests builds muscle as well as full-range reps for certain exercises. Same as H: tap to add one, press and hold to subtract one. Like H and drop sets, LP reps are excluded from your Personal Records, since a partial-range rep isn\'t really the same lift as a full-range one.<br><br>'+
@@ -6079,6 +6355,8 @@ const HELP_TEXT=[
 '<b>5. How to actually do each rep</b><br>This matters as much as the numbers you log: lower the weight slowly (2-4 seconds), pause for a second at the bottom, then lift back up fast and with intent. Always use the full range of motion -- never half-reps. If you can\'t do this with control, the weight is too heavy; use less weight, not less range.<br><br>'+
 '<b>6. Doing two exercises back-to-back with no rest? Use Superset</b><br>Tap "+ Add Superset" instead of logging them as two separate exercises. This links them together properly in your history.<br><br>'+
 '<b>7. Just doing cardio?</b><br>Tap the Cardio body part instead. You\'ll log duration and how hard it felt, not sets and reps.<br><br>'+
+'<b>7b. Planks, wall sits, or other holds? Use the Functional / Isometric box</b><br>Scroll down past Cardio to find it -- tap a movement (Plank, Wall Sit, Dead Hang, Jumping Jacks, and more), and log how long you held or did it, one row per round. Putting weight on your back for a loaded plank or carry? There\'s an optional weight field for exactly that. Don\'t see the movement you want? Type it into "Add movement" at the bottom of that box. These are also selectable inside a Superset if you\'re circuiting them with regular exercises.<br><br>'+
+'<b>7c. Estimated calories burned</b><br>Near the top of the page, a card shows roughly how many calories that session burned -- based on your session time, your logged rest between sets, and (for cardio/functional work) the specific activity. This needs your age, sex, height, and weight filled in once (at setup, or in that card directly) to work -- without all four, it won\'t show a number rather than guess at one. Tap the small ⓘ next to it for exactly how it\'s calculated.<br><br>'+
 '<b>8. Resting between sets</b><br>Use the REST bar at the bottom of the screen -- tap 1m / 90s / 2m / 3m, or type your own time, and it counts down for you. This also automatically fills in your average rest time, so you don\'t need to type that in separately. Didn\'t use the timer? There\'s a separate Average Rest Time section further down to enter it by hand.<br><br>'+
 '<b>9. Timing the whole workout</b><br>At the top of the screen, next to Help and Feedback, there\'s a timer with Start/Stop -- tap Start when you begin your session. It stays visible even if you switch to another tab, and its total gets saved with the session. Made a mistake or want to start over? Tap Reset to clear it back to 00:00. Prefer to just type the total afterwards instead? Scroll down to Session Duration and enter it manually there.<br><br>'+
 '<b>10. Notes and sending things to your coach</b><br>Session Notes is just for writing how the workout felt. Progress Pic and Record Video are separate buttons that send a photo or video straight to your coach -- they don\'t affect your sets/reps data at all. Coming from another app or your own spreadsheet? "Import Data" further down lets you bring in your past workout history as a CSV file -- it always shows you exactly what it found before anything is actually added, so nothing gets imported without your confirmation.<br><br>'+
@@ -6089,7 +6367,7 @@ const HELP_TEXT=[
 '<b>What this page is</b><br>Every workout you\'ve ever saved, listed with the newest at the top.<br><br>'+
 '<b>Narrowing it down</b><br>Tap All Time, This Month, This Week, or Custom (pick your own two dates) to only see workouts from that period. The list below changes to match instantly.<br><br>'+
 '<b>Printing</b><br>Two buttons here: "Print Summary View" prints the short list you can see on screen. "Print Full Report" prints the complete detail for every workout in whatever range you\'ve selected -- every exercise, every set, every rep -- with one workout per printed page. Both respect whichever filter (This Week/Month/etc.) you currently have selected.'},
-{title:'Stats',body:'A look at how your training is trending over time -- how your rest times between sets have changed, and which exercises you do most. Below that, the Training FAQ has common questions (total reps, hours, cardio vs strength, heaviest lifts, and more) -- pick a time range and tap one to see the answer instantly, computed from your own logged sessions with nothing sent anywhere. Underneath it, type a specific exercise name to ask about that exercise alone. Tap "Share Progress Report" to send a summary of this straight to your coach.'},
+{title:'Stats',body:'A look at how your training is trending over time -- how your rest times between sets have changed, which exercises you do most, and total calories burned (this week, this month, all time -- needs your age/sex/height/weight filled in to show up). Below that, the Training FAQ has common questions (total reps, hours, cardio vs strength, heaviest lifts, and more) -- pick a time range and tap one to see the answer instantly, computed from your own logged sessions with nothing sent anywhere. Underneath it, type a specific exercise name to ask about that exercise alone. Tap "Share Progress Report" to send a summary of this straight to your coach.'},
 {title:'Notes',body:'A simple text box to write how a week or month of training went, in your own words -- how you felt, what was hard, anything you want your coach to know. Your coach reads these alongside your actual numbers to understand the full picture. Further down, "Import Data" lets you bring in past workout history from another app or your own spreadsheet as a CSV file -- it always shows you exactly what it found before anything is actually added, so nothing gets imported without your confirmation.'},
 {title:'Personal Records (PR)',body:'Pick any exercise from the dropdown list to see the best set you\'ve ever logged for it -- your heaviest weight, or the most reps at a given weight. This updates by itself the moment you beat your own record in a future session -- you don\'t have to do anything for it to update.'},
 {title:'Body Measurements',body:
