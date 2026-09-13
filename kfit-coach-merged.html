@@ -127,6 +127,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 </div>
 
+<!-- Generic confirm modal -- used anywhere a "are you sure" is needed -->
+<div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--surf3);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:340px;width:100%;box-shadow:0 14px 40px rgba(0,0,0,.55);">
+    <div id="confirmModalTitle" style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:8px;line-height:1.4;"></div>
+    <div id="confirmModalMsg" style="font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:18px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button id="confirmModalCancelBtn" style="flex:1;padding:11px;background:none;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Cancel</button>
+      <button id="confirmModalOkBtn" style="flex:1;padding:11px;background:var(--terra);border:none;border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <!-- Main -->
 <div id="mainApp" style="display:none;">
   <div class="topbar">
@@ -682,13 +694,13 @@ async function onCoachAuthenticated(session){
       var badge=document.getElementById('exSuggestBadge');
       if(res.data.length){ badge.style.display='inline-block'; badge.textContent=res.data.length; }
     }
-  });
+  }).catch(function(err){ console.error('Pending-exercise badge failed to load:',err); });
   getSBScoped().from('app_feedback').select('id').eq('status','new').then(function(res){
     if(!res.error&&res.data){
       var badge=document.getElementById('fbBadge');
       if(res.data.length){ badge.style.display='inline-block'; badge.textContent=res.data.length; }
     }
-  });
+  }).catch(function(err){ console.error('Feedback badge failed to load:',err); });
 }
 // Kill switch: blocks the whole coach dashboard once a trial has expired or
 // billing is inactive. 'active' always passes. 'trial' passes until
@@ -923,6 +935,29 @@ async function loadClientAccess(){
   }
 }
 
+// A "are you sure" modal, returns a Promise<boolean> -- resolve(true) on
+// Confirm, resolve(false) on Cancel. Was referenced by toggleClientAccess
+// below but never actually implemented, which is why blocking a client
+// silently did nothing -- calling an undefined function throws, and since
+// nothing awaits/catches it from the onclick, the error vanished with no
+// feedback to the coach at all.
+function showConfirm(title,message){
+return new Promise(function(resolve){
+document.getElementById('confirmModalTitle').textContent=title;
+document.getElementById('confirmModalMsg').textContent=message;
+document.getElementById('confirmModal').style.display='flex';
+var okBtn=document.getElementById('confirmModalOkBtn');
+var cancelBtn=document.getElementById('confirmModalCancelBtn');
+function cleanup(result){
+document.getElementById('confirmModal').style.display='none';
+okBtn.onclick=null;
+cancelBtn.onclick=null;
+resolve(result);
+}
+okBtn.onclick=function(){cleanup(true);};
+cancelBtn.onclick=function(){cleanup(false);};
+});
+}
 async function toggleClientAccess(canonKey,name,mobile,btnEvent,trackerType){
   if(btnEvent)btnEvent.stopPropagation();
   const current=clientAccess[canonKey]||'active';
@@ -1545,17 +1580,34 @@ async function deleteFbMessage(key,rowId,kind,replyIndex){
 }
 
 function loadAll(){
-  Promise.all([
-    getSBScoped().from('attendance').select('*').eq('coach_id',window.currentCoachId).order('session_date',{ascending:false}).order('logged_at',{ascending:false}),
-    loadClientTags(),
-    loadClientAccess()
+  try{
+  const timeoutMs=12000;
+  const timeout=new Promise(function(_,reject){
+    setTimeout(function(){reject(new Error('Timed out after 12s waiting for the server -- check your connection and try reopening this tab.'));},timeoutMs);
+  });
+  Promise.race([
+    Promise.all([
+      getSBScoped().from('attendance').select('*').eq('coach_id',window.currentCoachId).order('session_date',{ascending:false}).order('logged_at',{ascending:false}),
+      loadClientTags(),
+      loadClientAccess()
+    ]),
+    timeout
   ]).then(function(results){
     const res=results[0];
     if(res.error){document.getElementById('clientList').innerHTML='<div class="empty">Error loading data.<br>'+res.error.message+'</div>';return;}
     allRecords=res.data||[];
     renderDash();
     loadNewSignups();
+  }).catch(function(err){
+    console.error('Fitness load failed:',err);
+    const el=document.getElementById('clientList');
+    if(el) el.innerHTML='<div class="empty">Something went wrong loading this list.<br>'+(err&&err.message?err.message:'Unknown error')+'<br><br>Try closing and reopening this tab.</div>';
   });
+  }catch(syncErr){
+    console.error('Fitness load threw synchronously:',syncErr);
+    const el=document.getElementById('clientList');
+    if(el) el.innerHTML='<div class="empty">Something went wrong starting the load.<br>'+(syncErr&&syncErr.message?syncErr.message:'Unknown error')+'</div>';
+  }
 }
 function loadNewSignups(){
   getSBScoped().from('tracker_data').select('client_id,data').eq('tracker','fitness').then(function(res){
@@ -1582,7 +1634,7 @@ function loadNewSignups(){
     } else {
       card.style.display='none';
     }
-  });
+  }).catch(function(err){ console.error('New sign-ups card failed to load:',err); });
 }
 
 function setRosterView(v){
