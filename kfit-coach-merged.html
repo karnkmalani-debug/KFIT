@@ -3785,6 +3785,7 @@ function nutLoadAll(){
         mobile:d.mobile||'',
         setup:d.setup,
         data:d.data,
+        calories:d.calories||{target:null,log:{}},
         updated_at:row.updated_at
       };
     }).filter(function(c){return c!==null;});
@@ -4690,6 +4691,49 @@ function nutRenderDash(){
   }).join('');
 }
 
+function dayCalorieTotalCoach(cal,dateStr){
+return ((cal.log&&cal.log[dateStr])||[]).reduce(function(a,e){return a+(e.amount||0);},0);
+}
+function renderCoachCalorieSummary(cw,clientId){
+var cal=cw.calories||{target:null,log:{}};
+var today=new Date();
+var todayStr=localDateStr(today);
+var loggedToday=dayCalorieTotalCoach(cal,todayStr);
+var html='<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">';
+html+='<span style="font-size:14px;color:var(--muted);">Daily target</span>';
+html+='<input type="number" id="coachCalTarget_'+clientId+'" value="'+(cal.target||'')+'" placeholder="not set" inputmode="numeric" style="width:80px;padding:6px 8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:13px;">';
+html+='<button onclick="setClientCalorieTarget(\''+clientId+'\')" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Set</button>';
+html+='</div>';
+html+='<div style="font-size:14px;color:var(--muted);margin-bottom:8px;">Logged today: <b style="color:var(--text);">'+loggedToday+' kcal</b></div>';
+var days=[];
+for(var i=1;i<=6;i++){ var d=new Date(today); d.setDate(today.getDate()-i); days.push(localDateStr(d)); }
+var rows=days.map(function(dateStr){ return dayCalorieTotalCoach(cal,dateStr); }).filter(function(t){return t>0;});
+if(rows.length){
+var avg=Math.round(rows.reduce(function(a,b){return a+b;},0)/rows.length);
+html+='<div style="font-size:13px;color:var(--muted);">Last 6 days avg: <b style="color:var(--text);">'+avg+' kcal</b> ('+rows.length+' day'+(rows.length!==1?'s':'')+' logged)</div>';
+} else {
+html+='<div style="font-size:13px;color:var(--muted);">No calorie entries in the last week.</div>';
+}
+return html;
+}
+async function setClientCalorieTarget(clientId){
+var val=document.getElementById('coachCalTarget_'+clientId).value;
+var target=val?parseInt(val):null;
+const {data:existing,error:fetchErr}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','nutrition');
+if(fetchErr){alert('Could not save -- '+fetchErr.message);return;}
+let full={};
+if(existing&&existing.length&&existing[0].data){
+full=typeof existing[0].data==='string'?JSON.parse(existing[0].data):existing[0].data;
+}
+full.calories=full.calories||{target:null,log:{}};
+full.calories.target=target;
+const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({client_id:clientId,tracker:'nutrition',data:JSON.stringify(full),updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
+if(saveErr){alert('Could not save -- '+saveErr.message);return;}
+var cw=allClients.find(function(c){return c.client_id===clientId;});
+if(cw) cw.calories=full.calories;
+toast('Target saved');
+}
+
 function nutShowClient(clientId){
   const cw=allClients.find(function(c){return c.client_id===clientId;});
   if(!cw)return;
@@ -4702,6 +4746,11 @@ function nutShowClient(clientId){
     '<div class="card" style="margin-bottom:14px;">'
       +'<div style="font-size:22px;font-weight:800;margin-bottom:4px;">'+cw.name+'</div>'
       +(cw.mobile?'<div style="font-size:15px;font-weight:600;color:var(--muted);">📱 '+cw.mobile+'</div>':'')
+    +'</div>'
+    +'<div class="card" style="margin-bottom:14px;">'
+      +'<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">🔥 Calories'
+      +'</div>'
+      +renderCoachCalorieSummary(cw,clientId)
     +'</div>'
     +'<div class="card" style="margin-bottom:14px;">'
       +'<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📏 Body Measurements'
