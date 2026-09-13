@@ -326,6 +326,12 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 
 @keyframes bpSlideIn{from{opacity:0;transform:translateY(-10px);}to{opacity:1;transform:translateY(0);}}
 @keyframes bpCountdown{from{width:100%;}to{width:0%;}}
+@keyframes bpAttention{
+0%,100%{box-shadow:0 0 0 0 rgba(212,106,58,0);}
+15%,45%{box-shadow:0 0 0 4px rgba(212,106,58,.45);}
+30%{box-shadow:0 0 0 2px rgba(212,106,58,.25);}
+}
+.bp-card-highlight{animation:bpAttention 1.4s ease-in-out 2;border-color:var(--flame)!important;}
 .toast{position:fixed;bottom:82px;left:50%;transform:translateX(-50%);background:var(--surf3);border:1px solid var(--border);border-radius:8px;padding:9px 18px;font-size:17px;font-weight:600;color:var(--text);opacity:0;transition:opacity .25s;pointer-events:none;z-index:700;white-space:nowrap;}
 .toast.show{opacity:1;}
 
@@ -632,7 +638,7 @@ btn.textContent='Could not copy -- select the address bar manually';
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="bpCard">
       <div class="card-title">Select Body Part to Train</div>
       <div class="bp-grid" id="bpGrid"></div>
     </div>
@@ -651,7 +657,7 @@ btn.textContent='Could not copy -- select the address bar manually';
       </div>
       <div id="exBody"></div>
       <div style="margin-bottom:10px;position:relative;">
-        <input type="text" id="exSearchInput" placeholder="&#128269; Search any exercise, any body part..." autocomplete="off" oninput="handleExSearchInput(this)" onkeydown="handleExSearchKeydown(event)" onblur="setTimeout(function(){var b=document.getElementById('exSearchSuggestions');if(b)b.style.display='none';},180);" style="width:100%;padding:11px 14px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;">
+        <input type="text" id="exSearchInput" placeholder="&#128269; Search any exercise, any body part..." autocomplete="off" oninput="handleExSearchInput(this)" onkeydown="handleExSearchKeydown(event)" onblur="setTimeout(function(){var b=document.getElementById('exSearchSuggestions');if(b)b.style.display='none';},180);" style="width:100%;padding:11px 14px;background:var(--surf2);border:1.5px solid var(--gold-d);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;">
         <div id="exSearchSuggestions" style="display:none;position:absolute;left:0;right:0;bottom:calc(100% + 4px);background:var(--surf3);border:1px solid var(--border);border-radius:10px;overflow:hidden;z-index:60;max-height:260px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4);"></div>
       </div>
       <div class="add-row" onclick="addExRow()" style="background:var(--flame);border-style:solid;border-color:var(--flame);color:#1a0d05;font-weight:800;">+ Add Exercise</div>
@@ -2589,6 +2595,23 @@ if(sel.value) onExChange(sel);
 }
 
 function addExRow(){
+// If no body part is selected yet, the exercise dropdown would show every
+// exercise in the library at once -- overwhelming, especially the first
+// time someone opens the tracker. Redirect to body-part selection instead
+// of adding a block with that giant unfiltered list.
+var realBps=selectedBP.filter(function(bp){return bp!=='Cardio';});
+if(!realBps.length){
+var bpCard=document.getElementById('bpCard');
+if(bpCard){
+bpCard.scrollIntoView({behavior:'smooth',block:'center'});
+bpCard.classList.remove('bp-card-highlight');
+void bpCard.offsetWidth;
+bpCard.classList.add('bp-card-highlight');
+setTimeout(function(){bpCard.classList.remove('bp-card-highlight');},2900);
+}
+toast('Pick a body part above first, or search for one exercise below 👇');
+return;
+}
 const block=document.createElement('div');
 block.className='ex-block';
 const micId='exmic_'+Date.now();
