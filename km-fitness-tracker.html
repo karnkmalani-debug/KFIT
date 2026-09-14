@@ -96,8 +96,8 @@ html,body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-seri
 input[type="date"].field-input{-webkit-appearance:none;appearance:none;min-height:40px;}
 input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(.45) sepia(1) saturate(2) hue-rotate(80deg);cursor:pointer;opacity:.7;}
 
-.bp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
-.bp-btn{padding:9px 3px;border:1px solid var(--border);border-radius:8px;background:var(--surf2);text-align:center;font-size:17px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .18s;}
+.bp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
+.bp-btn{padding:9px 3px;border:1px solid var(--border);border-radius:8px;background:var(--surf2);text-align:center;font-size:17px;font-weight:700;color:var(--text);cursor:pointer;transition:all .18s;min-height:54px;display:flex;align-items:center;justify-content:center;line-height:1.2;}
 .bp-btn.active{background:var(--sage-d);border-color:var(--sage);color:var(--sage);}
 
 /* -- Exercise block -- */
@@ -668,6 +668,16 @@ btn.textContent='Could not copy -- select the address bar manually';
         </div>
       </div>
       <div class="quick-add-section">
+        <div class="quick-add-header" onclick="toggleKfitStandardRoutines()">
+          <span class="quick-add-label">KFit Standard Routine</span>
+          <span class="quick-add-toggle" id="kfitStandardRoutinesToggle">⌄</span>
+        </div>
+        <div class="quick-add-body" id="kfitStandardRoutinesBody">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Karan's own core program -- the actual split he runs himself and gives his clients. Chest, Back, Shoulders & Arms, Legs.</div>
+          <div id="kfitStandardRoutinesList"></div>
+        </div>
+      </div>
+      <div class="quick-add-section">
         <div class="quick-add-header" onclick="toggleSuggestedStrengthRoutines()">
           <span class="quick-add-label">KFit Suggested Strength Routines</span>
           <span class="quick-add-toggle" id="suggestedStrengthRoutinesToggle">⌄</span>
@@ -1152,7 +1162,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 </div>
 
 <script>
-const BODY_PARTS = ['Full Body','Back','Chest','Shoulders','Biceps','Triceps','Legs','Core','Cardio'];
+const BODY_PARTS = ['Back','Chest','Shoulders','Biceps','Triceps','Legs','Core','Cardio','Full Body'];
 const EX_LIB = {
 'Back':['Pull-Ups','Chin-Ups','Lat Pulldown Wide','Lat Pulldown Close','Lat Pulldown Neutral Grip','Seated Row Close','Seated Row Wide','Chest Supported Row Wide','Chest Supported Row Close','Bent Over Barbell Row','Bent Over Dumbbell Row','Single Arm Dumbbell Row','T-Bar Row','Cable Row','Deadlift','Lat Prayer (Cable Pullover)','Straight Arm Pulldown','Face Pulls','Shrugs','Reverse Fly (Cable)'],
 'Chest':['Barbell Bench Press (Flat)','Barbell Bench Press (Incline)','Barbell Bench Press (Decline)','Dumbbell Press (Flat)','Dumbbell Press (Incline)','Dumbbell Press (Decline)','Dumbbell Fly (Flat)','Dumbbell Fly (Incline)','Dumbbell Fly (Decline)','Chest Press Machine','Machine Fly','Cable Fly (Low to High)','Cable Fly (High to Low)','Cable Fly (Mid)','Smith Machine Bench Press (Flat)','Smith Machine Bench Press (Incline)','Smith Machine Bench Press (Decline)','Push-Ups','Deficit Push Ups','Dips (Chest Focus)'],
@@ -1429,6 +1439,13 @@ if(toggle)toggle.classList.toggle('open',open);
 function toggleSuggestedStrengthRoutines(){
 const body=document.getElementById('suggestedStrengthRoutinesBody');
 const toggle=document.getElementById('suggestedStrengthRoutinesToggle');
+if(!body)return;
+const open=body.classList.toggle('open');
+if(toggle)toggle.classList.toggle('open',open);
+}
+function toggleKfitStandardRoutines(){
+const body=document.getElementById('kfitStandardRoutinesBody');
+const toggle=document.getElementById('kfitStandardRoutinesToggle');
 if(!body)return;
 const open=body.classList.toggle('open');
 if(toggle)toggle.classList.toggle('open',open);
@@ -1961,6 +1978,7 @@ loadLiveRoutineTemplates();
 retryPendingAttendance();
 renderRoutineList();
 renderSuggestedRoutines();
+renderKfitStandardRoutines();
 renderSuggestedStrengthRoutines();
 renderFaqList();
 renderCardioChips();
@@ -3282,6 +3300,95 @@ const SUGGESTED_STRENGTH_ROUTINES=[
 {ex:'Seated Calf Raise',sets:3}
 ]}
 ];
+// ══════════════════════════════════════════════════════════════════
+// KFIT STANDARD ROUTINE -- Karan's own core program, the actual 4-day
+// split he runs himself and prescribes to his clients (Chest / Back /
+// Shoulders & Arms / Legs). Unlike SUGGESTED_ROUTINES and
+// SUGGESTED_STRENGTH_ROUTINES above, this isn't researched from
+// published guidance -- it's his methodology, kept in its own section
+// so the two stay clearly distinct.
+// ══════════════════════════════════════════════════════════════════
+const KFIT_STANDARD_ROUTINES=[
+{name:'KFit Standard Routine: Chest Day',bodyParts:['Chest'],exercises:[
+{ex:'Barbell Bench Press (Flat)',sets:4},
+{ex:'Barbell Bench Press (Incline)',sets:3},
+{ex:'Dumbbell Fly (Flat)',sets:3},
+{ex:'Cable Fly (Mid)',sets:3},
+{ex:'Dips (Chest Focus)',sets:3}
+]},
+{name:'KFit Standard Routine: Back Day',bodyParts:['Back'],exercises:[
+{ex:'Deadlift',sets:3},
+{ex:'Pull-Ups',sets:3},
+{ex:'Lat Pulldown Wide',sets:3},
+{ex:'Seated Row Close',sets:3},
+{ex:'T-Bar Row',sets:3}
+]},
+{name:'KFit Standard Routine: Shoulders & Arms Day',bodyParts:['Shoulders','Biceps','Triceps'],exercises:[
+{ex:'Barbell Overhead Press',sets:4},
+{ex:'Lateral Raises (Dumbbell)',sets:3},
+{ex:'Rear Delt Fly (Cable)',sets:3},
+{ex:'Barbell Curl',sets:3},
+{ex:'Hammer Curl',sets:2},
+{ex:'Tricep Pushdown (Rope)',sets:3},
+{ex:'Skull Crushers (EZ Bar)',sets:2}
+]},
+{name:'KFit Standard Routine: Legs Day',bodyParts:['Legs'],exercises:[
+{ex:'Barbell Squat',sets:4},
+{ex:'Romanian Deadlift',sets:3},
+{ex:'Leg Press',sets:3},
+{ex:'Leg Extension',sets:3},
+{ex:'Lying Hamstring Curl',sets:3},
+{ex:'Standing Calf Raise',sets:4}
+]}
+];
+function renderKfitStandardRoutines(){
+var el=document.getElementById('kfitStandardRoutinesList');
+if(!el) return;
+el.innerHTML=KFIT_STANDARD_ROUTINES.map(function(r,i){
+var totalSets=r.exercises.reduce(function(a,e){return a+e.sets;},0);
+return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">'
++'<div><div style="font-size:14px;font-weight:700;color:var(--text);">'+r.name+'</div>'
++'<div style="font-size:12px;color:var(--muted);margin-top:2px;">'+r.exercises.length+' exercises, '+totalSets+' total sets</div></div>'
++'<button onclick="loadKfitStandardRoutine('+i+')" style="flex-shrink:0;padding:7px 14px;background:var(--gold);border:none;border-radius:7px;color:#1a1408;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Load</button>'
++'</div>';
+}).join('');
+}
+function loadKfitStandardRoutine(idx){
+var r=KFIT_STANDARD_ROUTINES[idx];
+if(!r) return;
+var hasExistingWork=document.querySelectorAll('#exBody .ex-block, #exBody .superset-block').length>0 || (cardioBlocks&&cardioBlocks.length>0) || (functionalBlocks&&functionalBlocks.length>0);
+if(hasExistingWork && !confirm('Load "'+r.name+'"? This starts a fresh set of exercises. Anything you\'ve started here but haven\'t saved yet will be cleared. Your saved sessions and routines are never affected.')) return;
+document.getElementById('exBody').innerHTML='';
+cardioBlocks=[];
+functionalBlocks=[];
+if(typeof renderCardioBlocks==='function') renderCardioBlocks();
+if(typeof renderFunctionalBlocks==='function') renderFunctionalBlocks();
+document.querySelectorAll('.bp-btn').forEach(function(b){ b.classList.remove('active'); });
+selectedBP=[];
+r.bodyParts.forEach(function(bp){
+var btn=[...document.querySelectorAll('.bp-btn')].find(function(b){ return b.textContent.trim()===bp; });
+if(btn) btn.classList.add('active');
+if(!selectedBP.includes(bp)) selectedBP.push(bp);
+});
+renderExChips();
+r.exercises.forEach(function(e){
+addExRow();
+var blocks=document.querySelectorAll('#exBody .ex-block');
+var newBlock=blocks[blocks.length-1];
+var sel=newBlock.querySelector('.ex-select');
+if(![...sel.options].some(function(o){ return o.value===e.ex; })){
+var opt=document.createElement('option');
+opt.value=e.ex; opt.textContent=e.ex;
+sel.appendChild(opt);
+}
+sel.value=e.ex;
+onExChange(sel);
+var setsEl=newBlock.querySelector('.sets-select');
+if(setsEl){ setsEl.value=e.sets; updateSetRows(setsEl); }
+});
+toast('Loaded "'+r.name+'" -- adjust weights/reps as you like');
+}
+
 function renderSuggestedStrengthRoutines(){
 var el=document.getElementById('suggestedStrengthRoutinesList');
 if(!el) return;
@@ -5055,49 +5162,29 @@ breakdown:parts
 }
 
 function estimateSessionCalories(){
+var cardEl=document.getElementById('calBurnCard');
 var rangeEl=document.getElementById('calBurnRange');
 var noteEl=document.getElementById('calBurnNote');
 var profileEl=document.getElementById('calBurnProfilePrompt');
 if(!rangeEl) return;
 var profile=getClientProfile();
-if(profileEl) profileEl.style.display=profile.isComplete?'none':'block';
+if(profile.isComplete){
+// Profile's done -- nothing left for this card to do on the live page.
+// The estimate itself now only shows in the save confirmation and in
+// History, not while you're still logging.
+if(cardEl) cardEl.style.display='none';
+return;
+}
+if(cardEl) cardEl.style.display='block';
+if(profileEl) profileEl.style.display='block';
 
 var timerSecs=durRunning?durElapsed+Math.floor((Date.now()-durStart)/1000):durElapsed;
 var manualRaw=(document.getElementById('durManual')||{}).value||'';
 var manualMin=parseInt(manualRaw)||0;
 var secs=timerSecs||(manualMin*60);
-var usedFallback=false;
-if(!secs){
-var sets=countLoggedSetsOnPage();
-if(sets>0){ secs=sets*CAL_FALLBACK_SEC_PER_SET; usedFallback=true; }
-}
 
-var cardioNow=[];
-document.querySelectorAll('#exBody .cardio-block, .cardio-block').forEach(function(){});
-if(typeof cardioBlocks!=='undefined'&&cardioBlocks.length){
-cardioBlocks.forEach(function(c){ cardioNow.push({ex:c.ex,duration:c.duration,intensity:c.intensity}); });
-}
-
-if(!secs&&!cardioNow.length){ rangeEl.textContent='--'; if(noteEl) noteEl.textContent='Log sets, cardio, or start the timer to see an estimate.'; return; }
-
-if(!profile.isComplete){
 rangeEl.textContent='--';
-if(noteEl) noteEl.textContent='Add age, sex, height & weight below to see calories burned.';
-return;
-}
-
-var result=computeSessionCalories({
-strengthSecs:secs,
-avgRestSec:avgRestSecFromPage(),
-cardioBlocks:cardioNow,
-profile:profile
-});
-if(!result){ rangeEl.textContent='--'; return; }
-
-rangeEl.textContent=result.isRange?('~'+result.low+'-'+result.high+' kcal'):('~'+result.value+' kcal');
-if(noteEl){
-noteEl.textContent=(usedFallback?'Rough guess from sets logged (no timer running). ':'')+'Personalized to your age/sex/weight/height.';
-}
+if(noteEl) noteEl.textContent='Add age, sex, height & weight below to see calories burned once you save a session.';
 }
 let _calBurnDebounce=null;
 document.addEventListener('input',function(e){
@@ -5131,7 +5218,7 @@ measurements.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
 localStorage.setItem('kmfit_measurements',JSON.stringify(measurements));
 syncFitnessToSupabase();
 estimateSessionCalories();
-toast('Saved -- estimate updated');
+toast('Saved \u2713 -- calories burned will show once you save this session');
 }
 function showCalorieInfo(){
 showBlockingAlert('How this estimate works:\n\nStrength sets: your average rest time between sets picks the intensity (short rest = higher effective MET, since research shows heavy-but-long-rest and light-but-long-rest sessions burn about the same per minute -- rest matters more than the weight on the bar).\n\nCardio: each activity has its own MET value at Easy/Moderate/Hard/Max, from the Compendium of Physical Activities.\n\nBoth are scaled to your personal resting metabolic rate (Mifflin-St Jeor formula, from age, sex, height, weight) when you\'ve filled those in -- otherwise a generic default is used and shown as a wider range.\n\nThis is always an estimate, not a measured value -- real calorie burn depends on heart rate and effort we don\'t have without a wearable.');

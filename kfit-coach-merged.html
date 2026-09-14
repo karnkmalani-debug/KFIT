@@ -210,13 +210,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <!-- Dashboard view -->
   <div class="content" id="dashView">
     <div class="stat-grid" id="overallStats"></div>
-    <div id="newSignupsCard" style="display:none;background:var(--surf);border:1px solid var(--gold);border-radius:12px;padding:14px;margin-bottom:14px;">
-      <div style="font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--gold);margin-bottom:8px;">New Sign-ups &mdash; No Sessions Logged Yet</div>
-      <div id="newSignupsList" style="font-size:14px;color:var(--text);line-height:1.8;"></div>
-    </div>
     <div style="display:flex;gap:8px;margin-bottom:12px;">
       <button id="rosterTabClients" class="mode-btn active" style="flex:1;" onclick="setRosterView('clients')">Clients</button>
       <button id="rosterTabAll" class="mode-btn" style="flex:1;" onclick="setRosterView('all')">All Users</button>
+      <button id="rosterTabNotSetUp" class="mode-btn" style="flex:1;" onclick="setRosterView('notsetup')">Not Set Up</button>
     </div>
     <input id="clientSearch" type="text" placeholder="🔍 Search by name..." oninput="renderDash()" style="width:100%;padding:9px 12px;margin-bottom:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -745,7 +742,7 @@ const COACH_HELP_SECTIONS={
     +'<b>New Sign-ups card</b> (appears above the list when relevant) shows people who have set up a profile on the tracker but haven\'t logged a session yet -- so you know someone joined even before they start showing up as a "real" client.<br><br>'
     +'<b>Client tags</b> let you label clients (e.g. needs follow-up) for your own organisation -- clients never see these.<br><br>'
     +'<b>🔓 Access / 🔒 Blocked</b> is a kill switch -- tap it to instantly cut off a specific client\'s tracker access (they\'ll see a "paused" screen instead of the app) without touching anyone else\'s. Tap again any time to restore it. This is separate from your own KFit subscription in the Account tab -- it\'s about one client, not your whole account.<br><br>'
-    +'<b>🧘 KFit Suggested Functional Routines</b> and <b>💪 KFit Suggested Strength Routines</b>, inside each client\'s own page, are ready-built by KFit itself -- circuits, Push/Pull/Legs, Full Body A/B, Upper/Lower A/B, grounded in published training research. One tap on "Send" writes the full structure straight into that client\'s own routines, no building required.'},
+    +'<b>🏋️ KFit Standard Routine</b>, <b>🧘 KFit Suggested Functional Routines</b>, and <b>💪 KFit Suggested Strength Routines</b>, inside each client\'s own page, all send a full routine straight into that client\'s own routines in one tap -- no building required. Standard Routine is your own core program (the Chest/Back/Shoulders & Arms/Legs split you actually run yourself); the other two are researched by KFit -- circuits, Push/Pull/Legs, Full Body A/B, Upper/Lower A/B, grounded in published training research.'},
   nutrition:{title:'Nutrition Tab',body:
     '<b>Client list</b> works the same as Fitness -- tap a client, then a day, to see their Eating Order and Protein First scores plus whatever they logged.<br><br>'
     +'<b>+ Assign Meal Plan</b> lets you fill in specific food/macro content for a client on specific dates -- this writes directly into their calendar, for one client at a time.<br><br>'
@@ -816,7 +813,8 @@ async function coachLogout(){
 
 window.taggedClients = window.taggedClients || {fitness:{},nutrition:{}}; // canonical_key -> true, per tracker -- fitness and nutrition rosters are independent
 window.clientAccess = window.clientAccess || {}; // canonical_key -> 'active'|'inactive' -- per-client kill switch, independent of coach billing
-let rosterView='clients'; // 'clients' | 'all'
+let rosterView='clients'; // 'clients' | 'all' | 'notsetup'
+let notSetUpUsers=[]; // people who've opened the tracker but never logged a session
 window.nutRosterView = window.nutRosterView || 'clients';
 
 // ══════════════════════════════════════════════════════════════════
@@ -1655,16 +1653,12 @@ function loadNewSignups(){
       var mobile=d.mobile||'';
       var key=(mobile||name||'').toLowerCase().trim();
       if(attendedKeys.has(key)) return; // safety: already has attendance under this key somehow
-      noSession.push(name+(mobile?' ('+mobile+')':''));
+      noSession.push({name:name,mobile:mobile});
     });
-    var card=document.getElementById('newSignupsCard');
-    var list=document.getElementById('newSignupsList');
-    if(noSession.length){
-      card.style.display='block';
-      list.textContent=noSession.join(', ');
-    } else {
-      card.style.display='none';
-    }
+    notSetUpUsers=noSession;
+    var tabBtn=document.getElementById('rosterTabNotSetUp');
+    if(tabBtn) tabBtn.textContent='Not Set Up'+(noSession.length?' ('+noSession.length+')':'');
+    if(rosterView==='notsetup') renderDash();
   }).catch(function(err){ console.error('New sign-ups card failed to load:',err); });
 }
 
@@ -1672,7 +1666,8 @@ function setRosterView(v){
   rosterView=v;
   document.getElementById('rosterTabClients').classList.toggle('active',v==='clients');
   document.getElementById('rosterTabAll').classList.toggle('active',v==='all');
-  document.getElementById('rosterLabel').textContent=v==='clients'?'Clients':'All Users';
+  document.getElementById('rosterTabNotSetUp').classList.toggle('active',v==='notsetup');
+  document.getElementById('rosterLabel').textContent=v==='clients'?'Clients':v==='all'?'All Users':'Not Set Up';
   renderDash();
 }
 
@@ -1720,6 +1715,19 @@ function renderDash(){
     <div class="stat-box"><div class="stat-val" style="color:var(--gold);">${monthCount}</div><div class="stat-lbl">This Month</div></div>
     <div class="stat-box"><div class="stat-val" style="color:var(--terra);">${total}</div><div class="stat-lbl">All Time</div></div>`;
 
+  if(rosterView==='notsetup'){
+    let notSetUpFiltered=notSetUpUsers;
+    if(searchQ) notSetUpFiltered=notSetUpFiltered.filter(u=>(u.name||'').toLowerCase().includes(searchQ));
+    document.getElementById('clientList').innerHTML=notSetUpFiltered.length
+      ?notSetUpFiltered.map(u=>`<div class="client-card" style="cursor:default;">
+          <div class="client-name">${u.name}</div>
+          <div class="client-meta"><span>${u.mobile?'📱 '+u.mobile:'No mobile on file'}</span></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px;">Opened the tracker, hasn't logged a session yet.</div>
+        </div>`).join('')
+      :(searchQ?'<div class="empty">No one matches "'+searchQ+'".</div>':'<div class="empty">Everyone who has opened the tracker has logged at least one session.</div>');
+    return;
+  }
+
   // Client cards
   const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   if(!clientCount){
@@ -1744,7 +1752,7 @@ function renderDash(){
     const isBlocked=clientAccess[canonicalClientKey(c.name,c.mobile)]==='inactive';
     const accessBtn=`<button onclick="toggleClientAccess('${canonicalClientKey(c.name,c.mobile).replace(/'/g,"\\'")}','${(c.name||'').replace(/'/g,"\\'")}','${(c.mobile||'').replace(/'/g,"\\'")}',event,'fitness')" style="padding:5px 10px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid ${isBlocked?'var(--terra)':'var(--border)'};background:${isBlocked?'var(--terra)':'transparent'};color:${isBlocked?'#fff':'var(--muted)'};">${isBlocked?'🔒 Blocked':'🔓 Access'}</button>`;
     const unpaidN=isTagged?c.records.filter(r=>!r.paid).length:0;
-    const unpaidBadge=unpaidN?`<span class="badge" style="background:var(--terra);color:#fff;">${unpaidN} unpaid</span>`:'';
+    const unpaidBadge=unpaidN?`<button onclick="event.stopPropagation();markClientPaidInFull('${(c.mobile||'').replace(/'/g,"\\'")}','${(c.name||'').replace(/'/g,"\\'")}',${unpaidN})" class="badge" style="background:var(--terra);color:#fff;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;">${unpaidN} unpaid</button>`:'';
     const blockedBadge=isBlocked?`<span class="badge" style="background:var(--terra);color:#fff;">Blocked</span>`:'';
     return`<div class="client-card" onclick="showClient('${key.replace(/'/g,"\\'")}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
@@ -1759,6 +1767,22 @@ function renderDash(){
       <div style="margin-top:10px;display:flex;gap:8px;" onclick="event.stopPropagation();">${tagBtn}${accessBtn}</div>
     </div>`;
   }).join('');
+}
+
+async function markClientPaidInFull(mobile,name,count){
+  const ok=await showConfirm('Mark all as paid?','This marks all '+count+' unpaid session'+(count===1?'':'s')+' for '+name+' as paid. This can\'t be undone in bulk -- you\'d need to toggle each one back individually.');
+  if(!ok) return;
+  const res=await getSBScoped().from('attendance').update({paid:true}).eq('client_mobile',mobile||'').eq('paid',false);
+  if(res.error){
+    alert('Could not update payment status: '+res.error.message);
+    return;
+  }
+  allRecords.forEach(function(r){
+    if((r.client_mobile||'')===(mobile||'')&&!r.paid) r.paid=true;
+  });
+  toast('Marked '+count+' session'+(count===1?'':'s')+' as paid for '+name+' \u2713');
+  if(currentClientKey) showClient(currentClientKey);
+  renderDash();
 }
 
 function togglePaid(mobile,date,time,currentPaid){
@@ -1855,6 +1879,18 @@ function showClient(key){
             <div style="font-size:12px;color:var(--muted);margin-top:2px;">${r.supersets.map(c=>c.exercises.length+' ex').join(' + ')} \u00d7 3 rounds each</div>
           </div>
           <button onclick="sendSuggestedRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="flex-shrink:0;padding:7px 14px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
+        </div>`).join('')}
+    </div>
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-title">🏋️ KFit Standard Routine</div>
+      <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;">Your own core program -- the split you actually run yourself and give clients. Chest, Back, Shoulders & Arms, Legs.</div>
+      ${KFIT_STANDARD_ROUTINES.map((r,i)=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--text);">${r.name}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">${r.exercises.length} exercises, ${r.exercises.reduce((a,e)=>a+e.sets,0)} total sets</div>
+          </div>
+          <button onclick="sendKfitStandardRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="flex-shrink:0;padding:7px 14px;background:var(--gold);border:none;border-radius:7px;color:#1a1408;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
         </div>`).join('')}
     </div>
     <div class="card" style="margin-bottom:14px;">
@@ -1996,13 +2032,16 @@ async function sendSuggestedRoutine(idx,clientKey){
   const clients=groupClients();
   const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
   if(!c){ alert('Client not found.'); return; }
+  const chosenName=prompt('Send as (rename if you like):',r.name);
+  if(chosenName===null) return; // cancelled
+  const finalName=chosenName.trim()||r.name;
   // performRoutineAssignment reads body_parts (snake_case, matching the
   // routine_templates table column) -- bridge that here rather than
   // renaming bodyParts everywhere else in this file.
-  const syntheticTemplate={ name:r.name, body_parts:r.bodyParts, exercises:[], supersets:r.supersets };
+  const syntheticTemplate={ name:finalName, body_parts:r.bodyParts, exercises:[], supersets:r.supersets };
   const ok=await performRoutineAssignment(syntheticTemplate,c);
   if(!ok) return;
-  alert('"'+r.name+'" sent to '+c.name+' \u2713');
+  alert('"'+finalName+'" sent to '+c.name+' \u2713');
   loadClientRoutinesList(clientKey);
 }
 async function sendSuggestedStrengthRoutine(idx,clientKey){
@@ -2011,10 +2050,28 @@ async function sendSuggestedStrengthRoutine(idx,clientKey){
   const clients=groupClients();
   const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
   if(!c){ alert('Client not found.'); return; }
-  const syntheticTemplate={ name:r.name, body_parts:r.bodyParts, exercises:r.exercises, supersets:[] };
+  const chosenName=prompt('Send as (rename if you like):',r.name);
+  if(chosenName===null) return;
+  const finalName=chosenName.trim()||r.name;
+  const syntheticTemplate={ name:finalName, body_parts:r.bodyParts, exercises:r.exercises, supersets:[] };
   const ok=await performRoutineAssignment(syntheticTemplate,c);
   if(!ok) return;
-  alert('"'+r.name+'" sent to '+c.name+' \u2713');
+  alert('"'+finalName+'" sent to '+c.name+' \u2713');
+  loadClientRoutinesList(clientKey);
+}
+async function sendKfitStandardRoutine(idx,clientKey){
+  const r=KFIT_STANDARD_ROUTINES[idx];
+  if(!r) return;
+  const clients=groupClients();
+  const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
+  if(!c){ alert('Client not found.'); return; }
+  const chosenName=prompt('Send as (rename if you like):',r.name);
+  if(chosenName===null) return;
+  const finalName=chosenName.trim()||r.name;
+  const syntheticTemplate={ name:finalName, body_parts:r.bodyParts, exercises:r.exercises, supersets:[] };
+  const ok=await performRoutineAssignment(syntheticTemplate,c);
+  if(!ok) return;
+  alert('"'+finalName+'" sent to '+c.name+' \u2713');
   loadClientRoutinesList(clientKey);
 }
 async function assignRoutineToClient(clientKey){
@@ -2691,6 +2748,42 @@ const SUGGESTED_ROUTINES=[
 // exercise -- performRoutineAssignment already reads template.exercises
 // directly, no bridging needed the way supersets needed for the
 // functional presets.
+// KFit Standard Routine -- Karan's own core program (see
+// km-fitness-tracker.html for the full note), kept separate from the
+// researched SUGGESTED_STRENGTH_ROUTINES below.
+const KFIT_STANDARD_ROUTINES=[
+{name:'KFit Standard Routine: Chest Day',bodyParts:['Chest'],exercises:[
+{ex:'Barbell Bench Press (Flat)',sets:4},
+{ex:'Barbell Bench Press (Incline)',sets:3},
+{ex:'Dumbbell Fly (Flat)',sets:3},
+{ex:'Cable Fly (Mid)',sets:3},
+{ex:'Dips (Chest Focus)',sets:3}
+]},
+{name:'KFit Standard Routine: Back Day',bodyParts:['Back'],exercises:[
+{ex:'Deadlift',sets:3},
+{ex:'Pull-Ups',sets:3},
+{ex:'Lat Pulldown Wide',sets:3},
+{ex:'Seated Row Close',sets:3},
+{ex:'T-Bar Row',sets:3}
+]},
+{name:'KFit Standard Routine: Shoulders & Arms Day',bodyParts:['Shoulders','Biceps','Triceps'],exercises:[
+{ex:'Barbell Overhead Press',sets:4},
+{ex:'Lateral Raises (Dumbbell)',sets:3},
+{ex:'Rear Delt Fly (Cable)',sets:3},
+{ex:'Barbell Curl',sets:3},
+{ex:'Hammer Curl',sets:2},
+{ex:'Tricep Pushdown (Rope)',sets:3},
+{ex:'Skull Crushers (EZ Bar)',sets:2}
+]},
+{name:'KFit Standard Routine: Legs Day',bodyParts:['Legs'],exercises:[
+{ex:'Barbell Squat',sets:4},
+{ex:'Romanian Deadlift',sets:3},
+{ex:'Leg Press',sets:3},
+{ex:'Leg Extension',sets:3},
+{ex:'Lying Hamstring Curl',sets:3},
+{ex:'Standing Calf Raise',sets:4}
+]}
+];
 const SUGGESTED_STRENGTH_ROUTINES=[
 {name:'KFit Push Day (Chest, Shoulders, Triceps)',bodyParts:['Chest','Shoulders','Triceps'],exercises:[
 {ex:'Barbell Bench Press (Flat)',sets:4},
