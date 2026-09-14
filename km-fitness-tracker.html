@@ -851,6 +851,11 @@ btn.textContent='Could not copy -- select the address bar manually';
   <div class="panel" id="panel1">
     <div class="card" id="histFilterCard">
       <div id="histFilterPills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
+      <div class="quick-add-header" onclick="toggleHistFilters()" style="cursor:pointer;">
+        <span class="quick-add-label">Custom Range & Print</span>
+        <span class="quick-add-toggle" id="histFiltersToggle">⌄</span>
+      </div>
+      <div class="quick-add-body" id="histFiltersBody">
       <div id="histCustomRange" style="display:none;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
         <input type="date" id="histFromDate" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
         <span style="color:var(--muted);font-size:15px;font-weight:600;">to</span>
@@ -860,6 +865,7 @@ btn.textContent='Could not copy -- select the address bar manually';
       <div style="display:flex;flex-direction:column;gap:8px;">
         <button onclick="window.print()" style="width:100%;padding:11px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">&#128424; Print Summary View</button>
         <button onclick="printHistoryReport()" style="width:100%;padding:11px;background:var(--gold-d);border:1px solid var(--gold);border-radius:8px;color:var(--gold);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">&#128424; Print Full Report (with exercise detail)</button>
+      </div>
       </div>
     </div>
     <div id="attendanceSection" style="margin-bottom:16px;"></div>
@@ -872,7 +878,11 @@ btn.textContent='Could not copy -- select the address bar manually';
     <div id="restStatsSection"></div>
     <div id="statDetail"></div>
     <div class="card">
-      <div class="card-title">Training FAQ</div>
+      <div class="quick-add-header" onclick="toggleTrainingFaq()" style="cursor:pointer;">
+        <span class="card-title" style="margin-bottom:0;">Training FAQ</span>
+        <span class="quick-add-toggle" id="trainingFaqToggle">⌄</span>
+      </div>
+      <div class="quick-add-body" id="trainingFaqBody">
       <div style="font-size:14px;font-weight:600;color:var(--muted);margin-bottom:10px;">Common questions about your training, answered instantly from your own logged sessions -- nothing sent anywhere. Pick a time range, then tap a question.</div>
       <div style="display:flex;gap:6px;margin-bottom:12px;">
         <button class="faq-period-pill" data-period="all" onclick="setFaqPeriod('all')" style="padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--sage);background:var(--sage-d);color:var(--sage);">All Time</button>
@@ -888,6 +898,7 @@ btn.textContent='Could not copy -- select the address bar manually';
           <button onclick="askWorkoutQuestion()" style="padding:10px 16px;background:var(--sage);border:none;border-radius:8px;color:#0c0c0a;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Ask</button>
         </div>
         <div id="askAnswer"></div>
+      </div>
       </div>
     </div>
     <div style="padding:0 14px 16px;">
@@ -914,13 +925,23 @@ btn.textContent='Could not copy -- select the address bar manually';
       </div>
     </div>
     <div class="card">
-      <div class="card-title">Import Workout History</div>
+      <div class="quick-add-header" onclick="toggleImportHistoryNotes()" style="cursor:pointer;">
+        <span class="card-title" style="margin-bottom:0;">Import Workout History</span>
+        <span class="quick-add-toggle" id="importHistoryNotesToggle">⌄</span>
+      </div>
+      <div class="quick-add-body" id="importHistoryNotesBody">
       <div style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.6;">Coming from another app or your own spreadsheet? Bring your past workouts into KFit.</div>
       <button onclick="openImportModal()" style="width:100%;padding:11px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Import Data</button>
+      </div>
     </div>
     <div class="card" id="mobileNumberCard">
-      <div class="card-title">📱 Mobile Login</div>
+      <div class="quick-add-header" onclick="toggleMobileLoginCard()" style="cursor:pointer;">
+        <span class="card-title" style="margin-bottom:0;">📱 Mobile Login</span>
+        <span class="quick-add-toggle" id="mobileLoginCardToggle">⌄</span>
+      </div>
+      <div class="quick-add-body" id="mobileLoginCardBody">
       <div id="mobileCardContent"></div>
+      </div>
     </div>
     <div style="padding:0 14px 16px;">
       <button class="print-inline" onclick="window.print()">&#128424; Print This Screen</button>
@@ -1461,6 +1482,34 @@ if(toggle)toggle.classList.toggle('open',open);
 function toggleSendToCoach(){
 const body=document.getElementById('sendToCoachBody');
 const toggle=document.getElementById('sendToCoachToggle');
+if(!body)return;
+const open=body.classList.toggle('open');
+if(toggle)toggle.classList.toggle('open',open);
+}
+function toggleHistFilters(){
+const body=document.getElementById('histFiltersBody');
+const toggle=document.getElementById('histFiltersToggle');
+if(!body)return;
+const open=body.classList.toggle('open');
+if(toggle)toggle.classList.toggle('open',open);
+}
+function toggleTrainingFaq(){
+const body=document.getElementById('trainingFaqBody');
+const toggle=document.getElementById('trainingFaqToggle');
+if(!body)return;
+const open=body.classList.toggle('open');
+if(toggle)toggle.classList.toggle('open',open);
+}
+function toggleImportHistoryNotes(){
+const body=document.getElementById('importHistoryNotesBody');
+const toggle=document.getElementById('importHistoryNotesToggle');
+if(!body)return;
+const open=body.classList.toggle('open');
+if(toggle)toggle.classList.toggle('open',open);
+}
+function toggleMobileLoginCard(){
+const body=document.getElementById('mobileLoginCardBody');
+const toggle=document.getElementById('mobileLoginCardToggle');
 if(!body)return;
 const open=body.classList.toggle('open');
 if(toggle)toggle.classList.toggle('open',open);
@@ -5592,6 +5641,11 @@ function setHistFilter(mode){
 histFilterMode=mode;
 var cr=document.getElementById('histCustomRange');
 if(cr) cr.style.display=mode==='custom'?'flex':'none';
+if(mode==='custom'){
+var body=document.getElementById('histFiltersBody');
+var toggle=document.getElementById('histFiltersToggle');
+if(body&&!body.classList.contains('open')){ body.classList.add('open'); if(toggle) toggle.classList.add('open'); }
+}
 renderHistFilterPills();
 if(mode!=='custom'){
 renderHistory();renderAttendance();

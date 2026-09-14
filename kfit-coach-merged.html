@@ -24,6 +24,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .content{max-width:520px;margin:0 auto;padding:18px;}
 .card{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
 .card-title{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+.quick-add-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-bottom:10px;}
+.quick-add-toggle{font-size:13px;color:var(--muted);transition:transform .2s;line-height:1;width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:var(--surf2);border:1px solid var(--border);border-radius:6px;flex-shrink:0;}
+.quick-add-toggle.open{transform:rotate(180deg);border-color:var(--sage);color:var(--sage);}
+.quick-add-body{display:none;}
 .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
 .stat-box{background:var(--surf2);border-radius:8px;padding:12px;text-align:center;}
 .stat-val{font-size:26px;font-weight:900;}
@@ -174,9 +178,20 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="content" id="exDashView">
       <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Pending Suggestions</div>
       <div id="exPendingList"><div class="empty">Loading...</div></div>
-      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:20px 0 10px;">Approved (Live On All Trackers)</div>
+
+      <div class="quick-add-header" onclick="toggleMergeSection('exApproved')" style="margin:20px 0 10px;">
+        <span style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">Approved (Live On All Trackers)</span>
+        <span class="quick-add-toggle" id="exApprovedToggle">⌄</span>
+      </div>
+      <div class="quick-add-body" id="exApprovedBody">
       <div id="exApprovedList"><div class="empty">Loading...</div></div>
-      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:20px 0 10px;">Technique Videos</div>
+      </div>
+
+      <div class="quick-add-header" onclick="toggleMergeSection('exVideos')" style="margin:20px 0 10px;">
+        <span style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">Technique Videos</span>
+        <span class="quick-add-toggle" id="exVideosToggle">⌄</span>
+      </div>
+      <div class="quick-add-body" id="exVideosBody">
       <div class="client-card" style="cursor:default;margin-bottom:10px;">
         <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Link a technique video to any exercise -- it shows as a "Watch Technique Video" button on the fitness tracker whenever that exercise is selected.</div>
         <input type="text" id="vidExName" list="vidExDatalist" placeholder="Exercise name" style="width:100%;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;margin-bottom:8px;">
@@ -185,8 +200,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <button onclick="saveExerciseVideo()" style="width:100%;padding:10px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Save Video Link</button>
       </div>
       <div id="exVideoList"><div class="empty">Loading...</div></div>
+      </div>
 
-      <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:20px 0 10px;">Routine Templates</div>
+      <div class="quick-add-header" onclick="toggleMergeSection('rt')" style="margin:20px 0 10px;">
+        <span style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);">Routine Templates</span>
+        <span class="quick-add-toggle" id="rtToggle">⌄</span>
+      </div>
+      <div class="quick-add-body" id="rtBody">
       <div class="client-card" style="cursor:default;margin-bottom:10px;">
         <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Build a routine once here -- exercises only, no reps or weight -- then assign it to any client from their page. It shows up in their own "My Routines" list, tagged as yours.</div>
         <textarea id="rt-paste-box" class="form-inp" rows="4" placeholder="Paste a routine from Google Docs, Notes, WhatsApp, etc. -- one exercise per line, or comma-separated:&#10;&#10;Barbell Squat&#10;Leg Press&#10;Walking Lunges" style="width:100%;padding:9px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;margin-bottom:8px;"></textarea>
@@ -201,6 +221,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div onclick="cancelEditRoutineTemplate()" style="text-align:center;margin-top:8px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;text-decoration:underline;">Cancel editing</div>
       </div>
       <div id="rtList"><div class="empty">Loading...</div></div>
+      </div>
     </div>
   </div>
 
@@ -981,6 +1002,13 @@ async function loadClientAccess(){
 // silently did nothing -- calling an undefined function throws, and since
 // nothing awaits/catches it from the onclick, the error vanished with no
 // feedback to the coach at all.
+function toggleMergeSection(name){
+const body=document.getElementById(name+'Body');
+const toggle=document.getElementById(name+'Toggle');
+if(!body)return;
+const open=body.classList.toggle('open');
+if(toggle)toggle.classList.toggle('open',open);
+}
 function showConfirm(title,message){
 return new Promise(function(resolve){
 document.getElementById('confirmModalTitle').textContent=title;
@@ -1870,10 +1898,14 @@ function showClient(key){
       <div class="stat-box"><div class="stat-val" style="color:${unpaidCount?'var(--terra)':'var(--sage)'};">${unpaidCount}</div><div class="stat-lbl">Unpaid</div></div>
     </div>
     <div class="card" style="margin-bottom:14px;">
-      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📏 Body Measurements
-        <button onclick="openMeasurementModal('${fitClientId}','fitness','fitMeasList',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button>
+      <div class="quick-add-header" onclick="toggleMergeSection('fitMeas')">
+        <span class="card-title" style="margin-bottom:0;">📏 Body Measurements</span>
+        <span class="quick-add-toggle" id="fitMeasToggle">⌄</span>
       </div>
-      <div id="fitMeasList">Loading...</div>
+      <div class="quick-add-body" id="fitMeasBody">
+        <div style="text-align:right;margin-bottom:8px;"><button onclick="openMeasurementModal('${fitClientId}','fitness','fitMeasList',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button></div>
+        <div id="fitMeasList">Loading...</div>
+      </div>
     </div>
     <div class="card" style="margin-bottom:14px;">
       <div class="card-title">📚 Assign a Routine</div>
@@ -1886,7 +1918,11 @@ function showClient(key){
       <div id="clientRoutinesList">Loading...</div>
     </div>
     <div class="card" style="margin-bottom:14px;">
-      <div class="card-title">🧘 KFit Suggested Functional Routines</div>
+      <div class="quick-add-header" onclick="toggleMergeSection('suggFunc')">
+        <span class="card-title" style="margin-bottom:0;">🧘 KFit Suggested Functional Routines</span>
+        <span class="quick-add-toggle" id="suggFuncToggle">⌄</span>
+      </div>
+      <div class="quick-add-body" id="suggFuncBody">
       <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;">Four ready-made circuits, built around proper movement-pattern rotation -- one tap sends the full structure to this client's own routines.</div>
       ${SUGGESTED_ROUTINES.map((r,i)=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
@@ -1899,9 +1935,14 @@ function showClient(key){
             <button onclick="sendSuggestedRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="padding:7px 14px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
           </div>
         </div>`).join('')}
+      </div>
     </div>
     <div class="card" style="margin-bottom:14px;">
-      <div class="card-title">🏋️ KFit Standard Routine</div>
+      <div class="quick-add-header" onclick="toggleMergeSection('kfitStd')">
+        <span class="card-title" style="margin-bottom:0;">🏋️ KFit Standard Routine</span>
+        <span class="quick-add-toggle" id="kfitStdToggle">⌄</span>
+      </div>
+      <div class="quick-add-body" id="kfitStdBody">
       <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;">Your own core program -- the split you actually run yourself and give clients. Chest+Core, Back, Legs, Arms & Shoulders.</div>
       ${KFIT_STANDARD_ROUTINES.map((r,i)=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
@@ -1914,6 +1955,7 @@ function showClient(key){
             <button onclick="sendKfitStandardRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="padding:7px 14px;background:var(--gold);border:none;border-radius:7px;color:#1a1408;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
           </div>
         </div>`).join('')}
+      </div>
     </div>
     <div class="card" style="margin-bottom:14px;">
       <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📋 Assigned Workouts
@@ -1937,9 +1979,14 @@ function showClient(key){
       <div id="coachHistList">${rows||'<div style="color:var(--muted);">No sessions in this range.</div>'}</div>
     </div>
     <div class="card" style="border-color:var(--terra);">
-      <div class="card-title" style="color:var(--terra);">⚠️ Danger Zone</div>
+      <div class="quick-add-header" onclick="toggleMergeSection('fitDanger')">
+        <span class="card-title" style="color:var(--terra);margin-bottom:0;">⚠️ Danger Zone</span>
+        <span class="quick-add-toggle" id="fitDangerToggle">⌄</span>
+      </div>
+      <div class="quick-add-body" id="fitDangerBody">
       <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Permanently deletes this client's fitness history and attendance record. Cannot be undone.</div>
       <button onclick="deleteClientFitness('${key.replace(/'/g,"\\'")}')" style="width:100%;padding:11px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Delete Fitness Data for ${c.name}</button>
+      </div>
     </div>`;
   loadAssignedWorkoutsForClient(key,c);
   loadMeasurementsForClient(buildClientId(c.name,c.mobile),'fitness','fitMeasList');
@@ -5096,15 +5143,23 @@ function nutShowClient(clientId){
       +(cw.mobile?'<div style="font-size:15px;font-weight:600;color:var(--muted);">📱 '+cw.mobile+'</div>':'')
     +'</div>'
     +'<div class="card" style="margin-bottom:14px;">'
-      +'<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">🔥 Calories'
+      +'<div class="quick-add-header" onclick="toggleMergeSection(\'nutCal\')">'
+        +'<span class="card-title" style="margin-bottom:0;">🔥 Calories</span>'
+        +'<span class="quick-add-toggle" id="nutCalToggle">⌄</span>'
       +'</div>'
+      +'<div class="quick-add-body" id="nutCalBody">'
       +renderCoachCalorieSummary(cw,clientId)
+      +'</div>'
     +'</div>'
     +'<div class="card" style="margin-bottom:14px;">'
-      +'<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📏 Body Measurements'
-        +'<button onclick="openMeasurementModal(\''+clientId+'\',\'nutrition\',\'nutMeasList\',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button>'
+      +'<div class="quick-add-header" onclick="toggleMergeSection(\'nutMeas\')">'
+        +'<span class="card-title" style="margin-bottom:0;">📏 Body Measurements</span>'
+        +'<span class="quick-add-toggle" id="nutMeasToggle">⌄</span>'
       +'</div>'
-      +'<div id="nutMeasList">Loading...</div>'
+      +'<div class="quick-add-body" id="nutMeasBody">'
+        +'<div style="text-align:right;margin-bottom:8px;"><button onclick="openMeasurementModal(\''+clientId+'\',\'nutrition\',\'nutMeasList\',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button></div>'
+        +'<div id="nutMeasList">Loading...</div>'
+      +'</div>'
     +'</div>'
     +'<div class="card" style="margin-bottom:14px;">'
       +'<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📋 Assigned by You'
@@ -5151,9 +5206,14 @@ function nutShowClient(clientId){
       }).join(''):'<div style="color:var(--muted);">No logged days yet.</div>')
     +'</div>'
     +'<div class="card" style="border-color:var(--terra);">'
-      +'<div class="card-title" style="color:var(--terra);">⚠️ Danger Zone</div>'
+      +'<div class="quick-add-header" onclick="toggleMergeSection(\'nutDanger\')">'
+        +'<span class="card-title" style="color:var(--terra);margin-bottom:0;">⚠️ Danger Zone</span>'
+        +'<span class="quick-add-toggle" id="nutDangerToggle">⌄</span>'
+      +'</div>'
+      +'<div class="quick-add-body" id="nutDangerBody">'
       +'<div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Permanently deletes this client\'s nutrition history. Cannot be undone.</div>'
       +'<button onclick="deleteClientNutrition(\''+clientId+'\')" style="width:100%;padding:11px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Delete Nutrition Data for '+(cw?cw.name:'this client')+'</button>'
+      +'</div>'
     +'</div>';
   loadMeasurementsForClient(clientId,'nutrition','nutMeasList');
 }
