@@ -1633,17 +1633,11 @@ getSBScoped().from('tracker_data').delete().eq('client_id',deviceId).eq('tracker
 });
 }
 function checkExisting(cb){
+ensureAnonAuth(function(uid){
+if(!uid){cb(false);return;}
 getSBScoped().from('tracker_data').select('client_id').eq('tracker','fitness').like('client_id','%__'+m).then(function(res){
-if(!res.error&&res.data&&res.data.length){cb(true);return;}
-if(res.error){
-getSB().auth.signInAnonymously().then(function(){
-getSBScoped().from('tracker_data').select('client_id').eq('tracker','fitness').like('client_id','%__'+m).then(function(res2){
-cb(!res2.error&&res2.data&&res2.data.length>0);
+cb(!res.error&&res.data&&res.data.length>0);
 });
-});
-return;
-}
-cb(false);
 });
 }
 checkExisting(function(alreadyExists){
@@ -1718,21 +1712,17 @@ function checkMobileLogin(){
 var mobile=document.getElementById('mobileLoginInput').value.trim().replace(/\D/g,'');
 if(!mobile){document.getElementById('pwError').textContent='Enter your mobile number';return;}
 document.getElementById('pwError').textContent='Looking you up...';
-
+ensureAnonAuth(function(uid){
+if(!uid){
+document.getElementById('pwError').textContent='Could not connect -- check your internet and try again';
+return;
+}
 getSBScoped().from('tracker_data').select('data,client_id').eq('tracker','fitness').like('client_id','%__'+mobile).then(function(res){
 if(!res.error&&res.data&&res.data.length){
 _handleMobileLookupResult(res.data[0],mobile);
 return;
 }
-
-getSB().auth.signInAnonymously().then(function(){
-getSBScoped().from('tracker_data').select('data,client_id').eq('tracker','fitness').like('client_id','%__'+mobile).then(function(res2){
-if(!res2.error&&res2.data&&res2.data.length){
-_handleMobileLookupResult(res2.data[0],mobile);
-return;
-}
 document.getElementById('pwError').textContent='Mobile number not found -- try "New" instead';
-});
 });
 });
 }
