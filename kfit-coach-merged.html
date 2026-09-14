@@ -1235,8 +1235,12 @@ async function loadRoutineTemplates(){
 }
 async function deleteRoutineTemplate(id){
   if(!confirm('Delete this routine template? This does not remove it from any client who already has it assigned.')) return;
-  const {error}=await getSBScoped().from('routine_templates').delete().eq('id',id);
+  const {data,error}=await getSBScoped().from('routine_templates').delete().eq('id',id).select();
   if(error){ alert('Error deleting: '+error.message); return; }
+  if(!data||!data.length){
+    alert('Nothing was actually deleted -- this usually means a permissions rule is silently blocking it rather than throwing an error. Worth checking the RLS policy on routine_templates for DELETE specifically.');
+    return;
+  }
   loadRoutineTemplates();
 }
 

@@ -637,6 +637,14 @@ btn.textContent='Could not copy -- select the address bar manually';
       </div>
     </div>
 
+    <div id="newCoachRoutineBanner" style="display:none;background:var(--gold-d);border:1.5px solid var(--gold);border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div style="font-size:20px;">🎁</div>
+        <div style="font-size:14px;font-weight:800;color:var(--text);" id="newCoachRoutineBannerTitle">New from your coach</div>
+      </div>
+      <div id="newCoachRoutineBannerList"></div>
+    </div>
+
     <div class="card" id="bpCard">
       <div class="card-title">Select Body Part to Train</div>
       <div class="bp-grid" id="bpGrid"></div>
@@ -673,18 +681,8 @@ btn.textContent='Could not copy -- select the address bar manually';
           <span class="quick-add-toggle" id="kfitStandardRoutinesToggle">⌄</span>
         </div>
         <div class="quick-add-body" id="kfitStandardRoutinesBody">
-          <div style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Karan's own core program -- the actual split he runs himself and gives his clients. Chest, Back, Shoulders & Arms, Legs.</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Karan's own core program -- the actual split he runs himself and gives his clients. Chest+Core, Back, Legs, Arms & Shoulders.</div>
           <div id="kfitStandardRoutinesList"></div>
-        </div>
-      </div>
-      <div class="quick-add-section">
-        <div class="quick-add-header" onclick="toggleSuggestedStrengthRoutines()">
-          <span class="quick-add-label">KFit Suggested Strength Routines</span>
-          <span class="quick-add-toggle" id="suggestedStrengthRoutinesToggle">⌄</span>
-        </div>
-        <div class="quick-add-body" id="suggestedStrengthRoutinesBody">
-          <div style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Classic Push/Pull/Legs split, built on evidence-based volume guidance -- compounds first while you're fresh, sensible sets per muscle group. Loads the same way as your own routines; tweak anything after.</div>
-          <div id="suggestedStrengthRoutinesList"></div>
         </div>
       </div>
     </div>
@@ -1177,12 +1175,12 @@ btn.textContent='Could not copy -- select the address bar manually';
 const BODY_PARTS = ['Back','Chest','Shoulders','Biceps','Triceps','Legs','Core','Cardio','Full Body'];
 const EX_LIB = {
 'Back':['Pull-Ups','Chin-Ups','Lat Pulldown Wide','Lat Pulldown Close','Lat Pulldown Neutral Grip','Seated Row Close','Seated Row Wide','Chest Supported Row Wide','Chest Supported Row Close','Bent Over Barbell Row','Bent Over Dumbbell Row','Single Arm Dumbbell Row','T-Bar Row','Cable Row','Deadlift','Lat Prayer (Cable Pullover)','Straight Arm Pulldown','Face Pulls','Shrugs','Reverse Fly (Cable)'],
-'Chest':['Barbell Bench Press (Flat)','Barbell Bench Press (Incline)','Barbell Bench Press (Decline)','Dumbbell Press (Flat)','Dumbbell Press (Incline)','Dumbbell Press (Decline)','Dumbbell Fly (Flat)','Dumbbell Fly (Incline)','Dumbbell Fly (Decline)','Chest Press Machine','Machine Fly','Cable Fly (Low to High)','Cable Fly (High to Low)','Cable Fly (Mid)','Smith Machine Bench Press (Flat)','Smith Machine Bench Press (Incline)','Smith Machine Bench Press (Decline)','Push-Ups','Deficit Push Ups','Dips (Chest Focus)'],
-'Shoulders':['Barbell Overhead Press','Dumbbell Shoulder Press','Shoulder Press Machine','Arnold Press','Lateral Raises (Dumbbell)','Lateral Raises (Cable)','Lateral Raises (Machine)','Front Raises (Dumbbell)','Front Raises (Barbell)','Front Raises (Cable)','Rear Delt Fly (Dumbbell)','Rear Delt Fly (Cable)','Rear Delt Fly (Machine)','Face Pulls','Landmine Press','Seated Dumbbell Press','Y Raise (Standing)','Y Raise (Incline)','Prone Y Raise (Incline Bench)','Incline Bench Rear Delt Fly'],
+'Chest':['Barbell Bench Press (Flat)','Barbell Bench Press (Incline)','Barbell Bench Press (Decline)','Dumbbell Press (Flat)','Dumbbell Press (Incline)','Dumbbell Press (Decline)','Dumbbell Fly (Flat)','Dumbbell Fly (Incline)','Dumbbell Fly (Decline)','Chest Press Machine','Machine Fly','Cable Fly (Low to High)','Cable Fly (High to Low)','Cable Fly (Mid)','Smith Machine Bench Press (Flat)','Smith Machine Bench Press (Incline)','Smith Machine Bench Press (Decline)','Push-Ups','Deficit Push Ups','Dips (Chest Focus)','Pec Deck Fly'],
+'Shoulders':['Barbell Overhead Press','Dumbbell Shoulder Press','Shoulder Press Machine','Arnold Press','Lateral Raises (Dumbbell)','Lateral Raises (Cable)','Lateral Raises (Machine)','Front Raises (Dumbbell)','Front Raises (Barbell)','Front Raises (Cable)','Rear Delt Fly (Dumbbell)','Rear Delt Fly (Cable)','Rear Delt Fly (Machine)','Face Pulls','Landmine Press','Seated Dumbbell Press','Y Raise (Standing)','Y Raise (Incline)','Prone Y Raise (Incline Bench)','Incline Bench Rear Delt Fly','Lateral Raises (Standing, Super ROM)','Y Raise (Standing, Super ROM)','Incline Bench Cross Body Rear Delt Fly','Incline Bench Prone Reverse Fly'],
 'Biceps':['Barbell Curl','EZ Bar Curl','Dumbbell Curl','Hammer Curl','Preacher Curl (Barbell)','Preacher Curl (Dumbbell)','Preacher Curl (EZ Bar)','Cable Curl','Incline Dumbbell Curl','Concentration Curl','Cross Body Curl','Reverse Curl','Zottman Curl','Bayesian Curl'],
 'Triceps':['Tricep Pushdown (Bar)','Tricep Pushdown (Rope)','Overhead Tricep Extension (Dumbbell)','Overhead Tricep Extension (EZ Bar)','Overhead Tricep Extension (Cable)','Skull Crushers (Barbell)','Skull Crushers (EZ Bar)','Skull Crushers (Dumbbell)','Close Grip Bench Press','Dips (Tricep Focus)','Single Arm Pushdown (Cable)','Kickback (Dumbbell)','Kickback (Cable)'],
 'Legs':['Barbell Squat','Front Squat','Goblet Squat','Sumo Squat','Bulgarian Split Squat','Hack Squat','Leg Press','Leg Extension','Lying Hamstring Curl','Seated Hamstring Curl','Romanian Deadlift','Single Leg RDL','Stiff Leg Deadlift','Hip Thrust (Barbell)','Hip Thrust (Dumbbell)','Glute Bridge','Walking Lunges','Reverse Lunges','Forward Lunges','Step-Ups','Good Mornings','Nordic Curl','Calf Raise (Leg Press Machine)','Standing Calf Raise','Seated Calf Raise'],
-'Core':['Hanging Leg Raise','Cable Crunch','Crunches','Decline Crunches','Russian Twist','Ab Wheel Rollout','Dead Bug','Pallof Press','Reverse Crunch','Dragon Flag','Landmine Twist'],
+'Core':['Hanging Leg Raise','Cable Crunch','Crunches','Decline Crunches','Russian Twist','Ab Wheel Rollout','Dead Bug','Pallof Press','Reverse Crunch','Dragon Flag','Landmine Twist','Back Hyperextension','Dumbbell Side Bends'],
 'Cardio':['Running (Treadmill)','Running (Outdoor)','Cycling (Bike)','Cycling (Stationary)','Rowing Machine','Elliptical','Stair Climber','Jump Rope','Swimming','Walking','HIIT','Sprint Intervals','Battle Ropes','Assault Bike','Ski Erg'],
 'Functional':['Plank','Side Plank','Wall Sit','Dead Hang','Glute Bridge Hold','Hollow Body Hold','Superman Hold','Bird Dog Hold','Split Squat Hold','Push-Up Hold','Farmer\'s Carry','Squat Hold','Bear Crawl','Jumping Jacks','Mountain Climbers','High Knees','Burpees']
 };
@@ -1254,7 +1252,7 @@ const del=getDeletedEx();del.add(name);saveDeletedEx(del);
 const custom=getCustomEx();
 for(const bp in custom){custom[bp]=custom[bp].filter(e=>e!==name);}
 saveCustomEx(custom);
-renderExChips();toast(`Removed: ${name}`);
+renderExChips();microToast(`Removed: ${name}`);
 }
 
 function restoreDeletedEx(){
@@ -1291,7 +1289,7 @@ if(!EX_LIB[bp])EX_LIB[bp]=[];
 if(!EX_LIB[bp].includes(name))EX_LIB[bp].push(name);
 const del=getDeletedEx();del.delete(name);saveDeletedEx(del);
 inp.value='';
-renderExChips();quickAddEx(name);toast(`v ${name} added`);
+renderExChips();quickAddEx(name);microToast(`\u2713 ${name} added`);
 }
 
 function deleteCustomEx(name){deleteAnyEx(name);}
@@ -1324,7 +1322,7 @@ chips.innerHTML=all.map(ex=>
 
 function deleteCardioEx(name){
 const del=getDeletedCardio();del.add(name);saveDeletedCardio(del);
-renderCardioChips();toast(`Removed: ${name}`);
+renderCardioChips();microToast(`Removed: ${name}`);
 }
 
 function addCustomCardio(){
@@ -1338,7 +1336,7 @@ saveCustomCardio(custom);
 if(!EX_LIB['Cardio'].includes(name))EX_LIB['Cardio'].push(name);
 const del=getDeletedCardio();del.delete(name);saveDeletedCardio(del);
 inp.value='';
-renderCardioChips();addCardioBlock(name);toast(`v ${name} added`);
+renderCardioChips();addCardioBlock(name);microToast(`\u2713 ${name} added`);
 }
 
 function toggleCardioChips(){
@@ -1412,7 +1410,7 @@ chips.innerHTML=all.map(ex=>
 }
 function deleteFunctionalEx(name){
 const del=getDeletedFunctional();del.add(name);saveDeletedFunctional(del);
-renderFunctionalChips();toast(`Removed: ${name}`);
+renderFunctionalChips();microToast(`Removed: ${name}`);
 }
 function addCustomFunctional(){
 const inp=document.getElementById('customFunctionalInp');
@@ -1425,7 +1423,7 @@ saveCustomFunctional(custom);
 if(!EX_LIB['Functional'].includes(name)){EX_LIB['Functional'].push(name);FUNCTIONAL_EX.add(name);}
 const del=getDeletedFunctional();del.delete(name);saveDeletedFunctional(del);
 inp.value='';
-renderFunctionalChips();addFunctionalBlock(name);toast(`v ${name} added`);
+renderFunctionalChips();addFunctionalBlock(name);microToast(`\u2713 ${name} added`);
 }
 function toggleFunctionalChips(){
 const body=document.getElementById('functionalChipsBody');
@@ -1444,13 +1442,6 @@ if(toggle)toggle.classList.toggle('open',open);
 function toggleMyRoutines(){
 const body=document.getElementById('myRoutinesBody');
 const toggle=document.getElementById('myRoutinesToggle');
-if(!body)return;
-const open=body.classList.toggle('open');
-if(toggle)toggle.classList.toggle('open',open);
-}
-function toggleSuggestedStrengthRoutines(){
-const body=document.getElementById('suggestedStrengthRoutinesBody');
-const toggle=document.getElementById('suggestedStrengthRoutinesToggle');
 if(!body)return;
 const open=body.classList.toggle('open');
 if(toggle)toggle.classList.toggle('open',open);
@@ -1991,7 +1982,6 @@ retryPendingAttendance();
 renderRoutineList();
 renderSuggestedRoutines();
 renderKfitStandardRoutines();
-renderSuggestedStrengthRoutines();
 renderFaqList();
 renderCardioChips();
 renderFunctionalChips();
@@ -2952,6 +2942,44 @@ return {name:r.name,bodyParts:r.bodyParts||[],exercises:r.exercises||[],superset
 }
 return {name:r.name,bodyParts:r.bodyParts||[],exercises:r.exercises||[],supersets:r.supersets||[],isLive:false,isDeleted:false};
 }
+function getSeenCoachRoutineIds(){
+try{ return new Set(JSON.parse(localStorage.getItem('kmfit_seen_coach_routines')||'[]')); }
+catch(e){ return new Set(); }
+}
+function markCoachRoutinesSeen(ids){
+var seen=getSeenCoachRoutineIds();
+ids.forEach(function(id){ seen.add(id); });
+localStorage.setItem('kmfit_seen_coach_routines',JSON.stringify([...seen]));
+}
+function checkForNewCoachRoutines(){
+var banner=document.getElementById('newCoachRoutineBanner');
+var list=document.getElementById('newCoachRoutineBannerList');
+if(!banner||!list) return;
+var seen=getSeenCoachRoutineIds();
+var newOnes=routines.filter(function(r){ return r.createdBy==='coach' && !seen.has(r.id); });
+if(!newOnes.length){ banner.style.display='none'; return; }
+var titleEl=document.getElementById('newCoachRoutineBannerTitle');
+if(titleEl) titleEl.textContent=newOnes.length===1?'New from your coach':'New from your coach ('+newOnes.length+')';
+list.innerHTML=newOnes.map(function(r){
+var eff=getEffectiveRoutineData(r);
+return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid rgba(212,168,67,.25);">'
++'<div style="font-size:14px;font-weight:700;color:var(--text);flex:1;padding-right:10px;">'+eff.name.replace(/</g,'&lt;')+'</div>'
++'<div style="display:flex;gap:6px;flex-shrink:0;">'
++'<button onclick="dismissNewCoachRoutine(\''+r.id+'\')" style="padding:7px 10px;background:none;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Later</button>'
++'<button onclick="acceptAndLoadCoachRoutine(\''+r.id+'\')" style="padding:7px 12px;background:var(--gold);border:none;border-radius:7px;color:#1a1408;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Accept & Load</button>'
++'</div></div>';
+}).join('');
+banner.style.display='block';
+}
+function acceptAndLoadCoachRoutine(id){
+markCoachRoutinesSeen([id]);
+checkForNewCoachRoutines();
+loadRoutine(id);
+}
+function dismissNewCoachRoutine(id){
+markCoachRoutinesSeen([id]);
+checkForNewCoachRoutines();
+}
 function renderRoutineList(){
 const sel=document.getElementById('routineSelect');
 const detail=document.getElementById('routineDetail');
@@ -3111,7 +3139,7 @@ const n=[];
 r.circuits.forEach(function(c){ c.exercises.forEach(function(e){n.push(e);}); });
 knownKeys.push(nameSetKey(n));
 });
-SUGGESTED_STRENGTH_ROUTINES.forEach(function(r){
+KFIT_STANDARD_ROUTINES.forEach(function(r){
 knownKeys.push(nameSetKey(r.exercises.map(function(e){return e.ex;})));
 });
 return knownKeys.includes(key);
@@ -3215,148 +3243,58 @@ const SUGGESTED_ROUTINES=[
 ]}
 ];
 // ══════════════════════════════════════════════════════════════════
-// SUGGESTED STRENGTH ROUTINES -- KFit's own presets: Push/Pull/Legs plus
-// an alternating Full Body A/B pair. Built on evidence-based hypertrophy
-// guidance (Renaissance Periodization / Dr. Mike Israetel's volume
-// landmarks, cross-checked against Menno Henselmans and Milo Wolf's
-// published positions, plus Schoenfeld et al.'s frequency meta-analyses
-// for the Full Body pair specifically):
-// - PPL: 2-10 working sets per muscle per session, staying under the
-//   ~10-12 set "junk volume" point; compounds first while fresh.
-// - Full Body A/B: since each muscle gets hit 2-3x/week instead of once,
-//   per-session volume is deliberately lower (2-3 sets per muscle, not
-//   3-4+) -- this is the key difference from PPL, not a smaller version
-//   of the same thing. A and B alternate exercise angles/variants for
-//   the same movement patterns (squat, hinge, push, pull, core) so nothing
-//   goes stale, matching Israetel/Menno's exercise-variation guidance --
-//   evidence-based full body programming is an alternating pair, not one
-//   routine repeated identically every session.
-// ══════════════════════════════════════════════════════════════════
-const SUGGESTED_STRENGTH_ROUTINES=[
-{name:'KFit Push Day (Chest, Shoulders, Triceps)',bodyParts:['Chest','Shoulders','Triceps'],exercises:[
-{ex:'Barbell Bench Press (Flat)',sets:4},
-{ex:'Barbell Overhead Press',sets:3},
-{ex:'Dumbbell Press (Incline)',sets:3},
-{ex:'Lateral Raises (Dumbbell)',sets:3},
-{ex:'Tricep Pushdown (Rope)',sets:3},
-{ex:'Overhead Tricep Extension (Dumbbell)',sets:3}
-]},
-{name:'KFit Pull Day (Back, Biceps)',bodyParts:['Back','Biceps'],exercises:[
-{ex:'Bent Over Barbell Row',sets:4},
-{ex:'Lat Pulldown Wide',sets:3},
-{ex:'Seated Row Close',sets:3},
-{ex:'Face Pulls',sets:3},
-{ex:'Barbell Curl',sets:3},
-{ex:'Hammer Curl',sets:3}
-]},
-{name:'KFit Leg Day (Quads, Hamstrings, Glutes)',bodyParts:['Legs'],exercises:[
-{ex:'Barbell Squat',sets:4},
-{ex:'Romanian Deadlift',sets:3},
-{ex:'Leg Press',sets:3},
-{ex:'Lying Hamstring Curl',sets:3},
-{ex:'Walking Lunges',sets:3},
-{ex:'Standing Calf Raise',sets:4}
-]},
-{name:'KFit Full Body A',bodyParts:['Full Body'],exercises:[
-{ex:'Barbell Squat',sets:3},
-{ex:'Barbell Bench Press (Flat)',sets:3},
-{ex:'Bent Over Barbell Row',sets:3},
-{ex:'Romanian Deadlift',sets:3},
-{ex:'Barbell Overhead Press',sets:2},
-{ex:'Russian Twist',sets:2}
-]},
-{name:'KFit Full Body B',bodyParts:['Full Body'],exercises:[
-{ex:'Leg Press',sets:3},
-{ex:'Dumbbell Press (Incline)',sets:3},
-{ex:'Lat Pulldown Wide',sets:3},
-{ex:'Walking Lunges',sets:3},
-{ex:'Lateral Raises (Dumbbell)',sets:2},
-{ex:'Dead Bug',sets:2}
-]},
-// Upper/Lower A/B -- classic 4-day split, hits each muscle 2x/week (the
-// evidence-backed sweet spot per Schoenfeld/Grgic/Krieger; a 3rd weekly
-// hit shows inconclusive further benefit). Per-session volume runs
-// higher than Full Body's (4-8 sets/muscle vs 2-4) since each muscle is
-// trained half as often -- this is the middle ground between Full Body's
-// high frequency/low per-session volume and PPL's low frequency/high
-// per-session volume. A/B varies exercise angle per muscle for the same
-// staleness-avoidance reason as the other alternating pairs.
-{name:'KFit Upper A',bodyParts:['Chest','Back','Shoulders','Biceps','Triceps'],exercises:[
-{ex:'Barbell Bench Press (Flat)',sets:4},
-{ex:'Bent Over Barbell Row',sets:4},
-{ex:'Barbell Overhead Press',sets:3},
-{ex:'Lat Pulldown Wide',sets:3},
-{ex:'Barbell Curl',sets:2},
-{ex:'Tricep Pushdown (Rope)',sets:2}
-]},
-{name:'KFit Lower A',bodyParts:['Legs'],exercises:[
-{ex:'Barbell Squat',sets:4},
-{ex:'Romanian Deadlift',sets:3},
-{ex:'Leg Press',sets:3},
-{ex:'Lying Hamstring Curl',sets:3},
-{ex:'Standing Calf Raise',sets:3}
-]},
-{name:'KFit Upper B',bodyParts:['Chest','Back','Shoulders','Biceps','Triceps'],exercises:[
-{ex:'Dumbbell Press (Incline)',sets:4},
-{ex:'Seated Row Close',sets:4},
-{ex:'Dumbbell Shoulder Press',sets:3},
-{ex:'Lat Pulldown Close',sets:3},
-{ex:'Hammer Curl',sets:2},
-{ex:'Overhead Tricep Extension (Dumbbell)',sets:2}
-]},
-{name:'KFit Lower B',bodyParts:['Legs'],exercises:[
-{ex:'Bulgarian Split Squat',sets:3},
-{ex:'Stiff Leg Deadlift',sets:3},
-{ex:'Walking Lunges',sets:3},
-{ex:'Seated Hamstring Curl',sets:3},
-{ex:'Seated Calf Raise',sets:3}
-]}
-];
-// ══════════════════════════════════════════════════════════════════
-// KFIT STANDARD ROUTINE -- Karan's own core program, the actual 4-day
-// split he runs himself and prescribes to his clients (Chest / Back /
-// Shoulders & Arms / Legs). Unlike SUGGESTED_ROUTINES and
-// SUGGESTED_STRENGTH_ROUTINES above, this isn't researched from
-// published guidance -- it's his methodology, kept in its own section
-// so the two stay clearly distinct.
+// KFIT STANDARD ROUTINE -- Karan's own core program, exactly as he
+// runs it himself and gives it to clients (Chest+Core / Back / Legs /
+// Arms & Shoulders). This is the only preset strength program in the
+// app -- kept deliberately to just this one, real methodology rather
+// than multiple research-based options, per his own call that more
+// choice here was overwhelming rather than useful.
 // ══════════════════════════════════════════════════════════════════
 const KFIT_STANDARD_ROUTINES=[
-{name:'KFit Standard Routine: Chest Day',bodyParts:['Chest'],exercises:[
-{ex:'Barbell Bench Press (Flat)',sets:4},
-{ex:'Barbell Bench Press (Incline)',sets:3},
-{ex:'Dumbbell Fly (Flat)',sets:3},
-{ex:'Cable Fly (Mid)',sets:3},
-{ex:'Dips (Chest Focus)',sets:3}
+{name:'KFit Standard Routine: Chest Day + Core',bodyParts:['Chest','Core'],exercises:[
+{ex:'Barbell Bench Press (Flat)',sets:3},
+{ex:'Dumbbell Press (Incline)',sets:3},
+{ex:'Chest Press Machine',sets:3},
+{ex:'Dumbbell Shoulder Press',sets:3},
+{ex:'Pec Deck Fly',sets:2},
+{ex:'Dumbbell Fly (Incline)',sets:2},
+{ex:'Dragon Flag',sets:3},
+{ex:'Back Hyperextension',sets:3},
+{ex:'Dumbbell Side Bends',sets:3}
 ]},
 {name:'KFit Standard Routine: Back Day',bodyParts:['Back'],exercises:[
-{ex:'Deadlift',sets:3},
-{ex:'Pull-Ups',sets:3},
-{ex:'Lat Pulldown Wide',sets:3},
-{ex:'Seated Row Close',sets:3},
-{ex:'T-Bar Row',sets:3}
+{ex:'Lat Pulldown Wide',sets:2},
+{ex:'Lat Pulldown Close',sets:2},
+{ex:'Seated Row Close',sets:2},
+{ex:'Chest Supported Row Wide',sets:2},
+{ex:'Lat Prayer (Cable Pullover)',sets:2},
+{ex:'Face Pulls',sets:2},
+{ex:'Shrugs',sets:2}
 ]},
-{name:'KFit Standard Routine: Shoulders & Arms Day',bodyParts:['Shoulders','Biceps','Triceps'],exercises:[
-{ex:'Barbell Overhead Press',sets:4},
-{ex:'Lateral Raises (Dumbbell)',sets:3},
-{ex:'Rear Delt Fly (Cable)',sets:3},
-{ex:'Barbell Curl',sets:3},
-{ex:'Hammer Curl',sets:2},
-{ex:'Tricep Pushdown (Rope)',sets:3},
-{ex:'Skull Crushers (EZ Bar)',sets:2}
-]},
-{name:'KFit Standard Routine: Legs Day',bodyParts:['Legs'],exercises:[
-{ex:'Barbell Squat',sets:4},
+{name:'KFit Standard Routine: Leg Day',bodyParts:['Legs'],exercises:[
+{ex:'Goblet Squat',sets:3},
 {ex:'Romanian Deadlift',sets:3},
-{ex:'Leg Press',sets:3},
-{ex:'Leg Extension',sets:3},
 {ex:'Lying Hamstring Curl',sets:3},
-{ex:'Standing Calf Raise',sets:4}
+{ex:'Glute Bridge',sets:3},
+{ex:'Leg Extension',sets:3},
+{ex:'Standing Calf Raise',sets:3}
+]},
+{name:'KFit Standard Routine: Arms & Shoulder Day',bodyParts:['Shoulders','Triceps','Biceps'],exercises:[
+{ex:'Lateral Raises (Standing, Super ROM)',sets:2},
+{ex:'Y Raise (Standing, Super ROM)',sets:2},
+{ex:'Y Raise (Incline)',sets:2},
+{ex:'Incline Bench Cross Body Rear Delt Fly',sets:2},
+{ex:'Prone Y Raise (Incline Bench)',sets:2},
+{ex:'Incline Bench Prone Reverse Fly',sets:2},
+{ex:'Overhead Tricep Extension (Dumbbell)',sets:3},
+{ex:'Tricep Pushdown (Rope)',sets:3},
+{ex:'Bayesian Curl',sets:3},
+{ex:'Preacher Curl (Dumbbell)',sets:3}
 ]}
 ];
 function previewRoutine(kind,idx){
 var r,loadFn;
 if(kind==='functional'){ r=SUGGESTED_ROUTINES[idx]; loadFn=function(){loadSuggestedRoutine(idx);}; }
-else if(kind==='strength'){ r=SUGGESTED_STRENGTH_ROUTINES[idx]; loadFn=function(){loadSuggestedStrengthRoutine(idx);}; }
 else if(kind==='standard'){ r=KFIT_STANDARD_ROUTINES[idx]; loadFn=function(){loadKfitStandardRoutine(idx);}; }
 else return;
 if(!r) return;
@@ -3400,57 +3338,6 @@ return '<div style="display:flex;justify-content:space-between;align-items:cente
 }
 function loadKfitStandardRoutine(idx){
 var r=KFIT_STANDARD_ROUTINES[idx];
-if(!r) return;
-var hasExistingWork=document.querySelectorAll('#exBody .ex-block, #exBody .superset-block').length>0 || (cardioBlocks&&cardioBlocks.length>0) || (functionalBlocks&&functionalBlocks.length>0);
-if(hasExistingWork && !confirm('Load "'+r.name+'"? This starts a fresh set of exercises. Anything you\'ve started here but haven\'t saved yet will be cleared. Your saved sessions and routines are never affected.')) return;
-document.getElementById('exBody').innerHTML='';
-cardioBlocks=[];
-functionalBlocks=[];
-if(typeof renderCardioBlocks==='function') renderCardioBlocks();
-if(typeof renderFunctionalBlocks==='function') renderFunctionalBlocks();
-document.querySelectorAll('.bp-btn').forEach(function(b){ b.classList.remove('active'); });
-selectedBP=[];
-r.bodyParts.forEach(function(bp){
-var btn=[...document.querySelectorAll('.bp-btn')].find(function(b){ return b.textContent.trim()===bp; });
-if(btn) btn.classList.add('active');
-if(!selectedBP.includes(bp)) selectedBP.push(bp);
-});
-renderExChips();
-r.exercises.forEach(function(e){
-addExRow();
-var blocks=document.querySelectorAll('#exBody .ex-block');
-var newBlock=blocks[blocks.length-1];
-var sel=newBlock.querySelector('.ex-select');
-if(![...sel.options].some(function(o){ return o.value===e.ex; })){
-var opt=document.createElement('option');
-opt.value=e.ex; opt.textContent=e.ex;
-sel.appendChild(opt);
-}
-sel.value=e.ex;
-onExChange(sel);
-var setsEl=newBlock.querySelector('.sets-select');
-if(setsEl){ setsEl.value=e.sets; updateSetRows(setsEl); }
-});
-toast('Loaded "'+r.name+'" -- adjust weights/reps as you like');
-}
-
-function renderSuggestedStrengthRoutines(){
-var el=document.getElementById('suggestedStrengthRoutinesList');
-if(!el) return;
-el.innerHTML=SUGGESTED_STRENGTH_ROUTINES.map(function(r,i){
-var totalSets=r.exercises.reduce(function(a,e){return a+e.sets;},0);
-return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">'
-+'<div><div style="font-size:14px;font-weight:700;color:var(--text);">'+r.name+'</div>'
-+'<div style="font-size:12px;color:var(--muted);margin-top:2px;">'+r.exercises.length+' exercises, '+totalSets+' total sets</div></div>'
-+'<div style="display:flex;gap:6px;flex-shrink:0;">'
-+'<button onclick="previewRoutine(\'strength\','+i+')" aria-label="Preview" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;">\u24d8</button>'
-+'<button onclick="loadSuggestedStrengthRoutine('+i+')" style="padding:7px 14px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Load</button>'
-+'</div>'
-+'</div>';
-}).join('');
-}
-function loadSuggestedStrengthRoutine(idx){
-var r=SUGGESTED_STRENGTH_ROUTINES[idx];
 if(!r) return;
 var hasExistingWork=document.querySelectorAll('#exBody .ex-block, #exBody .superset-block').length>0 || (cardioBlocks&&cardioBlocks.length>0) || (functionalBlocks&&functionalBlocks.length>0);
 if(hasExistingWork && !confirm('Load "'+r.name+'"? This starts a fresh set of exercises. Anything you\'ve started here but haven\'t saved yet will be cleared. Your saved sessions and routines are never affected.')) return;
@@ -4157,7 +4044,7 @@ if(window._preEditDraftBackup){
 localStorage.setItem('kmfit_draft',window._preEditDraftBackup);
 window._preEditDraftBackup=null;
 draftLoad();
-toast('Your in-progress workout is back');
+microToast('Your in-progress workout is back');
 } else {
 draftClear();
 }
@@ -4514,6 +4401,7 @@ var rMap={};
 (d.routines||[]).forEach(function(r){if(r.id)rMap[r.id]=r;});
 localR.forEach(function(r){if(r.id&&(!rMap[r.id]||(r.updatedAt||0)>(rMap[r.id].updatedAt||0)))rMap[r.id]=r;});
 routines=Object.values(rMap).sort(function(a,b){return (b.updatedAt||0)-(a.updatedAt||0);});
+if(typeof checkForNewCoachRoutines==='function') checkForNewCoachRoutines();
 }
 if(d.name)localStorage.setItem('kmfit_name',d.name);
 if(d.target)localStorage.setItem('kmfit_target',d.target);
@@ -4952,7 +4840,7 @@ document.getElementById('durDisplay').className='dur-display';
 }
 
 updateSessionRestCard();
-if(raw) toast('Draft restored v');
+if(raw) microToast('Draft restored \u2713');
 }catch(e){}
 }
 
@@ -6764,7 +6652,7 @@ const HELP_TEXT=[
 {title:'Log a Workout',body:
 '<b>1. Tap the body part you\'re training</b><br>See buttons like Back, Chest, Legs, Cardio? Tap the one(s) you\'re training today. You can tap more than one (e.g. Chest + Shoulders). The right exercises show up below by themselves -- you never have to search for them.<br><br>'+
 '<b>1b. Or just search for any exercise directly</b><br>There\'s a search box above your exercise list -- type any exercise\'s name, from any body part, whether or not you\'ve tapped that body part above. It\'s forgiving about word order, so "flat bench press barbell" still finds "Barbell Bench Press (Flat)." Tap a suggestion and it gets added, its body part gets ticked on automatically, and your history for it shows up right away.<br><br>'+
-'<b>1c. Save and reuse your own routines</b><br>Built a combination of exercises you want to repeat -- a specific push day, a week\'s plan, anything? In the Select Body Part card, open <b>My Routines</b> and tap <b>Add exercises</b> to search and build a list right there (no need to log real sets first), then tap <b>Set a Routine</b> to name and save it, however many you like. If you\'d rather build it the long way, add exercises normally on this page first, then tap Set a Routine -- it saves whatever\'s currently on the page instead. Next time, tap "Load" from the dropdown and it rebuilds that exact exercise list instantly -- a fresh, blank set of exercises ready to log new numbers against, with your history for each one still showing. Loading a routine only clears whatever\'s currently unsaved on the page; it never touches anything you\'ve already saved. Routines with a "(Coach)" tag were sent to you by your coach -- you can load, rename, or delete them just like your own. Right below My Routines, open <b>KFit Suggested Strength Routines</b> for Push/Pull/Legs, an alternating Full Body A/B pair, and an alternating Upper/Lower A/B pair -- all built on published evidence-based volume guidance, no building required, just tap Load. Inside the Functional/Isometric card, open <b>KFit Suggested Routines</b> for four ready-made circuits (20/30/45/60 min) built around proper movement-pattern rotation. And if you log a combination of exercises that isn\'t already one of your saved routines, tapping Save Session will offer to save it as a new routine right then -- name it and it\'s ready to load again next time.<br><br>'+
+'<b>1c. Save and reuse your own routines</b><br>Built a combination of exercises you want to repeat -- a specific push day, a week\'s plan, anything? In the Select Body Part card, open <b>My Routines</b> and tap <b>Add exercises</b> to search and build a list right there (no need to log real sets first), then tap <b>Set a Routine</b> to name and save it, however many you like. If you\'d rather build it the long way, add exercises normally on this page first, then tap Set a Routine -- it saves whatever\'s currently on the page instead. Next time, tap "Load" from the dropdown and it rebuilds that exact exercise list instantly -- a fresh, blank set of exercises ready to log new numbers against, with your history for each one still showing. Loading a routine only clears whatever\'s currently unsaved on the page; it never touches anything you\'ve already saved. Routines with a "(Coach)" tag were sent to you by your coach -- you can load, rename, or delete them just like your own. Right below My Routines, open <b>KFit Standard Routine</b> for Karan\'s own core program (Chest+Core, Back, Legs, Arms & Shoulders) -- no building required, just tap Load or preview it first with the small ⓘ button. Inside the Functional/Isometric card, open <b>KFit Suggested Routines</b> for four ready-made circuits (20/30/45/60 min) built around proper movement-pattern rotation. And if you log a combination of exercises that isn\'t already one of your saved routines, tapping Save Session will offer to save it as a new routine right then -- name it and it\'s ready to load again next time.<br><br>'+
 '<b>2. For each exercise, fill in your sets</b><br>Every exercise shows boxes for Reps and Weight, one row per set. Just type the numbers in as you finish each set. Did an extra set that isn\'t shown? Tap "+ Add Set" to add another row.<br><br>'+
 '<b>3. The H button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "H" (for Help). Tap it once for every rep in that set where someone helped you finish (a spot) -- it\'ll show a number like "H 2". Tapped it by mistake, or want to lower the count? Press and hold the button to subtract one. Didn\'t need help at all? Just leave it alone.<br><br>'+
 '<b>3b. The LP button (lengthened partials)</b><br>Works exactly the same way as H, right next to it. Tap "LP" once for every rep in that set done as a lengthened partial -- a shorter rep performed in the stretched position of the movement (e.g. the bottom half of a leg extension or bicep curl), a technique some research suggests builds muscle as well as full-range reps for certain exercises. Same as H: tap to add one, press and hold to subtract one. Like H and drop sets, LP reps are excluded from your Personal Records, since a partial-range rep isn\'t really the same lift as a full-range one.<br><br>'+
@@ -7568,6 +7456,24 @@ document.getElementById('toastModal').style.display='flex';
 }
 function closeToastModal(){
 document.getElementById('toastModal').style.display='none';
+}
+// A brief, auto-fading notice for routine, expected, low-stakes events
+// (e.g. "Draft restored") that don't need a forced manual dismiss the
+// way validation errors or confirmations do -- unlike toast() above,
+// this never blocks interaction and clears itself.
+function microToast(msg){
+var existing=document.getElementById('_microToast');
+if(existing) existing.remove();
+var el=document.createElement('div');
+el.id='_microToast';
+el.textContent=msg;
+el.style.cssText='position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translateX(-50%);background:var(--surf3);border:1px solid var(--border);border-radius:10px;padding:9px 18px;font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:600;color:var(--text);z-index:940;box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;transition:opacity .25s;pointer-events:none;';
+document.body.appendChild(el);
+requestAnimationFrame(function(){ el.style.opacity='1'; });
+setTimeout(function(){
+el.style.opacity='0';
+setTimeout(function(){ el.remove(); },260);
+},2000);
 }
 
 (function(){
