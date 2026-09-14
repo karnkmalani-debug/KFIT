@@ -139,6 +139,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 </div>
 
+<div id="routinePreviewModal" style="display:none;position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.65);align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--surf3);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:380px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 14px 40px rgba(0,0,0,.55);">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px;">
+      <div id="routinePreviewTitle" style="font-size:17px;font-weight:800;color:var(--text);flex:1;"></div>
+      <button onclick="closeRoutinePreview()" aria-label="Close" style="flex-shrink:0;width:30px;height:30px;border-radius:50%;background:var(--surf2);border:none;color:var(--muted);font-size:16px;font-weight:700;cursor:pointer;">&#10005;</button>
+    </div>
+    <div id="routinePreviewSubtitle" style="font-size:12px;color:var(--muted);margin-bottom:14px;"></div>
+    <div id="routinePreviewBody" style="overflow-y:auto;flex:1;margin-bottom:14px;"></div>
+    <button id="routinePreviewSendBtn" style="width:100%;padding:11px;background:var(--sage);border:none;border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Send This Routine</button>
+  </div>
+</div>
+
 <!-- Main -->
 <div id="mainApp" style="display:none;">
   <div class="topbar">
@@ -1878,7 +1890,10 @@ function showClient(key){
             <div style="font-size:14px;font-weight:700;color:var(--text);">${r.name}</div>
             <div style="font-size:12px;color:var(--muted);margin-top:2px;">${r.supersets.map(c=>c.exercises.length+' ex').join(' + ')} \u00d7 3 rounds each</div>
           </div>
-          <button onclick="sendSuggestedRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="flex-shrink:0;padding:7px 14px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button onclick="previewRoutine('functional',${i},'${key.replace(/'/g,"\\'")}')" aria-label="Preview" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;">&#9432;</button>
+            <button onclick="sendSuggestedRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="padding:7px 14px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
+          </div>
         </div>`).join('')}
     </div>
     <div class="card" style="margin-bottom:14px;">
@@ -1890,7 +1905,10 @@ function showClient(key){
             <div style="font-size:14px;font-weight:700;color:var(--text);">${r.name}</div>
             <div style="font-size:12px;color:var(--muted);margin-top:2px;">${r.exercises.length} exercises, ${r.exercises.reduce((a,e)=>a+e.sets,0)} total sets</div>
           </div>
-          <button onclick="sendKfitStandardRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="flex-shrink:0;padding:7px 14px;background:var(--gold);border:none;border-radius:7px;color:#1a1408;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button onclick="previewRoutine('standard',${i},'${key.replace(/'/g,"\\'")}')" aria-label="Preview" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;">&#9432;</button>
+            <button onclick="sendKfitStandardRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="padding:7px 14px;background:var(--gold);border:none;border-radius:7px;color:#1a1408;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
+          </div>
         </div>`).join('')}
     </div>
     <div class="card" style="margin-bottom:14px;">
@@ -1902,7 +1920,10 @@ function showClient(key){
             <div style="font-size:14px;font-weight:700;color:var(--text);">${r.name}</div>
             <div style="font-size:12px;color:var(--muted);margin-top:2px;">${r.exercises.length} exercises, ${r.exercises.reduce((a,e)=>a+e.sets,0)} total sets</div>
           </div>
-          <button onclick="sendSuggestedStrengthRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="flex-shrink:0;padding:7px 14px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button onclick="previewRoutine('strength',${i},'${key.replace(/'/g,"\\'")}')" aria-label="Preview" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;">&#9432;</button>
+            <button onclick="sendSuggestedStrengthRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="padding:7px 14px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
+          </div>
         </div>`).join('')}
     </div>
     <div class="card" style="margin-bottom:14px;">
@@ -2026,6 +2047,41 @@ async function performRoutineAssignment(template,c){
   if(saveErr){ alert('Error assigning: '+saveErr.message); return false; }
   return true;
 }
+function previewRoutine(kind,idx,clientKey){
+var r;
+if(kind==='functional') r=SUGGESTED_ROUTINES[idx];
+else if(kind==='strength') r=SUGGESTED_STRENGTH_ROUTINES[idx];
+else if(kind==='standard') r=KFIT_STANDARD_ROUTINES[idx];
+else return;
+if(!r) return;
+document.getElementById('routinePreviewTitle').textContent=r.name;
+document.getElementById('routinePreviewSubtitle').textContent=(r.bodyParts||[]).join(', ')+(r.durationMin?' \u00b7 ~'+r.durationMin+' min':'');
+var bodyEl=document.getElementById('routinePreviewBody');
+if(r.supersets){
+bodyEl.innerHTML=r.supersets.map(function(ss,i){
+return '<div style="margin-bottom:14px;">'
++'<div style="font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--gold);margin-bottom:6px;">Circuit '+(i+1)+' \u00d7 3 rounds</div>'
++ss.exercises.map(function(e){return '<div style="font-size:14px;color:var(--text);padding:5px 0;border-bottom:1px solid var(--border);">'+e.ex+'</div>';}).join('')
++'</div>';
+}).join('');
+} else {
+bodyEl.innerHTML=r.exercises.map(function(e){
+return '<div style="display:flex;justify-content:space-between;font-size:14px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border);"><span>'+e.ex+'</span><span style="color:var(--muted);font-family:\'DM Mono\',monospace;">'+e.sets+' sets</span></div>';
+}).join('');
+}
+document.getElementById('routinePreviewSendBtn').onclick=function(){
+closeRoutinePreview();
+if(kind==='functional') sendSuggestedRoutine(idx,clientKey);
+else if(kind==='strength') sendSuggestedStrengthRoutine(idx,clientKey);
+else if(kind==='standard') sendKfitStandardRoutine(idx,clientKey);
+};
+document.getElementById('routinePreviewModal').style.display='flex';
+}
+function closeRoutinePreview(){
+var el=document.getElementById('routinePreviewModal');
+if(el) el.style.display='none';
+}
+
 async function sendSuggestedRoutine(idx,clientKey){
   const r=SUGGESTED_ROUTINES[idx];
   if(!r) return;
