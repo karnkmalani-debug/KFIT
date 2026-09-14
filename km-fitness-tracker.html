@@ -794,11 +794,16 @@ btn.textContent='Could not copy -- select the address bar manually';
     </div>
 
     <div class="card">
-      <div class="card-title">📷 Send to Coach</div>
+      <div class="quick-add-header" onclick="toggleSendToCoach()" style="cursor:pointer;">
+        <span class="card-title" style="margin-bottom:0;">📷 Send to Coach</span>
+        <span class="quick-add-toggle" id="sendToCoachToggle">⌄</span>
+      </div>
+      <div class="quick-add-body" id="sendToCoachBody">
       <p style="font-size:16px;color:var(--muted);margin-bottom:12px;">Send your coach a progress pic or record your form.</p>
       <div style="display:flex;gap:8px;">
         <button onclick="openSnap('progress')" style="flex:1;padding:12px;background:var(--gold-d);border:1px solid var(--gold);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;color:var(--gold);cursor:pointer;">💪 Progress Pic</button>
         <button onclick="openSnap('video')" style="flex:1;padding:12px;background:var(--sage-d);border:1px solid var(--sage);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;color:var(--sage);cursor:pointer;">🎥 Record Video</button>
+      </div>
       </div>
     </div>
 
@@ -1449,6 +1454,13 @@ if(toggle)toggle.classList.toggle('open',open);
 function toggleKfitStandardRoutines(){
 const body=document.getElementById('kfitStandardRoutinesBody');
 const toggle=document.getElementById('kfitStandardRoutinesToggle');
+if(!body)return;
+const open=body.classList.toggle('open');
+if(toggle)toggle.classList.toggle('open',open);
+}
+function toggleSendToCoach(){
+const body=document.getElementById('sendToCoachBody');
+const toggle=document.getElementById('sendToCoachToggle');
 if(!body)return;
 const open=body.classList.toggle('open');
 if(toggle)toggle.classList.toggle('open',open);
