@@ -754,7 +754,7 @@ const COACH_HELP_SECTIONS={
     +'<b>New Sign-ups card</b> (appears above the list when relevant) shows people who have set up a profile on the tracker but haven\'t logged a session yet -- so you know someone joined even before they start showing up as a "real" client.<br><br>'
     +'<b>Client tags</b> let you label clients (e.g. needs follow-up) for your own organisation -- clients never see these.<br><br>'
     +'<b>🔓 Access / 🔒 Blocked</b> is a kill switch -- tap it to instantly cut off a specific client\'s tracker access (they\'ll see a "paused" screen instead of the app) without touching anyone else\'s. Tap again any time to restore it. This is separate from your own KFit subscription in the Account tab -- it\'s about one client, not your whole account.<br><br>'
-    +'<b>🏋️ KFit Standard Routine</b>, <b>🧘 KFit Suggested Functional Routines</b>, and <b>💪 KFit Suggested Strength Routines</b>, inside each client\'s own page, all send a full routine straight into that client\'s own routines in one tap -- no building required. Standard Routine is your own core program (the Chest/Back/Shoulders & Arms/Legs split you actually run yourself); the other two are researched by KFit -- circuits, Push/Pull/Legs, Full Body A/B, Upper/Lower A/B, grounded in published training research.'},
+    +'<b>🏋️ KFit Standard Routine</b> and <b>🧘 KFit Suggested Functional Routines</b>, inside each client\'s own page, both send a full routine straight into that client\'s own routines in one tap -- no building required, and you can preview the full exercise list first with the small ⓘ button. Standard Routine is Karan\'s own core program (Chest+Core, Back, Legs, Arms & Shoulders) -- the actual split he runs himself and gives clients. Suggested Functional Routines are four ready-made circuits (20/30/45/60 min) built around proper movement-pattern rotation.'},
   nutrition:{title:'Nutrition Tab',body:
     '<b>Client list</b> works the same as Fitness -- tap a client, then a day, to see their Eating Order and Protein First scores plus whatever they logged.<br><br>'
     +'<b>+ Assign Meal Plan</b> lets you fill in specific food/macro content for a client on specific dates -- this writes directly into their calendar, for one client at a time.<br><br>'
@@ -1898,7 +1898,7 @@ function showClient(key){
     </div>
     <div class="card" style="margin-bottom:14px;">
       <div class="card-title">🏋️ KFit Standard Routine</div>
-      <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;">Your own core program -- the split you actually run yourself and give clients. Chest, Back, Shoulders & Arms, Legs.</div>
+      <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;">Your own core program -- the split you actually run yourself and give clients. Chest+Core, Back, Legs, Arms & Shoulders.</div>
       ${KFIT_STANDARD_ROUTINES.map((r,i)=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
           <div>
@@ -1908,21 +1908,6 @@ function showClient(key){
           <div style="display:flex;gap:6px;flex-shrink:0;">
             <button onclick="previewRoutine('standard',${i},'${key.replace(/'/g,"\\'")}')" aria-label="Preview" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;">&#9432;</button>
             <button onclick="sendKfitStandardRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="padding:7px 14px;background:var(--gold);border:none;border-radius:7px;color:#1a1408;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
-          </div>
-        </div>`).join('')}
-    </div>
-    <div class="card" style="margin-bottom:14px;">
-      <div class="card-title">💪 KFit Suggested Strength Routines</div>
-      <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;">Classic Push/Pull/Legs split, built on evidence-based volume guidance -- one tap sends the full structure, with set counts, to this client's own routines.</div>
-      ${SUGGESTED_STRENGTH_ROUTINES.map((r,i)=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
-          <div>
-            <div style="font-size:14px;font-weight:700;color:var(--text);">${r.name}</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:2px;">${r.exercises.length} exercises, ${r.exercises.reduce((a,e)=>a+e.sets,0)} total sets</div>
-          </div>
-          <div style="display:flex;gap:6px;flex-shrink:0;">
-            <button onclick="previewRoutine('strength',${i},'${key.replace(/'/g,"\\'")}')" aria-label="Preview" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;">&#9432;</button>
-            <button onclick="sendSuggestedStrengthRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="padding:7px 14px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
           </div>
         </div>`).join('')}
     </div>
@@ -2050,7 +2035,6 @@ async function performRoutineAssignment(template,c){
 function previewRoutine(kind,idx,clientKey){
 var r;
 if(kind==='functional') r=SUGGESTED_ROUTINES[idx];
-else if(kind==='strength') r=SUGGESTED_STRENGTH_ROUTINES[idx];
 else if(kind==='standard') r=KFIT_STANDARD_ROUTINES[idx];
 else return;
 if(!r) return;
@@ -2072,7 +2056,6 @@ return '<div style="display:flex;justify-content:space-between;font-size:14px;co
 document.getElementById('routinePreviewSendBtn').onclick=function(){
 closeRoutinePreview();
 if(kind==='functional') sendSuggestedRoutine(idx,clientKey);
-else if(kind==='strength') sendSuggestedStrengthRoutine(idx,clientKey);
 else if(kind==='standard') sendKfitStandardRoutine(idx,clientKey);
 };
 document.getElementById('routinePreviewModal').style.display='flex';
@@ -2095,21 +2078,6 @@ async function sendSuggestedRoutine(idx,clientKey){
   // routine_templates table column) -- bridge that here rather than
   // renaming bodyParts everywhere else in this file.
   const syntheticTemplate={ name:finalName, body_parts:r.bodyParts, exercises:[], supersets:r.supersets };
-  const ok=await performRoutineAssignment(syntheticTemplate,c);
-  if(!ok) return;
-  alert('"'+finalName+'" sent to '+c.name+' \u2713');
-  loadClientRoutinesList(clientKey);
-}
-async function sendSuggestedStrengthRoutine(idx,clientKey){
-  const r=SUGGESTED_STRENGTH_ROUTINES[idx];
-  if(!r) return;
-  const clients=groupClients();
-  const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
-  if(!c){ alert('Client not found.'); return; }
-  const chosenName=prompt('Send as (rename if you like):',r.name);
-  if(chosenName===null) return;
-  const finalName=chosenName.trim()||r.name;
-  const syntheticTemplate={ name:finalName, body_parts:r.bodyParts, exercises:r.exercises, supersets:[] };
   const ok=await performRoutineAssignment(syntheticTemplate,c);
   if(!ok) return;
   alert('"'+finalName+'" sent to '+c.name+' \u2713');
@@ -2797,133 +2765,59 @@ const SUGGESTED_ROUTINES=[
 {num:3,exercises:['Burpees','Mountain Climbers','High Knees','Farmer\'s Carry'].map(ex=>({ex:ex}))}
 ]}
 ];
-// Same presets as km-fitness-tracker.html's SUGGESTED_STRENGTH_ROUTINES
-// (see that file for the RP/Israetel volume-landmark research and the
-// Schoenfeld et al. frequency meta-analyses behind the Full Body A/B
-// pair specifically). Flat exercises array with a sets count per
-// exercise -- performRoutineAssignment already reads template.exercises
-// directly, no bridging needed the way supersets needed for the
-// functional presets.
-// KFit Standard Routine -- Karan's own core program (see
-// km-fitness-tracker.html for the full note), kept separate from the
-// researched SUGGESTED_STRENGTH_ROUTINES below.
+// KFit Standard Routine -- Karan's own core program, exactly as he runs
+// it himself and gives it to clients (see km-fitness-tracker.html for
+// the full note). This is the only preset strength program in the app.
 const KFIT_STANDARD_ROUTINES=[
-{name:'KFit Standard Routine: Chest Day',bodyParts:['Chest'],exercises:[
-{ex:'Barbell Bench Press (Flat)',sets:4},
-{ex:'Barbell Bench Press (Incline)',sets:3},
-{ex:'Dumbbell Fly (Flat)',sets:3},
-{ex:'Cable Fly (Mid)',sets:3},
-{ex:'Dips (Chest Focus)',sets:3}
+{name:'KFit Standard Routine: Chest Day + Core',bodyParts:['Chest','Core'],exercises:[
+{ex:'Barbell Bench Press (Flat)',sets:3},
+{ex:'Dumbbell Press (Incline)',sets:3},
+{ex:'Chest Press Machine',sets:3},
+{ex:'Dumbbell Shoulder Press',sets:3},
+{ex:'Pec Deck Fly',sets:2},
+{ex:'Dumbbell Fly (Incline)',sets:2},
+{ex:'Dragon Flag',sets:3},
+{ex:'Back Hyperextension',sets:3},
+{ex:'Dumbbell Side Bends',sets:3}
 ]},
 {name:'KFit Standard Routine: Back Day',bodyParts:['Back'],exercises:[
-{ex:'Deadlift',sets:3},
-{ex:'Pull-Ups',sets:3},
-{ex:'Lat Pulldown Wide',sets:3},
-{ex:'Seated Row Close',sets:3},
-{ex:'T-Bar Row',sets:3}
+{ex:'Lat Pulldown Wide',sets:2},
+{ex:'Lat Pulldown Close',sets:2},
+{ex:'Seated Row Close',sets:2},
+{ex:'Chest Supported Row Wide',sets:2},
+{ex:'Lat Prayer (Cable Pullover)',sets:2},
+{ex:'Face Pulls',sets:2},
+{ex:'Shrugs',sets:2}
 ]},
-{name:'KFit Standard Routine: Shoulders & Arms Day',bodyParts:['Shoulders','Biceps','Triceps'],exercises:[
-{ex:'Barbell Overhead Press',sets:4},
-{ex:'Lateral Raises (Dumbbell)',sets:3},
-{ex:'Rear Delt Fly (Cable)',sets:3},
-{ex:'Barbell Curl',sets:3},
-{ex:'Hammer Curl',sets:2},
-{ex:'Tricep Pushdown (Rope)',sets:3},
-{ex:'Skull Crushers (EZ Bar)',sets:2}
-]},
-{name:'KFit Standard Routine: Legs Day',bodyParts:['Legs'],exercises:[
-{ex:'Barbell Squat',sets:4},
+{name:'KFit Standard Routine: Leg Day',bodyParts:['Legs'],exercises:[
+{ex:'Goblet Squat',sets:3},
 {ex:'Romanian Deadlift',sets:3},
-{ex:'Leg Press',sets:3},
+{ex:'Lying Hamstring Curl',sets:3},
+{ex:'Glute Bridge',sets:3},
 {ex:'Leg Extension',sets:3},
-{ex:'Lying Hamstring Curl',sets:3},
-{ex:'Standing Calf Raise',sets:4}
-]}
-];
-const SUGGESTED_STRENGTH_ROUTINES=[
-{name:'KFit Push Day (Chest, Shoulders, Triceps)',bodyParts:['Chest','Shoulders','Triceps'],exercises:[
-{ex:'Barbell Bench Press (Flat)',sets:4},
-{ex:'Barbell Overhead Press',sets:3},
-{ex:'Dumbbell Press (Incline)',sets:3},
-{ex:'Lateral Raises (Dumbbell)',sets:3},
-{ex:'Tricep Pushdown (Rope)',sets:3},
-{ex:'Overhead Tricep Extension (Dumbbell)',sets:3}
-]},
-{name:'KFit Pull Day (Back, Biceps)',bodyParts:['Back','Biceps'],exercises:[
-{ex:'Bent Over Barbell Row',sets:4},
-{ex:'Lat Pulldown Wide',sets:3},
-{ex:'Seated Row Close',sets:3},
-{ex:'Face Pulls',sets:3},
-{ex:'Barbell Curl',sets:3},
-{ex:'Hammer Curl',sets:3}
-]},
-{name:'KFit Leg Day (Quads, Hamstrings, Glutes)',bodyParts:['Legs'],exercises:[
-{ex:'Barbell Squat',sets:4},
-{ex:'Romanian Deadlift',sets:3},
-{ex:'Leg Press',sets:3},
-{ex:'Lying Hamstring Curl',sets:3},
-{ex:'Walking Lunges',sets:3},
-{ex:'Standing Calf Raise',sets:4}
-]},
-{name:'KFit Full Body A',bodyParts:['Full Body'],exercises:[
-{ex:'Barbell Squat',sets:3},
-{ex:'Barbell Bench Press (Flat)',sets:3},
-{ex:'Bent Over Barbell Row',sets:3},
-{ex:'Romanian Deadlift',sets:3},
-{ex:'Barbell Overhead Press',sets:2},
-{ex:'Russian Twist',sets:2}
-]},
-{name:'KFit Full Body B',bodyParts:['Full Body'],exercises:[
-{ex:'Leg Press',sets:3},
-{ex:'Dumbbell Press (Incline)',sets:3},
-{ex:'Lat Pulldown Wide',sets:3},
-{ex:'Walking Lunges',sets:3},
-{ex:'Lateral Raises (Dumbbell)',sets:2},
-{ex:'Dead Bug',sets:2}
-]},
-// Upper/Lower A/B -- same as km-fitness-tracker.html (see that file for
-// the frequency-research reasoning: each muscle 2x/week is the
-// evidence-backed sweet spot per Schoenfeld/Grgic/Krieger, and per-session
-// volume runs higher than Full Body's for that reason).
-{name:'KFit Upper A',bodyParts:['Chest','Back','Shoulders','Biceps','Triceps'],exercises:[
-{ex:'Barbell Bench Press (Flat)',sets:4},
-{ex:'Bent Over Barbell Row',sets:4},
-{ex:'Barbell Overhead Press',sets:3},
-{ex:'Lat Pulldown Wide',sets:3},
-{ex:'Barbell Curl',sets:2},
-{ex:'Tricep Pushdown (Rope)',sets:2}
-]},
-{name:'KFit Lower A',bodyParts:['Legs'],exercises:[
-{ex:'Barbell Squat',sets:4},
-{ex:'Romanian Deadlift',sets:3},
-{ex:'Leg Press',sets:3},
-{ex:'Lying Hamstring Curl',sets:3},
 {ex:'Standing Calf Raise',sets:3}
 ]},
-{name:'KFit Upper B',bodyParts:['Chest','Back','Shoulders','Biceps','Triceps'],exercises:[
-{ex:'Dumbbell Press (Incline)',sets:4},
-{ex:'Seated Row Close',sets:4},
-{ex:'Dumbbell Shoulder Press',sets:3},
-{ex:'Lat Pulldown Close',sets:3},
-{ex:'Hammer Curl',sets:2},
-{ex:'Overhead Tricep Extension (Dumbbell)',sets:2}
-]},
-{name:'KFit Lower B',bodyParts:['Legs'],exercises:[
-{ex:'Bulgarian Split Squat',sets:3},
-{ex:'Stiff Leg Deadlift',sets:3},
-{ex:'Walking Lunges',sets:3},
-{ex:'Seated Hamstring Curl',sets:3},
-{ex:'Seated Calf Raise',sets:3}
+{name:'KFit Standard Routine: Arms & Shoulder Day',bodyParts:['Shoulders','Triceps','Biceps'],exercises:[
+{ex:'Lateral Raises (Standing, Super ROM)',sets:2},
+{ex:'Y Raise (Standing, Super ROM)',sets:2},
+{ex:'Y Raise (Incline)',sets:2},
+{ex:'Incline Bench Cross Body Rear Delt Fly',sets:2},
+{ex:'Prone Y Raise (Incline Bench)',sets:2},
+{ex:'Incline Bench Prone Reverse Fly',sets:2},
+{ex:'Overhead Tricep Extension (Dumbbell)',sets:3},
+{ex:'Tricep Pushdown (Rope)',sets:3},
+{ex:'Bayesian Curl',sets:3},
+{ex:'Preacher Curl (Dumbbell)',sets:3}
 ]}
 ];
 const EX_LIB={
   'Back':['Pull-Ups','Chin-Ups','Lat Pulldown Wide','Lat Pulldown Close','Lat Pulldown Neutral Grip','Seated Row Close','Seated Row Wide','Chest Supported Row Wide','Chest Supported Row Close','Bent Over Barbell Row','Bent Over Dumbbell Row','Single Arm Dumbbell Row','T-Bar Row','Cable Row','Deadlift','Lat Prayer (Cable Pullover)','Straight Arm Pulldown','Face Pulls','Shrugs','Reverse Fly (Cable)'],
-  'Chest':['Barbell Bench Press (Flat)','Barbell Bench Press (Incline)','Barbell Bench Press (Decline)','Dumbbell Press (Flat)','Dumbbell Press (Incline)','Dumbbell Press (Decline)','Dumbbell Fly (Flat)','Dumbbell Fly (Incline)','Dumbbell Fly (Decline)','Chest Press Machine','Machine Fly','Cable Fly (Low to High)','Cable Fly (High to Low)','Cable Fly (Mid)','Smith Machine Bench Press (Flat)','Smith Machine Bench Press (Incline)','Smith Machine Bench Press (Decline)','Push-Ups','Deficit Push Ups','Dips (Chest Focus)'],
-  'Shoulders':['Barbell Overhead Press','Dumbbell Shoulder Press','Shoulder Press Machine','Arnold Press','Lateral Raises (Dumbbell)','Lateral Raises (Cable)','Lateral Raises (Machine)','Front Raises (Dumbbell)','Front Raises (Barbell)','Front Raises (Cable)','Rear Delt Fly (Dumbbell)','Rear Delt Fly (Cable)','Rear Delt Fly (Machine)','Face Pulls','Landmine Press','Seated Dumbbell Press','Y Raise (Standing)','Y Raise (Incline)','Prone Y Raise (Incline Bench)','Incline Bench Rear Delt Fly'],
+  'Chest':['Barbell Bench Press (Flat)','Barbell Bench Press (Incline)','Barbell Bench Press (Decline)','Dumbbell Press (Flat)','Dumbbell Press (Incline)','Dumbbell Press (Decline)','Dumbbell Fly (Flat)','Dumbbell Fly (Incline)','Dumbbell Fly (Decline)','Chest Press Machine','Machine Fly','Cable Fly (Low to High)','Cable Fly (High to Low)','Cable Fly (Mid)','Smith Machine Bench Press (Flat)','Smith Machine Bench Press (Incline)','Smith Machine Bench Press (Decline)','Push-Ups','Deficit Push Ups','Dips (Chest Focus)','Pec Deck Fly'],
+  'Shoulders':['Barbell Overhead Press','Dumbbell Shoulder Press','Shoulder Press Machine','Arnold Press','Lateral Raises (Dumbbell)','Lateral Raises (Cable)','Lateral Raises (Machine)','Front Raises (Dumbbell)','Front Raises (Barbell)','Front Raises (Cable)','Rear Delt Fly (Dumbbell)','Rear Delt Fly (Cable)','Rear Delt Fly (Machine)','Face Pulls','Landmine Press','Seated Dumbbell Press','Y Raise (Standing)','Y Raise (Incline)','Prone Y Raise (Incline Bench)','Incline Bench Rear Delt Fly','Lateral Raises (Standing, Super ROM)','Y Raise (Standing, Super ROM)','Incline Bench Cross Body Rear Delt Fly','Incline Bench Prone Reverse Fly'],
   'Biceps':['Barbell Curl','EZ Bar Curl','Dumbbell Curl','Hammer Curl','Preacher Curl (Barbell)','Preacher Curl (Dumbbell)','Preacher Curl (EZ Bar)','Cable Curl','Incline Dumbbell Curl','Concentration Curl','Cross Body Curl','Reverse Curl','Zottman Curl','Bayesian Curl'],
   'Triceps':['Tricep Pushdown (Bar)','Tricep Pushdown (Rope)','Overhead Tricep Extension (Dumbbell)','Overhead Tricep Extension (EZ Bar)','Overhead Tricep Extension (Cable)','Skull Crushers (Barbell)','Skull Crushers (EZ Bar)','Skull Crushers (Dumbbell)','Close Grip Bench Press','Dips (Tricep Focus)','Single Arm Pushdown (Cable)','Kickback (Dumbbell)','Kickback (Cable)'],
   'Legs':['Barbell Squat','Front Squat','Goblet Squat','Sumo Squat','Bulgarian Split Squat','Hack Squat','Leg Press','Leg Extension','Lying Hamstring Curl','Seated Hamstring Curl','Romanian Deadlift','Single Leg RDL','Stiff Leg Deadlift','Hip Thrust (Barbell)','Hip Thrust (Dumbbell)','Glute Bridge','Walking Lunges','Reverse Lunges','Forward Lunges','Step-Ups','Good Mornings','Nordic Curl','Calf Raise (Leg Press Machine)','Standing Calf Raise','Seated Calf Raise'],
-  'Core':['Plank','Side Plank','Hanging Leg Raise','Cable Crunch','Crunches','Decline Crunches','Russian Twist','Ab Wheel Rollout','Dead Bug','Pallof Press','Reverse Crunch','Dragon Flag','Hollow Body Hold','Landmine Twist']
+  'Core':['Plank','Side Plank','Hanging Leg Raise','Cable Crunch','Crunches','Decline Crunches','Russian Twist','Ab Wheel Rollout','Dead Bug','Pallof Press','Reverse Crunch','Dragon Flag','Hollow Body Hold','Landmine Twist','Back Hyperextension','Dumbbell Side Bends']
 };
 let currentClientKey=null;
 let asSelectedBP=[];
