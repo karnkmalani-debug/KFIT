@@ -73,7 +73,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .as-bp-btn.active{background:var(--sage-d);border-color:var(--sage);color:var(--sage);}
 .as-cardio-block{background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:8px;}
 .M{display:none;}
-.mode-toggle{display:flex;gap:8px;background:var(--surf2);border-radius:10px;padding:4px;margin:0 18px 8px;max-width:520px;margin-left:auto;margin-right:auto;}
+.mode-toggle{display:flex;gap:8px;background:var(--surf2);border-radius:10px;padding:4px;margin:0 18px 8px;max-width:520px;margin-left:auto;margin-right:auto;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.mode-toggle .mode-btn{flex-shrink:0;}
 .mode-btn{flex:1;text-align:center;padding:9px 0;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;cursor:pointer;color:var(--muted);background:transparent;border:none;}
 .mode-btn.active{background:var(--sage);color:#fff;}
 .print-inline{width:100%;padding:13px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;}
@@ -1955,15 +1956,17 @@ function renderUniDash(){
   });
 
   let alertsHtml='';
-  if(unpaidClients.length){
-    alertsHtml+='<div class="card" style="border-color:var(--terra);margin-bottom:10px;padding:12px 14px;">'
-      +'<div style="font-size:13px;font-weight:800;color:var(--terra);">⚠️ '+unpaidClients.length+' client'+(unpaidClients.length===1?'':'s')+' with unpaid sessions</div>'
+  if(unpaidClients.length&&sessionStorage.getItem('kfit_dismiss_unpaid_alert')!=='1'){
+    alertsHtml+='<div class="card" style="border-color:var(--terra);margin-bottom:10px;padding:12px 14px;position:relative;">'
+      +'<button onclick="sessionStorage.setItem(\'kfit_dismiss_unpaid_alert\',\'1\');this.closest(\'.card\').remove();" style="position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);font-size:16px;width:24px;height:24px;cursor:pointer;">✕</button>'
+      +'<div style="font-size:13px;font-weight:800;color:var(--terra);padding-right:20px;">⚠️ '+unpaidClients.length+' client'+(unpaidClients.length===1?'':'s')+' with unpaid sessions</div>'
       +'<div style="font-size:13px;color:var(--muted);margin-top:2px;">'+unpaidClients.map(function(c){return c.name;}).join(', ')+'</div>'
     +'</div>';
   }
-  if(inactiveClients.length){
-    alertsHtml+='<div class="card" style="border-color:var(--gold);margin-bottom:10px;padding:12px 14px;">'
-      +'<div style="font-size:13px;font-weight:800;color:var(--gold);">⏳ '+inactiveClients.length+' client'+(inactiveClients.length===1?'':'s')+' inactive 7+ days</div>'
+  if(inactiveClients.length&&sessionStorage.getItem('kfit_dismiss_inactive_alert')!=='1'){
+    alertsHtml+='<div class="card" style="border-color:var(--gold);margin-bottom:10px;padding:12px 14px;position:relative;">'
+      +'<button onclick="sessionStorage.setItem(\'kfit_dismiss_inactive_alert\',\'1\');this.closest(\'.card\').remove();" style="position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);font-size:16px;width:24px;height:24px;cursor:pointer;">✕</button>'
+      +'<div style="font-size:13px;font-weight:800;color:var(--gold);padding-right:20px;">⏳ '+inactiveClients.length+' client'+(inactiveClients.length===1?'':'s')+' inactive 7+ days</div>'
       +'<div style="font-size:13px;color:var(--muted);margin-top:2px;">'+inactiveClients.map(function(c){return c.name;}).join(', ')+'</div>'
     +'</div>';
   }
