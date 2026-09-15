@@ -596,6 +596,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </div>
 <script>
 
+window.onerror=function(msg,url,line,col,error){
+  alert('JS Error: '+msg+' (line '+line+')');
+  return false;
+};
+
 const SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
 const SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
 let sb=null;
