@@ -606,7 +606,12 @@ function _showDebugBanner(msg){
   if(!box){
     box=document.createElement('div');
     box.id='_kfitDebugBanner';
-    box.style.cssText='position:fixed;top:0;left:0;right:0;background:#0a3;color:#fff;font-family:monospace;font-size:12px;padding:8px;z-index:999999;white-space:pre-wrap;max-height:35vh;overflow-y:auto;';
+    box.style.cssText='position:fixed;top:0;left:0;right:0;background:#0a3;color:#fff;font-family:monospace;font-size:12px;padding:8px 40px 8px 8px;z-index:999999;white-space:pre-wrap;max-height:35vh;overflow-y:auto;';
+    var closeBtn=document.createElement('button');
+    closeBtn.textContent='✕';
+    closeBtn.style.cssText='position:absolute;top:6px;right:6px;background:rgba(0,0,0,.3);border:none;color:#fff;width:28px;height:28px;border-radius:50%;font-size:14px;font-weight:700;';
+    closeBtn.onclick=function(){ box.remove(); };
+    box.appendChild(closeBtn);
     document.body.appendChild(box);
   }
   var line=document.createElement('div');
