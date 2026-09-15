@@ -1661,16 +1661,38 @@ document.getElementById('pwError').textContent='';
 if(isPw)backToMobileEntry();
 }
 
+function _dbg(msg){
+try{
+if(!/[?&]debug=1/.test(location.search)) return;
+var box=document.getElementById('kfitDebugLog');
+if(!box){
+box=document.createElement('div');
+box.id='kfitDebugLog';
+box.style.cssText='position:fixed;top:0;left:0;right:0;max-height:45vh;overflow-y:auto;background:rgba(0,0,0,.94);color:#4f4;font-family:monospace;font-size:11px;padding:8px;z-index:999999;white-space:pre-wrap;line-height:1.5;';
+(document.body||document.documentElement).appendChild(box);
+}
+var line=document.createElement('div');
+var t=new Date();
+var ts=('0'+t.getHours()).slice(-2)+':'+('0'+t.getMinutes()).slice(-2)+':'+('0'+t.getSeconds()).slice(-2)+'.'+('00'+t.getMilliseconds()).slice(-3);
+line.textContent=ts+' '+msg;
+box.appendChild(line);
+box.scrollTop=box.scrollHeight;
+}catch(e){}
+}
+
 function _completeFitnessLogin(match,mobile){
+_dbg('_completeFitnessLogin: start');
 try{
 _completeFitnessLoginInner(match,mobile);
 }catch(e){
 var msg='Login error: '+(e&&e.message?e.message:e);
+_dbg('_completeFitnessLogin: THREW -- '+msg);
 document.getElementById('pwError').textContent=msg;
 alert(msg);
 }
 }
 function _completeFitnessLoginInner(match,mobile){
+_dbg('_completeFitnessLoginInner: start');
 var d=match.data;
 var deviceId=localStorage.getItem('kfit_device_id');
 if(deviceId&&deviceId!==match.client_id){
@@ -1685,6 +1707,7 @@ if(d.unit) localStorage.setItem('kmfit_unit',d.unit);
 if(d.email) localStorage.setItem('kmfit_email',d.email);
 localStorage.setItem('kmfit_sessions',JSON.stringify(sessions));
 localStorage.setItem('kmfit_notes',JSON.stringify(notes));
+_dbg('_completeFitnessLoginInner: localStorage set, checking remember-me');
 var remember=document.getElementById('rememberMeMobile').checked;
 if(remember){
 setUnlocked();
@@ -1701,6 +1724,7 @@ if(n) store2.put(n,'name');
 };
 }catch(e){}
 }
+_dbg('_completeFitnessLoginInner: about to hide pwGate');
 sessionStorage.setItem('kmfit_session','1');
 document.getElementById('pwGate').style.display='none';
 document.getElementById('pwError').textContent='';
@@ -1709,9 +1733,11 @@ _otpPendingMobile=null;_otpPendingMatch=null;
 var otpStep=document.getElementById('mobileStepOtp'); if(otpStep) otpStep.style.display='none';
 var entryStep=document.getElementById('mobileStepEntry'); if(entryStep) entryStep.style.display='block';
 var otpInp=document.getElementById('otpInput'); if(otpInp) otpInp.value='';
+_dbg('_completeFitnessLoginInner: pwGate hidden, calling initApp');
 initApp();
-
+_dbg('_completeFitnessLoginInner: initApp done, calling syncFitnessToSupabase');
 syncFitnessToSupabase();
+_dbg('_completeFitnessLoginInner: DONE');
 }
 
 var _otpPendingMobile=null;
@@ -1720,36 +1746,45 @@ var _otpPendingMatch=null;
 function checkMobileLogin(){
 var mobile=document.getElementById('mobileLoginInput').value.trim().replace(/\D/g,'');
 if(!mobile){document.getElementById('pwError').textContent='Enter your mobile number';return;}
+_dbg('checkMobileLogin: start, mobile='+mobile);
 document.getElementById('pwError').textContent='Looking you up...';
 try{
 ensureAnonAuth(function(uid){
+_dbg('checkMobileLogin: ensureAnonAuth#1 returned uid='+uid);
 if(!uid){
 document.getElementById('pwError').textContent='Could not connect -- check your internet and try again';
 return;
 }
 try{
 getSBScoped().from('tracker_data').select('data,client_id').eq('tracker','fitness').like('client_id','%__'+mobile).then(function(res){
+_dbg('checkMobileLogin: query resolved, error='+(res.error?JSON.stringify(res.error):'none')+' rows='+(res.data?res.data.length:'null'));
 if(!res.error&&res.data&&res.data.length){
 _handleMobileLookupResult(res.data[0],mobile);
 return;
 }
 document.getElementById('pwError').textContent='Mobile number not found -- try "New" instead';
 }).catch(function(err){
+_dbg('checkMobileLogin: query REJECTED -- '+(err&&err.message?err.message:err));
 document.getElementById('pwError').textContent='Something went wrong -- check your internet and try again';
 });
 }catch(e){
+_dbg('checkMobileLogin: query call THREW -- '+(e&&e.message?e.message:e));
 document.getElementById('pwError').textContent='Something went wrong -- check your internet and try again';
 }
 });
 }catch(e){
+_dbg('checkMobileLogin: ensureAnonAuth#1 call THREW -- '+(e&&e.message?e.message:e));
 document.getElementById('pwError').textContent='Could not connect -- check your internet and try again';
 }
 }
 
 function _handleMobileLookupResult(match,mobile){
-
+_dbg('_handleMobileLookupResult: match found, calling ensureAnonAuth#2');
 document.getElementById('pwError').textContent='';
-ensureAnonAuth(function(){_completeFitnessLogin(match,mobile);});
+ensureAnonAuth(function(uid2){
+_dbg('_handleMobileLookupResult: ensureAnonAuth#2 returned uid='+uid2+', calling _completeFitnessLogin');
+_completeFitnessLogin(match,mobile);
+});
 return;
 }
 
