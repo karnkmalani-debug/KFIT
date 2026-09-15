@@ -1215,7 +1215,7 @@ const CARDIO_EX = new Set(EX_LIB['Cardio']);
 const FUNCTIONAL_EX = new Set(EX_LIB['Functional']);
 function isFunctional(exName){ return FUNCTIONAL_EX.has(exName); }
 
-let selectedBP=[], sessions=[], notes={}, assignedWorkouts={}, deletedSessionIds=[], measurements=[], routines=[];
+let selectedBP=[], sessions=[], notes={}, assignedWorkouts={}, deletedSessionIds=[], measurements=[], routines=[], deletedRoutineIds=[];
 const MEAS_FIELDS=[
 {key:'weight',label:'Weight (kg)'},
 {key:'height',label:'Height (cm)'},
@@ -3554,7 +3554,9 @@ const routine=routines.find(function(r){return r.id===id;});
 if(!routine) return;
 if(!confirm('Delete routine "'+routine.name+'"?')) return;
 routines=routines.filter(function(r){return r.id!==id;});
+deletedRoutineIds=Array.from(new Set([...deletedRoutineIds,id]));
 localStorage.setItem('kmfit_routines',JSON.stringify(routines));
+localStorage.setItem('kmfit_deleted_routine_ids',JSON.stringify(deletedRoutineIds));
 syncFitnessToSupabase();
 renderRoutineList();
 }
@@ -4302,6 +4304,7 @@ if(!r.id) return;
 var srv=routById[r.id];
 if(!srv||(r.updatedAt||0)>=(srv.updatedAt||0)) routById[r.id]=r;
 });
+(deletedRoutineIds||[]).forEach(function(id){ delete routById[id]; });
 var mergedRoutines=Object.values(routById).sort(function(a,b){return (b.updatedAt||0)-(a.updatedAt||0);});
 routines=mergedRoutines;
 try{localStorage.setItem('kmfit_routines',JSON.stringify(routines));}catch(e){}
@@ -4333,6 +4336,7 @@ sessions:sessions,
 notes:notes,
 assignedWorkouts:mergedAssigned,
 deletedSessionIds:deletedSessionIds,
+deletedRoutineIds:deletedRoutineIds,
 measurements:measurements,
 routines:routines,
 name:localStorage.getItem('kmfit_name'),
@@ -4424,6 +4428,13 @@ var remoteDeleted=d.deletedSessionIds||[];
 deletedSessionIds=Array.from(new Set([...localDeleted,...remoteDeleted]));
 var deletedSet=new Set(deletedSessionIds.map(String));
 
+var localDeletedRoutinesRaw=localStorage.getItem('kmfit_deleted_routine_ids');
+var localDeletedRoutines=[];
+try{localDeletedRoutines=JSON.parse(localDeletedRoutinesRaw)||[];}catch(e){}
+var remoteDeletedRoutines=d.deletedRoutineIds||[];
+deletedRoutineIds=Array.from(new Set([...localDeletedRoutines,...remoteDeletedRoutines]));
+var deletedRoutineSet=new Set(deletedRoutineIds.map(String));
+
 var remoteSessions=(d.sessions||[]).filter(function(s){return !deletedSet.has(String(s.id));});
 localSessions=localSessions.filter(function(s){return !deletedSet.has(String(s.id));});
 var sessionMap={};
@@ -4451,7 +4462,9 @@ var localR=routines||[];
 var rMap={};
 (d.routines||[]).forEach(function(r){if(r.id)rMap[r.id]=r;});
 localR.forEach(function(r){if(r.id&&(!rMap[r.id]||(r.updatedAt||0)>(rMap[r.id].updatedAt||0)))rMap[r.id]=r;});
+deletedRoutineIds.forEach(function(id){ delete rMap[id]; });
 routines=Object.values(rMap).sort(function(a,b){return (b.updatedAt||0)-(a.updatedAt||0);});
+try{localStorage.setItem('kmfit_deleted_routine_ids',JSON.stringify(deletedRoutineIds));}catch(e){}
 if(typeof checkForNewCoachRoutines==='function') checkForNewCoachRoutines();
 }
 if(d.name)localStorage.setItem('kmfit_name',d.name);
