@@ -3097,14 +3097,40 @@ var titleEl=document.getElementById('newCoachRoutineBannerTitle');
 if(titleEl) titleEl.textContent=newOnes.length===1?'New from your coach':'New from your coach ('+newOnes.length+')';
 list.innerHTML=newOnes.map(function(r){
 var eff=getEffectiveRoutineData(r);
-return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid rgba(212,168,67,.25);">'
-+'<div style="font-size:14px;font-weight:700;color:var(--text);flex:1;padding-right:10px;">'+eff.name.replace(/</g,'&lt;')+'</div>'
+var sentStr='';
+if(r.createdAt){
+var sd=new Date(r.createdAt);
+if(!isNaN(sd)){
+var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var hh=sd.getHours(),mm=sd.getMinutes();
+var ap=hh>=12?'PM':'AM'; var h12=hh%12; if(h12===0)h12=12;
+sentStr='Sent '+M[sd.getMonth()]+' '+sd.getDate()+', '+h12+':'+(mm<10?'0':'')+mm+' '+ap;
+}
+}
+return '<div style="padding:8px 0;border-top:1px solid rgba(212,168,67,.25);">'
++'<div style="display:flex;justify-content:space-between;align-items:center;">'
++'<div style="flex:1;padding-right:10px;">'
++'<div style="font-size:14px;font-weight:700;color:var(--text);">'+eff.name.replace(/</g,'&lt;')+'</div>'
++(sentStr?'<div style="font-size:11px;color:var(--muted);margin-top:2px;">'+sentStr+'</div>':'')
++'</div>'
 +'<div style="display:flex;gap:6px;flex-shrink:0;">'
++'<button onclick="deleteNewCoachRoutine(\''+r.id+'\')" style="padding:7px 10px;background:none;border:1px solid var(--danger,#b33);border-radius:7px;color:var(--danger,#b33);font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Delete</button>'
 +'<button onclick="dismissNewCoachRoutine(\''+r.id+'\')" style="padding:7px 10px;background:none;border:1px solid var(--border);border-radius:7px;color:var(--muted);font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Later</button>'
 +'<button onclick="acceptAndLoadCoachRoutine(\''+r.id+'\')" style="padding:7px 12px;background:var(--gold);border:none;border-radius:7px;color:#1a1408;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Accept & Load</button>'
-+'</div></div>';
++'</div></div></div>';
 }).join('');
 banner.style.display='block';
+}
+function deleteNewCoachRoutine(id){
+if(!confirm('Delete this routine your coach sent? This removes it from your routine list.')) return;
+routines=routines.filter(function(r){return r.id!==id;});
+deletedRoutineIds=Array.from(new Set([...deletedRoutineIds,id]));
+localStorage.setItem('kmfit_routines',JSON.stringify(routines));
+localStorage.setItem('kmfit_deleted_routine_ids',JSON.stringify(deletedRoutineIds));
+syncFitnessToSupabase();
+markCoachRoutinesSeen([id]);
+checkForNewCoachRoutines();
+if(typeof renderRoutineList==='function') renderRoutineList();
 }
 function acceptAndLoadCoachRoutine(id){
 markCoachRoutinesSeen([id]);
@@ -3579,25 +3605,36 @@ if(eff.isDeleted){
 toast('Your coach removed this routine -- nothing to load. You can delete it from your list.');
 return;
 }
-const hasExistingWork=document.querySelectorAll('#exBody .ex-block, #exBody .superset-block').length>0 || (cardioBlocks&&cardioBlocks.length>0);
-if(hasExistingWork && !confirm('Load "'+eff.name+'"? This starts a fresh set of exercises from that routine -- anything you\'ve started here but haven\'t saved yet will be cleared. Your saved sessions and routines are never affected.')) return;
-document.getElementById('exBody').innerHTML='';
-cardioBlocks=[];
-functionalBlocks=[];
-if(typeof renderCardioBlocks==='function') renderCardioBlocks();
-if(typeof renderFunctionalBlocks==='function') renderFunctionalBlocks();
+const hasExistingWork=document.querySelectorAll('#exBody .ex-block, #exBody .superset-block').length>0 || (cardioBlocks&&cardioBlocks.length>0) || (functionalBlocks&&functionalBlocks.length>0);
+if(hasExistingWork && !confirm('Add "'+eff.name+'" to your current session? Anything you\'ve already logged stays exactly as is -- matching exercises just get topped up to the routine\'s set count, and new ones get added alongside.')) return;
 
-document.querySelectorAll('.bp-btn').forEach(function(b){ b.classList.remove('active'); });
-selectedBP=[];
-eff.bodyParts.forEach(function(bp){
-const btn=[...document.querySelectorAll('.bp-btn')].find(function(b){ return b.textContent.trim()===bp; });
-if(btn) btn.classList.add('active');
-if(!selectedBP.includes(bp)) selectedBP.push(bp);
+document.querySelectorAll('.bp-btn').forEach(function(b){
+const bp=b.textContent.trim();
+if(eff.bodyParts.includes(bp)){ b.classList.add('active'); if(!selectedBP.includes(bp)) selectedBP.push(bp); }
 });
 renderExChips();
+
 eff.exercises.forEach(function(e){
 if(isFunctional(e.ex)){
+if(!functionalBlocks.some(function(fb){return fb.ex===e.ex;})){
 functionalBlocks.push({id:Date.now()+Math.random(),ex:e.ex,duration:'',weight:''});
+}
+return;
+}
+const existingBlocks=[...document.querySelectorAll('#exBody .ex-block')];
+const existing=existingBlocks.find(function(b){
+const sel=b.querySelector('.ex-select');
+return sel && sel.value===e.ex;
+});
+if(existing){
+if(e.sets){
+const setsEl=existing.querySelector('.sets-select');
+if(setsEl){
+const curSets=parseInt(setsEl.value)||0;
+const wantSets=parseInt(e.sets)||0;
+if(wantSets>curSets){ setsEl.value=wantSets; updateSetRows(setsEl); }
+}
+}
 return;
 }
 addExRow();
@@ -3620,7 +3657,7 @@ if(typeof renderFunctionalBlocks==='function') renderFunctionalBlocks();
 eff.supersets.forEach(function(ss){
 loadRoutineSuperset(ss);
 });
-toast('Loaded "'+eff.name+'"');
+toast('Added "'+eff.name+'" to your session');
 }
 function renameRoutine(id){
 const routine=routines.find(function(r){return r.id===id;});
@@ -6259,6 +6296,13 @@ renderNotesTab();
 }
 
 function editSession(id){
+try{
+editSessionInner(id);
+}catch(e){
+alert('Edit session error: '+(e&&e.message?e.message:e));
+}
+}
+function editSessionInner(id){
 const s=sessions.find(x=>x.id===id)||sessions.find(x=>String(x.id)===String(id));
 if(!s){
 toast('Could not find that session -- please try again');
@@ -6435,6 +6479,13 @@ profile:getClientProfile()
 }
 
 function openDetail(id){
+try{
+openDetailInner(id);
+}catch(e){
+alert('History detail error: '+(e&&e.message?e.message:e));
+}
+}
+function openDetailInner(id){
 const s=sessions.find(s=>s.id===id);
 if(!s)return;
 const d=new Date(s.date+'T12:00:00');
