@@ -1712,19 +1712,29 @@ function checkMobileLogin(){
 var mobile=document.getElementById('mobileLoginInput').value.trim().replace(/\D/g,'');
 if(!mobile){document.getElementById('pwError').textContent='Enter your mobile number';return;}
 document.getElementById('pwError').textContent='Looking you up...';
+try{
 ensureAnonAuth(function(uid){
 if(!uid){
 document.getElementById('pwError').textContent='Could not connect -- check your internet and try again';
 return;
 }
+try{
 getSBScoped().from('tracker_data').select('data,client_id').eq('tracker','fitness').like('client_id','%__'+mobile).then(function(res){
 if(!res.error&&res.data&&res.data.length){
 _handleMobileLookupResult(res.data[0],mobile);
 return;
 }
 document.getElementById('pwError').textContent='Mobile number not found -- try "New" instead';
+}).catch(function(err){
+document.getElementById('pwError').textContent='Something went wrong -- check your internet and try again';
 });
+}catch(e){
+document.getElementById('pwError').textContent='Something went wrong -- check your internet and try again';
+}
 });
+}catch(e){
+document.getElementById('pwError').textContent='Could not connect -- check your internet and try again';
+}
 }
 
 function _handleMobileLookupResult(match,mobile){
