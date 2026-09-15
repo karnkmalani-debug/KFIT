@@ -164,6 +164,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <button onclick="coachLogout()" title="Log out" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;">&#128274;</button>
     <button onclick="window.print()" title="Print this screen" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">&#128424;</button>
   </div>
+  <div id="coachAccountLine" style="padding:2px 16px 8px;font-size:11px;color:var(--muted);"></div>
 
   <div class="mode-toggle">
     <button class="mode-btn" id="modeBtnClients" onclick="switchMode('clients')">👤 Clients</button>
@@ -596,29 +597,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </div>
 <script>
 
-window.onerror=function(msg,url,line,col,error){
-  alert('JS Error: '+msg+' (line '+line+')');
-  return false;
-};
-
-function _showDebugBanner(msg){
-  var box=document.getElementById('_kfitDebugBanner');
-  if(!box){
-    box=document.createElement('div');
-    box.id='_kfitDebugBanner';
-    box.style.cssText='position:fixed;top:0;left:0;right:0;background:#0a3;color:#fff;font-family:monospace;font-size:12px;padding:8px 40px 8px 8px;z-index:999999;white-space:pre-wrap;max-height:35vh;overflow-y:auto;';
-    var closeBtn=document.createElement('button');
-    closeBtn.textContent='✕';
-    closeBtn.style.cssText='position:absolute;top:6px;right:6px;background:rgba(0,0,0,.3);border:none;color:#fff;width:28px;height:28px;border-radius:50%;font-size:14px;font-weight:700;';
-    closeBtn.onclick=function(){ box.remove(); };
-    box.appendChild(closeBtn);
-    document.body.appendChild(box);
-  }
-  var line=document.createElement('div');
-  line.textContent=msg;
-  box.appendChild(line);
-}
-
 const SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
 const SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
 let sb=null;
@@ -761,7 +739,8 @@ function resetCoachAuthForm(){
 async function onCoachAuthenticated(session){
   window.currentCoachId=session.user.id;
   window.currentCoachEmail=session.user.email;
-  _showDebugBanner('Logged in as: '+session.user.email+' | coachId: '+session.user.id);
+  var acctLine=document.getElementById('coachAccountLine');
+  if(acctLine) acctLine.textContent='Logged in as: '+(session.user.email||'(no email on file)');
   // First login for this coach -- create their row if it doesn't exist yet.
   const {data:existing}=await getSB().from('coaches').select('id,billing_status,trial_ends_at').eq('id',session.user.id).maybeSingle();
   let coachRow=existing;
@@ -1723,8 +1702,7 @@ function loadAll(){
     timeout
   ]).then(function(results){
     const res=results[0];
-    if(res.error){_showDebugBanner('Fitness query ERROR: '+res.error.message);document.getElementById('clientList').innerHTML='<div class="empty">Error loading data.<br>'+res.error.message+'</div>';return;}
-    _showDebugBanner('Fitness query OK -- rows returned: '+((res.data||[]).length)+' | coachId used: '+window.currentCoachId);
+    if(res.error){document.getElementById('clientList').innerHTML='<div class="empty">Error loading data.<br>'+res.error.message+'</div>';return;}
     allRecords=res.data||[];
     renderDash();
     loadNewSignups();
