@@ -2177,7 +2177,11 @@ function showClient(key,targetContainer){
       <div id="assignedWorkoutsList">Loading...</div>
     </div>
     <div class="card">
-      <div class="card-title">Session History</div>
+      <div class="quick-add-header" onclick="toggleMergeSection('coachHist')">
+        <span class="card-title" style="margin-bottom:0;">Session History</span>
+        <span class="quick-add-toggle open" id="coachHistToggle">⌄</span>
+      </div>
+      <div class="quick-add-body open" id="coachHistBody">
       <div id="coachHistPills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">${renderCoachHistPills()}</div>
       ${isTaggedClient?`<div style="display:flex;gap:12px;margin-bottom:10px;font-size:13px;">
         <span style="color:var(--sage);font-weight:700;">${filteredPaidCount} Paid</span>
@@ -2190,6 +2194,7 @@ function showClient(key,targetContainer){
         <button onclick="applyCoachHistCustomRange()" style="padding:8px 14px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Apply</button>
       </div>
       <div id="coachHistList">${rows||'<div style="color:var(--muted);">No sessions in this range.</div>'}</div>
+      </div>
     </div>
     <div class="card" style="border-color:var(--terra);">
       <div class="quick-add-header" onclick="toggleMergeSection('fitDanger')">
