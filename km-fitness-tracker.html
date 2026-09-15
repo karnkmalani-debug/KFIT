@@ -1700,7 +1700,7 @@ getSBScoped().from('tracker_data').delete().eq('client_id',deviceId).eq('tracker
 }
 if(d.sessions) sessions=d.sessions;
 if(d.notes) notes=d.notes;
-if(d.name) localStorage.setItem('kmfit_name',d.name);
+localStorage.setItem('kmfit_name',d.name||'Client');
 localStorage.setItem('kmfit_mobile',mobile);
 localStorage.setItem('kmfit_target',d.target||'4');
 if(d.unit) localStorage.setItem('kmfit_unit',d.unit);
