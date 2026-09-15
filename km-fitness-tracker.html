@@ -5444,7 +5444,7 @@ const matchSess=sessions.find(s=>s.date===r.session_date&&(s.timeOfDay===r.sessi
 const sessId=matchSess?matchSess.id:null;
 const d=new Date(r.session_date+'T12:00:00');
 const label=buildLabel(r);
-return`<div onclick="${sessId?`openDetail(${sessId})`:''}" style="background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;${sessId?'cursor:pointer;':''};transition:border-color .18s;" ${sessId?`onmouseenter="this.style.borderColor='var(--sage)'" onmouseleave="this.style.borderColor='var(--border)'"`:''}>
+return`<div onclick="${sessId?`openDetail(${sessId})`:`toast('No workout details linked to this attendance record')`}" style="background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .18s;" onmouseenter="this.style.borderColor='var(--sage)'" onmouseleave="this.style.borderColor='var(--border)'">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
 <span style="font-size:15px;font-weight:700;color:var(--text);">${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}</span>
 ${r.session_time?`<span style="font-size:14px;font-weight:600;color:var(--muted);">${r.session_time}</span>`:''}
@@ -5453,7 +5453,7 @@ ${r.session_time?`<span style="font-size:14px;font-weight:600;color:var(--muted)
 <span style="font-size:14px;font-weight:700;color:var(--sage);">${label}</span>
 <div style="display:flex;align-items:center;gap:6px;">
 ${r.duration_secs?`<span style="font-size:15px;font-weight:600;color:var(--muted);">${Math.round(r.duration_secs/60)}m</span>`:''}
-${sessId?`<span style="font-size:16px;color:var(--muted2);">›</span>`:''}
+<span style="font-size:16px;color:var(--muted2);">›</span>
 </div>
 </div>
 </div>`;
