@@ -577,7 +577,7 @@ btn.textContent='Could not copy -- select the address bar manually';
     </div>
   </div>
   <div id="headerRestTimer" style="display:none;position:fixed;top:48px;left:0;right:0;z-index:299;background:var(--gold);color:#fff;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:900;padding:10px 16px;text-align:center;letter-spacing:2px;"></div>
-  <div id="headerClientName" style="font-size:1.5rem;font-weight:900;color:var(--text);padding:10px 16px 0;font-family:'Playfair Display',serif;"></div>
+  <div id="headerClientName" onclick="editClientName()" style="font-size:1.5rem;font-weight:900;color:var(--text);padding:10px 16px 0;font-family:'Playfair Display',serif;cursor:pointer;" title="Tap to edit your name"></div>
 
   <div class="tabs">
     <div class="tab active" onclick="goTab(0)">LOG</div>
@@ -2092,11 +2092,26 @@ document.querySelector('.rest-bar').classList.add('visible');
 updateDateChip(); buildBpGrid(); setTodayDate();
 
 var clientName=localStorage.getItem('kmfit_name');
+var elHCN=document.getElementById('headerClientName');
+if(elHCN) elHCN.textContent=(clientName&&clientName!=='Client')?clientName:'+ Add your name';
 if(clientName){
-var el=document.getElementById('headerClientName');
-if(el) el.textContent=clientName;
 var cn=document.getElementById('clientName');
 if(cn&&!cn.value) cn.value=clientName;
+}
+
+function editClientName(){
+var current=localStorage.getItem('kmfit_name')||'';
+var next=prompt('Your name:',current==='Client'?'':current);
+if(next===null) return;
+next=next.trim();
+if(!next){ toast('Name can\'t be empty'); return; }
+localStorage.setItem('kmfit_name',next);
+var el=document.getElementById('headerClientName');
+if(el) el.textContent=next;
+var cn=document.getElementById('clientName');
+if(cn) cn.value=next;
+if(typeof syncFitnessToSupabase==='function') syncFitnessToSupabase();
+toast('Name updated');
 }
 
 loadData();
@@ -2979,11 +2994,18 @@ document.getElementById('exBody').appendChild(block);
 populateSel(block.querySelector('.ex-select'));
 generateSetRows(block.querySelector('.set-rows'),3,'');
 
+ensureCustomExBtn();
+}
+
+function ensureCustomExBtn(){
+const exBody=document.getElementById('exBody');
+if(!exBody) return;
+exBody.querySelectorAll('.custom-ex-btn').forEach(function(b){ b.remove(); });
 const btn=document.createElement('button');
 btn.className='custom-ex-btn';
 btn.textContent='+ Suggest a new exercise to your coach';
 btn.onclick=()=>openCustomEx();
-block.appendChild(btn);
+exBody.appendChild(btn);
 }
 
 function scoreExerciseMatches(query){
@@ -4284,9 +4306,10 @@ function getSBScoped(){
 }
 
 function getFitClientKey(){
-var name=(localStorage.getItem('kmfit_name')||'unknown').toLowerCase().replace(/\s+/g,'_');
 var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
-return mobile?name+'__'+mobile:name;
+if(mobile) return 'kfit__'+mobile;
+var name=(localStorage.getItem('kmfit_name')||'unknown').toLowerCase().replace(/\s+/g,'_');
+return name;
 }
 
 // -- Per-client kill switch: mirrors canonicalClientKey() in kfit-coach-merged.html
@@ -4394,18 +4417,26 @@ if((!sessions||sessions.length===0)&&(!deletedSessionIds||deletedSessionIds.leng
 ensureAnonAuth(function(uid){
 if(!uid)return;
 
-getSBScoped().from('tracker_data').select('data').eq('client_id',key).eq('tracker','fitness').then(function(fres){
+var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
+var fetchQuery=mobile
+? getSBScoped().from('tracker_data').select('client_id,data').like('client_id','%__'+mobile).eq('tracker','fitness')
+: getSBScoped().from('tracker_data').select('client_id,data').eq('client_id',key).eq('tracker','fitness');
+
+fetchQuery.then(function(fres){
 var serverAssigned={};
 var serverSessions=[];
 var serverMeasurements=[];
 var serverRoutines=[];
 try{
-if(!fres.error&&fres.data&&fres.data.length&&fres.data[0].data){
-var fd=typeof fres.data[0].data==='string'?JSON.parse(fres.data[0].data):fres.data[0].data;
-serverAssigned=fd.assignedWorkouts||{};
-serverSessions=fd.sessions||[];
-serverMeasurements=fd.measurements||[];
-serverRoutines=fd.routines||[];
+if(!fres.error&&fres.data&&fres.data.length){
+fres.data.forEach(function(row){
+if(!row.data) return;
+var fd=typeof row.data==='string'?JSON.parse(row.data):row.data;
+serverAssigned=Object.assign({},serverAssigned,fd.assignedWorkouts||{});
+serverSessions=serverSessions.concat(fd.sessions||[]);
+serverMeasurements=serverMeasurements.concat(fd.measurements||[]);
+serverRoutines=serverRoutines.concat(fd.routines||[]);
+});
 }
 }catch(e){}
 var mergedAssigned=Object.assign({},serverAssigned,assignedWorkouts);
@@ -4684,14 +4715,13 @@ activity: record.activity||''
 if(record.newDate) updates.session_date=record.newDate;
 if(record.newTime) updates.session_time=record.newTime;
 getSBScoped().from('attendance')
-.update(updates)
+.select('id')
 .eq('client_mobile', record.mobile)
 .eq('session_date', record.date)
 .eq('session_time', record.time)
-.select()
-.then(function(res){
-if(res.error){
-console.warn('Attendance update error (attempt '+attempt+'):',res.error.message);
+.then(function(selRes){
+if(selRes.error){
+console.warn('Attendance lookup error (attempt '+attempt+'):',selRes.error.message);
 if(attempt<3){
 setTimeout(function(){updateAttendance(record,attempt+1);},1500*attempt);
 } else {
@@ -4699,15 +4729,34 @@ showBlockingAlert('Your workout saved, but we couldn\'t update your coach\'s att
 }
 return;
 }
-if(!res.data||res.data.length===0){
-
+var rows=selRes.data||[];
+if(!rows.length){
+// A real lookup, not an update side-effect, confirms nothing exists for
+// this date/time -- safe to insert exactly once.
 logAttendance({
 client:record.client, mobile:record.mobile,
 date:record.newDate||record.date, time:record.newTime||record.time,
 duration:record.duration, workoutType:record.workoutType,
 bodyParts:record.bodyParts, activity:record.activity
 });
+return;
 }
+// Update every matching row by id -- if legacy duplicates already exist
+// this keeps them in sync instead of creating yet another new row.
+var ids=rows.map(function(r){return r.id;});
+getSBScoped().from('attendance')
+.update(updates)
+.in('id',ids)
+.then(function(updRes){
+if(updRes.error){
+console.warn('Attendance update error (attempt '+attempt+'):',updRes.error.message);
+if(attempt<3){
+setTimeout(function(){updateAttendance(record,attempt+1);},1500*attempt);
+} else {
+showBlockingAlert('Your workout saved, but we couldn\'t update your coach\'s attendance record (connection issue). Please tell your coach if this session doesn\'t show up on their end.');
+}
+}
+});
 });
 });
 }
