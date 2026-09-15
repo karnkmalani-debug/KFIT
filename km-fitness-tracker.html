@@ -1743,6 +1743,21 @@ _dbg('_completeFitnessLoginInner: DONE');
 var _otpPendingMobile=null;
 var _otpPendingMatch=null;
 
+function _pickBestClientRow(rows,mobile){
+var canonical='kfit__'+mobile;
+var exact=rows.find(function(r){return r.client_id===canonical;});
+if(exact) return exact;
+var best=rows[0],bestCount=-1;
+rows.forEach(function(r){
+try{
+var d=typeof r.data==='string'?JSON.parse(r.data):r.data;
+var count=(d&&d.sessions&&d.sessions.length)||0;
+if(count>bestCount){bestCount=count;best=r;}
+}catch(e){}
+});
+return best;
+}
+
 function checkMobileLogin(){
 var mobile=document.getElementById('mobileLoginInput').value.trim().replace(/\D/g,'');
 if(!mobile){document.getElementById('pwError').textContent='Enter your mobile number';return;}
@@ -1759,7 +1774,8 @@ try{
 getSBScoped().from('tracker_data').select('data,client_id').eq('tracker','fitness').like('client_id','%__'+mobile).then(function(res){
 _dbg('checkMobileLogin: query resolved, error='+(res.error?JSON.stringify(res.error):'none')+' rows='+(res.data?res.data.length:'null'));
 if(!res.error&&res.data&&res.data.length){
-_handleMobileLookupResult(res.data[0],mobile);
+var best=_pickBestClientRow(res.data,mobile);
+_handleMobileLookupResult(best,mobile);
 return;
 }
 document.getElementById('pwError').textContent='Mobile number not found -- try "New" instead';
@@ -2101,15 +2117,40 @@ if(cn&&!cn.value) cn.value=clientName;
 
 function editClientName(){
 var current=localStorage.getItem('kmfit_name')||'';
-var next=prompt('Your name:',current==='Client'?'':current);
-if(next===null) return;
-next=next.trim();
+_openNameModal(current==='Client'?'':current);
+}
+
+function _openNameModal(prefill){
+var existing=document.getElementById('nameEditModal');
+if(existing) existing.remove();
+var overlay=document.createElement('div');
+overlay.id='nameEditModal';
+overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:24px;';
+overlay.innerHTML=`
+<div style="background:var(--surf,#1a1a18);border:1px solid var(--border,#333);border-radius:14px;padding:22px;max-width:340px;width:100%;">
+<div style="font-size:17px;font-weight:800;color:var(--text,#fff);margin-bottom:14px;">Your name</div>
+<input id="nameEditInput" type="text" value="${(prefill||'').replace(/"/g,'&quot;')}" placeholder="e.g. Karan Mehta" style="width:100%;padding:12px;background:var(--surf2,#111);border:1px solid var(--border,#333);border-radius:8px;color:var(--text,#fff);font-size:16px;font-family:inherit;margin-bottom:16px;box-sizing:border-box;">
+<div style="display:flex;gap:10px;">
+<button onclick="document.getElementById('nameEditModal').remove()" style="flex:1;padding:11px;background:none;border:1px solid var(--border,#333);border-radius:8px;color:var(--muted,#999);font-weight:700;font-size:15px;">Cancel</button>
+<button onclick="_saveNameFromModal()" style="flex:1;padding:11px;background:var(--sage,#3a6e40);border:none;border-radius:8px;color:#fff;font-weight:700;font-size:15px;">Save</button>
+</div>
+</div>`;
+document.body.appendChild(overlay);
+var inp=document.getElementById('nameEditInput');
+if(inp){ inp.focus(); inp.select(); }
+}
+
+function _saveNameFromModal(){
+var inp=document.getElementById('nameEditInput');
+var next=(inp?inp.value:'').trim();
 if(!next){ toast('Name can\'t be empty'); return; }
 localStorage.setItem('kmfit_name',next);
 var el=document.getElementById('headerClientName');
 if(el) el.textContent=next;
 var cn=document.getElementById('clientName');
 if(cn) cn.value=next;
+var modal=document.getElementById('nameEditModal');
+if(modal) modal.remove();
 if(typeof syncFitnessToSupabase==='function') syncFitnessToSupabase();
 toast('Name updated');
 }
