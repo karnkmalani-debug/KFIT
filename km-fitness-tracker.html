@@ -1831,6 +1831,19 @@ if(target) store.put(target,'target');
 }catch(e){}
 }
 
+function clearUnlocked(){
+localStorage.removeItem('kmfit_unlocked');
+clearCookie('kmfit_unlocked');
+try{
+var req=indexedDB.open('kmfit_auth',1);
+req.onupgradeneeded=function(e){e.target.result.createObjectStore('flags');};
+req.onsuccess=function(e){
+var tx=e.target.result.transaction('flags','readwrite');
+tx.objectStore('flags').delete('unlocked');
+};
+}catch(e){}
+}
+
 function checkUnlockedIDB(callback){
 try{
 var req=indexedDB.open('kmfit_auth',1);
@@ -1988,8 +2001,13 @@ return;
 setTimeout(function(){
 name=localStorage.getItem('kmfit_name');
 if(!name){
-document.getElementById('pwGate').style.display='none';
-document.getElementById('setupScreen').style.display='flex';
+// Unlocked but no name saved means an interrupted signup or a wiped
+// device -- never silently assume "new user" here, since that traps a
+// returning person in the signup form with no visible way back to
+// Sign In. Clear the stale unlock flag and show the real choice screen.
+clearUnlocked();
+document.getElementById('pwGate').style.display='flex';
+document.getElementById('setupScreen').style.display='none';
 document.getElementById('mainApp').style.display='none';
 } else {
 _launchMainApp();
