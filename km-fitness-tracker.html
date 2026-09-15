@@ -4214,8 +4214,9 @@ function checkClientAccess(){
 }
 
 function ensureAnonAuth(callback){
-var sb=getSB();
 var done=false;
+try{
+var sb=getSB();
 var safety=setTimeout(function(){if(!done){done=true;callback(null);}},8000);
 sb.auth.getSession().then(function(res){
 var session=res.data&&res.data.session;
@@ -4230,6 +4231,9 @@ if(!done){done=true;clearTimeout(safety);callback(r.data.user.id);}
 }).catch(function(){if(!done){done=true;clearTimeout(safety);callback(null);}});
 }
 }).catch(function(){if(!done){done=true;clearTimeout(safety);callback(null);}});
+}catch(e){
+if(!done){done=true;callback(null);}
+}
 }
 
 function checkVoiceSession(){
