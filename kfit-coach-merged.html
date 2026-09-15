@@ -601,6 +601,19 @@ window.onerror=function(msg,url,line,col,error){
   return false;
 };
 
+function _showDebugBanner(msg){
+  var box=document.getElementById('_kfitDebugBanner');
+  if(!box){
+    box=document.createElement('div');
+    box.id='_kfitDebugBanner';
+    box.style.cssText='position:fixed;top:0;left:0;right:0;background:#0a3;color:#fff;font-family:monospace;font-size:12px;padding:8px;z-index:999999;white-space:pre-wrap;max-height:35vh;overflow-y:auto;';
+    document.body.appendChild(box);
+  }
+  var line=document.createElement('div');
+  line.textContent=msg;
+  box.appendChild(line);
+}
+
 const SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
 const SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
 let sb=null;
@@ -743,6 +756,7 @@ function resetCoachAuthForm(){
 async function onCoachAuthenticated(session){
   window.currentCoachId=session.user.id;
   window.currentCoachEmail=session.user.email;
+  _showDebugBanner('Logged in as: '+session.user.email+' | coachId: '+session.user.id);
   // First login for this coach -- create their row if it doesn't exist yet.
   const {data:existing}=await getSB().from('coaches').select('id,billing_status,trial_ends_at').eq('id',session.user.id).maybeSingle();
   let coachRow=existing;
@@ -1704,7 +1718,8 @@ function loadAll(){
     timeout
   ]).then(function(results){
     const res=results[0];
-    if(res.error){document.getElementById('clientList').innerHTML='<div class="empty">Error loading data.<br>'+res.error.message+'</div>';return;}
+    if(res.error){_showDebugBanner('Fitness query ERROR: '+res.error.message);document.getElementById('clientList').innerHTML='<div class="empty">Error loading data.<br>'+res.error.message+'</div>';return;}
+    _showDebugBanner('Fitness query OK -- rows returned: '+((res.data||[]).length)+' | coachId used: '+window.currentCoachId);
     allRecords=res.data||[];
     renderDash();
     loadNewSignups();
