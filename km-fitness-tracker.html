@@ -1662,6 +1662,15 @@ if(isPw)backToMobileEntry();
 }
 
 function _completeFitnessLogin(match,mobile){
+try{
+_completeFitnessLoginInner(match,mobile);
+}catch(e){
+var msg='Login error: '+(e&&e.message?e.message:e);
+document.getElementById('pwError').textContent=msg;
+alert(msg);
+}
+}
+function _completeFitnessLoginInner(match,mobile){
 var d=match.data;
 var deviceId=localStorage.getItem('kfit_device_id');
 if(deviceId&&deviceId!==match.client_id){
