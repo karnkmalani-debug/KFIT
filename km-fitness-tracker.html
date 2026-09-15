@@ -2116,8 +2116,12 @@ if(cn&&!cn.value) cn.value=clientName;
 }
 
 function editClientName(){
+try{
 var current=localStorage.getItem('kmfit_name')||'';
 _openNameModal(current==='Client'?'':current);
+}catch(e){
+alert('Name editor error: '+(e&&e.message?e.message:e));
+}
 }
 
 function _openNameModal(prefill){
