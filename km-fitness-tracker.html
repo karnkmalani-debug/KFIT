@@ -2007,6 +2007,7 @@ updated_at:new Date().toISOString()
 }catch(e){}
 }
 function initApp(){
+_dbg('initApp: start, isUnlocked='+isUnlocked()+' sessionFlag='+sessionStorage.getItem('kmfit_session'));
 
 var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
 var isStandalone=('standalone' in window.navigator)&&window.navigator.standalone||window.matchMedia('(display-mode: standalone)').matches;
@@ -2016,16 +2017,20 @@ if(isIOS&&!isStandalone){ var w=document.getElementById('installWrap'); if(w) w.
 
 if(isUnlocked()||sessionStorage.getItem('kmfit_session')){
 hideLoader();
+_dbg('initApp: taking unlocked/session branch, calling _continueInitApp');
 _continueInitApp();
 return;
 }
 
+_dbg('initApp: NOT unlocked/no session, calling checkUnlockedIDB');
 checkUnlockedIDB(function(unlocked){
+_dbg('initApp: checkUnlockedIDB returned unlocked='+unlocked);
 hideLoader();
 if(unlocked){
 sessionStorage.setItem('kmfit_session','1');
 _continueInitApp();
 } else {
+_dbg('initApp: showing pwGate (IDB says not unlocked)');
 var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
 if(mobile){
 switchLoginTab('mobile');
@@ -2041,12 +2046,16 @@ document.getElementById('mainApp').style.display='none';
 }
 
 function _continueInitApp(){
+_dbg('_continueInitApp: start');
 
 var name=localStorage.getItem('kmfit_name');
+_dbg('_continueInitApp: kmfit_name='+JSON.stringify(name));
 if(!name){
+_dbg('_continueInitApp: no name, calling checkUnlockedIDB (recovery path)');
 
 checkUnlockedIDB(function(unlocked){
 name=localStorage.getItem('kmfit_name');
+_dbg('_continueInitApp: recovery checkUnlockedIDB unlocked='+unlocked+' name now='+JSON.stringify(name));
 if(name){
 _launchMainApp();
 return;
@@ -2054,11 +2063,13 @@ return;
 
 setTimeout(function(){
 name=localStorage.getItem('kmfit_name');
+_dbg('_continueInitApp: recovery 300ms timeout, name='+JSON.stringify(name));
 if(!name){
 // Unlocked but no name saved means an interrupted signup or a wiped
 // device -- never silently assume "new user" here, since that traps a
 // returning person in the signup form with no visible way back to
 // Sign In. Clear the stale unlock flag and show the real choice screen.
+_dbg('_continueInitApp: BOUNCING BACK to pwGate -- clearUnlocked + show pwGate');
 clearUnlocked();
 document.getElementById('pwGate').style.display='flex';
 document.getElementById('setupScreen').style.display='none';
@@ -2070,6 +2081,7 @@ _launchMainApp();
 });
 return;
 }
+_dbg('_continueInitApp: name present, calling _launchMainApp');
 _launchMainApp();
 }
 
