@@ -63,7 +63,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-seri
 .header{display:flex;align-items:center;justify-content:space-between;padding:max(15px,env(safe-area-inset-top)) 16px 12px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;background:var(--bg);gap:8px;}
 .logo{font-size:20px;font-weight:900;letter-spacing:-1px;font-family:'Playfair Display',serif;color:#fff;}
 .logo .g{color:var(--sage);} .logo .t{color:var(--terra);}
-.date-chip{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);background:var(--surf);border:1px solid var(--border);border-radius:20px;padding:5px 12px;}
+.date-chip{font-family:'DM Mono',monospace;font-size:16px;color:var(--muted);background:var(--surf);border:1px solid var(--border);border-radius:20px;padding:5px 10px;white-space:nowrap;}
 
 .tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:52px;z-index:49;}
 .help-strip{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:calc(52px + 45px);z-index:48;min-height:56px;}
@@ -268,7 +268,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .detail-hdr{display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:201;}
 .back-btn{background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:10px 16px;color:var(--text);font-size:20px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;}
 
-.rest-bar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:var(--surf);border-top:2px solid var(--gold);padding:14px 18px;display:none;align-items:center;justify-content:center;gap:14px;row-gap:10px;flex-wrap:wrap;max-width:520px;margin:0 auto;}
+.rest-bar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:var(--surf);border-top:2px solid var(--gold);padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:none;align-items:center;justify-content:center;gap:14px;row-gap:10px;flex-wrap:wrap;max-width:520px;margin:0 auto;}
 .rest-bar.visible{display:flex;}
 .rest-lbl{font-size:17px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
 .rest-time{font-family:'DM Mono',monospace;font-size:38px;font-weight:900;color:var(--gold);min-width:90px;}
@@ -568,16 +568,16 @@ btn.textContent='Could not copy -- select the address bar manually';
 
 <div id="mainApp">
   <div class="header">
-    <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+    <div style="display:flex;align-items:center;gap:8px;min-width:0;flex-shrink:0;">
       <div class="logo">K<span class="g">F</span><span class="t">it</span></div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <div style="position:relative;display:inline-block;">
-        <div class="date-chip" id="headerDate" style="cursor:pointer;pointer-events:none;" title="Tap to change date"></div>
+    <div style="display:flex;align-items:center;gap:6px;flex-shrink:1;min-width:0;">
+      <div style="position:relative;display:inline-block;flex-shrink:0;">
+        <div class="date-chip" id="headerDate" style="cursor:pointer;pointer-events:none;white-space:nowrap;" title="Tap to change date"></div>
         <input type="date" id="datePicker" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;padding:0;border:none;cursor:pointer;-webkit-appearance:none;" onchange="onDatePicked(this.value)" onpointerdown="return guardDatePicker(event)">
       </div>
-      <a href="https://kfit.pages.dev" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;text-decoration:none;">🏠 Home</a>
-      <button onclick="logout()" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;color:var(--muted);cursor:pointer;">Log Out</button>
+      <a href="https://kfit.pages.dev" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;text-decoration:none;flex-shrink:0;">🏠 Home</a>
+      <button onclick="logout()" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;">Log Out</button>
     </div>
   </div>
   <div id="headerRestTimer" style="display:none;position:fixed;top:48px;left:0;right:0;z-index:299;background:var(--gold);color:#fff;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:900;padding:10px 16px;text-align:center;letter-spacing:2px;"></div>
