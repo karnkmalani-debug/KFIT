@@ -537,8 +537,12 @@ btn.textContent='Could not copy -- select the address bar manually';
       </select>
     </div>
     <div class="s-field">
-      <label>Height (cm) <span style="color:var(--terra);">*</span></label>
-      <input type="number" id="setupHeight" min="100" max="250" placeholder="e.g. 175" inputmode="numeric">
+      <label>Height <span style="color:var(--terra);">*</span> <span onclick="toggleHeightUnit()" style="float:right;font-size:12px;font-weight:700;color:var(--sage);text-decoration:underline;cursor:pointer;" id="heightUnitToggleLabel">Use ft/in</span></label>
+      <input type="number" id="setupHeight" min="100" max="250" placeholder="e.g. 175 (cm)" inputmode="numeric">
+      <div id="setupHeightFtInWrap" style="display:none;gap:8px;">
+        <input type="number" id="setupHeightFt" min="3" max="8" placeholder="Feet" inputmode="numeric" style="flex:1;" oninput="_heightFtInChanged()">
+        <input type="number" id="setupHeightIn" min="0" max="11" placeholder="Inches" inputmode="numeric" style="flex:1;" oninput="_heightFtInChanged()">
+      </div>
     </div>
     <div class="s-field">
       <label>Weight (kg) <span style="color:var(--terra);">*</span></label>
@@ -681,7 +685,7 @@ btn.textContent='Could not copy -- select the address bar manually';
           <span class="quick-add-toggle" id="kfitStandardRoutinesToggle">⌄</span>
         </div>
         <div class="quick-add-body" id="kfitStandardRoutinesBody">
-          <div style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Karan's own core program -- the actual split he runs himself and gives his clients. Chest+Core, Back, Legs, Arms & Shoulders.</div>
+          <div style="font-size:13px;color:var(--text);margin-bottom:10px;line-height:1.5;">Karan's own core program -- the actual split he runs himself and gives his clients. Chest+Core, Back, Legs, Arms & Shoulders.</div>
           <div id="kfitStandardRoutinesList"></div>
         </div>
       </div>
@@ -763,7 +767,7 @@ btn.textContent='Could not copy -- select the address bar manually';
           <span class="quick-add-toggle" id="suggestedRoutinesToggle">⌄</span>
         </div>
         <div class="quick-add-body" id="suggestedRoutinesBody">
-          <div style="font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Ready-made circuits by time available -- each rotates through squat, push, hinge, pull, core, and carry movements so nothing gets overworked. Loads the same way as your own routines; tweak anything after.</div>
+          <div style="font-size:13px;color:var(--text);margin-bottom:10px;line-height:1.5;">Ready-made circuits by time available -- each rotates through squat, push, hinge, pull, core, and carry movements so nothing gets overworked. Loads the same way as your own routines; tweak anything after.</div>
           <div id="suggestedRoutinesList"></div>
         </div>
       </div>
@@ -1533,7 +1537,11 @@ cont.innerHTML=functionalBlocks.map(b=>`
 <div class="cardio-log-name"> ${b.ex}
 <button class="del-btn" onclick="removeFunctionalBlock(${b.id})">&#10005;</button>
 </div>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px;">
+<div><div class="cardio-field-label">Reps (optional)</div>
+<input class="cardio-field-inp" type="text" inputmode="numeric" placeholder="--"
+value="${b.reps||''}" onblur="autoFixNum(this)" oninput="updateFunctional(${b.id},'reps',this.value)">
+</div>
 <div><div class="cardio-field-label">Time (sec)</div>
 <input class="cardio-field-inp" type="text" inputmode="numeric" placeholder="--"
 value="${b.duration}" onblur="autoFixNum(this)" oninput="updateFunctional(${b.id},'duration',this.value)">
@@ -1556,6 +1564,28 @@ const v=parseFloat(inp.value);
 if(!isNaN(v))inp.value=String(v);
 }
 
+var _heightUnitIsFtIn=false;
+function toggleHeightUnit(){
+_heightUnitIsFtIn=!_heightUnitIsFtIn;
+var cmInput=document.getElementById('setupHeight');
+var ftInWrap=document.getElementById('setupHeightFtInWrap');
+var label=document.getElementById('heightUnitToggleLabel');
+if(_heightUnitIsFtIn){
+cmInput.style.display='none';
+ftInWrap.style.display='flex';
+label.textContent='Use cm';
+} else {
+cmInput.style.display='block';
+ftInWrap.style.display='none';
+label.textContent='Use ft/in';
+}
+}
+function _heightFtInChanged(){
+var ft=parseFloat(document.getElementById('setupHeightFt').value)||0;
+var inch=parseFloat(document.getElementById('setupHeightIn').value)||0;
+var cm=Math.round((ft*12+inch)*2.54);
+document.getElementById('setupHeight').value=cm>0?cm:'';
+}
 function completeSetup(){
 const n=document.getElementById('setupName').value.trim();
 const m=document.getElementById('setupMobile').value.trim().replace(/\D/g,'');
@@ -3479,7 +3509,7 @@ const SUGGESTED_ROUTINES=[
 // choice here was overwhelming rather than useful.
 // ══════════════════════════════════════════════════════════════════
 const KFIT_STANDARD_ROUTINES=[
-{name:'KFit Standard Routine: Chest Day + Core',bodyParts:['Chest','Core'],exercises:[
+{name:'Chest & Core Day',bodyParts:['Chest','Core'],exercises:[
 {ex:'Barbell Bench Press (Flat)',sets:3},
 {ex:'Dumbbell Press (Incline)',sets:3},
 {ex:'Chest Press Machine',sets:3},
@@ -3490,7 +3520,7 @@ const KFIT_STANDARD_ROUTINES=[
 {ex:'Back Hyperextension',sets:3},
 {ex:'Dumbbell Side Bends',sets:3}
 ]},
-{name:'KFit Standard Routine: Back Day',bodyParts:['Back'],exercises:[
+{name:'Back Day',bodyParts:['Back'],exercises:[
 {ex:'Lat Pulldown Wide',sets:2},
 {ex:'Lat Pulldown Close',sets:2},
 {ex:'Seated Row Close',sets:2},
@@ -3499,7 +3529,7 @@ const KFIT_STANDARD_ROUTINES=[
 {ex:'Face Pulls',sets:2},
 {ex:'Shrugs',sets:2}
 ]},
-{name:'KFit Standard Routine: Leg Day',bodyParts:['Legs'],exercises:[
+{name:'Leg Day',bodyParts:['Legs'],exercises:[
 {ex:'Goblet Squat',sets:3},
 {ex:'Romanian Deadlift',sets:3},
 {ex:'Lying Hamstring Curl',sets:3},
@@ -3507,7 +3537,7 @@ const KFIT_STANDARD_ROUTINES=[
 {ex:'Leg Extension',sets:3},
 {ex:'Standing Calf Raise',sets:3}
 ]},
-{name:'KFit Standard Routine: Arms & Shoulder Day',bodyParts:['Shoulders','Triceps','Biceps'],exercises:[
+{name:'Arms & Shoulder Day',bodyParts:['Shoulders','Triceps','Biceps'],exercises:[
 {ex:'Lateral Raises (Standing, Super ROM)',sets:2},
 {ex:'Y Raise (Standing, Super ROM)',sets:2},
 {ex:'Y Raise (Incline)',sets:2},
@@ -6145,6 +6175,19 @@ return 'Strength: <b>'+askFmtDuration(stats.strengthSeconds)+'</b> across '+stat
 +'Cardio: <b>'+askFmtDuration(stats.cardioSeconds)+'</b> across '+stats.cardioSessions+' session'+(stats.cardioSessions===1?'':'s')+'.'
 +(stats.mixedSessions?'<br>Mixed sessions (both in one): <b>'+askFmtDuration(stats.mixedSeconds)+'</b> across '+stats.mixedSessions+'.':'')
 +'<br><span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>';
+} else if(/calor(ie|ies)|kcal/.test(q)){
+var totalCal=0, totalCalLow=0, totalCalHigh=0, anyRange=false, countedSessions=0;
+filtered.forEach(function(s){
+var est=getSessionCalorieEstimate(s);
+if(!est) return;
+countedSessions++;
+if(est.isRange){anyRange=true; totalCalLow+=est.low; totalCalHigh+=est.high;}
+else {totalCal+=est.value; totalCalLow+=est.value; totalCalHigh+=est.value;}
+});
+if(!countedSessions) return 'No calorie estimate available for this period -- make sure your profile (age, sex, height, weight) is complete in Body Measurements.';
+return anyRange
+?'You\'ve burned an estimated <b>'+Math.round(totalCalLow)+'-'+Math.round(totalCalHigh)+' kcal</b> across '+countedSessions+' session'+(countedSessions===1?'':'s')+' <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>.'
+:'You\'ve burned an estimated <b>'+Math.round(totalCal)+' kcal</b> across '+countedSessions+' session'+(countedSessions===1?'':'s')+' <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>.';
 } else if(/drop set/.test(q)){
 return 'You\'ve done <b>'+stats.totalDropSets+' drop set'+(stats.totalDropSets===1?'':'s')+'</b> <span style="color:var(--muted);font-size:14px;font-weight:600;">('+period.label+')</span>.';
 } else if(/lengthened partial|\blp\b/.test(q)){
@@ -6192,6 +6235,7 @@ var FAQ_ITEMS=[
 {q:'Which body part do I train most?', base:'body part'},
 {q:'How many reps have needed help (H)?', base:'assisted help reps'},
 {q:'How many lengthened partial (LP) reps?', base:'lengthened partial reps'},
+{q:'How many calories have I burned?', base:'calories burned'},
 {q:'How many drop sets have I done?', base:'drop sets'},
 {q:'What are my top 3 heaviest lifts?', base:'heaviest top lifts', allTimeOnly:true}
 ];
@@ -6626,6 +6670,7 @@ ${s.functional.map(f=>`
 <div style="margin-bottom:10px;padding-top:10px;border-top:1px solid var(--border);">
 <div style="color:var(--text);font-size:20px;font-weight:800;">${f.ex}</div>
 <div style="display:flex;gap:16px;margin-top:6px;font-family:'DM Mono',monospace;">
+${f.reps?`<span style="color:var(--sage);font-size:18px;font-weight:700;">${f.reps} reps</span>`:''}
 ${f.duration?`<span style="color:var(--flame);font-size:18px;font-weight:700;">${f.duration}s</span>`:''}
 ${f.weight?`<span style="color:var(--gold);font-size:16px;font-weight:700;">${f.weight}${s.unit||'kg'}</span>`:''}
 </div>

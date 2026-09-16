@@ -1043,6 +1043,7 @@ const body=document.getElementById(name+'Body');
 const toggle=document.getElementById(name+'Toggle');
 if(!body)return;
 const open=body.classList.toggle('open');
+body.style.display=open?'block':'none';
 if(toggle)toggle.classList.toggle('open',open);
 }
 function showConfirm(title,message){
@@ -1956,16 +1957,17 @@ function renderUniDash(){
   });
 
   let alertsHtml='';
-  if(unpaidClients.length&&sessionStorage.getItem('kfit_dismiss_unpaid_alert')!=='1'){
+  const isMonday=new Date().getDay()===1;
+  if(unpaidClients.length&&(isMonday||localStorage.getItem('kfit_dismiss_unpaid_alert')!=='1')){
     alertsHtml+='<div class="card" style="border-color:var(--terra);margin-bottom:10px;padding:12px 14px;position:relative;">'
-      +'<button onclick="sessionStorage.setItem(\'kfit_dismiss_unpaid_alert\',\'1\');this.closest(\'.card\').remove();" style="position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);font-size:16px;width:24px;height:24px;cursor:pointer;">✕</button>'
+      +'<button onclick="localStorage.setItem(\'kfit_dismiss_unpaid_alert\',\'1\');this.closest(\'.card\').remove();" style="position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);font-size:16px;width:24px;height:24px;cursor:pointer;">✕</button>'
       +'<div style="font-size:13px;font-weight:800;color:var(--terra);padding-right:20px;">⚠️ '+unpaidClients.length+' client'+(unpaidClients.length===1?'':'s')+' with unpaid sessions</div>'
       +'<div style="font-size:13px;color:var(--muted);margin-top:2px;">'+unpaidClients.map(function(c){return c.name;}).join(', ')+'</div>'
     +'</div>';
   }
-  if(inactiveClients.length&&sessionStorage.getItem('kfit_dismiss_inactive_alert')!=='1'){
+  if(inactiveClients.length&&localStorage.getItem('kfit_dismiss_inactive_alert')!=='1'){
     alertsHtml+='<div class="card" style="border-color:var(--gold);margin-bottom:10px;padding:12px 14px;position:relative;">'
-      +'<button onclick="sessionStorage.setItem(\'kfit_dismiss_inactive_alert\',\'1\');this.closest(\'.card\').remove();" style="position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);font-size:16px;width:24px;height:24px;cursor:pointer;">✕</button>'
+      +'<button onclick="localStorage.setItem(\'kfit_dismiss_inactive_alert\',\'1\');this.closest(\'.card\').remove();" style="position:absolute;top:8px;right:8px;background:none;border:none;color:var(--muted);font-size:16px;width:24px;height:24px;cursor:pointer;">✕</button>'
       +'<div style="font-size:13px;font-weight:800;color:var(--gold);padding-right:20px;">⏳ '+inactiveClients.length+' client'+(inactiveClients.length===1?'':'s')+' inactive 7+ days</div>'
       +'<div style="font-size:13px;color:var(--muted);margin-top:2px;">'+inactiveClients.map(function(c){return c.name;}).join(', ')+'</div>'
     +'</div>';
@@ -2136,7 +2138,7 @@ function showClient(key,targetContainer){
         <span class="quick-add-toggle" id="suggFuncToggle">⌄</span>
       </div>
       <div class="quick-add-body" id="suggFuncBody">
-      <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;">Four ready-made circuits, built around proper movement-pattern rotation -- one tap sends the full structure to this client's own routines.</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">Four ready-made circuits, built around proper movement-pattern rotation -- one tap sends the full structure to this client's own routines.</div>
       ${SUGGESTED_ROUTINES.map((r,i)=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
           <div>
@@ -2156,7 +2158,7 @@ function showClient(key,targetContainer){
         <span class="quick-add-toggle" id="kfitStdToggle">⌄</span>
       </div>
       <div class="quick-add-body" id="kfitStdBody">
-      <div style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:10px;">Your own core program -- the split you actually run yourself and give clients. Chest+Core, Back, Legs, Arms & Shoulders.</div>
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">Your own core program -- the split you actually run yourself and give clients. Chest+Core, Back, Legs, Arms & Shoulders.</div>
       ${KFIT_STANDARD_ROUTINES.map((r,i)=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
           <div>
@@ -2181,7 +2183,7 @@ function showClient(key,targetContainer){
         <span class="card-title" style="margin-bottom:0;">Session History</span>
         <span class="quick-add-toggle open" id="coachHistToggle">⌄</span>
       </div>
-      <div class="quick-add-body open" id="coachHistBody">
+      <div class="quick-add-body open" id="coachHistBody" style="display:block;">
       <div id="coachHistPills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">${renderCoachHistPills()}</div>
       ${isTaggedClient?`<div style="display:flex;gap:12px;margin-bottom:10px;font-size:13px;">
         <span style="color:var(--sage);font-weight:700;">${filteredPaidCount} Paid</span>
@@ -3038,7 +3040,7 @@ const SUGGESTED_ROUTINES=[
 // it himself and gives it to clients (see km-fitness-tracker.html for
 // the full note). This is the only preset strength program in the app.
 const KFIT_STANDARD_ROUTINES=[
-{name:'KFit Standard Routine: Chest Day + Core',bodyParts:['Chest','Core'],exercises:[
+{name:'Chest & Core Day',bodyParts:['Chest','Core'],exercises:[
 {ex:'Barbell Bench Press (Flat)',sets:3},
 {ex:'Dumbbell Press (Incline)',sets:3},
 {ex:'Chest Press Machine',sets:3},
@@ -3049,7 +3051,7 @@ const KFIT_STANDARD_ROUTINES=[
 {ex:'Back Hyperextension',sets:3},
 {ex:'Dumbbell Side Bends',sets:3}
 ]},
-{name:'KFit Standard Routine: Back Day',bodyParts:['Back'],exercises:[
+{name:'Back Day',bodyParts:['Back'],exercises:[
 {ex:'Lat Pulldown Wide',sets:2},
 {ex:'Lat Pulldown Close',sets:2},
 {ex:'Seated Row Close',sets:2},
@@ -3058,7 +3060,7 @@ const KFIT_STANDARD_ROUTINES=[
 {ex:'Face Pulls',sets:2},
 {ex:'Shrugs',sets:2}
 ]},
-{name:'KFit Standard Routine: Leg Day',bodyParts:['Legs'],exercises:[
+{name:'Leg Day',bodyParts:['Legs'],exercises:[
 {ex:'Goblet Squat',sets:3},
 {ex:'Romanian Deadlift',sets:3},
 {ex:'Lying Hamstring Curl',sets:3},
@@ -3066,7 +3068,7 @@ const KFIT_STANDARD_ROUTINES=[
 {ex:'Leg Extension',sets:3},
 {ex:'Standing Calf Raise',sets:3}
 ]},
-{name:'KFit Standard Routine: Arms & Shoulder Day',bodyParts:['Shoulders','Triceps','Biceps'],exercises:[
+{name:'Arms & Shoulder Day',bodyParts:['Shoulders','Triceps','Biceps'],exercises:[
 {ex:'Lateral Raises (Standing, Super ROM)',sets:2},
 {ex:'Y Raise (Standing, Super ROM)',sets:2},
 {ex:'Y Raise (Incline)',sets:2},
