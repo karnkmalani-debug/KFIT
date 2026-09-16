@@ -174,6 +174,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <button class="mode-btn" id="modeBtnExercises" onclick="switchMode('exercises')">Exercises<span id="exSuggestBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
     <button class="mode-btn" id="modeBtnFeedback" onclick="switchMode('feedback')">Feedback<span id="fbBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
     <button class="mode-btn" id="modeBtnAccount" onclick="switchMode('account')">Account</button>
+    <button class="mode-btn" id="modeBtnAdmin" onclick="switchMode('admin')" style="display:none;">👑 Admin</button>
   </div>
 
   <!-- ══════════════ UNIFIED CLIENTS SECTION ══════════════ -->
@@ -203,6 +204,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       </div>
       <div id="uniFitDetail" style="display:block;"></div>
       <div id="uniNutDetail" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════ ADMIN SECTION (owner only) ══════════════ -->
+  <div id="adminSection" style="display:none;">
+    <div class="content" id="adminDashView">
+      <div class="stat-grid" id="adminOverallStats" style="margin-bottom:14px;"></div>
+      <input id="adminCoachSearch" type="text" placeholder="🔍 Search coaches by name or email..." oninput="renderAdminCoaches()" style="width:100%;padding:9px 12px;margin-bottom:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
+      <div id="adminCoachList"><div class="empty">Loading...</div></div>
     </div>
   </div>
 
@@ -742,6 +752,8 @@ async function onCoachAuthenticated(session){
   window.currentCoachEmail=session.user.email;
   var acctLine=document.getElementById('coachAccountLine');
   if(acctLine) acctLine.textContent='Logged in as: '+(session.user.email||'(no email on file)');
+  var adminBtn=document.getElementById('modeBtnAdmin');
+  if(adminBtn) adminBtn.style.display=(session.user.email==='karnkmalani@gmail.com')?'block':'none';
   // First login for this coach -- create their row if it doesn't exist yet.
   const {data:existing}=await getSB().from('coaches').select('id,billing_status,trial_ends_at').eq('id',session.user.id).maybeSingle();
   let coachRow=existing;
@@ -1038,6 +1050,83 @@ async function loadClientAccess(){
 // silently did nothing -- calling an undefined function throws, and since
 // nothing awaits/catches it from the onclick, the error vanished with no
 // feedback to the coach at all.
+function loadAdminCoaches(){
+var listEl=document.getElementById('adminCoachList');
+Promise.all([
+getSB().from('coaches').select('*'),
+getSB().from('attendance').select('coach_id,client_mobile,client_name')
+]).then(function(results){
+var coachRes=results[0], attRes=results[1];
+if(coachRes.error){
+listEl.innerHTML='<div class="empty">Error loading coaches.<br>'+coachRes.error.message+'</div>';
+return;
+}
+window._adminCoaches=coachRes.data||[];
+window._adminAttendance=(attRes.error?[]:attRes.data)||[];
+renderAdminCoaches();
+}).catch(function(err){
+listEl.innerHTML='<div class="empty">Error loading admin data.<br>'+(err&&err.message?err.message:err)+'</div>';
+});
+}
+
+function renderAdminCoaches(){
+var listEl=document.getElementById('adminCoachList');
+var statsEl=document.getElementById('adminOverallStats');
+if(!listEl) return;
+var coaches=window._adminCoaches||[];
+var attendance=window._adminAttendance||[];
+var searchQ=(document.getElementById('adminCoachSearch')?.value||'').trim().toLowerCase();
+
+var clientsByCoach={};
+attendance.forEach(function(a){
+if(!a.coach_id) return;
+if(!clientsByCoach[a.coach_id]) clientsByCoach[a.coach_id]=new Set();
+clientsByCoach[a.coach_id].add((a.client_mobile||a.client_name||'').toLowerCase());
+});
+
+var filtered=coaches.filter(function(c){
+if(!searchQ) return true;
+return ((c.name||'').toLowerCase().includes(searchQ))||((c.email||'').toLowerCase().includes(searchQ));
+});
+filtered.sort(function(a,b){
+return new Date(b.created_at||0)-new Date(a.created_at||0);
+});
+
+if(statsEl) statsEl.innerHTML=
+'<div class="stat-box"><div class="stat-val" style="color:var(--sage);">'+coaches.length+'</div><div class="stat-lbl">Total Coaches</div></div>'
++'<div class="stat-box"><div class="stat-val" style="color:var(--gold);">'+Object.keys(clientsByCoach).length+'</div><div class="stat-lbl">Active Coaches</div></div>';
+
+if(!filtered.length){
+listEl.innerHTML=searchQ?'<div class="empty">No coaches match "'+searchQ+'".</div>':'<div class="empty">No coaches found.</div>';
+return;
+}
+
+var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+listEl.innerHTML=filtered.map(function(c){
+var clientCount=clientsByCoach[c.id]?clientsByCoach[c.id].size:0;
+var joined=c.created_at?new Date(c.created_at):null;
+var joinedStr=joined?joined.getDate()+' '+M[joined.getMonth()]+' '+joined.getFullYear():'—';
+var statusRaw=c.subscription_status||c.status||(c.trial_ends_at?'trial':'');
+var statusBadge='';
+if(statusRaw){
+var col=/active|paid/i.test(statusRaw)?'var(--sage)':/trial/i.test(statusRaw)?'var(--gold)':'var(--terra)';
+statusBadge='<span class="badge" style="background:'+col+';color:#1a1408;">'+statusRaw+'</span>';
+}
+return '<div class="client-card">'
++'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
+  +'<div class="client-name">'+(c.name||'(no name)')+'</div>'
+  +statusBadge
++'</div>'
++'<div class="client-meta">'
+  +'<span>✉️ '+(c.email||'—')+'</span>'
+  +'<span>👥 '+clientCount+' client'+(clientCount===1?'':'s')+'</span>'
+  +'<span>📅 Joined '+joinedStr+'</span>'
++'</div>'
++(c.trial_ends_at?'<div style="font-size:12px;color:var(--muted);margin-top:4px;">Trial ends: '+new Date(c.trial_ends_at).toDateString()+'</div>':'')
++'</div>';
+}).join('');
+}
+
 function toggleMergeSection(name){
 const body=document.getElementById(name+'Body');
 const toggle=document.getElementById(name+'Toggle');
@@ -4254,12 +4343,14 @@ function switchMode(mode){
   const exBtn=document.getElementById('modeBtnExercises');
   const fbBtn=document.getElementById('modeBtnFeedback');
   const accBtn=document.getElementById('modeBtnAccount');
+  const adminBtn=document.getElementById('modeBtnAdmin');
   const clientsSec=document.getElementById('clientsSection');
   const fitSec=document.getElementById('fitSection');
   const nutSec=document.getElementById('nutSection');
   const exSec=document.getElementById('exSection');
   const fbSec=document.getElementById('fbSection');
   const accSec=document.getElementById('accSection');
+  const adminSec=document.getElementById('adminSection');
   const pageTitle=document.getElementById('pageTitle');
   clientsBtn.classList.toggle('active',mode==='clients');
   fitBtn.classList.toggle('active',mode==='fitness');
@@ -4267,13 +4358,18 @@ function switchMode(mode){
   exBtn.classList.toggle('active',mode==='exercises');
   fbBtn.classList.toggle('active',mode==='feedback');
   accBtn.classList.toggle('active',mode==='account');
+  if(adminBtn) adminBtn.classList.toggle('active',mode==='admin');
   clientsSec.style.display=mode==='clients'?'block':'none';
   fitSec.style.display=mode==='fitness'?'block':'none';
   nutSec.style.display=mode==='nutrition'?'block':'none';
   exSec.style.display=mode==='exercises'?'block':'none';
   fbSec.style.display=mode==='feedback'?'block':'none';
   accSec.style.display=mode==='account'?'block':'none';
-  if(mode==='clients'){
+  if(adminSec) adminSec.style.display=mode==='admin'?'block':'none';
+  if(mode==='admin'){
+    pageTitle.textContent='Coach · Admin';
+    loadAdminCoaches();
+  } else if(mode==='clients'){
     pageTitle.textContent='Coach · Clients';
     if(!window.nutDataLoaded){ window.nutDataLoaded=true; nutLoadAll(); }
     renderUniDash();

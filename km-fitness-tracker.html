@@ -834,8 +834,13 @@ btn.textContent='Could not copy -- select the address bar manually';
             <option value="female">Female</option>
           </select>
         </div>
-        <div style="display:flex;gap:6px;">
+        <div style="display:flex;gap:6px;align-items:center;">
           <input type="number" id="calProfileHeight" placeholder="Height (cm)" min="100" max="250" inputmode="numeric" style="width:100px;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+          <input type="number" id="calProfileHeightFt" placeholder="Ft" min="3" max="8" inputmode="numeric" style="width:52px;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;display:none;" oninput="_calProfileHeightFtInChanged()">
+          <input type="number" id="calProfileHeightIn" placeholder="In" min="0" max="11" inputmode="numeric" style="width:52px;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;display:none;" oninput="_calProfileHeightFtInChanged()">
+          <span onclick="toggleCalProfileHeightUnit()" id="calProfileHeightUnitToggle" style="font-size:11px;font-weight:700;color:var(--sage);text-decoration:underline;cursor:pointer;white-space:nowrap;">ft/in</span>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:6px;">
           <input type="number" id="calProfileWeight" placeholder="Weight (kg)" min="30" max="250" step="0.1" inputmode="decimal" style="width:100px;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
           <button onclick="saveCalProfileQuick()" style="flex:1;padding:8px 12px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Save</button>
         </div>
@@ -1564,6 +1569,27 @@ const v=parseFloat(inp.value);
 if(!isNaN(v))inp.value=String(v);
 }
 
+var _calProfileHeightIsFtIn=false;
+function toggleCalProfileHeightUnit(){
+_calProfileHeightIsFtIn=!_calProfileHeightIsFtIn;
+var cmInput=document.getElementById('calProfileHeight');
+var ft=document.getElementById('calProfileHeightFt');
+var inch=document.getElementById('calProfileHeightIn');
+var label=document.getElementById('calProfileHeightUnitToggle');
+if(_calProfileHeightIsFtIn){
+cmInput.style.display='none'; ft.style.display='block'; inch.style.display='block';
+label.textContent='cm';
+} else {
+cmInput.style.display='block'; ft.style.display='none'; inch.style.display='none';
+label.textContent='ft/in';
+}
+}
+function _calProfileHeightFtInChanged(){
+var ft=parseFloat(document.getElementById('calProfileHeightFt').value)||0;
+var inch=parseFloat(document.getElementById('calProfileHeightIn').value)||0;
+var cm=Math.round((ft*12+inch)*2.54);
+document.getElementById('calProfileHeight').value=cm>0?cm:'';
+}
 var _heightUnitIsFtIn=false;
 function toggleHeightUnit(){
 _heightUnitIsFtIn=!_heightUnitIsFtIn;
