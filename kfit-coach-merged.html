@@ -278,6 +278,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <button id="fbTabOpen" onclick="setFbView('open')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--sage);background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Open</button>
         <button id="fbTabArchived" onclick="setFbView('archived')" style="flex:1;padding:9px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Archived</button>
       </div>
+      <button onclick="openStartConversation()" style="width:100%;padding:10px;margin-bottom:14px;background:none;border:1px dashed var(--sage);border-radius:8px;color:var(--sage);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">+ Start a Conversation</button>
       <div id="fbInboxList"><div class="empty">Loading...</div></div>
     </div>
   </div>
@@ -1662,7 +1663,7 @@ let _fbView='open';
 function fbFlatten(rows){
   const msgs=[];
   rows.forEach(function(row){
-    msgs.push({rowId:row.id,kind:'original',message:row.message,sender:'client',timestamp:row.created_at,read:!!row.read_by_coach,attachmentUrl:row.attachment_url,attachmentType:row.attachment_type});
+    if(row.message) msgs.push({rowId:row.id,kind:'original',message:row.message,sender:'client',timestamp:row.created_at,read:!!row.read_by_coach,attachmentUrl:row.attachment_url,attachmentType:row.attachment_type});
     (row.replies||[]).forEach(function(rep,idx){
       msgs.push({rowId:row.id,kind:'reply',replyIndex:idx,message:rep.message,sender:rep.sender,timestamp:rep.timestamp,read:!!rep.read,attachmentUrl:rep.attachmentUrl,attachmentType:rep.attachmentType});
     });
@@ -1697,6 +1698,70 @@ function setFbView(view){
   document.getElementById('fbTabArchived').style.background=view==='archived'?'var(--sage)':'none';
   document.getElementById('fbTabArchived').style.color=view==='archived'?'#fff':'var(--muted)';
   document.getElementById('fbTabArchived').style.borderColor=view==='archived'?'var(--sage)':'var(--border)';
+  loadFeedback();
+}
+
+// Lets the coach message a client who has no open thread yet -- previously
+// impossible, since replying required an existing app_feedback row. Inserts
+// a row with an empty "original" message (fbFlatten on both ends already
+// skips rendering that) and the real first message as a coach reply, so it
+// displays correctly as coach-sent on the client's side, not misattributed.
+function openStartConversation(){
+  const roster=buildUnifiedRoster().filter(function(c){return c.isTagged&&c.mobile;});
+  const existing=new Set(Object.keys(_fbGroups||{}));
+  const options=roster.map(function(c){
+    const hasThread=existing.has(c.mobile)||existing.has(c.name);
+    return '<option value="'+c.mobile+'|'+c.name.replace(/"/g,'&quot;')+'">'+c.name+(hasThread?' (already has a conversation)':'')+'</option>';
+  }).join('');
+  const existing2=document.getElementById('startConvoModal');
+  if(existing2) existing2.remove();
+  const overlay=document.createElement('div');
+  overlay.id='startConvoModal';
+  overlay.style.cssText='position:fixed;top:0;right:0;bottom:0;left:0;z-index:600;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML='<div style="background:var(--surf,#1a1a18);border:1px solid var(--border,#333);border-radius:14px;padding:22px;max-width:380px;width:100%;">'
+    +'<div style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:14px;">Start a Conversation</div>'
+    +'<select id="startConvoClient" style="width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:14px;margin-bottom:12px;">'
+    +'<option value="">-- Select Client --</option>'+options+'</select>'
+    +'<textarea id="startConvoMsg" placeholder="Your first message..." style="width:100%;min-height:80px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:14px;margin-bottom:14px;resize:vertical;"></textarea>'
+    +'<div style="display:flex;gap:10px;">'
+    +'<button onclick="document.getElementById(\'startConvoModal\').remove()" style="flex:1;padding:11px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-weight:700;font-size:14px;cursor:pointer;">Cancel</button>'
+    +'<button onclick="submitStartConversation()" style="flex:1;padding:11px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;">Send</button>'
+    +'</div></div>';
+  document.body.appendChild(overlay);
+}
+
+async function submitStartConversation(){
+  const sel=document.getElementById('startConvoClient');
+  const msgEl=document.getElementById('startConvoMsg');
+  const msg=(msgEl.value||'').trim();
+  if(!sel.value){ alert('Pick a client first.'); return; }
+  if(!msg){ alert('Write a message first.'); return; }
+  const [mobile,name]=sel.value.split('|');
+  const group=(_fbGroups||{})[mobile]||(_fbGroups||{})[name];
+  if(group&&group.rows.length){
+    // They already have a thread -- route into the normal reply path instead
+    // of creating a confusing second, disconnected conversation.
+    const lastRow=group.rows[group.rows.length-1];
+    const replies=(lastRow.replies||[]).slice();
+    replies.push({sender:'coach',message:msg,timestamp:new Date().toISOString(),read:false,attachmentUrl:null,attachmentType:null});
+    const {error}=await getSBScoped().from('app_feedback').update({replies:replies,archived:false}).eq('id',lastRow.id);
+    if(error){ alert('Error sending: '+error.message); return; }
+  } else {
+    const {error}=await getSBScoped().from('app_feedback').insert({
+      message:'',
+      tab:'Coach-initiated',
+      submitted_by:name,
+      submitted_by_mobile:mobile,
+      status:'new',
+      read_by_coach:true,
+      attachment_url:null,
+      attachment_type:null,
+      replies:[{sender:'coach',message:msg,timestamp:new Date().toISOString(),read:false,attachmentUrl:null,attachmentType:null}]
+    });
+    if(error){ alert('Error starting conversation: '+error.message); return; }
+  }
+  document.getElementById('startConvoModal').remove();
+  toast('Message sent');
   loadFeedback();
 }
 

@@ -605,7 +605,10 @@ btn.textContent='Could not copy -- select the address bar manually';
       </div>
     </div>
     <div class="strip-icon-zone">
-      <button class="feedback-btn" onclick="openFeedback()" title="Send feedback">&#128172;</button>
+      <div style="position:relative;display:inline-block;">
+        <button class="feedback-btn" onclick="openFeedback()" title="Send feedback">&#128172;</button>
+        <span id="fbUnreadBadge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;background:var(--terra);color:#fff;font-size:10px;font-weight:800;border-radius:9px;align-items:center;justify-content:center;line-height:1;">0</span>
+      </div>
       <button class="help-btn" onclick="showHelp(currentTab)" title="What is this page?">?</button>
     </div>
   </div>
@@ -2236,6 +2239,7 @@ applyAssignedWorkoutIfAny();
 showMobilePromptIfNeeded();
 setTimeout(checkVoiceSession, 800);
 setTimeout(retryPendingAttendance, 2000);
+setTimeout(updateFbUnreadBadge, 1000);
 }
 
 // Moved to global scope -- these were previously nested inside _launchMainApp(),
@@ -7170,6 +7174,7 @@ loadFeedbackChat();
 }
 function closeFeedback(){
 document.getElementById('feedbackOverlay').style.display='none';
+updateFbUnreadBadge();
 }
 function fbFmtDate(iso){
 if(!iso) return '';
@@ -7182,13 +7187,31 @@ return d.getDate()+' '+M[d.getMonth()]+', '+h+':'+m+' '+ap;
 function fbFlatten(rows){
 var msgs=[];
 rows.forEach(function(row){
-msgs.push({rowId:row.id,kind:'original',message:row.message,sender:'client',timestamp:row.created_at,read:!!row.read_by_coach,attachmentUrl:row.attachment_url,attachmentType:row.attachment_type});
+if(row.message) msgs.push({rowId:row.id,kind:'original',message:row.message,sender:'client',timestamp:row.created_at,read:!!row.read_by_coach,attachmentUrl:row.attachment_url,attachmentType:row.attachment_type});
 (row.replies||[]).forEach(function(rep,idx){
 msgs.push({rowId:row.id,kind:'reply',replyIndex:idx,message:rep.message,sender:rep.sender,timestamp:rep.timestamp,read:!!rep.read,attachmentUrl:rep.attachmentUrl,attachmentType:rep.attachmentType});
 });
 });
 msgs.sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
 return msgs;
+}
+// WhatsApp-style unread badge on the feedback icon -- counts unread coach
+// replies across all this client's feedback threads, shown any time the app
+// launches or after the thread is opened/closed, so a coach-started
+// conversation is impossible to miss even if the client never opens chat.
+function updateFbUnreadBadge(){
+var mobile=localStorage.getItem('kmfit_mobile');
+var badge=document.getElementById('fbUnreadBadge');
+if(!mobile||!badge) return;
+getSBScoped().from('app_feedback').select('replies').eq('submitted_by_mobile',mobile).then(function(res){
+if(res.error||!res.data) return;
+var count=0;
+res.data.forEach(function(row){
+(row.replies||[]).forEach(function(rep){ if(rep.sender==='coach'&&!rep.read) count++; });
+});
+if(count>0){ badge.textContent=count>99?'99+':count; badge.style.display='flex'; }
+else { badge.style.display='none'; }
+});
 }
 function loadFeedbackChat(){
 var mobile=localStorage.getItem('kmfit_mobile');

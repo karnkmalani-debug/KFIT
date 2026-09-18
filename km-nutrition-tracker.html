@@ -1695,7 +1695,7 @@ return d.getDate()+' '+M[d.getMonth()]+', '+h+':'+m+' '+ap;
 function fbFlatten(rows){
 var msgs=[];
 rows.forEach(function(row){
-msgs.push({rowId:row.id,kind:'original',message:row.message,sender:'client',timestamp:row.created_at,read:!!row.read_by_coach,attachmentUrl:row.attachment_url,attachmentType:row.attachment_type});
+if(row.message) msgs.push({rowId:row.id,kind:'original',message:row.message,sender:'client',timestamp:row.created_at,read:!!row.read_by_coach,attachmentUrl:row.attachment_url,attachmentType:row.attachment_type});
 (row.replies||[]).forEach(function(rep,idx){
 msgs.push({rowId:row.id,kind:'reply',replyIndex:idx,message:rep.message,sender:rep.sender,timestamp:rep.timestamp,read:!!rep.read,attachmentUrl:rep.attachmentUrl,attachmentType:rep.attachmentType});
 });
