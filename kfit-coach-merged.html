@@ -50,7 +50,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .meal-card-title{font-size:14px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
 .meal-photo{width:100%;border-radius:8px;margin-top:8px;display:block;}
 .back-btn{background:none;border:1px solid var(--border);border-radius:8px;padding:7px 14px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;}
-.pw-gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;}
+.pw-gate{position:fixed;top:0;right:0;bottom:0;left:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;}
 .pw-box{background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:32px 28px;width:90%;max-width:360px;text-align:center;}
 .pw-title{font-size:22px;font-weight:900;margin-bottom:6px;}
 .pw-sub{font-size:14px;color:var(--muted);margin-bottom:20px;}
@@ -133,7 +133,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </div>
 
 <!-- Generic confirm modal -- used anywhere a "are you sure" is needed -->
-<div id="confirmModal" style="display:none;position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:24px;">
+<div id="confirmModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:9600;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--surf3);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:340px;width:100%;box-shadow:0 14px 40px rgba(0,0,0,.55);">
     <div id="confirmModalTitle" style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:8px;line-height:1.4;"></div>
     <div id="confirmModalMsg" style="font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:18px;"></div>
@@ -144,7 +144,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 </div>
 
-<div id="routinePreviewModal" style="display:none;position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.65);align-items:center;justify-content:center;padding:24px;">
+<div id="routinePreviewModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:9600;background:rgba(0,0,0,.65);align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--surf3);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:380px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 14px 40px rgba(0,0,0,.55);">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px;">
       <div id="routinePreviewTitle" style="font-size:17px;font-weight:800;color:var(--text);flex:1;"></div>
@@ -166,6 +166,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <button onclick="window.print()" title="Print this screen" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">&#128424;</button>
   </div>
   <div id="coachAccountLine" style="padding:2px 16px 8px;font-size:11px;color:var(--muted);"></div>
+  <div style="padding:0 16px 6px;font-size:10px;color:var(--muted);opacity:.5;">build 2026-09-18-inset-fix</div>
 
   <div class="mode-toggle">
     <button class="mode-btn" id="modeBtnClients" onclick="switchMode('clients')">👤 Clients</button>
@@ -310,7 +311,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
   <!-- Session detail panel -->
-  <div id="coachSessionPanel" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:100;overflow-y:auto;">
+  <div id="coachSessionPanel" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:var(--bg);z-index:100;overflow-y:auto;">
     <div style="max-width:520px;margin:0 auto;padding:14px;">
       <div style="display:flex;align-items:center;gap:12px;padding:10px 0 16px;border-bottom:1px solid var(--border);margin-bottom:16px;flex-wrap:wrap;">
         <button onclick="closeCoachSession()" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;">← Back</button>
@@ -351,7 +352,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
   <!-- Add Session Modal -->
-  <div id="addSessionModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;overflow-y:auto;padding:20px;">
+  <div id="addSessionModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,0.85);z-index:200;overflow-y:auto;padding:20px;">
     <div style="background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:480px;margin:0 auto;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin:-20px -20px 16px -20px;padding:16px 20px;position:sticky;top:0;background:var(--surf);z-index:5;border-radius:16px 16px 0 0;">
         <div id="as-modal-title" style="font-size:18px;font-weight:800;">Add Session</div>
@@ -480,7 +481,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
   <!-- Meal Plan modal -->
-  <div id="mealPlanModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.6);overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div id="mealPlanModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:500;background:rgba(0,0,0,.6);overflow-y:auto;-webkit-overflow-scrolling:touch;">
     <div style="max-width:520px;margin:20px auto;background:var(--bg);border-radius:14px;padding:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin:-20px -20px 16px -20px;padding:16px 20px;position:sticky;top:0;background:var(--bg);z-index:5;border-radius:14px 14px 0 0;">
         <div id="mp-modal-title" style="font-size:18px;font-weight:800;">Assign Meal Plan</div>
@@ -505,7 +506,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
   <!-- Coach Help modal -->
-  <div id="coachHelpModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.65);overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div id="coachHelpModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:600;background:rgba(0,0,0,.65);overflow-y:auto;-webkit-overflow-scrolling:touch;">
     <div style="max-width:560px;margin:20px auto;background:var(--bg);border-radius:14px;padding:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin:-20px -20px 16px -20px;padding:16px 20px;position:sticky;top:0;background:var(--bg);z-index:5;border-radius:14px 14px 0 0;border-bottom:1px solid var(--border);">
         <div style="font-size:18px;font-weight:800;">How Merge Works</div>
@@ -516,7 +517,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
   <!-- Diet Template Library modal -->
-  <div id="dietTemplateModal" style="display:none;position:fixed;inset:0;z-index:502;background:rgba(0,0,0,.6);overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  <div id="dietTemplateModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:502;background:rgba(0,0,0,.6);overflow-y:auto;-webkit-overflow-scrolling:touch;">
     <div style="max-width:520px;margin:20px auto;background:var(--bg);border-radius:14px;padding:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin:-20px -20px 16px -20px;padding:16px 20px;position:sticky;top:0;background:var(--bg);z-index:5;border-radius:14px 14px 0 0;">
         <div style="font-size:18px;font-weight:800;">Diet Templates</div>
@@ -550,7 +551,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
   <!-- Plan comparison modal: assigned vs actual -->
-  <div id="planCompareModal" style="display:none;position:fixed;inset:0;z-index:501;background:rgba(0,0,0,.65);align-items:center;justify-content:center;padding:20px;">
+  <div id="planCompareModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:501;background:rgba(0,0,0,.65);align-items:center;justify-content:center;padding:20px;">
     <div style="max-width:480px;width:100%;max-height:80vh;overflow-y:auto;background:var(--bg);border-radius:14px;padding:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div style="font-size:16px;font-weight:800;">Assigned vs Actual</div>
@@ -567,7 +568,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div id="nutClientDetail"></div>
   </div>
 
-  <div id="nutDayPanel" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:100;overflow-y:auto;">
+  <div id="nutDayPanel" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:var(--bg);z-index:100;overflow-y:auto;">
     <div style="max-width:520px;margin:0 auto;padding:14px;">
       <div style="display:flex;align-items:center;gap:12px;padding:10px 0 16px;border-bottom:1px solid var(--border);margin-bottom:16px;">
         <button onclick="closeDayPanel()" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;">← Back</button>
@@ -584,7 +585,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
        here, as a sibling of fitSection/nutSection rather than nested inside either, since being
        nested inside nutSection meant this modal stayed invisible whenever Fitness mode was active,
        display:none on the ancestor silently overriding display:flex set directly on this element) -->
-  <div id="measModal" style="display:none;position:fixed;inset:0;z-index:502;background:rgba(0,0,0,.65);align-items:flex-end;justify-content:center;">
+  <div id="measModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:502;background:rgba(0,0,0,.65);align-items:flex-end;justify-content:center;">
     <div style="max-width:480px;width:100%;max-height:85vh;overflow-y:auto;background:var(--bg);border-radius:16px 16px 0 0;padding:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <div id="measModalTitle" style="font-size:16px;font-weight:800;">Add Entry</div>
@@ -608,10 +609,36 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </div>
 <script>
 
+
 const SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
 const SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
 let sb=null;
 let allRecords=[];
+// Moved up from further down in the file -- it used to be declared (as `let`)
+// after the page's auth-init code, all inside one big <script> block. If that
+// earlier code ever threw (e.g. the Supabase library failing to load over a
+// bad connection), the browser would abort the rest of the script before
+// reaching this line, leaving it permanently uninitialized -- so ANY button
+// referencing it (Add Session, Assign Workout, Edit, etc.) would silently do
+// nothing for the rest of that page load, with no visible error. Declaring
+// it here, before anything that can fail, means it's always safely defined.
+let editingContext=null; // {attendanceId, sessionId, clientId, origDate, origTime} when editing an existing session
+
+// Shows a full-screen panel that starts hidden (display:none) in the page's
+// initial HTML. The real bug behind "nothing happens" turned out to be
+// these panels using the `inset:0` CSS shorthand to stretch to fill the
+// screen -- unsupported in some iOS WebKit versions (especially inside a
+// home-screen standalone PWA), which silently collapses the panel to 0x0
+// instead of full-screen. Fixed at the CSS level (inset:0 -> explicit
+// top/right/bottom/left) everywhere in all three files; this helper just
+// keeps the show-a-panel call sites simple and forces a layout recalc for
+// good measure.
+function showFullscreenPanel(id){
+  var el=document.getElementById(id);
+  if(!el) return;
+  el.style.display='block';
+  void el.offsetHeight;
+}
 
 function localDateStr(d){
   d=d||new Date();
@@ -878,18 +905,34 @@ async function coachLogout(){
 // this single listener handles: resuming an existing session, completing
 // login after a clicked magic-link redirect, AND future logouts -- no
 // separate initial check needed.
+//
+// Wrapped in try/catch as a second layer of defense (on top of moving
+// editingContext up top): if the Supabase library ever fails to load (bad
+// connection, CDN hiccup) getSB() throws here, synchronously, at the very
+// start of the page's script. Uncaught, that silently aborts every line of
+// script after it -- catching it here means the rest of the page's code
+// still initializes normally, and you get a real "couldn't connect" message
+// with a retry button instead of a page that just looks broken.
 (function initCoachAuth(){
-  document.getElementById('authStepChecking').style.display='block';
-  document.getElementById('authStepEmail').style.display='none';
-  getSB().auth.onAuthStateChange(function(event,session){
-    if(session){ onCoachAuthenticated(session); }
-    else {
-      document.getElementById('authStepChecking').style.display='none';
-      document.getElementById('authStepEmail').style.display='block';
-      document.getElementById('mainApp').style.display='none';
-      document.getElementById('pwGate').style.display='flex';
-    }
-  });
+  try{
+    document.getElementById('authStepChecking').style.display='block';
+    document.getElementById('authStepEmail').style.display='none';
+    getSB().auth.onAuthStateChange(function(event,session){
+      if(session){ onCoachAuthenticated(session); }
+      else {
+        document.getElementById('authStepChecking').style.display='none';
+        document.getElementById('authStepEmail').style.display='block';
+        document.getElementById('mainApp').style.display='none';
+        document.getElementById('pwGate').style.display='flex';
+      }
+    });
+  }catch(e){
+    var chk=document.getElementById('authStepChecking');
+    if(chk) chk.innerHTML='<div style="text-align:center;padding:20px;">'
+      +'<div style="color:var(--terra,#b33);font-weight:700;margin-bottom:10px;">Couldn\'t connect -- check your internet connection.</div>'
+      +'<button onclick="window.location.reload()" style="padding:10px 18px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;">Retry</button>'
+      +'</div>';
+  }
 })();
 
 window.taggedClients = window.taggedClients || {fitness:{},nutrition:{}}; // canonical_key -> true, per tracker -- fitness and nutrition rosters are independent
@@ -1053,9 +1096,20 @@ async function loadClientAccess(){
 function openAdminCoachDetail(id){
 var c=(window._adminCoaches||[]).find(function(x){return x.id===id;});
 if(!c) return;
+// Filtered to actually-tagged clients only (client_tags), not just anyone
+// whose raw attendance/tracker_data happens to carry this coach_id. Untagged
+// rows -- e.g. a walk-in who landed here via the no-?coach?-link fallback --
+// stay in Supabase for aggregate data purposes, they just don't count as
+// this coach's clientele here since the coach never actually added them.
+var taggedKeysForCoach={};
+(window._adminClientTags||[]).forEach(function(t){
+if(t.coach_id===id) taggedKeysForCoach[t.client_key]=true;
+});
 var attendance=(window._adminAttendance||[]).filter(function(a){return a.coach_id===id;});
 var clientMap={};
 attendance.forEach(function(a){
+var canonKey=canonicalClientKey(a.client_name,a.client_mobile);
+if(!canonKey||!taggedKeysForCoach[canonKey]) return;
 var key=(a.client_mobile||a.client_name||'').toLowerCase();
 if(!key) return;
 if(!clientMap[key]) clientMap[key]={name:a.client_name||'(no name)',mobile:a.client_mobile||'',count:0};
@@ -1066,18 +1120,52 @@ var existing=document.getElementById('adminCoachDetailModal');
 if(existing) existing.remove();
 var overlay=document.createElement('div');
 overlay.id='adminCoachDetailModal';
-overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:20px;';
+overlay.style.cssText='position:fixed;top:0;right:0;bottom:0;left:0;z-index:99999;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:20px;';
 overlay.innerHTML='<div style="background:var(--surf,#1a1a18);border:1px solid var(--border,#333);border-radius:14px;padding:22px;max-width:400px;width:100%;max-height:80vh;overflow-y:auto;">'
 +'<div style="font-size:19px;font-weight:800;color:var(--text,#fff);margin-bottom:4px;">'+(c.name||'(no name)')+'</div>'
 +'<div style="font-size:13px;color:var(--muted,#999);margin-bottom:16px;">'+(c.email||'no email on file')+' &middot; joined '+(c.created_at?new Date(c.created_at).toDateString():'—')+'</div>'
 +'<div style="font-size:13px;font-weight:700;color:var(--text,#fff);margin-bottom:8px;">Clients ('+clients.length+')</div>'
-+(clients.length?clients.map(function(cl){return '<div style="padding:8px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px;color:var(--muted,#999);">'+cl.name+(cl.mobile?' &middot; '+cl.mobile:'')+' &middot; '+cl.count+' session'+(cl.count===1?'':'s')+'</div>';}).join(''):'<div style="font-size:13px;color:var(--muted,#999);">No clients yet.</div>')
++(clients.length?clients.map(function(cl){
+var mobEsc=(cl.mobile||'').replace(/'/g,"\\'");
+var nameEsc=(cl.name||'').replace(/'/g,"\\'");
+return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px;color:var(--muted,#999);">'
++'<div>'+cl.name+(cl.mobile?' &middot; '+cl.mobile:'')+' &middot; '+cl.count+' session'+(cl.count===1?'':'s')+'</div>'
++'<button onclick="adminRemoveClientFromCoach(\''+id+'\',\''+mobEsc+'\',\''+nameEsc+'\')" title="Remove this client from this coach" style="flex-shrink:0;background:none;border:1px solid var(--terra,#b33);border-radius:6px;color:var(--terra,#b33);font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;">Remove</button>'
++'</div>';
+}).join(''):'<div style="font-size:13px;color:var(--muted,#999);">No tagged clients.</div>')
 +'<div style="display:flex;gap:10px;margin-top:20px;">'
 +'<button onclick="document.getElementById(\'adminCoachDetailModal\').remove()" style="flex:1;padding:11px;background:none;border:1px solid var(--border,#333);border-radius:8px;color:var(--muted,#999);font-weight:700;font-size:14px;">Close</button>'
 +'<button onclick="deleteAdminCoach(\''+c.id+'\',\''+(c.name||c.email||'this coach').replace(/'/g,"\\'")+'\')" style="flex:1;padding:11px;background:none;border:1px solid var(--terra,#b33);border-radius:8px;color:var(--terra,#b33);font-weight:700;font-size:14px;">Delete Account</button>'
 +'</div>'
 +'</div>';
 document.body.appendChild(overlay);
+}
+
+// Lets an admin detach a single mis-attributed client from a coach's account
+// right from this panel -- e.g. a walk-in who landed here via the
+// KFIT_DEFAULT_COACH_ID fallback (no ?coach= link) and isn't actually that
+// coach's client. Removes their attendance + tracker_data (both trackers)
+// scoped to this specific coach_id only, then refreshes the panel in place.
+async function adminRemoveClientFromCoach(coachId,mobile,name){
+if(!confirm('Remove '+(name||mobile||'this client')+' from this coach\'s account? This deletes their attendance and tracked data under this coach permanently -- it does not affect any other coach they may actually belong to.')) return;
+var m=(mobile||'').replace(/\D/g,'');
+var errors=[];
+if(m){
+var attRes=await getSB().from('attendance').delete().eq('coach_id',coachId).eq('client_mobile',m);
+if(attRes.error) errors.push(attRes.error.message);
+var tdRes=await getSB().from('tracker_data').delete().eq('coach_id',coachId).like('client_id','%'+m);
+if(tdRes.error) errors.push(tdRes.error.message);
+} else {
+var attRes2=await getSB().from('attendance').delete().eq('coach_id',coachId).eq('client_name',name||'');
+if(attRes2.error) errors.push(attRes2.error.message);
+}
+if(errors.length){ alert('Error removing client: '+errors.join('; ')); return; }
+window._adminAttendance=(window._adminAttendance||[]).filter(function(a){
+if(a.coach_id!==coachId) return true;
+if(m) return (a.client_mobile||'').replace(/\D/g,'')!==m;
+return (a.client_name||'')!==(name||'');
+});
+openAdminCoachDetail(coachId);
 }
 
 function deleteAdminCoach(id,label){
@@ -1094,15 +1182,17 @@ function loadAdminCoaches(){
 var listEl=document.getElementById('adminCoachList');
 Promise.all([
 getSB().from('coaches').select('*'),
-getSB().from('attendance').select('coach_id,client_mobile,client_name')
+getSB().from('attendance').select('coach_id,client_mobile,client_name'),
+getSB().from('client_tags').select('coach_id,client_key')
 ]).then(function(results){
-var coachRes=results[0], attRes=results[1];
+var coachRes=results[0], attRes=results[1], tagRes=results[2];
 if(coachRes.error){
 listEl.innerHTML='<div class="empty">Error loading coaches.<br>'+coachRes.error.message+'</div>';
 return;
 }
 window._adminCoaches=coachRes.data||[];
 window._adminAttendance=(attRes.error?[]:attRes.data)||[];
+window._adminClientTags=(tagRes.error?[]:tagRes.data)||[];
 renderAdminCoaches();
 }).catch(function(err){
 listEl.innerHTML='<div class="empty">Error loading admin data.<br>'+(err&&err.message?err.message:err)+'</div>';
@@ -2777,7 +2867,9 @@ function fillOrphanedSession(clientKey,date,time){
   const c=Object.values(clients).find(c=>(c.mobile||c.name)===clientKey);
   if(!c) return;
   const attRecord=c.records.find(r=>r.session_date===date&&(r.session_time||'')===(time||''));
-  const clientId=buildClientId(c.name,c.mobile);
+  const nameKey=c.name.toLowerCase().replace(/\s+/g,'_');
+  const mobile=(c.mobile||'').replace(/\D/g,'');
+  const clientId=mobile?nameKey+'__'+mobile:nameKey;
 
   openAddSession(clientKey);
   document.getElementById('as-modal-title').textContent='Fill In Session';
@@ -2830,7 +2922,9 @@ function openCoachSession(clientKey, date, time){
   const c=Object.values(clients).find(c=>(c.mobile||c.name)===clientKey);
   if(!c)return;
   // Build client_id key same way the tracker does
-  const clientId=buildClientId(c.name,c.mobile);
+  const name=c.name.toLowerCase().replace(/\s+/g,'_');
+  const mobile=(c.mobile||'').replace(/\D/g,'');
+  const clientId=mobile?name+'__'+mobile:name;
   const attRecord=c.records.find(r=>r.session_date===date&&(r.session_time||'')===(time||''));
   const isTaggedClient=!!taggedClients.fitness[canonicalClientKey(c.name,c.mobile)];
 
@@ -2838,7 +2932,7 @@ function openCoachSession(clientKey, date, time){
   document.getElementById('coachSessActions').innerHTML=(attRecord&&isTaggedClient)?
     `<button onclick="togglePaid('${(c.mobile||'').replace(/'/g,"\\'")}','${date}','${(time||'').replace(/'/g,"\\'")}',${!!attRecord.paid})" style="padding:5px 12px;border-radius:12px;border:1px solid ${attRecord.paid?'var(--sage)':'var(--terra)'};background:${attRecord.paid?'var(--sage)':'transparent'};color:${attRecord.paid?'#fff':'var(--terra)'};font-family:'DM Sans',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.5px;cursor:pointer;">${attRecord.paid?'PAID':'UNPAID'}</button>`:'';
   document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">Loading...</div>';
-  document.getElementById('coachSessionPanel').style.display='block';
+  showFullscreenPanel('coachSessionPanel');
 
   getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness')
     .then(function(res){
@@ -3253,7 +3347,6 @@ let asSelectedBP=[];
 let asCardioBlocks=[];
 let asFunctionalBlocks=[];
 let asExercises=[];
-let editingContext=null; // {attendanceId, sessionId, clientId, origDate, origTime} when editing an existing session
 const BP_TO_EXLIB={'Chest':['Chest'],'Back':['Back'],'Shoulders':['Shoulders'],'Arms':['Biceps','Triceps'],'Legs':['Legs'],'Core':['Core']};
 let asUnit='kg';
 let asClientSessions=[]; // cached session history for whichever client is selected, used for "last time" hints
@@ -3333,9 +3426,9 @@ function setAsUnit(u){
 }
 
 function buildClientId(name,mobile){
+  const n=(name||'').toLowerCase().replace(/\s+/g,'_');
   const m=(mobile||'').replace(/\D/g,'');
-  if(m) return 'kfit__'+m;
-  return (name||'').toLowerCase().replace(/\s+/g,'_');
+  return m?n+'__'+m:n;
 }
 
 // ===== BODY MEASUREMENTS (coach can view + add/edit/delete for either tracker) =====
@@ -3595,7 +3688,8 @@ function openAddSession(clientKey){
     onAsClientChange(sel);
   }
 
-  document.getElementById('addSessionModal').style.display='block';
+  showFullscreenPanel('addSessionModal');
+
 }
 
 function closeAddSession(){
@@ -4180,7 +4274,7 @@ async function saveAssignedWorkout(){
   const btn=document.getElementById('as-save-btn');
   btn.disabled=true; btn.textContent='Assigning...';
 
-  const clientKey=buildClientId(clientName,clientMobile);
+  const clientKey=clientMobile?clientName.toLowerCase().replace(/\s+/g,'_')+'__'+clientMobile:clientName.toLowerCase().replace(/\s+/g,'_');
   const {data:fresh,error:fetchErr}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientKey).eq('tracker','fitness');
   if(fetchErr){
     btn.disabled=false; btn.textContent='Assign Workout';
@@ -4341,7 +4435,7 @@ async function saveAdminSession(){
   if(attErr){btn.disabled=false;btn.textContent=origBtnText;alert('Error saving attendance: '+attErr.message);return;}
   const insertedId=attData&&attData.length?attData[0].id:null;
 
-  const clientKey=buildClientId(clientName,clientMobile);
+  const clientKey=clientMobile?clientName.toLowerCase().replace(/\s+/g,'_')+'__'+clientMobile:clientName.toLowerCase().replace(/\s+/g,'_');
   const newSession={
     id:sessionId,
     client:clientName,
@@ -4464,7 +4558,7 @@ function toast(msg){
   if(existing) existing.remove();
   const overlay=document.createElement('div');
   overlay.id='_kfitToastModal';
-  overlay.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:24px;';
+  overlay.style.cssText='position:fixed;top:0;right:0;bottom:0;left:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:24px;';
   overlay.innerHTML='<div style="background:var(--surf3,#222);border:1px solid var(--border,#333);border-radius:16px;padding:20px;max-width:340px;width:100%;display:flex;align-items:flex-start;gap:12px;box-shadow:0 14px 40px rgba(0,0,0,.55);">'
     +'<div id="_kfitToastMsg" style="flex:1;font-size:15px;font-weight:600;line-height:1.5;color:var(--text,#fff);padding-top:2px;font-family:\'DM Sans\',sans-serif;"></div>'
     +'<button id="_kfitToastCloseBtn" aria-label="Close" style="flex-shrink:0;width:34px;height:34px;border-radius:50%;background:var(--surf2,#333);border:none;color:var(--muted,#999);font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">&#10005;</button>'
