@@ -1071,13 +1071,47 @@ overlay.innerHTML='<div style="background:var(--surf,#1a1a18);border:1px solid v
 +'<div style="font-size:19px;font-weight:800;color:var(--text,#fff);margin-bottom:4px;">'+(c.name||'(no name)')+'</div>'
 +'<div style="font-size:13px;color:var(--muted,#999);margin-bottom:16px;">'+(c.email||'no email on file')+' &middot; joined '+(c.created_at?new Date(c.created_at).toDateString():'—')+'</div>'
 +'<div style="font-size:13px;font-weight:700;color:var(--text,#fff);margin-bottom:8px;">Clients ('+clients.length+')</div>'
-+(clients.length?clients.map(function(cl){return '<div style="padding:8px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px;color:var(--muted,#999);">'+cl.name+(cl.mobile?' &middot; '+cl.mobile:'')+' &middot; '+cl.count+' session'+(cl.count===1?'':'s')+'</div>';}).join(''):'<div style="font-size:13px;color:var(--muted,#999);">No clients yet.</div>')
++(clients.length?clients.map(function(cl){
+var mobEsc=(cl.mobile||'').replace(/'/g,"\\'");
+var nameEsc=(cl.name||'').replace(/'/g,"\\'");
+return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px;color:var(--muted,#999);">'
++'<div>'+cl.name+(cl.mobile?' &middot; '+cl.mobile:'')+' &middot; '+cl.count+' session'+(cl.count===1?'':'s')+'</div>'
++'<button onclick="adminRemoveClientFromCoach(\''+id+'\',\''+mobEsc+'\',\''+nameEsc+'\')" title="Remove this client from this coach" style="flex-shrink:0;background:none;border:1px solid var(--terra,#b33);border-radius:6px;color:var(--terra,#b33);font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;">Remove</button>'
++'</div>';
+}).join(''):'<div style="font-size:13px;color:var(--muted,#999);">No clients yet.</div>')
 +'<div style="display:flex;gap:10px;margin-top:20px;">'
 +'<button onclick="document.getElementById(\'adminCoachDetailModal\').remove()" style="flex:1;padding:11px;background:none;border:1px solid var(--border,#333);border-radius:8px;color:var(--muted,#999);font-weight:700;font-size:14px;">Close</button>'
 +'<button onclick="deleteAdminCoach(\''+c.id+'\',\''+(c.name||c.email||'this coach').replace(/'/g,"\\'")+'\')" style="flex:1;padding:11px;background:none;border:1px solid var(--terra,#b33);border-radius:8px;color:var(--terra,#b33);font-weight:700;font-size:14px;">Delete Account</button>'
 +'</div>'
 +'</div>';
 document.body.appendChild(overlay);
+}
+
+// Lets an admin detach a single mis-attributed client from a coach's account
+// right from this panel -- e.g. a walk-in who landed here via the
+// KFIT_DEFAULT_COACH_ID fallback (no ?coach= link) and isn't actually that
+// coach's client. Removes their attendance + tracker_data (both trackers)
+// scoped to this specific coach_id only, then refreshes the panel in place.
+async function adminRemoveClientFromCoach(coachId,mobile,name){
+if(!confirm('Remove '+(name||mobile||'this client')+' from this coach\'s account? This deletes their attendance and tracked data under this coach permanently -- it does not affect any other coach they may actually belong to.')) return;
+var m=(mobile||'').replace(/\D/g,'');
+var errors=[];
+if(m){
+var attRes=await getSB().from('attendance').delete().eq('coach_id',coachId).eq('client_mobile',m);
+if(attRes.error) errors.push(attRes.error.message);
+var tdRes=await getSB().from('tracker_data').delete().eq('coach_id',coachId).like('client_id','%'+m);
+if(tdRes.error) errors.push(tdRes.error.message);
+} else {
+var attRes2=await getSB().from('attendance').delete().eq('coach_id',coachId).eq('client_name',name||'');
+if(attRes2.error) errors.push(attRes2.error.message);
+}
+if(errors.length){ alert('Error removing client: '+errors.join('; ')); return; }
+window._adminAttendance=(window._adminAttendance||[]).filter(function(a){
+if(a.coach_id!==coachId) return true;
+if(m) return (a.client_mobile||'').replace(/\D/g,'')!==m;
+return (a.client_name||'')!==(name||'');
+});
+openAdminCoachDetail(coachId);
 }
 
 function deleteAdminCoach(id,label){

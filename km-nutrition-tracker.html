@@ -355,7 +355,7 @@ btn.textContent='Could not copy -- select the address bar manually';
     <button onclick="logout()" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 11px;font-family:'DM Sans',sans-serif;font-size:.84rem;font-weight:600;color:var(--txt3);cursor:pointer;white-space:nowrap;">Log Out</button>
   </div>
 </div>
-<div id="headerClientName" style="font-size:1.3rem;font-weight:900;color:var(--txt);padding:8px 20px 0;font-family:'Playfair Display',serif;"></div>
+<div id="headerClientName" onclick="_openNutNameModal((appSetup&&appSetup.clientName)||'',false)" style="font-size:1.3rem;font-weight:900;color:var(--txt);padding:8px 20px 0;font-family:'Playfair Display',serif;cursor:pointer;" title="Tap to edit your name"></div>
 
 <div id="myPlanCard" style="padding:0 20px;"></div>
 

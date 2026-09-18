@@ -2174,60 +2174,6 @@ var cn=document.getElementById('clientName');
 if(cn&&!cn.value) cn.value=clientName;
 }
 
-function editClientName(){
-try{
-var current=localStorage.getItem('kmfit_name')||'';
-_openNameModal(current==='Client'?'':current);
-}catch(e){
-alert('Name editor error: '+(e&&e.message?e.message:e));
-}
-}
-
-function _openNameModal(prefill,required){
-var existing=document.getElementById('nameEditModal');
-if(existing) existing.remove();
-var overlay=document.createElement('div');
-overlay.id='nameEditModal';
-overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:24px;';
-overlay.innerHTML=`
-<div style="background:var(--surf,#1a1a18);border:1px solid var(--border,#333);border-radius:14px;padding:22px;max-width:340px;width:100%;">
-<div style="font-size:17px;font-weight:800;color:var(--text,#fff);margin-bottom:6px;">Your name</div>
-${required?'<div style="font-size:13px;color:var(--muted,#999);margin-bottom:14px;">We need your real name before you can continue -- it\'s how your coach identifies you.</div>':'<div style="margin-bottom:14px;"></div>'}
-<input id="nameEditInput" type="text" value="${(prefill||'').replace(/"/g,'&quot;')}" placeholder="e.g. Karan Mehta" style="width:100%;padding:12px;background:var(--surf2,#111);border:1px solid var(--border,#333);border-radius:8px;color:var(--text,#fff);font-size:16px;font-family:inherit;margin-bottom:16px;box-sizing:border-box;">
-<div style="display:flex;gap:10px;">
-${required?'':'<button onclick="document.getElementById(\'nameEditModal\').remove()" style="flex:1;padding:11px;background:none;border:1px solid var(--border,#333);border-radius:8px;color:var(--muted,#999);font-weight:700;font-size:15px;">Cancel</button>'}
-<button onclick="_saveNameFromModal()" style="flex:1;padding:11px;background:var(--sage,#3a6e40);border:none;border-radius:8px;color:#fff;font-weight:700;font-size:15px;">Save</button>
-</div>
-</div>`;
-document.body.appendChild(overlay);
-var inp=document.getElementById('nameEditInput');
-if(inp){ inp.focus(); inp.select(); }
-}
-
-function _saveNameFromModal(){
-var inp=document.getElementById('nameEditInput');
-var next=(inp?inp.value:'').trim();
-if(!next){ toast('Name can\'t be empty'); return; }
-var oldName=localStorage.getItem('kmfit_name')||'';
-var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
-localStorage.setItem('kmfit_name',next);
-var el=document.getElementById('headerClientName');
-if(el) el.textContent=next;
-var cn=document.getElementById('clientName');
-if(cn) cn.value=next;
-var modal=document.getElementById('nameEditModal');
-if(modal) modal.remove();
-if(oldName&&oldName!==next&&mobile){
-ensureAnonAuth(function(uid){
-if(!uid) return;
-getSBScoped().from('attendance').update({client_name:next}).eq('client_mobile',mobile).then(function(){});
-getSBScoped().from('client_name_history').insert({client_mobile:mobile,old_name:oldName,new_name:next,tracker:'fitness'}).then(function(){});
-});
-}
-if(typeof syncFitnessToSupabase==='function') syncFitnessToSupabase();
-toast('Name updated');
-}
-
 loadData();
 weightUnit = localStorage.getItem('kmfit_unit')||'kg';
 setUnit(weightUnit, true);
@@ -2287,6 +2233,64 @@ applyAssignedWorkoutIfAny();
 showMobilePromptIfNeeded();
 setTimeout(checkVoiceSession, 800);
 setTimeout(retryPendingAttendance, 2000);
+}
+
+// Moved to global scope -- these were previously nested inside _launchMainApp(),
+// so the header's onclick="editClientName()" (which resolves in global scope,
+// not inside that function) threw a silent ReferenceError on every tap and the
+// modal never opened. This is the actual root cause of "name edit inoperative".
+function editClientName(){
+try{
+var current=localStorage.getItem('kmfit_name')||'';
+_openNameModal(current==='Client'?'':current);
+}catch(e){
+alert('Name editor error: '+(e&&e.message?e.message:e));
+}
+}
+
+function _openNameModal(prefill,required){
+var existing=document.getElementById('nameEditModal');
+if(existing) existing.remove();
+var overlay=document.createElement('div');
+overlay.id='nameEditModal';
+overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:24px;';
+overlay.innerHTML=`
+<div style="background:var(--surf,#1a1a18);border:1px solid var(--border,#333);border-radius:14px;padding:22px;max-width:340px;width:100%;">
+<div style="font-size:17px;font-weight:800;color:var(--text,#fff);margin-bottom:6px;">Your name</div>
+${required?'<div style="font-size:13px;color:var(--muted,#999);margin-bottom:14px;">We need your real name before you can continue -- it\'s how your coach identifies you.</div>':'<div style="margin-bottom:14px;"></div>'}
+<input id="nameEditInput" type="text" value="${(prefill||'').replace(/"/g,'&quot;')}" placeholder="e.g. Karan Mehta" style="width:100%;padding:12px;background:var(--surf2,#111);border:1px solid var(--border,#333);border-radius:8px;color:var(--text,#fff);font-size:16px;font-family:inherit;margin-bottom:16px;box-sizing:border-box;">
+<div style="display:flex;gap:10px;">
+${required?'':'<button onclick="document.getElementById(\'nameEditModal\').remove()" style="flex:1;padding:11px;background:none;border:1px solid var(--border,#333);border-radius:8px;color:var(--muted,#999);font-weight:700;font-size:15px;">Cancel</button>'}
+<button onclick="_saveNameFromModal()" style="flex:1;padding:11px;background:var(--sage,#3a6e40);border:none;border-radius:8px;color:#fff;font-weight:700;font-size:15px;">Save</button>
+</div>
+</div>`;
+document.body.appendChild(overlay);
+var inp=document.getElementById('nameEditInput');
+if(inp){ inp.focus(); inp.select(); }
+}
+
+function _saveNameFromModal(){
+var inp=document.getElementById('nameEditInput');
+var next=(inp?inp.value:'').trim();
+if(!next){ toast('Name can\'t be empty'); return; }
+var oldName=localStorage.getItem('kmfit_name')||'';
+var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
+localStorage.setItem('kmfit_name',next);
+var el=document.getElementById('headerClientName');
+if(el) el.textContent=next;
+var cn=document.getElementById('clientName');
+if(cn) cn.value=next;
+var modal=document.getElementById('nameEditModal');
+if(modal) modal.remove();
+if(oldName&&oldName!==next&&mobile){
+ensureAnonAuth(function(uid){
+if(!uid) return;
+getSBScoped().from('attendance').update({client_name:next}).eq('client_mobile',mobile).then(function(){});
+getSBScoped().from('client_name_history').insert({client_mobile:mobile,old_name:oldName,new_name:next,tracker:'fitness'}).then(function(){});
+});
+}
+if(typeof syncFitnessToSupabase==='function') syncFitnessToSupabase();
+toast('Name updated');
 }
 
 function applyAssignedWorkoutIfAny(){
@@ -3904,6 +3908,19 @@ const block=sel.closest('.superset-ex-block');
 const setsEl=block.querySelector('.sets-select');
 const setRows=block.querySelector('.set-rows');
 const exName=sel.value;
+
+// Real gap fixed here: unlike the main onExChange, this never built a "Last
+// Session" history box at all -- so any exercise inside a superset (including
+// every exercise in a loaded routine that uses supersets) showed no history,
+// while a plain non-superset pick already did. Mirrors onExChange's lookup.
+let histEl=block.querySelector('.ex-last-hist');
+if(!histEl){
+histEl=document.createElement('div');
+histEl.className='ex-last-hist';
+block.querySelector('.ex-top-row').insertAdjacentElement('afterend',histEl);
+}
+if(!exName){ histEl.innerHTML=''; }
+
 if(isCardio(exName)){
 setsEl.style.display='none';
 setRows.innerHTML=`
@@ -3925,6 +3942,49 @@ setRows.innerHTML=`
 setsEl.style.display='';
 generateSetRows(setRows,+setsEl.value,exName);
 }
+
+if(!exName) return;
+const sortedSessions=[...sessions].sort((a,b)=>new Date(b.date)-new Date(a.date));
+const lastSess=sortedSessions.find(s=>findExInSession(s,exName));
+const lastEx=lastSess?findExInSession(lastSess,exName):null;
+if(!lastSess||!lastEx){ histEl.innerHTML=''; return; }
+
+const d=new Date(lastSess.date+'T12:00:00');
+const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const dateStr=d.getDate()+' '+M[d.getMonth()];
+
+var innerHtml='';
+if(lastEx.type==='cardio'){
+const parts=[];
+if(lastEx.duration)parts.push(lastEx.duration+'min');
+if(lastEx.distance)parts.push(lastEx.distance+'km');
+if(lastEx.intensity)parts.push(lastEx.intensity);
+innerHtml='<div style="font-size:16px;font-weight:600;color:var(--text);">'+parts.join(' . ')+'</div>';
+} else {
+const setData=(lastEx.setData||[]).filter(r=>r.reps||r.weight);
+const unit=lastSess.unit||'kg';
+let dsN=0, mainN=0;
+innerHtml=setData.map(function(r){
+const label=r.dropset?(++dsN>1?'D'+dsN:'D'):(dsN=0,mainN++,'Set '+mainN);
+return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;'+(r.dropset?'margin-left:16px;border-left:2px solid var(--red);':'')+'">'
++'<span style="font-family:\'DM Mono\',monospace;font-size:17px;color:'+(r.dropset?'var(--red)':'var(--muted2)')+';width:42px;flex-shrink:0;text-transform:uppercase;">'+label+'</span>'
++(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:14px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
++(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:17px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
++'</div>';
+}).join('');
+if(!innerHtml) innerHtml='<div style="font-size:17px;color:var(--muted);padding:4px 0;">No set data recorded</div>';
+}
+
+histEl.innerHTML=
+'<div style="background:rgba(212,168,67,.1);border:1px solid rgba(212,168,67,.25);border-radius:8px;margin-top:6px;overflow:hidden;">'
++'<div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\';this.querySelector(\'.hchev\').textContent=this.nextElementSibling.style.display===\'none\'?\'v\':\'^\';" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;user-select:none;">'
++'<div style="font-size:17px;font-weight:700;color:var(--gold);letter-spacing:.06em;text-transform:uppercase;">&#9888; Last Session</div>'
++'<div style="display:flex;align-items:center;gap:8px;">'
++'<div style="font-size:17px;color:var(--muted);">'+dateStr+'</div>'
++'<div class="hchev" style="font-size:17px;color:var(--muted);">^</div>'
++'</div></div>'
++'<div style="padding:0 12px 10px;"><div style="display:flex;flex-direction:column;gap:5px;">'+innerHtml+'</div></div>'
++'</div>';
 }
 
 function updateSupersetSetRows(sel){
