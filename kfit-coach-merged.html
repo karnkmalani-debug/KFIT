@@ -311,16 +311,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
   <!-- Session detail panel -->
-  <div id="coachSessionPanel" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:var(--bg);z-index:100;overflow-y:auto;">
-    <div style="max-width:520px;margin:0 auto;padding:14px;">
-      <div style="display:flex;align-items:center;gap:12px;padding:10px 0 16px;border-bottom:1px solid var(--border);margin-bottom:16px;flex-wrap:wrap;">
-        <button onclick="closeCoachSession()" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;">← Back</button>
-        <div id="coachSessHeader" style="font-size:15px;font-weight:700;color:var(--muted);flex:1;"></div>
-        <div id="coachSessActions" style="display:flex;gap:8px;"></div>
-      </div>
-      <div id="coachSessBody"></div>
-    </div>
-  </div>
+  
 
   <!-- Account: invite link + billing -->
   <div id="accSection" style="display:none;">
@@ -352,114 +343,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
   <!-- Add Session Modal -->
-  <div id="addSessionModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,0.85);z-index:200;overflow-y:auto;padding:20px;">
-    <div style="background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:480px;margin:0 auto;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin:-20px -20px 16px -20px;padding:16px 20px;position:sticky;top:0;background:var(--surf);z-index:5;border-radius:16px 16px 0 0;">
-        <div id="as-modal-title" style="font-size:18px;font-weight:800;">Add Session</div>
-        <button onclick="closeAddSession()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">✕</button>
-      </div>
-
-      <div style="display:flex;gap:8px;margin-bottom:16px;">
-        <button id="as-mode-log" class="mode-btn active" style="flex:1;" onclick="setAsMode('log')">📝 Log Completed Session</button>
-        <button id="as-mode-assign" class="mode-btn" style="flex:1;" onclick="setAsMode('assign')">📋 Assign Upcoming Workout</button>
-      </div>
-
-      <div class="form-group">
-        <div class="form-label">Client</div>
-        <select id="as-client" class="form-inp" onchange="onAsClientChange(this)">
-          <option value="">-- Select Client --</option>
-          <option value="__new__">+ New Client</option>
-        </select>
-        <input id="as-client-new" class="form-inp" type="text" placeholder="Client name" style="display:none;margin-top:6px;">
-        <input id="as-client-mobile" class="form-inp" type="tel" placeholder="Mobile number" style="display:none;margin-top:6px;">
-      </div>
-
-      <div id="as-log-date-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="form-group">
-          <div class="form-label">Date</div>
-          <input id="as-date" class="form-inp" type="date">
-        </div>
-        <div class="form-group">
-          <div class="form-label">Time</div>
-          <input id="as-time" class="form-inp" type="time">
-        </div>
-      </div>
-
-      <div id="as-assign-date-row" class="form-group" style="display:none;">
-        <div class="form-label">Date Range</div>
-        <div style="display:flex;gap:8px;">
-          <input id="as-date-start" class="form-inp" type="date" style="flex:1;" onchange="updateAsRangeSummary()">
-          <input id="as-date-end" class="form-inp" type="date" style="flex:1;" onchange="updateAsRangeSummary()">
-        </div>
-        <div id="as-dow-row" style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;"></div>
-        <div id="as-range-summary" style="font-size:14px;font-weight:600;color:var(--muted);margin-top:6px;"></div>
-      </div>
-
-      <div id="as-duration-group" class="form-group">
-        <div class="form-label">Duration (minutes)</div>
-        <input id="as-duration" class="form-inp" type="number" inputmode="numeric" placeholder="e.g. 60">
-      </div>
-
-      <div class="form-group">
-        <div class="form-label">Body Parts Trained</div>
-        <div id="as-bp-grid" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;"></div>
-      </div>
-
-      <div class="form-group">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <div class="form-label" style="margin-bottom:0;">Exercises</div>
-          <div style="display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;">
-            <button id="as-unit-kg" type="button" onclick="setAsUnit('kg')" style="padding:5px 12px;border:none;background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">KG</button>
-            <button id="as-unit-lb" type="button" onclick="setAsUnit('lb')" style="padding:5px 12px;border:none;background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">LB</button>
-          </div>
-        </div>
-        <div id="as-ex-blocks"></div>
-        <div onclick="addAsExercise()" style="padding:8px;border:1px dashed var(--border);border-radius:8px;text-align:center;color:var(--sage);font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;">+ Add Exercise</div>
-      </div>
-
-      <div class="form-group">
-        <div class="form-label">Supersets</div>
-        <div id="as-superset-blocks"></div>
-        <div onclick="addAsSuperset()" style="padding:8px;border:1px dashed var(--sage);border-radius:8px;text-align:center;color:var(--sage);font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;">+ Add Superset</div>
-      </div>
-
-      <div id="as-rest-group" class="form-group">
-        <div class="form-label">Average Rest (seconds)</div>
-        <input id="as-avg-rest" class="form-inp" type="number" inputmode="numeric" min="0" max="600" placeholder="e.g. 90">
-      </div>
-
-      <div class="form-group">
-        <div class="form-label">Workout Type</div>
-        <select id="as-type" class="form-inp" onchange="onAsTypeChange(this)">
-          <option value="Strength">Strength</option>
-          <option value="Cardio">Cardio</option>
-          <option value="Superset">Superset</option>
-          <option value="Strength + Cardio">Strength + Cardio</option>
-          <option value="Superset + Cardio">Superset + Cardio</option>
-        </select>
-      </div>
-
-      <div id="as-cardio-section" style="display:block;">
-        <div class="form-label" style="margin-bottom:8px;">Cardio</div>
-        <div id="as-cardio-blocks"></div>
-        <div onclick="addAsCardio()" style="padding:8px;border:1px dashed var(--border);border-radius:8px;text-align:center;color:var(--sage);font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;">+ Add Cardio</div>
-      </div>
-
-      <div id="as-functional-section" style="display:block;">
-        <div class="form-label" style="margin-bottom:8px;">Functional / Isometric</div>
-        <div id="as-functional-blocks"></div>
-        <div onclick="addAsFunctional()" style="padding:8px;border:1px dashed var(--border);border-radius:8px;text-align:center;color:var(--sage);font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;">+ Add Functional Movement</div>
-      </div>
-
-      <div class="form-group">
-        <div class="form-label">Notes</div>
-        <textarea id="as-notes" class="form-inp" rows="3" placeholder="Optional notes for this session" style="resize:vertical;font-family:'DM Sans',sans-serif;"></textarea>
-      </div>
-
-      <button id="as-save-btn" onclick="saveAdminSession()" style="width:100%;margin-top:20px;padding:14px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#fff;cursor:pointer;">Save Session</button>
-      <button id="as-delete-btn" onclick="deleteCoachSession()" style="display:none;width:100%;margin-top:10px;padding:12px;background:none;border:1px solid var(--terra);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;color:var(--terra);cursor:pointer;">Delete Session</button>
-    </div>
-  </div>
+  
 
   </div>
   <!-- ══════════════ END FITNESS SECTION ══════════════ -->
@@ -607,6 +491,135 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
 </div>
+
+  <!-- Moved outside fitSection -- these are full-screen modals used from every
+       mode (Clients view, Fitness view, etc.), not just Fitness. Nested inside
+       fitSection, they were only reachable while Fitness mode was the active
+       tab: fitSection gets display:none in every other mode, and since a
+       position:fixed element still has zero size while ANY ancestor is
+       display:none, both modals silently rendered as 0x0 whenever a client
+       was opened from the Clients view -- which is exactly the KFit workflow
+       that surfaced this. This was the real cause of Assign/Log/session-detail
+       appearing to do nothing. -->
+<div id="coachSessionPanel" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:var(--bg);z-index:100;overflow-y:auto;">
+    <div style="max-width:520px;margin:0 auto;padding:14px;">
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0 16px;border-bottom:1px solid var(--border);margin-bottom:16px;flex-wrap:wrap;">
+        <button onclick="closeCoachSession()" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;">← Back</button>
+        <div id="coachSessHeader" style="font-size:15px;font-weight:700;color:var(--muted);flex:1;"></div>
+        <div id="coachSessActions" style="display:flex;gap:8px;"></div>
+      </div>
+      <div id="coachSessBody"></div>
+    </div>
+  </div>
+
+<div id="addSessionModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,0.85);z-index:200;overflow-y:auto;padding:20px;">
+    <div style="background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:480px;margin:0 auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:-20px -20px 16px -20px;padding:16px 20px;position:sticky;top:0;background:var(--surf);z-index:5;border-radius:16px 16px 0 0;">
+        <div id="as-modal-title" style="font-size:18px;font-weight:800;">Add Session</div>
+        <button onclick="closeAddSession()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;">✕</button>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button id="as-mode-log" class="mode-btn active" style="flex:1;" onclick="setAsMode('log')">📝 Log Completed Session</button>
+        <button id="as-mode-assign" class="mode-btn" style="flex:1;" onclick="setAsMode('assign')">📋 Assign Upcoming Workout</button>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Client</div>
+        <select id="as-client" class="form-inp" onchange="onAsClientChange(this)">
+          <option value="">-- Select Client --</option>
+          <option value="__new__">+ New Client</option>
+        </select>
+        <input id="as-client-new" class="form-inp" type="text" placeholder="Client name" style="display:none;margin-top:6px;">
+        <input id="as-client-mobile" class="form-inp" type="tel" placeholder="Mobile number" style="display:none;margin-top:6px;">
+      </div>
+
+      <div id="as-log-date-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group">
+          <div class="form-label">Date</div>
+          <input id="as-date" class="form-inp" type="date">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Time</div>
+          <input id="as-time" class="form-inp" type="time">
+        </div>
+      </div>
+
+      <div id="as-assign-date-row" class="form-group" style="display:none;">
+        <div class="form-label">Date Range</div>
+        <div style="display:flex;gap:8px;">
+          <input id="as-date-start" class="form-inp" type="date" style="flex:1;" onchange="updateAsRangeSummary()">
+          <input id="as-date-end" class="form-inp" type="date" style="flex:1;" onchange="updateAsRangeSummary()">
+        </div>
+        <div id="as-dow-row" style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;"></div>
+        <div id="as-range-summary" style="font-size:14px;font-weight:600;color:var(--muted);margin-top:6px;"></div>
+      </div>
+
+      <div id="as-duration-group" class="form-group">
+        <div class="form-label">Duration (minutes)</div>
+        <input id="as-duration" class="form-inp" type="number" inputmode="numeric" placeholder="e.g. 60">
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Body Parts Trained</div>
+        <div id="as-bp-grid" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;"></div>
+      </div>
+
+      <div class="form-group">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div class="form-label" style="margin-bottom:0;">Exercises</div>
+          <div style="display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;">
+            <button id="as-unit-kg" type="button" onclick="setAsUnit('kg')" style="padding:5px 12px;border:none;background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">KG</button>
+            <button id="as-unit-lb" type="button" onclick="setAsUnit('lb')" style="padding:5px 12px;border:none;background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">LB</button>
+          </div>
+        </div>
+        <div id="as-ex-blocks"></div>
+        <div onclick="addAsExercise()" style="padding:8px;border:1px dashed var(--border);border-radius:8px;text-align:center;color:var(--sage);font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;">+ Add Exercise</div>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Supersets</div>
+        <div id="as-superset-blocks"></div>
+        <div onclick="addAsSuperset()" style="padding:8px;border:1px dashed var(--sage);border-radius:8px;text-align:center;color:var(--sage);font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;">+ Add Superset</div>
+      </div>
+
+      <div id="as-rest-group" class="form-group">
+        <div class="form-label">Average Rest (seconds)</div>
+        <input id="as-avg-rest" class="form-inp" type="number" inputmode="numeric" min="0" max="600" placeholder="e.g. 90">
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Workout Type</div>
+        <select id="as-type" class="form-inp" onchange="onAsTypeChange(this)">
+          <option value="Strength">Strength</option>
+          <option value="Cardio">Cardio</option>
+          <option value="Superset">Superset</option>
+          <option value="Strength + Cardio">Strength + Cardio</option>
+          <option value="Superset + Cardio">Superset + Cardio</option>
+        </select>
+      </div>
+
+      <div id="as-cardio-section" style="display:block;">
+        <div class="form-label" style="margin-bottom:8px;">Cardio</div>
+        <div id="as-cardio-blocks"></div>
+        <div onclick="addAsCardio()" style="padding:8px;border:1px dashed var(--border);border-radius:8px;text-align:center;color:var(--sage);font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;">+ Add Cardio</div>
+      </div>
+
+      <div id="as-functional-section" style="display:block;">
+        <div class="form-label" style="margin-bottom:8px;">Functional / Isometric</div>
+        <div id="as-functional-blocks"></div>
+        <div onclick="addAsFunctional()" style="padding:8px;border:1px dashed var(--border);border-radius:8px;text-align:center;color:var(--sage);font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;">+ Add Functional Movement</div>
+      </div>
+
+      <div class="form-group">
+        <div class="form-label">Notes</div>
+        <textarea id="as-notes" class="form-inp" rows="3" placeholder="Optional notes for this session" style="resize:vertical;font-family:'DM Sans',sans-serif;"></textarea>
+      </div>
+
+      <button id="as-save-btn" onclick="saveAdminSession()" style="width:100%;margin-top:20px;padding:14px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#fff;cursor:pointer;">Save Session</button>
+      <button id="as-delete-btn" onclick="deleteCoachSession()" style="display:none;width:100%;margin-top:10px;padding:12px;background:none;border:1px solid var(--terra);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;color:var(--terra);cursor:pointer;">Delete Session</button>
+    </div>
+  </div>
 <script>
 
 
@@ -2348,115 +2361,136 @@ function showClient(key,targetContainer){
       <div style="font-size:22px;font-weight:800;margin-bottom:4px;">${c.name}</div>
       ${c.mobile?`<div style="font-size:15px;font-weight:600;color:var(--muted);">📱 ${c.mobile}</div>`:''}
     </div>
-    <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);">
+    <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;">
       <div class="stat-box"><div class="stat-val" style="color:var(--sage);">${c.records.length}</div><div class="stat-lbl">Total</div></div>
       <div class="stat-box"><div class="stat-val" style="color:var(--gold);">${monthSessions}</div><div class="stat-lbl">This Month</div></div>
       <div class="stat-box"><div class="stat-val" style="color:var(--terra);">${calcStreak(c.records)}w</div><div class="stat-lbl">Streak</div></div>
       <div class="stat-box"><div class="stat-val" style="color:${unpaidCount?'var(--terra)':'var(--sage)'};">${unpaidCount}</div><div class="stat-lbl">Unpaid</div></div>
     </div>
-    <div class="card" style="margin-bottom:14px;">
-      <div class="quick-add-header" onclick="toggleMergeSection('fitMeas')">
-        <span class="card-title" style="margin-bottom:0;">📏 Body Measurements</span>
-        <span class="quick-add-toggle" id="fitMeasToggle">⌄</span>
+
+    <div id="clientTabBar" style="position:sticky;top:0;z-index:20;display:flex;gap:6px;background:var(--bg);padding:8px 0;margin-bottom:10px;border-bottom:1px solid var(--border);">
+      <button id="clientTabBtn-assign" onclick="setClientTab('assign')" style="flex:1;padding:10px 0;border-radius:9px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">📋 Assign</button>
+      <button id="clientTabBtn-log" onclick="setClientTab('log')" style="flex:1;padding:10px 0;border-radius:9px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">✎ Log</button>
+      <button id="clientTabBtn-edit" onclick="setClientTab('edit')" style="flex:1;padding:10px 0;border-radius:9px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">⚙ Edit</button>
+    </div>
+
+    <div id="clientTab-assign" style="display:none;">
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">📚 Assign a Routine</div>
+        <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Pick one of your saved routine templates to add to this client's own "My Routines" list.</div>
+        <select id="rtAssignSelect" style="width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;margin-bottom:10px;">
+          <option value="">Loading routines...</option>
+        </select>
+        <button onclick="assignRoutineToClient('${key.replace(/'/g,"\\'")}')" style="width:100%;padding:10px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Assign to This Client</button>
+        <div style="font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;">This Client's Routines</div>
+        <div id="clientRoutinesList">Loading...</div>
       </div>
-      <div class="quick-add-body" id="fitMeasBody">
-        <div style="text-align:right;margin-bottom:8px;"><button onclick="openMeasurementModal('${fitClientId}','fitness','fitMeasList',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button></div>
-        <div id="fitMeasList">Loading...</div>
+      <div class="card" style="margin-bottom:14px;">
+        <div class="quick-add-header" onclick="toggleMergeSection('suggFunc')">
+          <span class="card-title" style="margin-bottom:0;">🧘 KFit Suggested Functional Routines</span>
+          <span class="quick-add-toggle" id="suggFuncToggle">⌄</span>
+        </div>
+        <div class="quick-add-body" id="suggFuncBody">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">Four ready-made circuits, built around proper movement-pattern rotation -- one tap sends the full structure to this client's own routines.</div>
+        ${SUGGESTED_ROUTINES.map((r,i)=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--text);">${r.name}</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px;">${r.supersets.map(c=>c.exercises.length+' ex').join(' + ')} \u00d7 3 rounds each</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;">
+              <button onclick="previewRoutine('functional',${i},'${key.replace(/'/g,"\\'")}')" aria-label="Preview" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;">&#9432;</button>
+              <button onclick="sendSuggestedRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="padding:7px 14px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:14px;">
+        <div class="quick-add-header" onclick="toggleMergeSection('kfitStd')">
+          <span class="card-title" style="margin-bottom:0;">🏋️ KFit Standard Routine</span>
+          <span class="quick-add-toggle" id="kfitStdToggle">⌄</span>
+        </div>
+        <div class="quick-add-body" id="kfitStdBody">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">Your own core program -- the split you actually run yourself and give clients. Chest+Core, Back, Legs, Arms & Shoulders.</div>
+        ${KFIT_STANDARD_ROUTINES.map((r,i)=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--text);">${r.name}</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px;">${r.exercises.length} exercises, ${r.exercises.reduce((a,e)=>a+e.sets,0)} total sets</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;">
+              <button onclick="previewRoutine('standard',${i},'${key.replace(/'/g,"\\'")}')" aria-label="Preview" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;">&#9432;</button>
+              <button onclick="sendKfitStandardRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="padding:7px 14px;background:var(--gold);border:none;border-radius:7px;color:#1a1408;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📋 Assigned Workouts
+          <button onclick="openAddSession('${key.replace(/'/g,"\\'")}');setAsMode('assign');" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Assign Another Workout</button>
+        </div>
+        <div id="assignedWorkoutsList">Loading...</div>
       </div>
     </div>
-    <div class="card" style="margin-bottom:14px;">
-      <div class="card-title">📚 Assign a Routine</div>
-      <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Pick one of your saved routine templates to add to this client's own "My Routines" list.</div>
-      <select id="rtAssignSelect" style="width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;margin-bottom:10px;">
-        <option value="">Loading routines...</option>
-      </select>
-      <button onclick="assignRoutineToClient('${key.replace(/'/g,"\\'")}')" style="width:100%;padding:10px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Assign to This Client</button>
-      <div style="font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;">This Client's Routines</div>
-      <div id="clientRoutinesList">Loading...</div>
-    </div>
-    <div class="card" style="margin-bottom:14px;">
-      <div class="quick-add-header" onclick="toggleMergeSection('suggFunc')">
-        <span class="card-title" style="margin-bottom:0;">🧘 KFit Suggested Functional Routines</span>
-        <span class="quick-add-toggle" id="suggFuncToggle">⌄</span>
+
+    <div id="clientTab-log" style="display:none;">
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">✎ Log a Session
+          <button onclick="openAddSession('${key.replace(/'/g,"\\'")}');setAsMode('log');" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Log New Session</button>
+        </div>
+        <div style="font-size:13px;color:var(--muted);">Record a session this client already did -- picks today by default, or backdate it.</div>
       </div>
-      <div class="quick-add-body" id="suggFuncBody">
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">Four ready-made circuits, built around proper movement-pattern rotation -- one tap sends the full structure to this client's own routines.</div>
-      ${SUGGESTED_ROUTINES.map((r,i)=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
-          <div>
-            <div style="font-size:14px;font-weight:700;color:var(--text);">${r.name}</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:2px;">${r.supersets.map(c=>c.exercises.length+' ex').join(' + ')} \u00d7 3 rounds each</div>
-          </div>
-          <div style="display:flex;gap:6px;flex-shrink:0;">
-            <button onclick="previewRoutine('functional',${i},'${key.replace(/'/g,"\\'")}')" aria-label="Preview" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;">&#9432;</button>
-            <button onclick="sendSuggestedRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="padding:7px 14px;background:var(--sage);border:none;border-radius:7px;color:#fff;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
-          </div>
-        </div>`).join('')}
-      </div>
-    </div>
-    <div class="card" style="margin-bottom:14px;">
-      <div class="quick-add-header" onclick="toggleMergeSection('kfitStd')">
-        <span class="card-title" style="margin-bottom:0;">🏋️ KFit Standard Routine</span>
-        <span class="quick-add-toggle" id="kfitStdToggle">⌄</span>
-      </div>
-      <div class="quick-add-body" id="kfitStdBody">
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;">Your own core program -- the split you actually run yourself and give clients. Chest+Core, Back, Legs, Arms & Shoulders.</div>
-      ${KFIT_STANDARD_ROUTINES.map((r,i)=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
-          <div>
-            <div style="font-size:14px;font-weight:700;color:var(--text);">${r.name}</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:2px;">${r.exercises.length} exercises, ${r.exercises.reduce((a,e)=>a+e.sets,0)} total sets</div>
-          </div>
-          <div style="display:flex;gap:6px;flex-shrink:0;">
-            <button onclick="previewRoutine('standard',${i},'${key.replace(/'/g,"\\'")}')" aria-label="Preview" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;">&#9432;</button>
-            <button onclick="sendKfitStandardRoutine(${i},'${key.replace(/'/g,"\\'")}')" style="padding:7px 14px;background:var(--gold);border:none;border-radius:7px;color:#1a1408;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Send</button>
-          </div>
-        </div>`).join('')}
+      <div class="card">
+        <div class="quick-add-header" onclick="toggleMergeSection('coachHist')">
+          <span class="card-title" style="margin-bottom:0;">Session History</span>
+          <span class="quick-add-toggle open" id="coachHistToggle">⌄</span>
+        </div>
+        <div class="quick-add-body open" id="coachHistBody" style="display:block;">
+        <div id="coachHistPills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">${renderCoachHistPills()}</div>
+        ${isTaggedClient?`<div style="display:flex;gap:12px;margin-bottom:10px;font-size:13px;">
+          <span style="color:var(--sage);font-weight:700;">${filteredPaidCount} Paid</span>
+          <span style="color:var(--terra);font-weight:700;">${filteredUnpaidCount} Unpaid</span>
+        </div>`:''}
+        <div id="coachHistCustomRange" style="display:${coachHistFilterMode==='custom'?'flex':'none'};gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+          <input type="date" id="coachHistFromDate" value="${coachHistFilterFrom||''}" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
+          <span style="color:var(--muted);font-size:15px;font-weight:600;">to</span>
+          <input type="date" id="coachHistToDate" value="${coachHistFilterTo||''}" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
+          <button onclick="applyCoachHistCustomRange()" style="padding:8px 14px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Apply</button>
+        </div>
+        <div id="coachHistList">${rows||'<div style="color:var(--muted);">No sessions in this range.</div>'}</div>
+        </div>
       </div>
     </div>
-    <div class="card" style="margin-bottom:14px;">
-      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📋 Assigned Workouts
-        <button onclick="openAddSession('${key.replace(/'/g,"\\'")}');setAsMode('assign');" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Assign Another Workout</button>
+
+    <div id="clientTab-edit" style="display:none;">
+      <div class="card" style="margin-bottom:14px;">
+        <div class="quick-add-header" onclick="toggleMergeSection('fitMeas')">
+          <span class="card-title" style="margin-bottom:0;">📏 Body Measurements</span>
+          <span class="quick-add-toggle" id="fitMeasToggle">⌄</span>
+        </div>
+        <div class="quick-add-body" id="fitMeasBody">
+          <div style="text-align:right;margin-bottom:8px;"><button onclick="openMeasurementModal('${fitClientId}','fitness','fitMeasList',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button></div>
+          <div id="fitMeasList">Loading...</div>
+        </div>
       </div>
-      <div id="assignedWorkoutsList">Loading...</div>
-    </div>
-    <div class="card">
-      <div class="quick-add-header" onclick="toggleMergeSection('coachHist')">
-        <span class="card-title" style="margin-bottom:0;">Session History</span>
-        <span class="quick-add-toggle open" id="coachHistToggle">⌄</span>
+      <div class="card" style="margin-bottom:14px;">
+        <div class="quick-add-header" onclick="toggleMergeSection('nameHist')">
+          <span class="card-title" style="margin-bottom:0;">Name History</span>
+          <span class="quick-add-toggle" id="nameHistToggle">⌄</span>
+        </div>
+        <div class="quick-add-body" id="nameHistBody">
+        <div id="nameHistList" style="font-size:14px;color:var(--muted);">Loading...</div>
+        </div>
       </div>
-      <div class="quick-add-body open" id="coachHistBody" style="display:block;">
-      <div id="coachHistPills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">${renderCoachHistPills()}</div>
-      ${isTaggedClient?`<div style="display:flex;gap:12px;margin-bottom:10px;font-size:13px;">
-        <span style="color:var(--sage);font-weight:700;">${filteredPaidCount} Paid</span>
-        <span style="color:var(--terra);font-weight:700;">${filteredUnpaidCount} Unpaid</span>
-      </div>`:''}
-      <div id="coachHistCustomRange" style="display:${coachHistFilterMode==='custom'?'flex':'none'};gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-        <input type="date" id="coachHistFromDate" value="${coachHistFilterFrom||''}" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
-        <span style="color:var(--muted);font-size:15px;font-weight:600;">to</span>
-        <input type="date" id="coachHistToDate" value="${coachHistFilterTo||''}" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
-        <button onclick="applyCoachHistCustomRange()" style="padding:8px 14px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Apply</button>
-      </div>
-      <div id="coachHistList">${rows||'<div style="color:var(--muted);">No sessions in this range.</div>'}</div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="quick-add-header" onclick="toggleMergeSection('nameHist')">
-        <span class="card-title" style="margin-bottom:0;">Name History</span>
-        <span class="quick-add-toggle" id="nameHistToggle">⌄</span>
-      </div>
-      <div class="quick-add-body" id="nameHistBody">
-      <div id="nameHistList" style="font-size:14px;color:var(--muted);">Loading...</div>
-      </div>
-    </div>
-    <div class="card" style="border-color:var(--terra);">
-      <div class="quick-add-header" onclick="toggleMergeSection('fitDanger')">
-        <span class="card-title" style="color:var(--terra);margin-bottom:0;">⚠️ Danger Zone</span>
-        <span class="quick-add-toggle" id="fitDangerToggle">⌄</span>
-      </div>
-      <div class="quick-add-body" id="fitDangerBody">
-      <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Permanently deletes this client's fitness history and attendance record. Cannot be undone.</div>
-      <button onclick="deleteClientFitness('${key.replace(/'/g,"\\'")}')" style="width:100%;padding:11px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Delete Fitness Data for ${c.name}</button>
+      <div class="card" style="border-color:var(--terra);">
+        <div class="quick-add-header" onclick="toggleMergeSection('fitDanger')">
+          <span class="card-title" style="color:var(--terra);margin-bottom:0;">⚠️ Danger Zone</span>
+          <span class="quick-add-toggle" id="fitDangerToggle">⌄</span>
+        </div>
+        <div class="quick-add-body" id="fitDangerBody">
+        <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Permanently deletes this client's fitness history and attendance record. Cannot be undone.</div>
+        <button onclick="deleteClientFitness('${key.replace(/'/g,"\\'")}')" style="width:100%;padding:11px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Delete Fitness Data for ${c.name}</button>
+        </div>
       </div>
     </div>`;
   loadNameHistoryForClient(c.mobile);
@@ -2464,6 +2498,26 @@ function showClient(key,targetContainer){
   loadMeasurementsForClient(buildClientId(c.name,c.mobile),'fitness','fitMeasList');
   populateRtAssignSelect();
   loadClientRoutinesList(key);
+  setClientTab('log');
+}
+
+// One consistent entry point for a client's page, every time: three tabs
+// (Assign / Log / Edit), always in the same place, pinned so Assign is
+// never more than one tap away no matter how far down the page you've
+// scrolled. Replaces the old single long page where routines, the assign
+// button, and session history were all separate sections mixed together --
+// that's what made behavior feel inconsistent depending on what you'd
+// clicked last.
+function setClientTab(tab){
+  ['assign','log','edit'].forEach(function(t){
+    var body=document.getElementById('clientTab-'+t);
+    var btn=document.getElementById('clientTabBtn-'+t);
+    if(!body||!btn) return;
+    var active=(t===tab);
+    body.style.display=active?'block':'none';
+    btn.style.background=active?'var(--sage)':'var(--surf2)';
+    btn.style.color=active?'#fff':'var(--muted)';
+  });
 }
 
 async function loadClientRoutinesList(clientKey){
