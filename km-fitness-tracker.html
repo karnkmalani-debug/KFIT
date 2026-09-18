@@ -225,7 +225,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .dur-manual-input::placeholder{color:var(--muted2);}
 
 /* -- Password gate -- */
-#pwGate{position:fixed;inset:0;z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;background:var(--bg);overflow-y:auto;}
+#pwGate{position:fixed;top:0;right:0;bottom:0;left:0;z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;background:var(--bg);overflow-y:auto;}
 .pw-logo{font-size:46px;font-weight:900;letter-spacing:-2px;margin-bottom:5px;font-family:'Playfair Display',serif;color:#fff;}
 .pw-logo .g{color:var(--sage);} .pw-logo .t{color:var(--terra);}
 .pw-sub{color:var(--muted);font-size:17px;letter-spacing:3px;text-transform:uppercase;margin-bottom:44px;}
@@ -263,7 +263,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .note-block{margin-bottom:13px;}
 .note-block label{display:block;font-size:17px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px;}
 
-.detail-panel{position:fixed;inset:0;z-index:200;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;transform:translateX(100%);transition:transform .28s ease;padding-top:env(safe-area-inset-top,0px);}
+.detail-panel{position:fixed;top:0;right:0;bottom:0;left:0;z-index:200;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;transform:translateX(100%);transition:transform .28s ease;padding-top:env(safe-area-inset-top,0px);}
 .detail-panel.open{transform:translateX(0);}
 .detail-hdr{display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:201;}
 .back-btn{background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:10px 16px;color:var(--text);font-size:20px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;}
@@ -302,7 +302,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .custom-ex-btn:hover{background:var(--gold-d);}
 
 /* Confirm overlay */
-.confirm-overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:24px;}
+.confirm-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:500;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:24px;}
 .confirm-box{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:24px;width:100%;max-width:320px;text-align:center;}
 .confirm-title{font-size:16px;font-weight:700;margin-bottom:8px;}
 .confirm-sub{font-size:17px;color:var(--muted);margin-bottom:20px;line-height:1.5;}
@@ -312,7 +312,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .confirm-no{background:var(--surf2);border:1px solid var(--border)!important;color:var(--text);}
 
 /* Custom exercise modal */
-.modal-overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;padding:0;}
+.modal-overlay{position:fixed;top:0;right:0;bottom:0;left:0;z-index:500;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center;padding:0;}
 .modal-box{background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 40px;width:100%;max-width:520px;}
 .modal-title{font-size:16px;font-weight:700;margin-bottom:5px;}
 .modal-sub{font-size:16px;color:var(--muted);margin-bottom:16px;line-height:1.5;}
@@ -377,7 +377,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
      Safari; every other iPhone browser (Chrome included) can't do it, even though the
      page looks identical. Route them to Safari instead of letting them hit a silently
      broken install. -->
-<div id="criosBanner" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,10,8,.92);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:24px;">
+<div id="criosBanner" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:9999;background:rgba(10,10,8,.92);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:24px;">
   <div style="background:#1a1a18;border-radius:20px;padding:32px 24px 28px;max-width:360px;width:100%;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,.35);">
     <div style="font-family:Georgia,serif;font-size:1.6rem;font-weight:900;color:#fff;margin-bottom:6px;">K<span style="color:#6a9e6e;">F</span><span style="color:#c4694a;">it</span></div>
     <div style="font-family:'DM Sans',sans-serif;font-size:.7rem;color:#aaa;margin-bottom:20px;letter-spacing:.06em;text-transform:uppercase;">by Karan K.M. Malani</div>
@@ -465,7 +465,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 </div>
 
 <!-- Mobile number prompt modal -->
-<div id="mobilePromptModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:24px;">
+<div id="mobilePromptModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:600;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--surf);border-radius:16px;padding:28px 24px;width:100%;max-width:380px;">
     <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">📱 Add your mobile number</div>
     <div style="font-size:17px;color:var(--muted);margin-bottom:20px;">This lets you sign in from any device — no password needed next time.</div>
@@ -477,7 +477,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 
 
 <!-- Import Workout History modal -->
-<div id="importModal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:20px;">
+<div id="importModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:999;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:20px;">
   <div style="background:var(--surf);border-radius:16px;padding:24px 20px;width:100%;max-width:420px;max-height:85vh;overflow-y:auto;">
     <div id="importStepInstructions">
       <div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:10px;">Import Workout History</div>
@@ -496,7 +496,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 </div>
 
 <!-- iOS install guide modal -->
-<div id="installModal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.75);align-items:flex-end;justify-content:center;">
+<div id="installModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:999;background:rgba(0,0,0,.75);align-items:flex-end;justify-content:center;">
   <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:28px 24px 44px;width:100%;max-width:420px;">
     <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px;">📲 Add to Home Screen</div>
     <div id="installInstructions" style="font-size:17px;color:var(--muted);margin-bottom:20px;line-height:1.6;"></div>
@@ -504,7 +504,7 @@ btn.textContent='Could not copy -- select the address bar manually';
   </div>
 </div>
 
-<div id="appLoader" style="display:none;position:fixed;inset:0;z-index:1000;background:#0c0c0a;align-items:center;justify-content:center;">
+<div id="appLoader" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:1000;background:#0c0c0a;align-items:center;justify-content:center;">
   <div style="font-family:'Playfair Display',serif;font-size:2rem;font-weight:900;color:#fff;">K<span style="color:#6a9e6e;">F</span><span style="color:#c4694a;">it</span></div>
 </div>
 
@@ -560,7 +560,7 @@ btn.textContent='Could not copy -- select the address bar manually';
   </div>
 </div>
 
-<div id="accessBlockedScreen" style="display:none;position:fixed;inset:0;z-index:1200;background:#0c0c0a;align-items:center;justify-content:center;flex-direction:column;padding:32px;text-align:center;">
+<div id="accessBlockedScreen" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:1200;background:#0c0c0a;align-items:center;justify-content:center;flex-direction:column;padding:32px;text-align:center;">
   <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:900;color:#fff;margin-bottom:14px;">K<span style="color:#6a9e6e;">F</span><span style="color:#c4694a;">it</span></div>
   <div style="font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:10px;">Access Paused</div>
   <div style="font-size:.95rem;color:var(--muted);line-height:1.6;max-width:320px;">Your coach has paused your access to this tracker. Please get in touch with them directly to sort this out.</div>
@@ -574,7 +574,7 @@ btn.textContent='Could not copy -- select the address bar manually';
     <div style="display:flex;align-items:center;gap:6px;flex-shrink:1;min-width:0;">
       <div style="position:relative;display:inline-block;flex-shrink:0;">
         <div class="date-chip" id="headerDate" style="cursor:pointer;pointer-events:none;white-space:nowrap;" title="Tap to change date"></div>
-        <input type="date" id="datePicker" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;padding:0;border:none;cursor:pointer;-webkit-appearance:none;" onchange="onDatePicked(this.value)" onpointerdown="return guardDatePicker(event)">
+        <input type="date" id="datePicker" style="position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;opacity:0;margin:0;padding:0;border:none;cursor:pointer;-webkit-appearance:none;" onchange="onDatePicked(this.value)" onpointerdown="return guardDatePicker(event)">
       </div>
       <a href="https://kfit.pages.dev" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;text-decoration:none;flex-shrink:0;">🏠 Home</a>
       <button onclick="logout()" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;">Log Out</button>
@@ -1002,7 +1002,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 </div>
 
 <!-- PR Flash Overlay -->
-<div id="prFlashOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(10,10,10,0.97);flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 32px;">
+<div id="prFlashOverlay" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:600;background:rgba(10,10,10,0.97);flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 32px;">
   <div style="font-size:72px;margin-bottom:20px;">🏆</div>
   <div id="prFlashTitle" style="font-family:'DM Sans',sans-serif;font-size:32px;font-weight:900;color:var(--gold);letter-spacing:2px;line-height:1.15;margin-bottom:6px;">NEW PR</div>
   <div style="font-family:'DM Sans',sans-serif;font-size:32px;font-weight:900;color:var(--gold);letter-spacing:2px;margin-bottom:28px;">YOU JUST GOT STRONGER</div>
@@ -1011,7 +1011,7 @@ btn.textContent='Could not copy -- select the address bar manually';
   <div id="prFlashVal" style="font-family:'DM Mono',monospace;font-size:28px;font-weight:700;color:var(--text);"></div>
 </div>
 
-<div id="snapModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.8);align-items:flex-end;justify-content:center;">
+<div id="snapModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:500;background:rgba(0,0,0,.8);align-items:flex-end;justify-content:center;">
   <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 44px;width:100%;max-width:520px;">
     <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;"><span id="snapTypeLabel"></span></div>
     <div style="font-size:16px;color:var(--muted);margin-bottom:16px;" id="snapClientLabel"></div>
@@ -1046,7 +1046,7 @@ btn.textContent='Could not copy -- select the address bar manually';
   <div id="dBody" style="padding:14px;"></div>
 </div>
 
-<div id="moveOverlay" onclick="dismissMoveOverlay()" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(10,10,10,0.97);align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:0;text-align:center;padding:40px 32px;">
+<div id="moveOverlay" onclick="dismissMoveOverlay()" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:999;background:rgba(10,10,10,0.97);align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:0;text-align:center;padding:40px 32px;">
   <div style="font-family:'DM Sans',sans-serif;font-size:38px;font-weight:900;color:var(--gold);letter-spacing:3px;line-height:1.1;margin-bottom:32px;">MOVE YOUR ASS!</div>
   <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:#fff;letter-spacing:2px;text-transform:uppercase;">tap anywhere to dismiss</div>
 </div>
@@ -1091,7 +1091,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 
 
 <!-- CONFIRM DIALOG -->
-<div id="confirmOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center;">
+<div id="confirmOverlay" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:600;background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center;">
   <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 44px;width:100%;max-width:520px;">
     <div id="confirmTitle" style="font-size:16px;font-weight:700;margin-bottom:6px;color:var(--text);"></div>
     <div id="confirmSub" style="font-size:17px;color:var(--muted);margin-bottom:20px;"></div>
@@ -1103,7 +1103,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 </div>
 
 <!-- HELP -->
-<div id="helpOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center;">
+<div id="helpOverlay" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:600;background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center;">
   <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 32px;width:100%;max-width:520px;max-height:78vh;display:flex;flex-direction:column;">
     <div id="helpTitle" style="font-size:17px;font-weight:800;margin-bottom:10px;color:var(--text);flex-shrink:0;"></div>
     <div id="helpBody" style="font-size:15px;color:var(--muted);line-height:1.6;margin-bottom:20px;overflow-y:auto;flex:1;"></div>
@@ -1114,7 +1114,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 
 <!-- SESSION PICKER (shown when picking a date that already has one or more sessions) -->
 <!-- SAVE CONFIRMATION -- big and unmissable, unlike the old subtle toast -->
-<div id="saveConfirmOverlay" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.78);align-items:center;justify-content:center;pointer-events:none;">
+<div id="saveConfirmOverlay" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:900;background:rgba(0,0,0,.78);align-items:center;justify-content:center;pointer-events:none;">
   <div id="saveConfirmCard" style="text-align:center;transform:scale(.85);opacity:0;transition:transform .25s cubic-bezier(.34,1.56,.64,1),opacity .2s;">
     <div style="width:96px;height:96px;border-radius:50%;background:var(--sage);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:52px;color:#0c0c0a;font-weight:900;box-shadow:0 8px 30px rgba(0,0,0,.4);">&#10003;</div>
     <div style="font-size:26px;font-weight:900;color:#fff;font-family:Georgia,serif;">Session Saved</div>
@@ -1122,7 +1122,7 @@ btn.textContent='Could not copy -- select the address bar manually';
   </div>
 </div>
 
-<div id="sessionPickerOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center;">
+<div id="sessionPickerOverlay" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:600;background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center;">
   <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 32px;width:100%;max-width:520px;max-height:78vh;display:flex;flex-direction:column;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
       <div id="sessionPickerTitle" style="font-size:17px;font-weight:800;color:var(--text);"></div>
@@ -1133,7 +1133,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 </div>
 
 <!-- FEEDBACK -->
-<div id="feedbackOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center;">
+<div id="feedbackOverlay" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:600;background:rgba(0,0,0,.7);align-items:flex-end;justify-content:center;">
   <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 32px;width:100%;max-width:520px;max-height:82vh;display:flex;flex-direction:column;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-shrink:0;">
       <div style="font-size:17px;font-weight:800;color:var(--text);">Feedback</div>
@@ -1152,14 +1152,14 @@ btn.textContent='Could not copy -- select the address bar manually';
 </div>
 
 <div class="toast" id="toast" style="display:none;"></div>
-<div id="toastModal" style="display:none;position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:24px;">
+<div id="toastModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:950;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--surf3);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:340px;width:100%;display:flex;align-items:flex-start;gap:12px;box-shadow:0 14px 40px rgba(0,0,0,.55);">
     <div id="toastModalMsg" style="flex:1;font-size:16px;font-weight:600;line-height:1.5;color:var(--text);padding-top:2px;"></div>
     <button onclick="closeToastModal()" aria-label="Close" style="flex-shrink:0;width:34px;height:34px;border-radius:50%;background:var(--surf2);border:none;color:var(--muted);font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">&#10005;</button>
   </div>
 </div>
 
-<div id="saveAsRoutineOffer" style="display:none;position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:24px;">
+<div id="saveAsRoutineOffer" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:950;background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--surf3);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:340px;width:100%;box-shadow:0 14px 40px rgba(0,0,0,.55);">
     <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px;">Save this as a routine?</div>
     <div style="font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:16px;">This combination of exercises isn't in your saved routines yet -- name it now to load it again in one tap next time.</div>
@@ -1170,7 +1170,7 @@ btn.textContent='Could not copy -- select the address bar manually';
   </div>
 </div>
 
-<div id="routinePreviewModal" style="display:none;position:fixed;inset:0;z-index:960;background:rgba(0,0,0,.65);align-items:center;justify-content:center;padding:24px;">
+<div id="routinePreviewModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:960;background:rgba(0,0,0,.65);align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--surf3);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:380px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 14px 40px rgba(0,0,0,.55);">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px;">
       <div id="routinePreviewTitle" style="font-size:17px;font-weight:800;color:var(--text);flex:1;"></div>
@@ -1182,14 +1182,14 @@ btn.textContent='Could not copy -- select the address bar manually';
   </div>
 </div>
 
-<div id="blockingAlert" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:24px;">
+<div id="blockingAlert" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:900;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:360px;width:100%;text-align:center;">
     <div id="blockingAlertMsg" style="font-size:17px;color:var(--text);line-height:1.5;margin-bottom:20px;"></div>
     <button onclick="dismissBlockingAlert()" style="width:100%;padding:13px;background:var(--sage);border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#0c0c0a;cursor:pointer;">Got it</button>
   </div>
 </div>
 
-<div id="saveMissingModal" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:24px;">
+<div id="saveMissingModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:900;background:rgba(0,0,0,.7);align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:360px;width:100%;">
     <div style="font-size:17px;font-weight:700;color:var(--text);margin-bottom:6px;">Before you save</div>
     <div style="font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:18px;">A couple of things weren't logged this session -- add them now, or skip and save anyway.</div>
@@ -2253,7 +2253,7 @@ var existing=document.getElementById('nameEditModal');
 if(existing) existing.remove();
 var overlay=document.createElement('div');
 overlay.id='nameEditModal';
-overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:24px;';
+overlay.style.cssText='position:fixed;top:0;right:0;bottom:0;left:0;z-index:99999;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:24px;';
 overlay.innerHTML=`
 <div style="background:var(--surf,#1a1a18);border:1px solid var(--border,#333);border-radius:14px;padding:22px;max-width:340px;width:100%;">
 <div style="font-size:17px;font-weight:800;color:var(--text,#fff);margin-bottom:6px;">Your name</div>

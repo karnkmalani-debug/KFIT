@@ -174,7 +174,7 @@ body{overflow-x:hidden;}
 .view-toggle{display:none;}
 .view-panel{display:none;}
 .view-panel.active{display:block;}
-#pwGate{position:fixed;inset:0;z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:max(32px, env(safe-area-inset-top)) 24px max(32px, env(safe-area-inset-bottom)) 24px;background:var(--bg);overflow-y:auto;}
+#pwGate{position:fixed;top:0;right:0;bottom:0;left:0;z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:max(32px, env(safe-area-inset-top)) 24px max(32px, env(safe-area-inset-bottom)) 24px;background:var(--bg);overflow-y:auto;}
 .pw-logo{font-family:'Playfair Display',serif;font-size:42px;font-weight:900;color:var(--txt);margin-bottom:5px;}
 .pw-logo .g{color:#4a8050;}
 .pw-logo .t{color:#c4694a;}
@@ -206,7 +206,7 @@ body{overflow-x:hidden;}
      Safari; every other iPhone browser (Chrome included) can't do it, even though the
      page looks identical. Route them to Safari instead of letting them hit a silently
      broken install. -->
-<div id="criosBanner" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,10,8,.75);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:24px;">
+<div id="criosBanner" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:9999;background:rgba(10,10,8,.75);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:24px;">
   <div style="background:#faf8f3;border-radius:20px;padding:32px 24px 28px;max-width:360px;width:100%;text-align:center;box-shadow:0 32px 80px rgba(0,0,0,.35);">
     <div style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:900;color:#1a1a18;margin-bottom:6px;">K<span style="color:#4a8050;">F</span><span style="color:#c4694a;">it</span></div>
     <div style="font-family:'DM Sans',sans-serif;font-size:.7rem;color:#888;margin-bottom:20px;letter-spacing:.06em;text-transform:uppercase;">by Karan K.M. Malani</div>
@@ -242,7 +242,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 });
 }
 </script>
-<div id="appLoader" style="display:none;position:fixed;inset:0;z-index:1000;background:#faf8f3;align-items:center;justify-content:center;">
+<div id="appLoader" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:1000;background:#faf8f3;align-items:center;justify-content:center;">
   <div style="font-family:'Playfair Display',serif;font-size:2rem;font-weight:900;color:#1a1a18;">K<span style="color:#4a8050;">F</span><span style="color:#c4694a;">it</span> <span style="color:#4a8050;">Nutrition</span></div>
 </div>
 <div id="pwGate">
@@ -291,7 +291,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 </div>
 
 <!-- Mobile number prompt modal -->
-<div id="mobilePromptModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:24px;">
+<div id="mobilePromptModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:600;background:rgba(0,0,0,.75);align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--surf);border-radius:16px;padding:28px 24px;width:100%;max-width:380px;">
     <div style="font-size:16px;font-weight:700;color:var(--txt);margin-bottom:6px;">📱 Add your mobile number</div>
     <div style="font-size:17px;color:var(--txt2);margin-bottom:20px;">This lets you sign in from any device — no password needed next time.</div>
@@ -303,7 +303,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 
 
 <!-- iOS install guide modal -->
-<div id="installModal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.75);align-items:flex-end;justify-content:center;">
+<div id="installModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:999;background:rgba(0,0,0,.75);align-items:flex-end;justify-content:center;">
   <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:28px 24px 44px;width:100%;max-width:420px;">
     <div style="font-size:16px;font-weight:700;color:var(--txt);margin-bottom:6px;">📲 Add to Home Screen</div>
     <div id="installInstructions" style="font-size:17px;color:var(--txt2);margin-bottom:20px;"></div>
@@ -312,7 +312,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 </div>
 
 <!-- HELP -->
-<div id="helpOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.6);align-items:flex-end;justify-content:center;">
+<div id="helpOverlay" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:600;background:rgba(0,0,0,.6);align-items:flex-end;justify-content:center;">
   <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;max-height:78vh;display:flex;flex-direction:column;">
     <div id="helpTitle" style="font-size:17px;font-weight:800;margin-bottom:10px;color:var(--txt);flex-shrink:0;"></div>
     <div id="helpBody" style="font-size:15px;color:var(--txt2);line-height:1.6;margin-bottom:20px;overflow-y:auto;flex:1;"></div>
@@ -321,7 +321,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 </div>
 
 <!-- FEEDBACK -->
-<div id="feedbackOverlay" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.6);align-items:flex-end;justify-content:center;">
+<div id="feedbackOverlay" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:600;background:rgba(0,0,0,.6);align-items:flex-end;justify-content:center;">
   <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 32px;width:100%;max-width:480px;max-height:82vh;display:flex;flex-direction:column;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-shrink:0;">
       <div style="font-size:17px;font-weight:800;color:var(--txt);">Feedback</div>
@@ -339,7 +339,7 @@ btn.textContent='Could not copy -- select the address bar manually';
   </div>
 </div>
 
-<div id="accessBlockedScreen" style="display:none;position:fixed;inset:0;z-index:1200;background:var(--bg,#faf8f3);align-items:center;justify-content:center;flex-direction:column;padding:32px;text-align:center;">
+<div id="accessBlockedScreen" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:1200;background:var(--bg,#faf8f3);align-items:center;justify-content:center;flex-direction:column;padding:32px;text-align:center;">
   <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:900;color:var(--txt,#211f1a);margin-bottom:14px;">K<span style="color:var(--sage,#3a6e40);">F</span><span style="color:var(--terra,#c4694a);">it</span></div>
   <div style="font-size:1.1rem;font-weight:700;color:var(--txt,#211f1a);margin-bottom:10px;">Access Paused</div>
   <div style="font-size:.95rem;color:var(--txt2,#3d3a32);line-height:1.6;max-width:320px;">Your coach has paused your access to this tracker. Please get in touch with them directly to sort this out.</div>
@@ -361,7 +361,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 
 <div id="appRoot"></div>
 <!-- SNAP MODAL -->
-<div id="snapModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.75);align-items:flex-end;justify-content:center;">
+<div id="snapModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:500;background:rgba(0,0,0,.75);align-items:flex-end;justify-content:center;">
   <div style="background:var(--surf);border-radius:16px 16px 0 0;padding:24px 20px 44px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;">
     <div style="font-size:16px;font-weight:700;color:var(--txt);margin-bottom:4px;">📷 <span id="snapMealLabel"></span></div>
     <div style="font-size:16px;color:var(--txt3);margin-bottom:16px;" id="snapDateLabel"></div>
@@ -386,7 +386,7 @@ btn.textContent='Could not copy -- select the address bar manually';
 </div>
 
 <div class="toast" id="toast" style="display:none;"></div>
-<div id="toastModal" style="display:none;position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:24px;">
+<div id="toastModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:950;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:24px;">
   <div style="background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:340px;width:100%;display:flex;align-items:flex-start;gap:12px;box-shadow:0 14px 40px rgba(0,0,0,.3);">
     <div id="toastModalMsg" style="flex:1;font-size:15px;font-weight:600;line-height:1.5;color:var(--txt);padding-top:2px;"></div>
     <button onclick="closeToastModal()" aria-label="Close" style="flex-shrink:0;width:34px;height:34px;border-radius:50%;background:var(--surf2);border:none;color:var(--txt2);font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">&#10005;</button>
@@ -2803,7 +2803,7 @@ autoSave();
 
 function viewPhoto(url){
 var overlay=document.createElement('div');
-overlay.style.cssText='position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:20px;';
+overlay.style.cssText='position:fixed;top:0;right:0;bottom:0;left:0;z-index:800;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:20px;';
 overlay.onclick=function(){document.body.removeChild(overlay);};
 var img=document.createElement('img');
 img.src=url;
@@ -3394,7 +3394,7 @@ var existing=document.getElementById('nutNameEditModal');
 if(existing) existing.remove();
 var overlay=document.createElement('div');
 overlay.id='nutNameEditModal';
-overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:24px;';
+overlay.style.cssText='position:fixed;top:0;right:0;bottom:0;left:0;z-index:99999;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:24px;';
 overlay.innerHTML=`
 <div style="background:var(--surf,#1a1a18);border:1px solid var(--border,#333);border-radius:14px;padding:22px;max-width:340px;width:100%;">
 <div style="font-size:17px;font-weight:800;color:var(--txt,#fff);margin-bottom:6px;">Your name</div>
