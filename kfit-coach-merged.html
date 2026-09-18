@@ -612,6 +612,15 @@ const SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
 const SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
 let sb=null;
 let allRecords=[];
+// Moved up from further down in the file -- it used to be declared (as `let`)
+// after the page's auth-init code, all inside one big <script> block. If that
+// earlier code ever threw (e.g. the Supabase library failing to load over a
+// bad connection), the browser would abort the rest of the script before
+// reaching this line, leaving it permanently uninitialized -- so ANY button
+// referencing it (Add Session, Assign Workout, Edit, etc.) would silently do
+// nothing for the rest of that page load, with no visible error. Declaring
+// it here, before anything that can fail, means it's always safely defined.
+let editingContext=null; // {attendanceId, sessionId, clientId, origDate, origTime} when editing an existing session
 
 function localDateStr(d){
   d=d||new Date();
@@ -878,18 +887,34 @@ async function coachLogout(){
 // this single listener handles: resuming an existing session, completing
 // login after a clicked magic-link redirect, AND future logouts -- no
 // separate initial check needed.
+//
+// Wrapped in try/catch as a second layer of defense (on top of moving
+// editingContext up top): if the Supabase library ever fails to load (bad
+// connection, CDN hiccup) getSB() throws here, synchronously, at the very
+// start of the page's script. Uncaught, that silently aborts every line of
+// script after it -- catching it here means the rest of the page's code
+// still initializes normally, and you get a real "couldn't connect" message
+// with a retry button instead of a page that just looks broken.
 (function initCoachAuth(){
-  document.getElementById('authStepChecking').style.display='block';
-  document.getElementById('authStepEmail').style.display='none';
-  getSB().auth.onAuthStateChange(function(event,session){
-    if(session){ onCoachAuthenticated(session); }
-    else {
-      document.getElementById('authStepChecking').style.display='none';
-      document.getElementById('authStepEmail').style.display='block';
-      document.getElementById('mainApp').style.display='none';
-      document.getElementById('pwGate').style.display='flex';
-    }
-  });
+  try{
+    document.getElementById('authStepChecking').style.display='block';
+    document.getElementById('authStepEmail').style.display='none';
+    getSB().auth.onAuthStateChange(function(event,session){
+      if(session){ onCoachAuthenticated(session); }
+      else {
+        document.getElementById('authStepChecking').style.display='none';
+        document.getElementById('authStepEmail').style.display='block';
+        document.getElementById('mainApp').style.display='none';
+        document.getElementById('pwGate').style.display='flex';
+      }
+    });
+  }catch(e){
+    var chk=document.getElementById('authStepChecking');
+    if(chk) chk.innerHTML='<div style="text-align:center;padding:20px;">'
+      +'<div style="color:var(--terra,#b33);font-weight:700;margin-bottom:10px;">Couldn\'t connect -- check your internet connection.</div>'
+      +'<button onclick="window.location.reload()" style="padding:10px 18px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-weight:700;cursor:pointer;">Retry</button>'
+      +'</div>';
+  }
 })();
 
 window.taggedClients = window.taggedClients || {fitness:{},nutrition:{}}; // canonical_key -> true, per tracker -- fitness and nutrition rosters are independent
@@ -3304,7 +3329,6 @@ let asSelectedBP=[];
 let asCardioBlocks=[];
 let asFunctionalBlocks=[];
 let asExercises=[];
-let editingContext=null; // {attendanceId, sessionId, clientId, origDate, origTime} when editing an existing session
 const BP_TO_EXLIB={'Chest':['Chest'],'Back':['Back'],'Shoulders':['Shoulders'],'Arms':['Biceps','Triceps'],'Legs':['Legs'],'Core':['Core']};
 let asUnit='kg';
 let asClientSessions=[]; // cached session history for whichever client is selected, used for "last time" hints
