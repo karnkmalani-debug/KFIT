@@ -635,28 +635,28 @@ let allRecords=[];
 // it here, before anything that can fail, means it's always safely defined.
 let editingContext=null; // {attendanceId, sessionId, clientId, origDate, origTime} when editing an existing session
 
-// Forces a real repaint when showing a full-screen panel that has been
-// display:none since the page loaded. On some iOS PWA (home-screen,
-// standalone) sessions, WebKit can silently fail to paint an element the
-// very first time it goes from display:none to display:block via JS --
-// the code runs fine, the style is set correctly, but nothing appears on
-// screen until something else forces a redraw. Reading offsetHeight forces
-// the browser to recalculate layout immediately; the double
-// requestAnimationFrame is a standard, harmless belt-and-braces nudge for
-// the same class of bug. Use this instead of a bare style.display='block'
-// for any element that starts hidden in the page's initial HTML.
+// TEMPORARY DIAGNOSTIC (replacing the repaint-forcing attempt, which didn't
+// fix it): instead of guessing at another fix, this reports hard facts --
+// the panel's actual rect, and, critically, what element is really sitting
+// at the center of the screen a moment after we tried to show it. If
+// something else is covering it, this will name exactly what.
 function showFullscreenPanel(id){
   var el=document.getElementById(id);
   if(!el) return;
   el.style.display='block';
-  void el.offsetHeight; // force synchronous reflow
-  requestAnimationFrame(function(){
-    requestAnimationFrame(function(){
-      el.style.display='none';
-      void el.offsetHeight;
-      el.style.display='block';
-    });
-  });
+  void el.offsetHeight;
+  setTimeout(function(){
+    var r=el.getBoundingClientRect();
+    var cs=getComputedStyle(el);
+    var cx=window.innerWidth/2, cy=window.innerHeight/2;
+    var topEl=document.elementFromPoint(cx,cy);
+    var topDesc=topEl?('<'+topEl.tagName.toLowerCase()+(topEl.id?' id="'+topEl.id+'"':'')+'> text="'+(topEl.textContent||'').trim().slice(0,30)+'"'):'(nothing found)';
+    alert('Panel check for #'+id+':\n'
+      +'display='+cs.display+' visibility='+cs.visibility+' opacity='+cs.opacity+'\n'
+      +'size='+Math.round(r.width)+'x'+Math.round(r.height)+' at top='+Math.round(r.top)+'\n\n'
+      +'Element actually at screen center right now:\n'+topDesc
+      +'\n\nScreenshot this and send it back.');
+  },150);
 }
 
 function localDateStr(d){
