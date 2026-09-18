@@ -619,6 +619,25 @@ window.addEventListener('error',function(e){
 window.addEventListener('unhandledrejection',function(e){
   alert('KFit error caught (async):\n'+(e.reason&&e.reason.message?e.reason.message:e.reason)+'\n\nPlease screenshot this and send it back.');
 });
+// Second diagnostic layer: since no JS error is firing, the tap itself may
+// not be reaching the button (something invisible sitting on top of it, or
+// a coordinate/zoom mismatch). This shows exactly what element every tap
+// actually lands on, in a small readable panel at the bottom of the screen.
+(function(){
+  var panel=document.createElement('div');
+  panel.style.cssText='position:fixed;left:0;right:0;bottom:0;background:#000;color:#0f0;font:11px monospace;padding:8px;z-index:999999;max-height:90px;overflow-y:auto;white-space:pre-wrap;border-top:2px solid #0f0;';
+  panel.textContent='Tap anything -- last tap info shows here.';
+  document.addEventListener('DOMContentLoaded',function(){document.body.appendChild(panel);});
+  window.addEventListener('click',function(e){
+    var t=e.target;
+    var info='TAP HIT: <'+t.tagName.toLowerCase()+
+      (t.id?' id="'+t.id+'"':'')+
+      (t.className&&typeof t.className==='string'?' class="'+t.className+'"':'')+
+      '> text="'+(t.textContent||'').trim().slice(0,40)+
+      '"\nonclick attr: '+(t.getAttribute('onclick')||'(none on this exact element)');
+    panel.textContent=info;
+  },true);
+})();
 
 const SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
 const SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
