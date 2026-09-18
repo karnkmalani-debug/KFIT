@@ -365,7 +365,34 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
   <!-- Meal Plan modal -->
-  <div id="mealPlanModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:500;background:rgba(0,0,0,.6);overflow-y:auto;-webkit-overflow-scrolling:touch;">
+  
+
+  <!-- Coach Help modal -->
+  
+
+  <!-- Diet Template Library modal -->
+  
+
+  <!-- Plan comparison modal: assigned vs actual -->
+  
+
+  <div class="content" id="nutClientView" style="display:none;">
+    <div style="margin-bottom:14px;">
+      <button class="back-btn" onclick="nutShowDash()">← All Clients</button>
+    </div>
+    <div id="nutClientDetail"></div>
+  </div>
+
+  
+
+  </div>
+
+  <!-- Moved outside nutSection -- same class of bug as addSessionModal/coachSessionPanel:
+       these are full-screen popups (help, meal plans, diet templates, plan compare, day panel)
+       used from more than just Nutrition mode (coachHelpModal especially, used everywhere), but
+       were nested inside nutSection and silently rendered 0x0 whenever Nutrition wasn't the
+       active tab, since display:none on an ancestor overrides a fixed element's own display. -->
+<div id="mealPlanModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:500;background:rgba(0,0,0,.6);overflow-y:auto;-webkit-overflow-scrolling:touch;">
     <div style="max-width:520px;margin:20px auto;background:var(--bg);border-radius:14px;padding:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin:-20px -20px 16px -20px;padding:16px 20px;position:sticky;top:0;background:var(--bg);z-index:5;border-radius:14px 14px 0 0;">
         <div id="mp-modal-title" style="font-size:18px;font-weight:800;">Assign Meal Plan</div>
@@ -389,8 +416,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     </div>
   </div>
 
-  <!-- Coach Help modal -->
-  <div id="coachHelpModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:600;background:rgba(0,0,0,.65);overflow-y:auto;-webkit-overflow-scrolling:touch;">
+<div id="coachHelpModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:600;background:rgba(0,0,0,.65);overflow-y:auto;-webkit-overflow-scrolling:touch;">
     <div style="max-width:560px;margin:20px auto;background:var(--bg);border-radius:14px;padding:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin:-20px -20px 16px -20px;padding:16px 20px;position:sticky;top:0;background:var(--bg);z-index:5;border-radius:14px 14px 0 0;border-bottom:1px solid var(--border);">
         <div style="font-size:18px;font-weight:800;">How Merge Works</div>
@@ -400,8 +426,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     </div>
   </div>
 
-  <!-- Diet Template Library modal -->
-  <div id="dietTemplateModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:502;background:rgba(0,0,0,.6);overflow-y:auto;-webkit-overflow-scrolling:touch;">
+<div id="dietTemplateModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:502;background:rgba(0,0,0,.6);overflow-y:auto;-webkit-overflow-scrolling:touch;">
     <div style="max-width:520px;margin:20px auto;background:var(--bg);border-radius:14px;padding:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin:-20px -20px 16px -20px;padding:16px 20px;position:sticky;top:0;background:var(--bg);z-index:5;border-radius:14px 14px 0 0;">
         <div style="font-size:18px;font-weight:800;">Diet Templates</div>
@@ -434,8 +459,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     </div>
   </div>
 
-  <!-- Plan comparison modal: assigned vs actual -->
-  <div id="planCompareModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:501;background:rgba(0,0,0,.65);align-items:center;justify-content:center;padding:20px;">
+<div id="planCompareModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:501;background:rgba(0,0,0,.65);align-items:center;justify-content:center;padding:20px;">
     <div style="max-width:480px;width:100%;max-height:80vh;overflow-y:auto;background:var(--bg);border-radius:14px;padding:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <div style="font-size:16px;font-weight:800;">Assigned vs Actual</div>
@@ -445,14 +469,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     </div>
   </div>
 
-  <div class="content" id="nutClientView" style="display:none;">
-    <div style="margin-bottom:14px;">
-      <button class="back-btn" onclick="nutShowDash()">← All Clients</button>
-    </div>
-    <div id="nutClientDetail"></div>
-  </div>
-
-  <div id="nutDayPanel" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:var(--bg);z-index:100;overflow-y:auto;">
+<div id="nutDayPanel" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:var(--bg);z-index:100;overflow-y:auto;">
     <div style="max-width:520px;margin:0 auto;padding:14px;">
       <div style="display:flex;align-items:center;gap:12px;padding:10px 0 16px;border-bottom:1px solid var(--border);margin-bottom:16px;">
         <button onclick="closeDayPanel()" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;">← Back</button>
@@ -462,7 +479,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     </div>
   </div>
 
-  </div>
+
   <!-- ══════════════ END NUTRITION SECTION ══════════════ -->
 
   <!-- BODY MEASUREMENT ENTRY (shared by fitness + nutrition client views -- deliberately placed
@@ -2281,8 +2298,18 @@ function setUniSubTab(which){
   document.getElementById('uniNutDetail').style.display=which==='nutrition'?'block':'none';
 }
 
-function openUniClient(key){
+async function openUniClient(key){
   uniCurrentKey=key;
+  // Real bug fix: allRecords was only ever fetched once at login (and after
+  // the coach's OWN save/delete actions inside Merge) -- it never picked up
+  // a session logged from the client's own phone while Merge stayed open.
+  // That's exactly why a session showed in the tracker but not here. Now
+  // refetches fresh attendance every time a client is opened, so Merge is
+  // never looking at a stale snapshot.
+  try{
+    const res=await getSBScoped().from('attendance').select('*').eq('coach_id',window.currentCoachId).order('session_date',{ascending:false}).order('logged_at',{ascending:false});
+    if(!res.error) allRecords=res.data||[];
+  }catch(e){ /* fall through on stale data rather than block the view */ }
   const roster=buildUnifiedRoster();
   const c=roster.find(function(r){return r.key===key;});
   if(!c) return;
@@ -2975,10 +3002,8 @@ function openCoachSession(clientKey, date, time){
   const clients=groupClients();
   const c=Object.values(clients).find(c=>(c.mobile||c.name)===clientKey);
   if(!c)return;
-  // Build client_id key same way the tracker does
-  const name=c.name.toLowerCase().replace(/\s+/g,'_');
-  const mobile=(c.mobile||'').replace(/\D/g,'');
-  const clientId=mobile?name+'__'+mobile:name;
+  // Build client_id the same way the client's own tracker does (kfit__+mobile)
+  const clientId=buildClientId(c.name,c.mobile);
   const attRecord=c.records.find(r=>r.session_date===date&&(r.session_time||'')===(time||''));
   const isTaggedClient=!!taggedClients.fitness[canonicalClientKey(c.name,c.mobile)];
 
@@ -3006,8 +3031,27 @@ function openCoachSession(clientKey, date, time){
         if(sameDateSessions.length===1) s=sameDateSessions[0];
       }
       if(!s){
+        // Check the client's deleted-session archive -- if they deleted this
+        // from their phone, their coach copy is still recoverable from here,
+        // not just a blank re-entry.
+        const archive=d.deletedSessionsArchive||[];
+        const archived=archive.find(function(x){return x.date===date&&((x.timeOfDay||'')===(time||''));})
+          ||(archive.filter(function(x){return x.date===date;}).length===1?archive.find(function(x){return x.date===date;}):null);
+        if(archived){
+          document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">'
+            +'This session was deleted from the client\'s phone, but your copy is still here and can be restored.<br><br>'
+            +'<button onclick="restoreDeletedSession(\''+clientKey.replace(/'/g,"\\'")+'\',\''+date+'\',\''+(time||'').replace(/'/g,"\\'")+'\')" '
+            +'style="background:var(--sage);border:none;border-radius:8px;padding:10px 16px;color:#fff;'
+            +'font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin:4px;">'
+            +'↺ Restore This Session</button>'
+            +'<button onclick="cleanupOrphanedAttendance(\''+clientKey.replace(/'/g,"\\'")+'\',\''+date+'\',\''+(time||'').replace(/'/g,"\\'")+'\')" '
+            +'style="background:none;border:1px solid var(--terra);border-radius:8px;padding:10px 16px;color:var(--terra);'
+            +'font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin:4px;">'
+            +'🗑 Remove This Entry Instead</button></div>';
+          return;
+        }
         document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">'
-          +'Session detail not found. This usually means the session was deleted or never fully saved '
+          +'Session detail not found. This usually means the session was never fully saved '
           +'(often from a connection drop) but the attendance record was left behind.<br><br>'
           +'<button onclick="fillOrphanedSession(\''+clientKey.replace(/'/g,"\\'")+'\',\''+date+'\',\''+(time||'').replace(/'/g,"\\'")+'\')" '
           +'style="background:var(--sage);border:none;border-radius:8px;padding:10px 16px;color:#fff;'
@@ -3025,6 +3069,33 @@ function openCoachSession(clientKey, date, time){
         <button onclick="deleteCoachSessionFromPanel()" style="background:none;border:1px solid var(--terra);border-radius:8px;padding:8px 14px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🗑 Delete</button>`;
       renderCoachSession(s,sessions);
     });
+}
+
+// Brings a client-deleted session back into their active list, from the
+// coach's still-intact archived copy. Un-tombstones it (or a resurrected
+// sync would just delete it again) and writes straight back to their
+// tracker_data row.
+async function restoreDeletedSession(clientKey,date,time){
+  const clients=groupClients();
+  const c=Object.values(clients).find(c=>(c.mobile||c.name)===clientKey);
+  if(!c) return;
+  const clientId=buildClientId(c.name,c.mobile);
+  const res=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+  if(res.error||!res.data||!res.data.length){ alert('Could not load this client\'s data to restore from.'); return; }
+  const d=typeof res.data[0].data==='string'?JSON.parse(res.data[0].data):res.data[0].data;
+  const archive=d.deletedSessionsArchive||[];
+  const archived=archive.find(function(x){return x.date===date&&((x.timeOfDay||'')===(time||''));})
+    ||(archive.filter(function(x){return x.date===date;}).length===1?archive.find(function(x){return x.date===date;}):null);
+  if(!archived){ alert('That archived session could not be found -- it may have already been restored.'); return; }
+  const sessions=d.sessions||[];
+  if(!sessions.some(function(x){return x.id===archived.id;})) sessions.push(archived);
+  const deletedIds=(d.deletedSessionIds||[]).filter(function(id){return id!==archived.id;});
+  const newArchive=archive.filter(function(x){return x.id!==archived.id;});
+  const newData=Object.assign({},d,{sessions:sessions,deletedSessionIds:deletedIds,deletedSessionsArchive:newArchive});
+  const upd=await getSBScoped().from('tracker_data').update({data:newData}).eq('client_id',clientId).eq('tracker','fitness');
+  if(upd.error){ alert('Error restoring session: '+upd.error.message); return; }
+  toast('Session restored');
+  openCoachSession(clientKey,date,time);
 }
 
 function calcPersonalRecordsCoach(sessions){
@@ -3446,10 +3517,22 @@ function lastPerfHtml(exName){
   const dateStr=d.getDate()+' '+M[d.getMonth()];
   const unit=perf.session.unit||'kg';
   const setData=(perf.ex.setData||[]).filter(r=>r.reps||r.weight);
-  const rows=setData.map((r,i)=>`<span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">S${i+1}: ${r.reps||'--'}${r.weight?' × '+r.weight+unit:''}</span>`).join(' &nbsp;·&nbsp; ');
-  return `<div style="background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.25);border-radius:6px;padding:6px 10px;margin:6px 0;font-size:12px;">
-    <span style="color:var(--gold);font-weight:800;text-transform:uppercase;letter-spacing:1px;">Last time (${dateStr}):</span> ${rows||'<span style="color:var(--muted);">No set data</span>'}
-  </div>`;
+  let dsN=0, mainN=0;
+  const innerHtml=setData.map(function(r){
+    const label=r.dropset?(++dsN>1?'D'+dsN:'D'):(dsN=0,mainN++,'Set '+mainN);
+    return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;'+(r.dropset?'margin-left:16px;border-left:2px solid var(--terra);':'')+'">'
+    +'<span style="font-family:\'DM Mono\',monospace;font-size:13px;color:'+(r.dropset?'var(--terra)':'var(--muted)')+';width:36px;flex-shrink:0;text-transform:uppercase;">'+label+'</span>'
+    +(r.reps?'<span style="font-size:13px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.assistedReps>0?' <span style="color:var(--terra);font-size:11px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
+    +(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:13px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
+    +'</div>';
+  }).join('');
+  return '<div style="background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.25);border-radius:8px;margin:8px 0;overflow:hidden;">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;">'
+    +'<div style="font-size:12px;font-weight:800;color:var(--gold);letter-spacing:.06em;text-transform:uppercase;">⚠ Last Session</div>'
+    +'<div style="font-size:12px;color:var(--muted);">'+dateStr+'</div>'
+    +'</div>'
+    +'<div style="padding:0 10px 10px;display:flex;flex-direction:column;gap:5px;">'+(innerHtml||'<div style="font-size:12px;color:var(--muted);padding:4px 0;">No set data recorded</div>')+'</div>'
+    +'</div>';
 }
 
 function detectWorkoutTypeCoach(){
@@ -3480,9 +3563,17 @@ function setAsUnit(u){
 }
 
 function buildClientId(name,mobile){
-  const n=(name||'').toLowerCase().replace(/\s+/g,'_');
+  // Fixed to match the client trackers' actual canonical key (kfit__+mobile,
+  // mobile-only, name-independent -- fixed there weeks ago after a
+  // data-fragmentation bug). This function still built name__mobile, the
+  // OLD retired format, meaning Merge has been reading and writing a
+  // different row than the one the client's own tracker actually uses --
+  // the real cause of "session detail not found" for sessions that
+  // definitely exist, and likely routines assigned via Merge landing in a
+  // stray duplicate row instead of the client's real one.
   const m=(mobile||'').replace(/\D/g,'');
-  return m?n+'__'+m:n;
+  if(m) return 'kfit__'+m;
+  return (name||'').toLowerCase().replace(/\s+/g,'_');
 }
 
 // ===== BODY MEASUREMENTS (coach can view + add/edit/delete for either tracker) =====
@@ -3980,16 +4071,20 @@ function renderAsSupersets(){
           </div>
           ${lastPerfHtml(e.ex)}
           <div style="display:flex;flex-direction:column;gap:6px;">
-            <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);"><span></span><span>Reps</span><span>${asUnit}</span></div>
+            <div style="display:grid;grid-template-columns:30px 1fr auto auto 1fr;gap:6px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);"><span></span><span>Reps</span><span></span><span></span><span>${asUnit}</span></div>
             ${groups.map(g=>`
-              <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;align-items:center;">
+              <div style="display:grid;grid-template-columns:30px 1fr auto auto 1fr;gap:6px;align-items:center;">
                 <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:600;color:var(--muted);text-align:center;">S${g.mainIdx+1}</span>
                 <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${g.mainItem.reps}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${g.mainRealIdx},'reps',this.value)">
+                ${asAssistLPHtml(g.mainItem.assistedReps||0,'H',`bumpAsSupersetAssist('${ss.id}','${e.id}',${g.mainRealIdx},1)`,`bumpAsSupersetAssist('${ss.id}','${e.id}',${g.mainRealIdx},-1)`)}
+                ${asAssistLPHtml(g.mainItem.lengthenedPartialReps||0,'LP',`bumpAsSupersetLP('${ss.id}','${e.id}',${g.mainRealIdx},1)`,`bumpAsSupersetLP('${ss.id}','${e.id}',${g.mainRealIdx},-1)`)}
                 <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${g.mainItem.weight}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${g.mainRealIdx},'weight',this.value)">
               </div>
-              ${g.drops.map((d,di)=>`<div style="display:grid;grid-template-columns:30px 1fr 1fr auto;gap:8px;align-items:center;margin-left:14px;padding-left:8px;border-left:2px solid rgba(200,120,63,.35);">
+              ${g.drops.map((d,di)=>`<div style="display:grid;grid-template-columns:30px 1fr auto auto 1fr auto;gap:6px;align-items:center;margin-left:14px;padding-left:8px;border-left:2px solid rgba(200,120,63,.35);">
                 <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--terra);font-weight:800;text-align:center;">${di>0?'D'+(di+1):'D'}</span>
                 <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${d.item.reps}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${d.realIdx},'reps',this.value)">
+                ${asAssistLPHtml(d.item.assistedReps||0,'H',`bumpAsSupersetAssist('${ss.id}','${e.id}',${d.realIdx},1)`,`bumpAsSupersetAssist('${ss.id}','${e.id}',${d.realIdx},-1)`)}
+                ${asAssistLPHtml(d.item.lengthenedPartialReps||0,'LP',`bumpAsSupersetLP('${ss.id}','${e.id}',${d.realIdx},1)`,`bumpAsSupersetLP('${ss.id}','${e.id}',${d.realIdx},-1)`)}
                 <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${d.item.weight}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${d.realIdx},'weight',this.value)">
                 <button onclick="removeAsSupersetDropSet('${ss.id}','${e.id}',${d.realIdx})" title="Remove this drop set" style="background:none;border:none;color:var(--muted2);font-size:15px;font-weight:600;cursor:pointer;padding:0;">✕</button>
               </div>`).join('')}
@@ -4036,16 +4131,20 @@ function renderAsExercises(){
       </div>
       ${b.collapsed?'':`${lastPerfHtml(b.ex)}
       <div style="display:flex;flex-direction:column;gap:6px;">
-        <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);"><span></span><span>Reps</span><span>${asUnit}</span></div>
+        <div style="display:grid;grid-template-columns:30px 1fr auto auto 1fr;gap:6px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);"><span></span><span>Reps</span><span></span><span></span><span>${asUnit}</span></div>
         ${groups.map(g=>`
-          <div style="display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;align-items:center;">
+          <div style="display:grid;grid-template-columns:30px 1fr auto auto 1fr;gap:6px;align-items:center;">
             <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:600;color:var(--muted);text-align:center;">S${g.mainIdx+1}</span>
             <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${g.mainItem.reps}" oninput="updateAsExSetData('${b.id}',${g.mainRealIdx},'reps',this.value)">
+            ${asAssistLPHtml(g.mainItem.assistedReps||0,'H',`bumpAsAssist('${b.id}',${g.mainRealIdx},1)`,`bumpAsAssist('${b.id}',${g.mainRealIdx},-1)`)}
+            ${asAssistLPHtml(g.mainItem.lengthenedPartialReps||0,'LP',`bumpAsLP('${b.id}',${g.mainRealIdx},1)`,`bumpAsLP('${b.id}',${g.mainRealIdx},-1)`)}
             <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${g.mainItem.weight}" oninput="updateAsExSetData('${b.id}',${g.mainRealIdx},'weight',this.value)">
           </div>
-          ${g.drops.map((d,di)=>`<div style="display:grid;grid-template-columns:30px 1fr 1fr auto;gap:8px;align-items:center;margin-left:14px;padding-left:8px;border-left:2px solid rgba(200,120,63,.35);">
+          ${g.drops.map((d,di)=>`<div style="display:grid;grid-template-columns:30px 1fr auto auto 1fr auto;gap:6px;align-items:center;margin-left:14px;padding-left:8px;border-left:2px solid rgba(200,120,63,.35);">
             <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--terra);font-weight:800;text-align:center;">${di>0?'D'+(di+1):'D'}</span>
             <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${d.item.reps}" oninput="updateAsExSetData('${b.id}',${d.realIdx},'reps',this.value)">
+            ${asAssistLPHtml(d.item.assistedReps||0,'H',`bumpAsAssist('${b.id}',${d.realIdx},1)`,`bumpAsAssist('${b.id}',${d.realIdx},-1)`)}
+            ${asAssistLPHtml(d.item.lengthenedPartialReps||0,'LP',`bumpAsLP('${b.id}',${d.realIdx},1)`,`bumpAsLP('${b.id}',${d.realIdx},-1)`)}
             <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${d.item.weight}" oninput="updateAsExSetData('${b.id}',${d.realIdx},'weight',this.value)">
             <button onclick="removeAsDropSet('${b.id}',${d.realIdx})" title="Remove this drop set" style="background:none;border:none;color:var(--muted2);font-size:15px;font-weight:600;cursor:pointer;padding:0;">✕</button>
           </div>`).join('')}
@@ -4184,6 +4283,45 @@ function updateAsExSetData(id,idx,field,val){
   if(b&&b.setData[idx])b.setData[idx][field]=val;
 }
 
+function bumpAsAssist(id,idx,delta){
+  const b=asExercises.find(b=>b.id==id);
+  if(!b||!b.setData[idx])return;
+  b.setData[idx].assistedReps=Math.max(0,(b.setData[idx].assistedReps||0)+delta);
+  renderAsExercises();
+}
+function bumpAsLP(id,idx,delta){
+  const b=asExercises.find(b=>b.id==id);
+  if(!b||!b.setData[idx])return;
+  b.setData[idx].lengthenedPartialReps=Math.max(0,(b.setData[idx].lengthenedPartialReps||0)+delta);
+  renderAsExercises();
+}
+function bumpAsSupersetAssist(ssId,exId,idx,delta){
+  const ss=asSupersets.find(s=>s.id==ssId);
+  const e=ss&&ss.exercises.find(x=>x.id==exId);
+  if(!e||!e.setData[idx])return;
+  e.setData[idx].assistedReps=Math.max(0,(e.setData[idx].assistedReps||0)+delta);
+  renderAsSupersets();
+}
+function bumpAsSupersetLP(ssId,exId,idx,delta){
+  const ss=asSupersets.find(s=>s.id==ssId);
+  const e=ss&&ss.exercises.find(x=>x.id==exId);
+  if(!e||!e.setData[idx])return;
+  e.setData[idx].lengthenedPartialReps=Math.max(0,(e.setData[idx].lengthenedPartialReps||0)+delta);
+  renderAsSupersets();
+}
+// Small tap-to-adjust H (assisted rep) / LP (lengthened partial) pill,
+// matching the tracker's H/LP concept -- Merge re-renders the whole block on
+// every change rather than tracking DOM state, so instead of tap=+1/hold=-1
+// like the tracker, tapping the pill itself increments and a small "-"
+// appears once the count is above 0 to step back down.
+function asAssistLPHtml(count,label,incFn,decFn){
+  const active=count>0;
+  return '<div style="display:flex;align-items:center;gap:2px;">'
+    +(active?'<button type="button" onclick="'+decFn+'" style="width:16px;height:22px;background:none;border:none;color:var(--muted2);font-size:13px;cursor:pointer;padding:0;">−</button>':'')
+    +'<button type="button" onclick="'+incFn+'" title="'+(label==='H'?'Assisted rep':'Lengthened partial rep')+'" style="min-width:26px;height:22px;padding:0 4px;background:'+(active?(label==='H'?'var(--terra)':'var(--gold)'):'var(--surf2)')+';border:1px solid '+(active?'transparent':'var(--border)')+';border-radius:5px;color:'+(active?(label==='H'?'#fff':'#1a1408'):'var(--muted)')+';font-size:10px;font-weight:800;cursor:pointer;">'+(active?count:label)+'</button>'
+    +'</div>';
+}
+
 function removeAsExercise(id){
   asExercises=asExercises.filter(b=>b.id!=id);
   renderAsExercises();
@@ -4216,7 +4354,7 @@ function editCoachSession(){
     id:Date.now()+Math.random(),
     ex:e.ex,
     sets:(e.setData&&e.setData.length)?e.setData.filter(r=>!r.dropset).length||e.setData.length:(e.sets||3),
-    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assistedReps:r.assistedReps||0,dropset:r.dropset||false,afterMain:r.afterMain!=null?r.afterMain:null})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assistedReps:r.assistedReps||0,lengthenedPartialReps:r.lengthenedPartialReps||0,dropset:r.dropset||false,afterMain:r.afterMain!=null?r.afterMain:null})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
   }));
   renderAsExercises();
 
@@ -4227,7 +4365,7 @@ function editCoachSession(){
       id:Date.now()+Math.random(),
       ex:e.ex,
       sets:(e.setData&&e.setData.length)?e.setData.filter(r=>!r.dropset).length||e.setData.length:(e.sets||3),
-      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assistedReps:r.assistedReps||0,dropset:r.dropset||false,afterMain:r.afterMain!=null?r.afterMain:null})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
+      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assistedReps:r.assistedReps||0,lengthenedPartialReps:r.lengthenedPartialReps||0,dropset:r.dropset||false,afterMain:r.afterMain!=null?r.afterMain:null})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
     }))
   }));
   renderAsSupersets();

@@ -1225,6 +1225,9 @@ const FUNCTIONAL_EX = new Set(EX_LIB['Functional']);
 function isFunctional(exName){ return FUNCTIONAL_EX.has(exName); }
 
 let selectedBP=[], sessions=[], notes={}, assignedWorkouts={}, deletedSessionIds=[], measurements=[], routines=[], deletedRoutineIds=[];
+// A deleted session's full data (not just its id) so a coach can actually
+// restore what was there, not just re-log blind. Capped in saveSessions.
+let deletedSessionsArchive=[];
 const MEAS_FIELDS=[
 {key:'weight',label:'Weight (kg)'},
 {key:'height',label:'Height (cm)'},
@@ -4598,6 +4601,7 @@ var serverAssigned={};
 var serverSessions=[];
 var serverMeasurements=[];
 var serverRoutines=[];
+var serverArchive=[];
 try{
 if(!fres.error&&fres.data&&fres.data.length){
 fres.data.forEach(function(row){
@@ -4607,6 +4611,7 @@ serverAssigned=Object.assign({},serverAssigned,fd.assignedWorkouts||{});
 serverSessions=serverSessions.concat(fd.sessions||[]);
 serverMeasurements=serverMeasurements.concat(fd.measurements||[]);
 serverRoutines=serverRoutines.concat(fd.routines||[]);
+serverArchive=serverArchive.concat(fd.deletedSessionsArchive||[]);
 });
 }
 }catch(e){}
@@ -4654,6 +4659,14 @@ return (b.updatedAt||0)-(a.updatedAt||0);
 sessions=mergedSessions;
 try{localStorage.setItem('kmfit_sessions',JSON.stringify(sessions));}catch(e){}
 
+// Merge the deleted-session archive same as everything else -- union by id,
+// most recent first, capped so this can't grow unbounded over years of use.
+var archiveById={};
+serverArchive.forEach(function(s){ if(s&&s.id) archiveById[s.id]=s; });
+(deletedSessionsArchive||[]).forEach(function(s){ if(s&&s.id) archiveById[s.id]=s; });
+deletedSessionsArchive=Object.values(archiveById).sort(function(a,b){return (b.updatedAt||0)-(a.updatedAt||0);}).slice(0,80);
+try{localStorage.setItem('kmfit_deleted_archive',JSON.stringify(deletedSessionsArchive));}catch(e){}
+
 var payload={
 user_id:uid,
 client_id:key,
@@ -4663,6 +4676,7 @@ sessions:sessions,
 notes:notes,
 assignedWorkouts:mergedAssigned,
 deletedSessionIds:deletedSessionIds,
+deletedSessionsArchive:deletedSessionsArchive,
 deletedRoutineIds:deletedRoutineIds,
 measurements:measurements,
 routines:routines,
@@ -4754,6 +4768,16 @@ var remoteDeleted=d.deletedSessionIds||[];
 
 deletedSessionIds=Array.from(new Set([...localDeleted,...remoteDeleted]));
 var deletedSet=new Set(deletedSessionIds.map(String));
+
+var localArchiveRaw=localStorage.getItem('kmfit_deleted_archive');
+var localArchive=[];
+try{localArchive=JSON.parse(localArchiveRaw)||[];}catch(e){}
+var remoteArchive=d.deletedSessionsArchive||[];
+var archiveByIdInit={};
+remoteArchive.forEach(function(s){ if(s&&s.id) archiveByIdInit[s.id]=s; });
+localArchive.forEach(function(s){ if(s&&s.id) archiveByIdInit[s.id]=s; });
+deletedSessionsArchive=Object.values(archiveByIdInit).sort(function(a,b){return (b.updatedAt||0)-(a.updatedAt||0);}).slice(0,80);
+try{localStorage.setItem('kmfit_deleted_archive',JSON.stringify(deletedSessionsArchive));}catch(e){}
 
 var localDeletedRoutinesRaw=localStorage.getItem('kmfit_deleted_routine_ids');
 var localDeletedRoutines=[];
@@ -6910,13 +6934,16 @@ setTimeout(function(){panel.style.transform='';},300);
 
 async function deleteSession(id){
 const s=sessions.find(x=>x.id===id);
-const ok=await showConfirm('Delete this session?','This cannot be undone.');
+const ok=await showConfirm('Delete this session?','This removes it from your history here. Your coach keeps a record of it and can bring it back if needed -- for billing or otherwise -- so this isn\'t permanent on their end even though it is on yours.');
 if(!ok)return;
+if(s){
+deletedSessionsArchive=[s,...(deletedSessionsArchive||[]).filter(function(x){return x.id!==s.id;})].slice(0,80);
+try{localStorage.setItem('kmfit_deleted_archive',JSON.stringify(deletedSessionsArchive));}catch(e){}
+}
 sessions=sessions.filter(x=>x.id!==id);
 deletedSessionIds=Array.from(new Set([...deletedSessionIds,id]));
 localStorage.setItem('kmfit_deleted_ids',JSON.stringify(deletedSessionIds));
 saveSessions();closeDetail();renderHistory();renderStats();toast('Deleted');
-if(s) deleteAttendance(s.date, s.timeOfDay||'');
 }
 
 function deleteAttendance(date,time){
