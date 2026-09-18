@@ -570,7 +570,7 @@ function getClientCoachId(){
   }
   return KFIT_DEFAULT_COACH_ID;
 }
-const COACH_SCOPED_TABLES_CLIENT=['tracker_data','app_feedback'];
+const COACH_SCOPED_TABLES_CLIENT=['tracker_data','app_feedback','client_name_history'];
 function getSBScoped(){
   const real=getSB();
   return {
@@ -625,9 +625,10 @@ function checkClientAccess(){
 }
 
 function getClientKey(){
-var name=appSetup&&appSetup.clientName?appSetup.clientName.toLowerCase().replace(/\s+/g,'_'):'unknown';
 var mobile=(localStorage.getItem('kmnut_mobile')||'').replace(/\D/g,'');
-return mobile?name+'__'+mobile:name;
+if(mobile) return 'knut__'+mobile;
+var name=appSetup&&appSetup.clientName?appSetup.clientName.toLowerCase().replace(/\s+/g,'_'):'unknown';
+return name;
 }
 
 function ensureAnonAuth(callback){
@@ -699,7 +700,8 @@ return ((c.log&&c.log[dateStr])||[]).reduce(function(a,e){return a+(e.amount||0)
 // ══════════════════════════════════════════════════════════════════
 // SUGGEST A TARGET -- reads the client's own fitness-tracker profile
 // (age/sex/height/weight, already mandatory there) by matching the
-// SAME client_id format both trackers use (name+mobile), then computes
+// SAME client_id format both trackers use (mobile number alone --
+// name-independent, per the storage-key fix), then computes
 // a suggested calorie target via Mifflin-St Jeor + a standard TDEE
 // activity multiplier + a deficit/surplus goal. Nothing forces this --
 // it's an optional suggestion the client can apply or ignore, and the
@@ -711,10 +713,9 @@ var ACTIVITY_MULT={sedentary:1.2,light:1.375,moderate:1.55,active:1.725,veryActi
 var ACTIVITY_LABELS={sedentary:'Sedentary (little/no exercise)',light:'Light (1-3 days/week)',moderate:'Moderate (3-5 days/week)',active:'Active (6-7 days/week)',veryActive:'Very active (physical job or 2x/day)'};
 
 function fitnessClientIdForCurrentUser(){
-var name=appSetup&&appSetup.clientName?appSetup.clientName.toLowerCase().replace(/\s+/g,'_'):'';
 var mobile=(localStorage.getItem('kmnut_mobile')||'').replace(/\D/g,'');
-if(!name||!mobile) return null;
-return name+'__'+mobile;
+if(!mobile) return null;
+return 'kfit__'+mobile;
 }
 function openCalorieSuggest(){
 calSuggestState.open=true;
@@ -776,7 +777,7 @@ html+='</div>';
 return html;
 }
 if(calSuggestState.notFound){
-html+='<div style="font-size:13px;color:var(--txt2);line-height:1.5;">Couldn\'t find a matching fitness tracker profile -- this needs the same name and mobile number on both trackers, plus age/sex/height/weight filled in there. No problem, just set your target manually above.</div>';
+html+='<div style="font-size:13px;color:var(--txt2);line-height:1.5;">Couldn\'t find a matching fitness tracker profile -- this needs the same mobile number on both trackers, plus age/sex/height/weight filled in there. No problem, just set your target manually above.</div>';
 html+='<div style="text-align:center;margin-top:8px;"><span onclick="closeCalorieSuggest()" style="font-size:12px;color:var(--txt2);text-decoration:underline;cursor:pointer;">Close</span></div>';
 html+='</div>';
 return html;
@@ -929,6 +930,12 @@ render();
 function renderAccountView(){
 var mobile=localStorage.getItem('kmnut_mobile');
 var html='<div style="padding:16px;">';
+
+html+='<div style="background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">';
+html+='<div style="font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:12px;">👤 Your Name</div>'
++'<p style="font-size:.85rem;color:var(--txt2);margin-bottom:12px;">'+((appSetup&&appSetup.clientName)?'<strong style="color:var(--txt);">'+appSetup.clientName+'</strong>':'Not set')+'</p>'
++'<button onclick="_openNutNameModal((appSetup&&appSetup.clientName)||\'\',false)" style="padding:9px 16px;background:transparent;border:1px solid var(--border);border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:.8rem;font-weight:600;color:var(--txt2);cursor:pointer;">Edit Name</button>';
+html+='</div>';
 
 html+='<div style="background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;">';
 html+='<div style="font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text);margin-bottom:12px;">📱 Mobile Login</div>';
@@ -1655,8 +1662,8 @@ progress:{title:'Progress',body:
 '<b>Got a DEXA or InBody scan?</b><br>Tap "Upload Scan / Report" to attach the photo or PDF to that date\'s entry -- it\'s saved here so you and your coach can look back on it any time.<br><br>'+
 '<b>Heads up</b><br>This measurements log is separate from the one in the Fitness tracker -- logging your weight here won\'t show up there, and vice versa.'},
 vices:{title:'Vices',body:'Log anything outside your regular eating plan here -- a dessert, a drink, a cheat meal, whatever it was. This isn\'t about guilt -- keeping it separate from your normal meals just gives your coach the full, honest picture without throwing off your daily meal scores.'},
-calories:{title:'Calories',body:'A simple, separate calorie log -- just enter a number and, if you want, a quick label like "lunch" or "snack". Set a daily target if your coach wants you working toward one. Remaining shows Target minus what you\'ve logged so far today.<br><br><b>Not sure what your target should be?</b> Tap "Suggest a target for me" -- if you use the fitness tracker too (same name and mobile number there), it\'ll pull your age/sex/height/weight from that profile and work out a starting number based on your activity level and goal. Just a starting point, not a rule.<br><br><b>This isn\'t a food database and it won\'t ask you to weigh anything.</b> A rough number logged beats a precise one you never get around to. Missed a day? No streaks get broken and nothing turns red -- just pick back up whenever.'},
-account:{title:'Account',body:'Your profile details -- your name, mobile number, and programme settings. This is also where you go to log out, or to update your login details if you switch to a new phone.'}
+calories:{title:'Calories',body:'A simple, separate calorie log -- just enter a number and, if you want, a quick label like "lunch" or "snack". Set a daily target if your coach wants you working toward one. Remaining shows Target minus what you\'ve logged so far today.<br><br><b>Not sure what your target should be?</b> Tap "Suggest a target for me" -- if you use the fitness tracker too (same mobile number there), it\'ll pull your age/sex/height/weight from that profile and work out a starting number based on your activity level and goal. Just a starting point, not a rule.<br><br><b>This isn\'t a food database and it won\'t ask you to weigh anything.</b> A rough number logged beats a precise one you never get around to. Missed a day? No streaks get broken and nothing turns red -- just pick back up whenever.'},
+account:{title:'Account',body:'Your profile details -- your name, mobile number, and programme settings. Got your name wrong at signup, or mistyped a client\'s name? Tap <b>Edit Name</b> here to fix it -- it also updates any past entries under that name so nothing gets split into two records. This is also where you go to log out, or to update your login details if you switch to a new phone.'}
 };
 function showHelp(view){
 var h=HELP_TEXT_NUT[view]||HELP_TEXT_NUT.track;
@@ -1865,7 +1872,7 @@ renderFeedbackChat();
 getSBScoped().from('app_feedback').insert({
 message:msg,
 tab:tabLabel,
-submitted_by:(appSetup&&appSetup.clientName)||'Client',
+submitted_by:(appSetup&&appSetup.clientName)||('Unnamed '+((appSetup&&appSetup.mobile)||'client')),
 submitted_by_mobile:localStorage.getItem('kmnut_mobile')||null,
 status:'new',
 read_by_coach:false,
@@ -3377,6 +3384,52 @@ render();
 checkClientAccess();
 
 syncToSupabase();
+if(!appSetup||!appSetup.clientName){
+setTimeout(function(){ _openNutNameModal('',true); },600);
+}
+}
+
+function _openNutNameModal(prefill,required){
+var existing=document.getElementById('nutNameEditModal');
+if(existing) existing.remove();
+var overlay=document.createElement('div');
+overlay.id='nutNameEditModal';
+overlay.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:24px;';
+overlay.innerHTML=`
+<div style="background:var(--surf,#1a1a18);border:1px solid var(--border,#333);border-radius:14px;padding:22px;max-width:340px;width:100%;">
+<div style="font-size:17px;font-weight:800;color:var(--txt,#fff);margin-bottom:6px;">Your name</div>
+${required?'<div style="font-size:13px;color:var(--muted,#999);margin-bottom:14px;">We need your real name before you can continue -- it\'s how your coach identifies you.</div>':'<div style="margin-bottom:14px;"></div>'}
+<input id="nutNameEditInput" type="text" value="${(prefill||'').replace(/"/g,'&quot;')}" placeholder="e.g. Karan Mehta" style="width:100%;padding:12px;background:var(--surf2,#111);border:1px solid var(--border,#333);border-radius:8px;color:var(--txt,#fff);font-size:16px;font-family:inherit;margin-bottom:16px;box-sizing:border-box;">
+<div style="display:flex;gap:10px;">
+${required?'':'<button onclick="document.getElementById(\'nutNameEditModal\').remove()" style="flex:1;padding:11px;background:none;border:1px solid var(--border,#333);border-radius:8px;color:var(--muted,#999);font-weight:700;font-size:15px;">Cancel</button>'}
+<button onclick="_saveNutNameFromModal()" style="flex:1;padding:11px;background:var(--sage,#3a6e40);border:none;border-radius:8px;color:#fff;font-weight:700;font-size:15px;">Save</button>
+</div>
+</div>`;
+document.body.appendChild(overlay);
+var inp=document.getElementById('nutNameEditInput');
+if(inp){ inp.focus(); inp.select(); }
+}
+
+function _saveNutNameFromModal(){
+var inp=document.getElementById('nutNameEditInput');
+var next=(inp?inp.value:'').trim();
+if(!next){ toast('Name can\'t be empty'); return; }
+var oldName=(appSetup&&appSetup.clientName)||'';
+var mobile=(localStorage.getItem('kmnut_mobile')||'').replace(/\D/g,'');
+if(!appSetup) appSetup={};
+appSetup.clientName=next;
+localStorage.setItem(LS_SETUP,JSON.stringify(appSetup));
+var modal=document.getElementById('nutNameEditModal');
+if(modal) modal.remove();
+if(typeof render==='function') render();
+if(oldName&&oldName!==next&&mobile){
+ensureAnonAuth(function(uid){
+if(!uid) return;
+getSBScoped().from('client_name_history').insert({client_mobile:mobile,old_name:oldName,new_name:next,tracker:'nutrition'}).then(function(){});
+});
+}
+if(typeof syncToSupabase==='function') syncToSupabase();
+toast('Name updated');
 }
 
 var _otpPendingMobile=null;
