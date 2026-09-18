@@ -608,6 +608,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 </div>
 <script>
 
+// TEMPORARY DIAGNOSTIC -- catches any error that would otherwise fail
+// silently (like a button doing nothing with no visible error) and shows
+// it as a plain alert, since you can't open browser dev tools on iPhone.
+// Once we've found and fixed whatever's causing "Assign Another Workout"
+// to do nothing, this can come back out.
+window.addEventListener('error',function(e){
+  alert('KFit error caught:\n'+e.message+'\n\nAt: '+(e.filename||'')+':'+(e.lineno||'')+'\n\nPlease screenshot this and send it back.');
+});
+window.addEventListener('unhandledrejection',function(e){
+  alert('KFit error caught (async):\n'+(e.reason&&e.reason.message?e.reason.message:e.reason)+'\n\nPlease screenshot this and send it back.');
+});
+
 const SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
 const SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
 let sb=null;
