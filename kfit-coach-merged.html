@@ -619,25 +619,7 @@ window.addEventListener('error',function(e){
 window.addEventListener('unhandledrejection',function(e){
   alert('KFit error caught (async):\n'+(e.reason&&e.reason.message?e.reason.message:e.reason)+'\n\nPlease screenshot this and send it back.');
 });
-// Second diagnostic layer: since no JS error is firing, the tap itself may
-// not be reaching the button (something invisible sitting on top of it, or
-// a coordinate/zoom mismatch). This shows exactly what element every tap
-// actually lands on, in a small readable panel at the bottom of the screen.
-(function(){
-  var panel=document.createElement('div');
-  panel.style.cssText='position:fixed;left:0;right:0;bottom:0;background:#000;color:#0f0;font:11px monospace;padding:8px;z-index:999999;max-height:90px;overflow-y:auto;white-space:pre-wrap;border-top:2px solid #0f0;';
-  panel.textContent='Tap anything -- last tap info shows here.';
-  document.addEventListener('DOMContentLoaded',function(){document.body.appendChild(panel);});
-  window.addEventListener('click',function(e){
-    var t=e.target;
-    var info='TAP HIT: <'+t.tagName.toLowerCase()+
-      (t.id?' id="'+t.id+'"':'')+
-      (t.className&&typeof t.className==='string'?' class="'+t.className+'"':'')+
-      '> text="'+(t.textContent||'').trim().slice(0,40)+
-      '"\nonclick attr: '+(t.getAttribute('onclick')||'(none on this exact element)');
-    panel.textContent=info;
-  },true);
-})();
+
 
 const SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
 const SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
@@ -652,6 +634,30 @@ let allRecords=[];
 // nothing for the rest of that page load, with no visible error. Declaring
 // it here, before anything that can fail, means it's always safely defined.
 let editingContext=null; // {attendanceId, sessionId, clientId, origDate, origTime} when editing an existing session
+
+// Forces a real repaint when showing a full-screen panel that has been
+// display:none since the page loaded. On some iOS PWA (home-screen,
+// standalone) sessions, WebKit can silently fail to paint an element the
+// very first time it goes from display:none to display:block via JS --
+// the code runs fine, the style is set correctly, but nothing appears on
+// screen until something else forces a redraw. Reading offsetHeight forces
+// the browser to recalculate layout immediately; the double
+// requestAnimationFrame is a standard, harmless belt-and-braces nudge for
+// the same class of bug. Use this instead of a bare style.display='block'
+// for any element that starts hidden in the page's initial HTML.
+function showFullscreenPanel(id){
+  var el=document.getElementById(id);
+  if(!el) return;
+  el.style.display='block';
+  void el.offsetHeight; // force synchronous reflow
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      el.style.display='none';
+      void el.offsetHeight;
+      el.style.display='block';
+    });
+  });
+}
 
 function localDateStr(d){
   d=d||new Date();
@@ -2945,7 +2951,7 @@ function openCoachSession(clientKey, date, time){
   document.getElementById('coachSessActions').innerHTML=(attRecord&&isTaggedClient)?
     `<button onclick="togglePaid('${(c.mobile||'').replace(/'/g,"\\'")}','${date}','${(time||'').replace(/'/g,"\\'")}',${!!attRecord.paid})" style="padding:5px 12px;border-radius:12px;border:1px solid ${attRecord.paid?'var(--sage)':'var(--terra)'};background:${attRecord.paid?'var(--sage)':'transparent'};color:${attRecord.paid?'#fff':'var(--terra)'};font-family:'DM Sans',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.5px;cursor:pointer;">${attRecord.paid?'PAID':'UNPAID'}</button>`:'';
   document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">Loading...</div>';
-  document.getElementById('coachSessionPanel').style.display='block';
+  showFullscreenPanel('coachSessionPanel');
 
   getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness')
     .then(function(res){
@@ -3701,7 +3707,8 @@ function openAddSession(clientKey){
     onAsClientChange(sel);
   }
 
-  document.getElementById('addSessionModal').style.display='block';
+  showFullscreenPanel('addSessionModal');
+
 }
 
 function closeAddSession(){
