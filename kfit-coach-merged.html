@@ -1053,9 +1053,20 @@ async function loadClientAccess(){
 function openAdminCoachDetail(id){
 var c=(window._adminCoaches||[]).find(function(x){return x.id===id;});
 if(!c) return;
+// Filtered to actually-tagged clients only (client_tags), not just anyone
+// whose raw attendance/tracker_data happens to carry this coach_id. Untagged
+// rows -- e.g. a walk-in who landed here via the no-?coach?-link fallback --
+// stay in Supabase for aggregate data purposes, they just don't count as
+// this coach's clientele here since the coach never actually added them.
+var taggedKeysForCoach={};
+(window._adminClientTags||[]).forEach(function(t){
+if(t.coach_id===id) taggedKeysForCoach[t.client_key]=true;
+});
 var attendance=(window._adminAttendance||[]).filter(function(a){return a.coach_id===id;});
 var clientMap={};
 attendance.forEach(function(a){
+var canonKey=canonicalClientKey(a.client_name,a.client_mobile);
+if(!canonKey||!taggedKeysForCoach[canonKey]) return;
 var key=(a.client_mobile||a.client_name||'').toLowerCase();
 if(!key) return;
 if(!clientMap[key]) clientMap[key]={name:a.client_name||'(no name)',mobile:a.client_mobile||'',count:0};
@@ -1078,7 +1089,7 @@ return '<div style="display:flex;align-items:center;justify-content:space-betwee
 +'<div>'+cl.name+(cl.mobile?' &middot; '+cl.mobile:'')+' &middot; '+cl.count+' session'+(cl.count===1?'':'s')+'</div>'
 +'<button onclick="adminRemoveClientFromCoach(\''+id+'\',\''+mobEsc+'\',\''+nameEsc+'\')" title="Remove this client from this coach" style="flex-shrink:0;background:none;border:1px solid var(--terra,#b33);border-radius:6px;color:var(--terra,#b33);font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;">Remove</button>'
 +'</div>';
-}).join(''):'<div style="font-size:13px;color:var(--muted,#999);">No clients yet.</div>')
+}).join(''):'<div style="font-size:13px;color:var(--muted,#999);">No tagged clients.</div>')
 +'<div style="display:flex;gap:10px;margin-top:20px;">'
 +'<button onclick="document.getElementById(\'adminCoachDetailModal\').remove()" style="flex:1;padding:11px;background:none;border:1px solid var(--border,#333);border-radius:8px;color:var(--muted,#999);font-weight:700;font-size:14px;">Close</button>'
 +'<button onclick="deleteAdminCoach(\''+c.id+'\',\''+(c.name||c.email||'this coach').replace(/'/g,"\\'")+'\')" style="flex:1;padding:11px;background:none;border:1px solid var(--terra,#b33);border-radius:8px;color:var(--terra,#b33);font-weight:700;font-size:14px;">Delete Account</button>'
@@ -1128,15 +1139,17 @@ function loadAdminCoaches(){
 var listEl=document.getElementById('adminCoachList');
 Promise.all([
 getSB().from('coaches').select('*'),
-getSB().from('attendance').select('coach_id,client_mobile,client_name')
+getSB().from('attendance').select('coach_id,client_mobile,client_name'),
+getSB().from('client_tags').select('coach_id,client_key')
 ]).then(function(results){
-var coachRes=results[0], attRes=results[1];
+var coachRes=results[0], attRes=results[1], tagRes=results[2];
 if(coachRes.error){
 listEl.innerHTML='<div class="empty">Error loading coaches.<br>'+coachRes.error.message+'</div>';
 return;
 }
 window._adminCoaches=coachRes.data||[];
 window._adminAttendance=(attRes.error?[]:attRes.data)||[];
+window._adminClientTags=(tagRes.error?[]:tagRes.data)||[];
 renderAdminCoaches();
 }).catch(function(err){
 listEl.innerHTML='<div class="empty">Error loading admin data.<br>'+(err&&err.message?err.message:err)+'</div>';
