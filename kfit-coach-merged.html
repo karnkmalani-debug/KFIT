@@ -2175,7 +2175,10 @@ function renderDash(){
     const blockedBadge=isBlocked?`<span class="badge" style="background:var(--terra);color:#fff;">Blocked</span>`:'';
     return`<div class="client-card" onclick="showClient('${key.replace(/'/g,"\\'")}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div class="client-name">${c.name}</div>
+        <div>
+          <div class="client-name">${c.name}</div>
+          ${c.mobile?`<div style="font-size:12px;color:var(--muted);margin-top:1px;">📱 ${c.mobile}</div>`:''}
+        </div>
         <div style="display:flex;gap:6px;align-items:center;">${blockedBadge}${unpaidBadge}${recencyBadge}</div>
       </div>
       <div class="client-meta">
@@ -3091,9 +3094,15 @@ function openCoachSession(clientKey, date, time){
       if(!s){
         // Fallback: if there's exactly one session on this date, open it anyway --
         // a lingering time mismatch (e.g. from an edit made before a sync reconciled)
-        // shouldn't block access to a session that clearly exists.
+        // shouldn't block access to a session that clearly exists. BUT only when
+        // there's also exactly one ATTENDANCE record on this date -- otherwise this
+        // was silently showing the wrong workout for the wrong check-in whenever a
+        // client had two sessions the same day and only one of them ever got real
+        // session data saved (e.g. one Zumba class attendance with no linked
+        // detail, sitting next to a real strength session that does have detail).
         const sameDateSessions=sessions.filter(x=>x.date===date);
-        if(sameDateSessions.length===1) s=sameDateSessions[0];
+        const sameDateAttendance=c.records.filter(r=>r.session_date===date);
+        if(sameDateSessions.length===1&&sameDateAttendance.length===1) s=sameDateSessions[0];
       }
       if(!s){
         // Check the client's deleted-session archive -- if they deleted this
@@ -3881,7 +3890,7 @@ function openAddSession(clientKey){
   const sel=document.getElementById('as-client');
   const clients=Object.values(groupClients());
   sel.innerHTML='<option value="">-- Select Client --</option>'+
-    clients.map(c=>`<option value="${c.mobile||c.name}" data-name="${c.name}" data-mobile="${c.mobile||''}">${c.name}</option>`).join('')+
+    clients.map(c=>`<option value="${c.mobile||c.name}" data-name="${c.name}" data-mobile="${c.mobile||''}">${c.name}${c.mobile?' · '+c.mobile:''}</option>`).join('')+
     '<option value="__new__">+ New Client</option>';
 
   // Pre-select if coming from client view
@@ -5234,7 +5243,7 @@ function openMealPlan(prefillClientId,prefillDate){
   MEALS.forEach(meal=>{mpSelections[meal.id]=new Set();});
   const sel=document.getElementById('mp-client');
   sel.innerHTML='<option value="">-- Select Client --</option>'+
-    allClients.map(c=>`<option value="${c.client_id}">${c.name}</option>`).join('');
+    allClients.map(c=>`<option value="${c.client_id}">${c.name}${c.mobile?' · '+c.mobile:''}</option>`).join('');
   function toDateInputStr(d){
     return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   }
@@ -5810,7 +5819,11 @@ function nutRenderDash(){
     const blockedBadge=isBlocked?`<span class="badge" style="background:var(--terra);color:#fff;">Blocked</span>`:'';
     return `<div class="client-card" onclick="nutShowClient('${c.client_id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div class="client-name">${c.name}</div><div style="display:flex;gap:6px;align-items:center;">${blockedBadge}${recencyBadge}</div>
+        <div>
+          <div class="client-name">${c.name}</div>
+          ${c.mobile?`<div style="font-size:12px;color:var(--muted);margin-top:1px;">📱 ${c.mobile}</div>`:''}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">${blockedBadge}${recencyBadge}</div>
       </div>
       <div class="client-meta">
         <span>\ud83d\udcc5 Last: ${last?last.date.getDate()+' '+MONTHS_SHORT[last.date.getMonth()]:'\u2014'}</span>
