@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>KFit Coach</title>
+<meta name="theme-color" content="#0c0c0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="KFit Coach">
+<link rel="manifest" href="/manifest-coach.json">
+<link rel="apple-touch-icon" href="/icon-coach-192.png">
+<link rel="icon" href="/icon-coach-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700;800;900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -209,6 +216,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <button class="back-btn" onclick="showUniLanding()">← Clients</button>
       </div>
       <div id="uniActionAlerts"></div>
+      <button id="uniDietTemplatesBtn" onclick="openDietTemplateModal()" style="display:none;width:100%;padding:11px;margin-bottom:12px;background:none;border:1px solid var(--sage);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;color:var(--sage);cursor:pointer;">📋 Diet Templates</button>
       <div class="stat-grid" id="uniOverallStats"></div>
       <input id="uniClientSearch" type="text" placeholder="🔍 Search by name..." oninput="renderUniDash()" style="width:100%;padding:9px 12px;margin-bottom:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
       <div id="uniClientList"><div class="empty">Loading...</div></div>
@@ -1142,12 +1150,14 @@ if(!c) return;
 var fitTags=(window._adminClientTags||[]).filter(function(t){return t.coach_id===id&&t.tracker!=='nutrition';});
 var nutTags=(window._adminClientTags||[]).filter(function(t){return t.coach_id===id&&t.tracker==='nutrition';});
 var sessionCountByKey={};
+var nameByKey={}; // fallback for client_tags rows written before name/mobile were part of the tag record
 (window._adminAttendance||[]).filter(function(a){return a.coach_id===id;}).forEach(function(a){
 var k=canonicalClientKey(a.client_name,a.client_mobile);
 sessionCountByKey[k]=(sessionCountByKey[k]||0)+1;
+if(a.client_name&&!nameByKey[k]) nameByKey[k]=a.client_name;
 });
-var fitClients=fitTags.map(function(t){return {name:t.name||'(no name)',mobile:t.mobile||'',count:sessionCountByKey[t.client_key]||0,tracker:'fitness'};}).sort(function(a,b){return b.count-a.count;});
-var nutClients=nutTags.map(function(t){return {name:t.name||'(no name)',mobile:t.mobile||'',tracker:'nutrition'};});
+var fitClients=fitTags.map(function(t){return {name:t.name||nameByKey[t.client_key]||'(no name)',mobile:t.mobile||'',count:sessionCountByKey[t.client_key]||0,tracker:'fitness'};}).sort(function(a,b){return b.count-a.count;});
+var nutClients=nutTags.map(function(t){return {name:t.name||nameByKey[t.client_key]||'(no name)',mobile:t.mobile||'',tracker:'nutrition'};});
 function renderClientRow(cl){
 var mobEsc=(cl.mobile||'').replace(/'/g,"\\'");
 var nameEsc=(cl.name||'').replace(/'/g,"\\'");
@@ -1319,11 +1329,14 @@ return '<div class="client-card" onclick="openAdminCoachDetail(\''+c.id+'\')">'
 }).join('');
 }
 
+let _nameHistToken=0;
 function loadNameHistoryForClient(mobile){
 var listEl=document.getElementById('nameHistList');
 if(!listEl) return;
 if(!mobile){ listEl.innerHTML='No mobile number on file for this client.'; return; }
+var myToken=++_nameHistToken; // same race-condition risk and fix as loadMeasurementsForClient above
 getSBScoped().from('client_name_history').select('*').eq('client_mobile',mobile).eq('coach_id',window.currentCoachId).order('changed_at',{ascending:false}).then(function(res){
+if(myToken!==_nameHistToken) return;
 if(res.error){ listEl.innerHTML='Error loading name history: '+res.error.message; return; }
 var rows=res.data||[];
 if(!rows.length){ listEl.innerHTML='No name changes on record -- this client has used the same name since they started.'; return; }
@@ -2428,6 +2441,11 @@ function chooseUniDiscipline(discipline){
   document.getElementById('uniLandingView').style.display='none';
   document.getElementById('uniClientView').style.display='none';
   document.getElementById('uniDashView').style.display='block';
+  // Diet Templates only makes sense for nutrition -- this button (and the
+  // whole builder behind it) was fully working but became unreachable when
+  // the old standalone Nutrition tab got hidden during the nav restructure.
+  // Restoring the entry point here, not rebuilding the feature.
+  document.getElementById('uniDietTemplatesBtn').style.display=(discipline==='nutrition')?'block':'none';
   renderUniDash();
 }
 function chooseAllUsers(){
@@ -3610,10 +3628,19 @@ function allowedExGroups(){
 
 let excludeSessionIdFromHistory=null;
 
+let _asClientSessionsToken=0;
 async function loadAsClientSessions(clientId){
   asClientSessions=[];
   if(!clientId)return;
+  // Same race-condition class as loadMeasurementsForClient above: asClientSessions
+  // is a single global array, not keyed per client. Switching quickly from one
+  // client's Assign/Log view to another's could let the first (slower) client's
+  // fetch resolve after the second's and silently pollute the second client's
+  // "Last Session" history with the first client's data -- this is what was
+  // actually behind "two options, one his, one someone else's" on today's date.
+  const myToken=++_asClientSessionsToken;
   const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+  if(myToken!==_asClientSessionsToken) return; // a newer load has since started -- discard this stale result
   if(error||!data||!data.length)return;
   const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
   asClientSessions=(d.sessions||[]).filter(s=>s.id!==excludeSessionIdFromHistory).slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -3709,10 +3736,20 @@ function measKeyForTracker(tracker){ return tracker==='fitness'?'measurements':'
 let _measCache={};
 let measModalCtx=null;
 
+let _measLoadTokens={};
 async function loadMeasurementsForClient(clientId,tracker,listElId){
   const listEl=document.getElementById(listElId);
   if(!listEl)return;
+  // Guards against a real race condition: if you open Rano's page then
+  // Manish's page quickly, Rano's slower in-flight fetch could resolve
+  // AFTER Manish's and silently overwrite the cache/display with Rano's
+  // data under Manish's listElId -- since Merge reuses the same element id
+  // for whichever client's page is currently open. Tokened per listElId
+  // (not globally) so fitness and nutrition, which can legitimately load
+  // at the same time for the same client, never cancel each other.
+  const myToken=(_measLoadTokens[listElId]=(_measLoadTokens[listElId]||0)+1);
   const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker',tracker);
+  if(myToken!==_measLoadTokens[listElId]) return; // a newer load for this same list has since started -- discard this stale result
   const useKey=measKeyForTracker(tracker);
   if(error||!data||!data.length||!data[0].data){
     _measCache[listElId]=[];
@@ -5974,10 +6011,17 @@ function nutShowClient(clientId,targetContainer){
   const days=getLoggedDays(cw);
   const assigned=getCoachAssignedDays(cw);
   document.getElementById(targetContainer||'nutClientDetail').innerHTML=
+    // No name/mobile header here when embedded inside the unified client view
+    // (targetContainer set) -- uniClientHeader above already shows it once;
+    // this duplicated it, which is exactly the "two identical cards" bug.
+    // Standalone use (no targetContainer, the old nutrition-only dashboard)
+    // still gets its own header since nothing else provides one there.
+    (targetContainer?'':(
     '<div class="card" style="margin-bottom:14px;">'
       +'<div style="font-size:22px;font-weight:800;margin-bottom:4px;">'+cw.name+'</div>'
       +(cw.mobile?'<div style="font-size:15px;font-weight:600;color:var(--muted);">📱 '+cw.mobile+'</div>':'')
     +'</div>'
+    ))
 
     +'<div id="nutClientTabBar" style="position:sticky;top:0;z-index:20;display:flex;gap:6px;background:var(--bg);padding:8px 0;margin-bottom:10px;border-bottom:1px solid var(--border);">'
       +'<button id="nutClientTabBtn-assign" onclick="setNutClientTab(\'assign\')" style="flex:1;padding:10px 0;border-radius:9px;border:none;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">📋 Assign</button>'

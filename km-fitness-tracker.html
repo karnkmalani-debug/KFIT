@@ -1228,6 +1228,17 @@ btn.textContent='Could not copy -- select the address bar manually';
 // preview mode is silently dropped. That's what stops this from ever
 // overwriting a coach's own personal client identity if they've also used
 // this same tracker for themselves on the same browser.
+//
+// This also isolates every OTHER kmfit_* key (sessions, measurements, notes,
+// routines, deleted-ids, etc.) the same way, not just the two identity keys.
+// Those are the app's own offline-first local cache, written under plain,
+// non-client-specific names -- without this, opening the live tracker for
+// one client and then another on the same device could let the first
+// client's cached sessions or measurements silently bleed into the second
+// client's view, since the cache has no idea which client it belongs to.
+// Reads/writes for these go to a throwaway in-memory store for the life of
+// this one page load, so this session always starts from a clean slate and
+// never touches (or overwrites) whatever's really stored on the device.
 (function(){
   var params=new URLSearchParams(location.search);
   var pMobile=params.get('coach_preview_mobile');
@@ -1236,16 +1247,26 @@ btn.textContent='Could not copy -- select the address bar manually';
   window.__KFIT_COACH_PREVIEW__=true;
   var realGetItem=Storage.prototype.getItem;
   var realSetItem=Storage.prototype.setItem;
+  var realRemoveItem=Storage.prototype.removeItem;
+  var fakeStore={};
   Storage.prototype.getItem=function(key){
     if(this===window.localStorage){
       if(key==='kmfit_mobile') return pMobile;
       if(key==='kmfit_name') return pName||'Client';
+      if(key.indexOf('kmfit_')===0) return Object.prototype.hasOwnProperty.call(fakeStore,key)?fakeStore[key]:null;
     }
     return realGetItem.call(this,key);
   };
   Storage.prototype.setItem=function(key,val){
-    if(this===window.localStorage&&(key==='kmfit_mobile'||key==='kmfit_name')) return;
+    if(this===window.localStorage){
+      if(key==='kmfit_mobile'||key==='kmfit_name') return;
+      if(key.indexOf('kmfit_')===0){ fakeStore[key]=String(val); return; }
+    }
     return realSetItem.call(this,key,val);
+  };
+  Storage.prototype.removeItem=function(key){
+    if(this===window.localStorage&&key.indexOf('kmfit_')===0){ delete fakeStore[key]; return; }
+    return realRemoveItem.call(this,key);
   };
 })();
 
