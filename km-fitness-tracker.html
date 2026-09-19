@@ -578,7 +578,7 @@ btn.textContent='Could not copy -- select the address bar manually';
         <input type="date" id="datePicker" style="position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;opacity:0;margin:0;padding:0;border:none;cursor:pointer;-webkit-appearance:none;" onchange="onDatePicked(this.value)" onpointerdown="return guardDatePicker(event)">
       </div>
       <a href="https://kfit.pages.dev" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;text-decoration:none;flex-shrink:0;">🏠 Home</a>
-      <button onclick="logout()" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;">Log Out</button>
+      <button id="logoutBtn" onclick="logout()" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;">Log Out</button>
     </div>
   </div>
   <div id="headerRestTimer" style="display:none;position:fixed;top:48px;left:0;right:0;z-index:299;background:var(--gold);color:#fff;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:900;padding:10px 16px;text-align:center;letter-spacing:2px;"></div>
@@ -2181,6 +2181,16 @@ document.getElementById('setupScreen').style.display='none';
 document.getElementById('mainApp').style.display='block';
 document.querySelector('.rest-bar').classList.add('visible');
 updateDateChip(); buildBpGrid(); setTodayDate();
+
+// Logging out doesn't mean anything useful in coach preview -- Merge's own
+// close button is what actually exits this view -- and tapping it risked
+// confusing, pointless behavior (kicking back to a login screen inside the
+// preview for no reason). Hidden here rather than removed outright, since
+// it's still the real client's own button in every other context.
+if(window.__KFIT_COACH_PREVIEW__){
+var logoutBtn=document.getElementById('logoutBtn');
+if(logoutBtn) logoutBtn.style.display='none';
+}
 
 var clientName=localStorage.getItem('kmfit_name');
 var elHCN=document.getElementById('headerClientName');
