@@ -1211,6 +1211,44 @@ btn.textContent='Could not copy -- select the address bar manually';
 </div>
 
 <script>
+// COACH PREVIEW MODE -- lets Merge open this exact file, unmodified in every
+// other respect, scoped to a specific client, so what a coach sees to
+// assign/log/edit is truly this same page rather than a second
+// implementation that has to be kept in sync by hand. Detected once, here,
+// before anything else runs.
+//
+// Implemented as a Storage.prototype patch rather than touching the many
+// call sites that read kmfit_mobile/kmfit_name throughout this file -- that
+// keeps this a small, isolated addition instead of a change scattered across
+// thousands of lines, and it's easy to verify: everything below this block
+// is completely unmodified from the real client experience.
+//
+// Critically, the override NEVER writes to real localStorage -- coach_preview
+// reads return the override value, but any write to these two keys while in
+// preview mode is silently dropped. That's what stops this from ever
+// overwriting a coach's own personal client identity if they've also used
+// this same tracker for themselves on the same browser.
+(function(){
+  var params=new URLSearchParams(location.search);
+  var pMobile=params.get('coach_preview_mobile');
+  var pName=params.get('coach_preview_name');
+  if(!pMobile) return;
+  window.__KFIT_COACH_PREVIEW__=true;
+  var realGetItem=Storage.prototype.getItem;
+  var realSetItem=Storage.prototype.setItem;
+  Storage.prototype.getItem=function(key){
+    if(this===window.localStorage){
+      if(key==='kmfit_mobile') return pMobile;
+      if(key==='kmfit_name') return pName||'Client';
+    }
+    return realGetItem.call(this,key);
+  };
+  Storage.prototype.setItem=function(key,val){
+    if(this===window.localStorage&&(key==='kmfit_mobile'||key==='kmfit_name')) return;
+    return realSetItem.call(this,key,val);
+  };
+})();
+
 const BODY_PARTS = ['Back','Chest','Shoulders','Biceps','Triceps','Legs','Core','Cardio','Full Body'];
 /* EX_LIB now loaded from kfit-exercise-library.js */
 const ALL_EX = Object.values(EX_LIB).flat();
@@ -2162,6 +2200,17 @@ document.getElementById('setupScreen').style.display='none';
 document.getElementById('mainApp').style.display='block';
 document.querySelector('.rest-bar').classList.add('visible');
 updateDateChip(); buildBpGrid(); setTodayDate();
+
+if(window.__KFIT_COACH_PREVIEW__){
+var banner=document.getElementById('coachPreviewBanner');
+if(!banner){
+banner=document.createElement('div');
+banner.id='coachPreviewBanner';
+banner.style.cssText='position:sticky;top:0;z-index:500;background:var(--terra,#b33);color:#fff;text-align:center;padding:8px 12px;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:800;letter-spacing:.02em;';
+banner.textContent='⚠ Coach view -- editing '+(localStorage.getItem('kmfit_name')||'this client')+"'s account, not your own";
+document.body.insertBefore(banner,document.body.firstChild);
+}
+}
 
 var clientName=localStorage.getItem('kmfit_name');
 var elHCN=document.getElementById('headerClientName');

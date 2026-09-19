@@ -530,6 +530,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     </div>
   </div>
 
+<div id="liveTrackerModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:#000;z-index:700;">
+  <button onclick="closeLiveTracker()" style="position:absolute;top:10px;right:10px;z-index:701;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:18px;cursor:pointer;">✕</button>
+  <iframe id="liveTrackerFrame" src="" style="width:100%;height:100%;border:none;"></iframe>
+</div>
+
 <div id="addSessionModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,0.85);z-index:200;overflow-y:auto;padding:20px;">
     <div style="background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:480px;margin:0 auto;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin:-20px -20px 16px -20px;padding:16px 20px;position:sticky;top:0;background:var(--surf);z-index:5;border-radius:16px 16px 0 0;">
@@ -592,6 +597,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           </div>
         </div>
         <div id="as-ex-blocks"></div>
+        <datalist id="as-exercise-datalist"></datalist>
         <div onclick="addAsExercise()" style="padding:8px;border:1px dashed var(--border);border-radius:8px;text-align:center;color:var(--sage);font-size:13px;font-weight:700;cursor:pointer;margin-top:6px;">+ Add Exercise</div>
       </div>
 
@@ -2470,6 +2476,7 @@ function showClient(key,targetContainer){
       <button id="clientTabBtn-edit" onclick="setClientTab('edit')" style="flex:1;padding:10px 0;border-radius:9px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">⚙ Edit</button>
       <button onclick="openStartConversation('${c.mobile||''}','${c.name.replace(/'/g,"\\'")}')" title="Message this client" style="width:42px;flex-shrink:0;padding:10px 0;border-radius:9px;border:1px solid var(--border);background:none;font-size:15px;cursor:pointer;">💬</button>
     </div>
+    <button onclick="openLiveTracker('${(c.mobile||'').replace(/'/g,"\\'")}','${c.name.replace(/'/g,"\\'")}')" style="width:100%;padding:11px;margin-bottom:14px;background:var(--gold);border:none;border-radius:9px;color:#1a1408;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">🏋️ Open Live Tracker -- the actual client app, as ${c.name.replace(/'/g,"\\'")} sees it</button>
 
     <div id="clientTab-assign" style="display:none;">
       <div class="card" style="margin-bottom:14px;">
@@ -2615,6 +2622,23 @@ function setClientTab(tab){
     btn.style.background=active?'var(--sage)':'var(--surf2)';
     btn.style.color=active?'#fff':'var(--muted)';
   });
+}
+
+// Opens the REAL client tracker -- km-fitness-tracker.html, completely
+// unmodified for this purpose -- scoped to one client via a query param the
+// file itself checks for at load (see the top of that file). This is not a
+// lookalike: it is the exact same file the client uses, so anything that
+// works, breaks, or changes there is automatically true here too. Requires
+// km-fitness-tracker.html to be deployed in the same folder as this file.
+function openLiveTracker(mobile,name){
+  if(!mobile){ alert('This client has no mobile number on file, so the live tracker can\'t be opened for them.'); return; }
+  var url='./km-fitness-tracker.html?coach_preview_mobile='+encodeURIComponent(mobile)+'&coach_preview_name='+encodeURIComponent(name||'');
+  document.getElementById('liveTrackerFrame').src=url;
+  document.getElementById('liveTrackerModal').style.display='block';
+}
+function closeLiveTracker(){
+  document.getElementById('liveTrackerModal').style.display='none';
+  document.getElementById('liveTrackerFrame').src='';
 }
 
 async function loadClientRoutinesList(clientKey){
@@ -3940,15 +3964,19 @@ function addAsCardio(){
   renderAsCardio();
 }
 
+// Ported from the client tracker's own cardio-chip pattern (renderCardioChips
+// + addCustomCardio) rather than inventing a separate Merge-only fix -- same
+// approach, same interaction, on both sides. A coach can now type any
+// activity name (e.g. a class name like "BOLLYFIT") the same way a client
+// can from their own phone; it doesn't require a fixed list match.
 function renderAsCardio(){
   document.getElementById('as-cardio-blocks').innerHTML=asCardioBlocks.map(b=>`
     <div class="as-cardio-block">
-      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:8px;align-items:center;">
-        <select class="form-inp" onchange="updateAsCardio(${b.id},'ex',this.value)" style="font-size:14px;">
-          <option value="">-- Activity --</option>
-          ${CARDIO_LIST.map(c=>`<option value="${c}"${c===b.ex?' selected':''}>${c}</option>`).join('')}
-        </select>
-        <button onclick="removeAsCardio(${b.id})" style="background:none;border:none;color:var(--muted2);font-size:18px;cursor:pointer;">✕</button>
+      <div style="margin-bottom:8px;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input class="form-inp" list="as-cardio-datalist" placeholder="Activity (pick or type your own)" value="${(b.ex||'').replace(/"/g,'&quot;')}" oninput="updateAsCardio(${b.id},'ex',this.value)" style="font-size:14px;flex:1;">
+          <button onclick="removeAsCardio(${b.id})" style="background:none;border:none;color:var(--muted2);font-size:18px;cursor:pointer;flex-shrink:0;">✕</button>
+        </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <div>
@@ -3966,7 +3994,8 @@ function renderAsCardio(){
           </select>
         </div>
       </div>
-    </div>`).join('');
+    </div>`).join('')
+    +'<datalist id="as-cardio-datalist">'+CARDIO_LIST.map(c=>`<option value="${c}">`).join('')+'</datalist>';
   autoDetectAsType();
 }
 
@@ -4024,19 +4053,23 @@ function removeAsFunctional(id){
 
 let asSupersets=[]; // [{id, exercises:[{id,ex,sets,setData}]}]
 
-function exSelectHtml(exId,curEx,onChangeFn){
+// Ported from the same idea as the cardio picker above -- an exercise name
+// is no longer locked to a fixed list. Populates the shared datalist (once
+// per render, cheap and idempotent) so existing exercises still autocomplete,
+// but typing any name -- a class, a machine only this gym has, anything --
+// is now always allowed, matching how the client tracker already behaves
+// when a client adds a custom exercise on their own end.
+function populateAsExerciseDatalist(){
+  const dl=document.getElementById('as-exercise-datalist');
+  if(!dl) return;
   const groups=allowedExGroups();
-  let inFilter=false;
-  const optgroups=groups.map(bp=>{
-    const opts=EX_LIB[bp].map(e=>{if(e===curEx)inFilter=true;return `<option value="${e}"${e===curEx?' selected':''}>${e}</option>`;}).join('');
-    return `<optgroup label="${bp}">${opts}</optgroup>`;
-  }).join('');
-  const extraOpt=(curEx&&!inFilter)?`<option value="${curEx}" selected>${curEx} (other)</option>`:'';
-  return `<select class="form-inp" onchange="${onChangeFn}" style="font-size:14px;">
-    <option value="">-- Exercise --</option>
-    ${extraOpt}
-    ${optgroups}
-  </select>`;
+  const seen=new Set();
+  let opts='';
+  groups.forEach(bp=>(EX_LIB[bp]||[]).forEach(e=>{ if(!seen.has(e)){ seen.add(e); opts+=`<option value="${e}">`; } }));
+  dl.innerHTML=opts;
+}
+function exSelectHtml(exId,curEx,onChangeFn){
+  return `<input class="form-inp" list="as-exercise-datalist" placeholder="Exercise (pick or type your own)" value="${(curEx||'').replace(/"/g,'&quot;')}" onchange="${onChangeFn}" style="font-size:14px;">`;
 }
 
 function addAsSuperset(){
@@ -4161,6 +4194,7 @@ function renderAsSupersets(){
       <div onclick="addAsSupersetEx('${ss.id}')" style="padding:6px;border:1px dashed var(--sage);border-radius:8px;text-align:center;color:var(--sage);font-size:12px;font-weight:700;cursor:pointer;">+ Add Exercise to Superset</div>
     </div>`).join('');
   autoDetectAsType();
+  populateAsExerciseDatalist();
 }
 
 function addAsExercise(){
@@ -4219,6 +4253,7 @@ function renderAsExercises(){
       </div>`}
     </div>`;}).join('');
   autoDetectAsType();
+  populateAsExerciseDatalist();
 }
 
 function toggleAsExCollapse(id){
@@ -5895,80 +5930,115 @@ function nutShowClient(clientId,targetContainer){
       +'<div style="font-size:22px;font-weight:800;margin-bottom:4px;">'+cw.name+'</div>'
       +(cw.mobile?'<div style="font-size:15px;font-weight:600;color:var(--muted);">📱 '+cw.mobile+'</div>':'')
     +'</div>'
-    +'<div class="card" style="margin-bottom:14px;">'
-      +'<div class="quick-add-header" onclick="toggleMergeSection(\'nutCal\')">'
-        +'<span class="card-title" style="margin-bottom:0;">🔥 Calories</span>'
-        +'<span class="quick-add-toggle" id="nutCalToggle">⌄</span>'
-      +'</div>'
-      +'<div class="quick-add-body" id="nutCalBody">'
-      +renderCoachCalorieSummary(cw,clientId)
+
+    +'<div id="nutClientTabBar" style="position:sticky;top:0;z-index:20;display:flex;gap:6px;background:var(--bg);padding:8px 0;margin-bottom:10px;border-bottom:1px solid var(--border);">'
+      +'<button id="nutClientTabBtn-assign" onclick="setNutClientTab(\'assign\')" style="flex:1;padding:10px 0;border-radius:9px;border:none;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">📋 Assign</button>'
+      +'<button id="nutClientTabBtn-log" onclick="setNutClientTab(\'log\')" style="flex:1;padding:10px 0;border-radius:9px;border:none;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">✎ Log</button>'
+      +'<button id="nutClientTabBtn-edit" onclick="setNutClientTab(\'edit\')" style="flex:1;padding:10px 0;border-radius:9px;border:none;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">⚙ Edit</button>'
+      +'<button onclick="openStartConversation(\''+(cw.mobile||'')+'\',\''+cw.name.replace(/'/g,"\\'")+'\')" title="Message this client" style="width:42px;flex-shrink:0;padding:10px 0;border-radius:9px;border:1px solid var(--border);background:none;font-size:15px;cursor:pointer;">💬</button>'
+    +'</div>'
+
+    +'<div id="nutClientTab-assign" style="display:none;">'
+      +'<div class="card">'
+        +'<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📋 Assigned by You'
+          +'<button onclick="openMealPlan(\''+clientId+'\')" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Assign Another Day</button>'
+        +'</div>'
+        +'<div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Pick a date range and days of the week when you assign -- one assignment can cover several weeks at once.</div>'
+        +(assigned.length?assigned.map(function(a){
+          const dStr=a.date.getFullYear()+'-'+String(a.date.getMonth()+1).padStart(2,'0')+'-'+String(a.date.getDate()).padStart(2,'0');
+          const day=cw.data[a.m][a.w][a.di];
+          const snap=day.coachSnapshot;
+          const untouched=snap&&JSON.stringify(day.foodLog||{})===JSON.stringify(snap.foodLog||{});
+          const todayStr=localDateStr();
+          let statusLabel,statusClass;
+          if(!untouched){statusLabel='✓ Reviewed';statusClass='badge-sage';}
+          else if(dStr<todayStr){statusLabel='⚠️ Missed';statusClass='badge-terra';}
+          else{statusLabel='⏳ Pending';statusClass='badge-gold';}
+          return `<div class="day-row" style="display:block;padding:12px 0;">
+            <div onclick="openMealPlan('${clientId}','${dStr}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <div style="font-size:15px;font-weight:600;">${DAYS_SHORT[a.date.getDay()]} ${a.date.getDate()} ${MONTHS_SHORT[a.date.getMonth()]} ${a.date.getFullYear()}</div>
+              <span style="color:var(--muted2);font-size:16px;">\u203a</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+              <span class="badge ${statusClass}">${statusLabel}</span>
+              <button onclick="event.stopPropagation();viewPlanComparison('${clientId}',${a.m},${a.w},${a.di})" style="padding:5px 10px;background:none;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;">👁 Compare</button>
+              <button onclick="event.stopPropagation();deleteMealPlanAssignment('${clientId}',${a.m},${a.w},${a.di})" style="background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-size:12px;padding:4px 8px;cursor:pointer;">🗑 Delete</button>
+            </div>
+          </div>`;
+        }).join(''):'<div style="color:var(--muted);padding:8px 0;">Nothing assigned yet.</div>')
       +'</div>'
     +'</div>'
-    +'<div class="card" style="margin-bottom:14px;">'
-      +'<div class="quick-add-header" onclick="toggleMergeSection(\'nutMeas\')">'
-        +'<span class="card-title" style="margin-bottom:0;">📏 Body Measurements</span>'
-        +'<span class="quick-add-toggle" id="nutMeasToggle">⌄</span>'
+
+    +'<div id="nutClientTab-log" style="display:none;">'
+      +'<div class="card" style="margin-bottom:14px;">'
+        +'<div class="quick-add-header" onclick="toggleMergeSection(\'nutCal\')">'
+          +'<span class="card-title" style="margin-bottom:0;">🔥 Calories</span>'
+          +'<span class="quick-add-toggle" id="nutCalToggle">⌄</span>'
+        +'</div>'
+        +'<div class="quick-add-body" id="nutCalBody">'
+        +renderCoachCalorieSummary(cw,clientId)
+        +'</div>'
       +'</div>'
-      +'<div class="quick-add-body" id="nutMeasBody">'
-        +'<div style="text-align:right;margin-bottom:8px;"><button onclick="openMeasurementModal(\''+clientId+'\',\'nutrition\',\'nutMeasList\',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button></div>'
-        +'<div id="nutMeasList">Loading...</div>'
+      +'<div class="card">'
+        +'<div class="card-title">Logged Days</div>'
+        +'<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">These are what the client logged themselves -- tap a day to see it. There isn\'t yet a way to log a day\'s food on their behalf from here.</div>'
+        +(days.length?days.map(function(d){
+          const dotStr=Array.from({length:d.order.eaten},function(_,i){return i<d.order.ordered?'●':'○';}).join('');
+          const proteinLabel=d.protein.total>0?(d.protein.more>d.protein.less?'↗':d.protein.less>d.protein.more?'↘':'→'):'';
+          return `<div class="day-row" onclick="nutOpenDayPanel('${clientId}',${d.m},${d.w},${d.di})">
+            <div>
+              <div style="font-size:15px;font-weight:600;">${DAYS_SHORT[d.dow]} ${d.date.getDate()} ${MONTHS_SHORT[d.date.getMonth()]}</div>
+            </div>
+            <div style="text-align:right;display:flex;align-items:center;gap:8px;">
+              <span style="color:#6a9e6e;letter-spacing:2px;font-size:14px;">${dotStr}</span>
+              ${proteinLabel?`<span style="font-size:14px;">${proteinLabel}</span>`:''}
+              <span style="color:var(--muted2);font-size:16px;">\u203a</span>
+            </div>
+          </div>`;
+        }).join(''):'<div style="color:var(--muted);">No logged days yet.</div>')
       +'</div>'
     +'</div>'
-    +'<div class="card" style="margin-bottom:14px;">'
-      +'<div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📋 Assigned by You'
-        +'<button onclick="openMealPlan(\''+clientId+'\')" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Assign Another Day</button>'
+
+    +'<div id="nutClientTab-edit" style="display:none;">'
+      +'<div class="card" style="margin-bottom:14px;">'
+        +'<div class="quick-add-header" onclick="toggleMergeSection(\'nutMeas\')">'
+          +'<span class="card-title" style="margin-bottom:0;">📏 Body Measurements</span>'
+          +'<span class="quick-add-toggle" id="nutMeasToggle">⌄</span>'
+        +'</div>'
+        +'<div class="quick-add-body" id="nutMeasBody">'
+          +'<div style="text-align:right;margin-bottom:8px;"><button onclick="openMeasurementModal(\''+clientId+'\',\'nutrition\',\'nutMeasList\',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button></div>'
+          +'<div id="nutMeasList">Loading...</div>'
+        +'</div>'
       +'</div>'
-      +(assigned.length?assigned.map(function(a){
-        const dStr=a.date.getFullYear()+'-'+String(a.date.getMonth()+1).padStart(2,'0')+'-'+String(a.date.getDate()).padStart(2,'0');
-        const day=cw.data[a.m][a.w][a.di];
-        const snap=day.coachSnapshot;
-        const untouched=snap&&JSON.stringify(day.foodLog||{})===JSON.stringify(snap.foodLog||{});
-        const todayStr=localDateStr();
-        let statusLabel,statusClass;
-        if(!untouched){statusLabel='✓ Reviewed';statusClass='badge-sage';}
-        else if(dStr<todayStr){statusLabel='⚠️ Missed';statusClass='badge-terra';}
-        else{statusLabel='⏳ Pending';statusClass='badge-gold';}
-        return `<div class="day-row" style="display:block;padding:12px 0;">
-          <div onclick="openMealPlan('${clientId}','${dStr}')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-            <div style="font-size:15px;font-weight:600;">${DAYS_SHORT[a.date.getDay()]} ${a.date.getDate()} ${MONTHS_SHORT[a.date.getMonth()]} ${a.date.getFullYear()}</div>
-            <span style="color:var(--muted2);font-size:16px;">\u203a</span>
-          </div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
-            <span class="badge ${statusClass}">${statusLabel}</span>
-            <button onclick="event.stopPropagation();viewPlanComparison('${clientId}',${a.m},${a.w},${a.di})" style="padding:5px 10px;background:none;border:1px solid var(--border);border-radius:7px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;">👁 Compare</button>
-            <button onclick="event.stopPropagation();deleteMealPlanAssignment('${clientId}',${a.m},${a.w},${a.di})" style="background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-size:12px;padding:4px 8px;cursor:pointer;">🗑 Delete</button>
-          </div>
-        </div>`;
-      }).join(''):'<div style="color:var(--muted);padding:8px 0;">Nothing assigned yet.</div>')
-    +'</div>'
-    +'<div class="card">'
-      +'<div class="card-title">Logged Days</div>'
-      +(days.length?days.map(function(d){
-        const dotStr=Array.from({length:d.order.eaten},function(_,i){return i<d.order.ordered?'●':'○';}).join('');
-        const proteinLabel=d.protein.total>0?(d.protein.more>d.protein.less?'↗':d.protein.less>d.protein.more?'↘':'→'):'';
-        return `<div class="day-row" onclick="nutOpenDayPanel('${clientId}',${d.m},${d.w},${d.di})">
-          <div>
-            <div style="font-size:15px;font-weight:600;">${DAYS_SHORT[d.dow]} ${d.date.getDate()} ${MONTHS_SHORT[d.date.getMonth()]}</div>
-          </div>
-          <div style="text-align:right;display:flex;align-items:center;gap:8px;">
-            <span style="color:#6a9e6e;letter-spacing:2px;font-size:14px;">${dotStr}</span>
-            ${proteinLabel?`<span style="font-size:14px;">${proteinLabel}</span>`:''}
-            <span style="color:var(--muted2);font-size:16px;">\u203a</span>
-          </div>
-        </div>`;
-      }).join(''):'<div style="color:var(--muted);">No logged days yet.</div>')
-    +'</div>'
-    +'<div class="card" style="border-color:var(--terra);">'
-      +'<div class="quick-add-header" onclick="toggleMergeSection(\'nutDanger\')">'
-        +'<span class="card-title" style="color:var(--terra);margin-bottom:0;">⚠️ Danger Zone</span>'
-        +'<span class="quick-add-toggle" id="nutDangerToggle">⌄</span>'
-      +'</div>'
-      +'<div class="quick-add-body" id="nutDangerBody">'
-      +'<div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Permanently deletes this client\'s nutrition history. Cannot be undone.</div>'
-      +'<button onclick="deleteClientNutrition(\''+clientId+'\')" style="width:100%;padding:11px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Delete Nutrition Data for '+(cw?cw.name:'this client')+'</button>'
+      +'<div class="card" style="border-color:var(--terra);">'
+        +'<div class="quick-add-header" onclick="toggleMergeSection(\'nutDanger\')">'
+          +'<span class="card-title" style="color:var(--terra);margin-bottom:0;">⚠️ Danger Zone</span>'
+          +'<span class="quick-add-toggle" id="nutDangerToggle">⌄</span>'
+        +'</div>'
+        +'<div class="quick-add-body" id="nutDangerBody">'
+        +'<div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Permanently deletes this client\'s nutrition history. Cannot be undone.</div>'
+        +'<button onclick="deleteClientNutrition(\''+clientId+'\')" style="width:100%;padding:11px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Delete Nutrition Data for '+(cw?cw.name:'this client')+'</button>'
+        +'</div>'
       +'</div>'
     +'</div>';
   loadMeasurementsForClient(clientId,'nutrition','nutMeasList');
+  setNutClientTab('log');
+}
+
+// Mirrors setClientTab for fitness, kept separate (different element ids)
+// since both a client's fitness and nutrition panels can exist in the DOM
+// at once from the unified Clients view -- sharing ids would mean this only
+// ever controlled whichever one happened to be found first.
+function setNutClientTab(tab){
+  ['assign','log','edit'].forEach(function(t){
+    var body=document.getElementById('nutClientTab-'+t);
+    var btn=document.getElementById('nutClientTabBtn-'+t);
+    if(!body||!btn) return;
+    var active=(t===tab);
+    body.style.display=active?'block':'none';
+    btn.style.background=active?'var(--sage)':'var(--surf2)';
+    btn.style.color=active?'#fff':'var(--muted)';
+  });
 }
 
 function nutShowDash(){
