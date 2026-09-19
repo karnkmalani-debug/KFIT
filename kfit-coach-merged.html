@@ -2465,6 +2465,7 @@ function showClient(key,targetContainer){
       <button id="clientTabBtn-assign" onclick="setClientTab('assign')" style="flex:1;padding:10px 0;border-radius:9px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">📋 Assign</button>
       <button id="clientTabBtn-log" onclick="setClientTab('log')" style="flex:1;padding:10px 0;border-radius:9px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">✎ Log</button>
       <button id="clientTabBtn-edit" onclick="setClientTab('edit')" style="flex:1;padding:10px 0;border-radius:9px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">⚙ Edit</button>
+      <button onclick="openStartConversation('${c.mobile||''}','${c.name.replace(/'/g,"\\'")}')" title="Message this client" style="width:42px;flex-shrink:0;padding:10px 0;border-radius:9px;border:1px solid var(--border);background:none;font-size:15px;cursor:pointer;">💬</button>
     </div>
 
     <div id="clientTab-assign" style="display:none;">
@@ -3014,9 +3015,7 @@ function fillOrphanedSession(clientKey,date,time){
   const c=Object.values(clients).find(c=>(c.mobile||c.name)===clientKey);
   if(!c) return;
   const attRecord=c.records.find(r=>r.session_date===date&&(r.session_time||'')===(time||''));
-  const nameKey=c.name.toLowerCase().replace(/\s+/g,'_');
-  const mobile=(c.mobile||'').replace(/\D/g,'');
-  const clientId=mobile?nameKey+'__'+mobile:nameKey;
+  const clientId=buildClientId(c.name,c.mobile);
 
   openAddSession(clientKey);
   document.getElementById('as-modal-title').textContent='Fill In Session';
@@ -4524,7 +4523,7 @@ async function saveAssignedWorkout(){
   const btn=document.getElementById('as-save-btn');
   btn.disabled=true; btn.textContent='Assigning...';
 
-  const clientKey=clientMobile?clientName.toLowerCase().replace(/\s+/g,'_')+'__'+clientMobile:clientName.toLowerCase().replace(/\s+/g,'_');
+  const clientKey=buildClientId(clientName,clientMobile);
   const {data:fresh,error:fetchErr}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientKey).eq('tracker','fitness');
   if(fetchErr){
     btn.disabled=false; btn.textContent='Assign Workout';
@@ -4685,7 +4684,7 @@ async function saveAdminSession(){
   if(attErr){btn.disabled=false;btn.textContent=origBtnText;alert('Error saving attendance: '+attErr.message);return;}
   const insertedId=attData&&attData.length?attData[0].id:null;
 
-  const clientKey=clientMobile?clientName.toLowerCase().replace(/\s+/g,'_')+'__'+clientMobile:clientName.toLowerCase().replace(/\s+/g,'_');
+  const clientKey=buildClientId(clientName,clientMobile);
   const newSession={
     id:sessionId,
     client:clientName,
