@@ -1757,12 +1757,19 @@ function setFbView(view){
 // a row with an empty "original" message (fbFlatten on both ends already
 // skips rendering that) and the real first message as a coach reply, so it
 // displays correctly as coach-sent on the client's side, not misattributed.
-function openStartConversation(){
+async function openStartConversation(prefillMobile,prefillName){
+  // _fbGroups was only ever populated by visiting the Feedback tab -- opening
+  // this from a client's own page (the 💬 button) without having done that
+  // first meant it was always empty, so an existing conversation (like one
+  // started from the client's own tracker) looked like it didn't exist.
+  // Always fetch fresh here instead of trusting whatever's cached.
+  await loadFeedback();
   const roster=buildUnifiedRoster().filter(function(c){return c.isTagged&&c.mobile;});
   const existing=new Set(Object.keys(_fbGroups||{}));
   const options=roster.map(function(c){
     const hasThread=existing.has(c.mobile)||existing.has(c.name);
-    return '<option value="'+c.mobile+'|'+c.name.replace(/"/g,'&quot;')+'">'+c.name+(hasThread?' (already has a conversation)':'')+'</option>';
+    const selected=(prefillMobile&&c.mobile===prefillMobile)?' selected':'';
+    return '<option value="'+c.mobile+'|'+c.name.replace(/"/g,'&quot;')+'"'+selected+'>'+c.name+(hasThread?' (already has a conversation)':'')+'</option>';
   }).join('');
   const existing2=document.getElementById('startConvoModal');
   if(existing2) existing2.remove();
@@ -1919,13 +1926,19 @@ function updateFbBadge(){
     if(fbIsArchived(g)) return false; // archived conversations don't need attention in the badge
     const unreadMsgs=fbFlatten(g.rows).filter(function(m){ return m.sender==='client' && !m.read; });
     if(unreadMsgs.length){
-      unreadDetails.push({client:g.name||g.mobile,unreadMsgs:unreadMsgs.map(function(m){return {rowId:m.rowId,kind:m.kind,timestamp:m.timestamp,message:(m.message||'').slice(0,40)};})});
+      unreadDetails.push({client:g.name||g.mobile,rowIds:g.rows.map(function(r){return r.id;}),unreadMsgs:unreadMsgs.map(function(m){return {rowId:m.rowId,kind:m.kind,sender:m.sender,read:m.read,timestamp:m.timestamp,message:(m.message||'').slice(0,40)};})});
       return true;
     }
     return false;
   }).length;
+  // TEMPORARY DIAGNOSTIC: shows exactly what the badge counter itself sees,
+  // straight from the running app -- since the database checked out clean
+  // but the badge still shows unread, this bypasses any doubt about whether
+  // the SQL tool and the live app are looking at the same thing.
   if(unreadCount){
-    console.log('Feedback badge shows',unreadCount,'-- specifically:',unreadDetails);
+    alert('Badge shows '+unreadCount+'. Details:\n\n'+JSON.stringify(unreadDetails,null,2));
+  }
+  if(unreadCount){
     badge.style.display='inline-block'; badge.textContent=unreadCount;
   }
   else { badge.style.display='none'; }
@@ -2154,6 +2167,7 @@ async function toggleClientTag(canonKey,name,mobile,btnEvent,trackerType){
   }
   if(tk==='fitness') renderDash();
   else if(typeof nutRenderDash==='function'&&document.getElementById('nutClientList')) nutRenderDash();
+  if(document.getElementById('uniClientList')) renderUniDash();
 }
 
 function renderDash(){
@@ -2392,6 +2406,14 @@ function renderUniDash(){
     const blockedBadge=c.isBlocked?'<span class="badge" style="background:var(--terra);color:#fff;">Blocked</span>':'';
     const unpaidBadge=c.unpaidN?'<span class="badge" style="background:var(--terra);color:#fff;">'+c.unpaidN+' unpaid</span>':'';
     const trackerTags='<span style="font-size:11px;color:var(--muted);">'+(c.fit?'🏋️ Fitness  ':'')+(c.nut?'🥗 Nutrition':'')+'</span>';
+    const isFitTagged=!!(taggedClients.fitness&&taggedClients.fitness[c.key]);
+    const isNutTagged=!!(taggedClients.nutrition&&taggedClients.nutrition[c.key]);
+    const convertRow=(uniRosterView==='all')?(
+      '<div style="display:flex;gap:6px;margin-top:8px;" onclick="event.stopPropagation();">'
+      +'<button onclick="toggleClientTag(\''+c.key.replace(/'/g,"\\'")+'\',\''+c.name.replace(/'/g,"\\'")+'\',\''+(c.mobile||'').replace(/'/g,"\\'")+'\',event,\'fitness\')" style="flex:1;padding:6px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid '+(isFitTagged?'var(--sage)':'var(--border)')+';background:'+(isFitTagged?'var(--sage)':'transparent')+';color:'+(isFitTagged?'#fff':'var(--muted)')+';">'+(isFitTagged?'★ Fitness Client':'+ Make Fitness Client')+'</button>'
+      +'<button onclick="toggleClientTag(\''+c.key.replace(/'/g,"\\'")+'\',\''+c.name.replace(/'/g,"\\'")+'\',\''+(c.mobile||'').replace(/'/g,"\\'")+'\',event,\'nutrition\')" style="flex:1;padding:6px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid '+(isNutTagged?'var(--sage)':'var(--border)')+';background:'+(isNutTagged?'var(--sage)':'transparent')+';color:'+(isNutTagged?'#fff':'var(--muted)')+';">'+(isNutTagged?'★ Nutrition Client':'+ Make Nutrition Client')+'</button>'
+      +'</div>'
+    ):'';
     return '<div class="client-card" onclick="openUniClient(\''+c.key.replace(/'/g,"\\'")+'\')">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'
         +'<div class="client-name">'+c.name+'</div>'
@@ -2401,6 +2423,7 @@ function renderUniDash(){
         +'<span>📅 Last: '+(c.lastDate?c.lastDate.getDate()+' '+M[c.lastDate.getMonth()]+' '+c.lastDate.getFullYear():'—')+'</span>'
         +trackerTags
       +'</div>'
+      +convertRow
     +'</div>';
   }).join('');
 }
