@@ -1260,20 +1260,7 @@ let selectedBP=[], sessions=[], notes={}, assignedWorkouts={}, deletedSessionIds
 // A deleted session's full data (not just its id) so a coach can actually
 // restore what was there, not just re-log blind. Capped in saveSessions.
 let deletedSessionsArchive=[];
-const MEAS_FIELDS=[
-{key:'weight',label:'Weight (kg)'},
-{key:'height',label:'Height (cm)'},
-{key:'bodyFat',label:'Body Fat (%)'},
-{key:'muscleMass',label:'Muscle Mass (kg)'},
-{key:'chest',label:'Chest (cm)'},
-{key:'waist',label:'Waist (cm)'},
-{key:'hips',label:'Hips (cm)'},
-{key:'arm',label:'Arm (cm)'},
-{key:'thigh',label:'Thigh (cm)'},
-{key:'calf',label:'Calf (cm)'},
-{key:'shoulder',label:'Shoulder (cm)'},
-{key:'neck',label:'Neck (cm)'}
-];
+/* MEAS_FIELDS now loaded from kfit-exercise-library.js */
 let restTmr=null, restLeft=0, restStartSecs=0, restEndTime=0, currentRestTimes=[];
 let durTmr=null, durStart=null, durElapsed=0, durRunning=false;
 let autoSaveTmr=null;
@@ -3535,23 +3522,7 @@ toast('Routine "'+routine.name+'" saved \u2713');
 // round count is still adjustable per exercise after loading, same as
 // any self-built routine.
 // ══════════════════════════════════════════════════════════════════
-const SUGGESTED_ROUTINES=[
-{name:'KFit 20-Min Functional Foundations',durationMin:20,bodyParts:['Functional'],circuits:[
-{label:'Circuit',exercises:['Goblet Squat','Push-Ups','Glute Bridge','Bent Over Dumbbell Row','Mountain Climbers','Plank']}
-]},
-{name:'KFit 30-Min Full Body Circuit',durationMin:30,bodyParts:['Functional'],circuits:[
-{label:'Circuit',exercises:['Bulgarian Split Squat','Push-Ups','Romanian Deadlift','Single Arm Dumbbell Row','Russian Twist',"Farmer's Carry",'Jumping Jacks','Wall Sit']}
-]},
-{name:'KFit 45-Min Strength + Conditioning',durationMin:45,bodyParts:['Functional'],circuits:[
-{label:'Circuit A -- Strength',exercises:['Goblet Squat','Push-Ups','Romanian Deadlift','Bent Over Dumbbell Row','Walking Lunges','Dead Bug']},
-{label:'Circuit B -- Conditioning',exercises:['Mountain Climbers','Bear Crawl','Jumping Jacks','Plank']}
-]},
-{name:'KFit 60-Min Complete Functional Athlete',durationMin:60,bodyParts:['Functional'],circuits:[
-{label:'Circuit A -- Lower Body & Power',exercises:['Goblet Squat','Bulgarian Split Squat','Romanian Deadlift','Walking Lunges','Glute Bridge Hold']},
-{label:'Circuit B -- Upper Body & Core',exercises:['Push-Ups','Single Arm Dumbbell Row','Dumbbell Shoulder Press','Side Plank','Russian Twist']},
-{label:'Circuit C -- Conditioning Finisher',exercises:['Burpees','Mountain Climbers','High Knees',"Farmer's Carry"]}
-]}
-];
+const SUGGESTED_ROUTINES=SUGGESTED_ROUTINES_RAW; // loaded from kfit-exercise-library.js in the tracker's own native shape -- no transform needed here
 // ══════════════════════════════════════════════════════════════════
 // KFIT STANDARD ROUTINE -- Karan's own core program, exactly as he
 // runs it himself and gives it to clients (Chest+Core / Back / Legs /
@@ -3560,48 +3531,7 @@ const SUGGESTED_ROUTINES=[
 // than multiple research-based options, per his own call that more
 // choice here was overwhelming rather than useful.
 // ══════════════════════════════════════════════════════════════════
-const KFIT_STANDARD_ROUTINES=[
-{name:'Chest & Core Day',bodyParts:['Chest','Core'],exercises:[
-{ex:'Barbell Bench Press (Flat)',sets:3},
-{ex:'Dumbbell Press (Incline)',sets:3},
-{ex:'Chest Press Machine',sets:3},
-{ex:'Dumbbell Shoulder Press',sets:3},
-{ex:'Pec Deck Fly',sets:2},
-{ex:'Dumbbell Fly (Incline)',sets:2},
-{ex:'Dragon Flag',sets:3},
-{ex:'Back Hyperextension',sets:3},
-{ex:'Dumbbell Side Bends',sets:3}
-]},
-{name:'Back Day',bodyParts:['Back'],exercises:[
-{ex:'Lat Pulldown Wide',sets:2},
-{ex:'Lat Pulldown Close',sets:2},
-{ex:'Seated Row Close',sets:2},
-{ex:'Chest Supported Row Wide',sets:2},
-{ex:'Lat Prayer (Cable Pullover)',sets:2},
-{ex:'Face Pulls',sets:2},
-{ex:'Shrugs',sets:2}
-]},
-{name:'Leg Day',bodyParts:['Legs'],exercises:[
-{ex:'Goblet Squat',sets:3},
-{ex:'Romanian Deadlift',sets:3},
-{ex:'Lying Hamstring Curl',sets:3},
-{ex:'Glute Bridge',sets:3},
-{ex:'Leg Extension',sets:3},
-{ex:'Standing Calf Raise',sets:3}
-]},
-{name:'Arms & Shoulder Day',bodyParts:['Shoulders','Triceps','Biceps'],exercises:[
-{ex:'Lateral Raises (Standing, Super ROM)',sets:2},
-{ex:'Y Raise (Standing, Super ROM)',sets:2},
-{ex:'Y Raise (Incline)',sets:2},
-{ex:'Incline Bench Cross Body Rear Delt Fly',sets:2},
-{ex:'Prone Y Raise (Incline Bench)',sets:2},
-{ex:'Incline Bench Prone Reverse Fly',sets:2},
-{ex:'Overhead Tricep Extension (Dumbbell)',sets:3},
-{ex:'Tricep Pushdown (Rope)',sets:3},
-{ex:'Bayesian Curl',sets:3},
-{ex:'Preacher Curl (Dumbbell)',sets:3}
-]}
-];
+/* KFIT_STANDARD_ROUTINES now loaded from kfit-exercise-library.js */
 function previewRoutine(kind,idx){
 var r,loadFn;
 if(kind==='functional'){ r=SUGGESTED_ROUTINES[idx]; loadFn=function(){loadSuggestedRoutine(idx);}; }
@@ -4429,8 +4359,8 @@ draftClear();
 }
 }
 
-var SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
-var SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
+/* SB_URL now loaded from kfit-exercise-library.js */
+/* SB_KEY now loaded from kfit-exercise-library.js */
 var sbClient=null;
 function localDateStr(d){
 d=d||new Date();
@@ -4448,7 +4378,7 @@ return sbClient;
 // Not yet set -- fill this in with your real coach id (from `select id
 // from coaches;` in Supabase, once you've logged into Merge) once you have
 // it. Until then, this safely defaults to null so saves still work.
-const KFIT_DEFAULT_COACH_ID='48bd790c-8097-4bd8-be81-3d76daaa0890';
+/* KFIT_DEFAULT_COACH_ID now loaded from kfit-exercise-library.js */
 function getClientCoachId(){
   var stored=localStorage.getItem('kmfit_coach_id');
   if(stored) return stored;
@@ -4460,7 +4390,7 @@ function getClientCoachId(){
   }
   return KFIT_DEFAULT_COACH_ID;
 }
-const COACH_SCOPED_TABLES_CLIENT=['tracker_data','attendance','custom_exercises','app_feedback','client_name_history'];
+const COACH_SCOPED_TABLES_CLIENT=[...COACH_SCOPED_TABLES_BASE,'attendance','custom_exercises']; // base loaded from kfit-exercise-library.js, extended with fitness-only tables
 function getSBScoped(){
   const real=getSB();
   return {
@@ -5043,10 +4973,17 @@ function renderMeasInputs(){
 var grid=document.getElementById('measInputGrid');
 if(!grid) return;
 grid.innerHTML=MEAS_FIELDS.map(function(f){
-return '<div><label style="font-size:14px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">'+f.label+'</label>'+
-'<input type="number" step="0.1" inputmode="decimal" id="meas_'+f.key+'" placeholder="--" '+
-'style="width:100%;padding:9px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:15px;">'+
-'</div>';
+var inputHtml;
+if(f.type==='select'){
+inputHtml='<select id="meas_'+f.key+'" style="width:100%;padding:9px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:15px;">'
++'<option value="">--</option>'
++(f.options||[]).map(function(o){return '<option value="'+o+'">'+o+'</option>';}).join('')
++'</select>';
+} else {
+inputHtml='<input type="number" step="0.1" inputmode="decimal" id="meas_'+f.key+'" placeholder="--" '+
+'style="width:100%;padding:9px 10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:15px;">';
+}
+return '<div><label style="font-size:14px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">'+f.label+'</label>'+inputHtml+'</div>';
 }).join('');
 }
 function saveMeasurements(){
@@ -5061,9 +4998,24 @@ var any=false;
 MEAS_FIELDS.forEach(function(f){
 var el=document.getElementById('meas_'+f.key);
 var v=el?el.value:'';
-if(v!==''&&v!=null&&!isNaN(parseFloat(v))){entry[f.key]=parseFloat(v);any=true;}
+if(v==='' ||v==null) return;
+if(f.type==='select'){ entry[f.key]=v; any=true; }
+else if(!isNaN(parseFloat(v))){ entry[f.key]=parseFloat(v); any=true; }
 });
 if(!any){toast('Enter at least one measurement');return;}
+// Age and sex logged here become the current values used for calorie
+// calculations everywhere else too (session estimates, nutrition target
+// suggestions) -- previously the only way to update either was a separate
+// "quick calorie profile" popup with no link to the regular Body log, so
+// they could sit stale indefinitely even as someone kept logging weight.
+if(entry.age!=null){
+localStorage.setItem('kmfit_age',String(entry.age));
+if(typeof estimateSessionCalories==='function') estimateSessionCalories();
+}
+if(entry.gender!=null){
+localStorage.setItem('kmfit_gender',entry.gender);
+if(typeof estimateSessionCalories==='function') estimateSessionCalories();
+}
 var idx=measurements.findIndex(function(m){return m.date===date;});
 if(idx>-1){entry.id=measurements[idx].id;measurements[idx]=entry;}
 else{entry.id='m_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);measurements.push(entry);}
@@ -5085,7 +5037,7 @@ el.innerHTML=sorted.map(function(m,i){
 var prev=sorted[i+1];
 var rows=MEAS_FIELDS.filter(function(f){return m[f.key]!=null;}).map(function(f){
 var delta='';
-if(prev&&prev[f.key]!=null){
+if(f.type!=='select'&&prev&&prev[f.key]!=null){
 var d=(m[f.key]-prev[f.key]);
 if(Math.abs(d)>0.01) delta=' <span style="color:var(--muted);font-size:14px;font-weight:600;">('+(d>0?'+':'')+d.toFixed(1)+')</span>';
 }
@@ -5134,7 +5086,7 @@ function onScanFileSelected(){
 var input=document.getElementById('scanFileInput');
 if(!input.files||!input.files[0])return;
 var file=input.files[0];
-var MAX_BYTES=20*1024*1024;
+// MAX_BYTES now loaded from kfit-exercise-library.js
 if(file.size>MAX_BYTES){
 toast('File too large (max 20MB) -- try a smaller file or photo');
 input.value='';
@@ -5430,24 +5382,8 @@ estimateSessionCalories();
 // population average. Falls back to a generic default and a wider
 // range when age/sex/height aren't filled in yet.
 // ══════════════════════════════════════════════════════════════════
-const CARDIO_MET={
-'Running (Treadmill)':{Easy:7.0,Moderate:9.8,Hard:11.8,Max:14.5},
-'Running (Outdoor)':{Easy:7.0,Moderate:9.8,Hard:11.8,Max:14.5},
-'Cycling (Bike)':{Easy:4.0,Moderate:6.8,Hard:8.5,Max:11.0},
-'Cycling (Stationary)':{Easy:4.0,Moderate:6.8,Hard:8.5,Max:11.0},
-'Rowing Machine':{Easy:4.8,Moderate:7.0,Hard:8.5,Max:12.0},
-'Elliptical':{Easy:4.5,Moderate:5.5,Hard:7.0,Max:9.0},
-'Stair Climber':{Easy:4.0,Moderate:8.8,Hard:9.0,Max:12.0},
-'Jump Rope':{Easy:8.8,Moderate:11.0,Hard:12.3,Max:13.5},
-'Swimming':{Easy:5.5,Moderate:7.0,Hard:9.8,Max:11.0},
-'Walking':{Easy:2.8,Moderate:3.5,Hard:4.5,Max:5.5},
-'HIIT':{Easy:6.0,Moderate:8.0,Hard:10.0,Max:12.0},
-'Sprint Intervals':{Easy:8.0,Moderate:10.0,Hard:12.0,Max:15.0},
-'Battle Ropes':{Easy:6.0,Moderate:8.0,Hard:10.0,Max:12.0},
-'Assault Bike':{Easy:6.0,Moderate:8.5,Hard:11.0,Max:14.0},
-'Ski Erg':{Easy:5.0,Moderate:7.0,Hard:9.0,Max:11.0}
-};
-const CARDIO_MET_DEFAULT={Easy:4.0,Moderate:6.0,Hard:8.0,Max:10.0};
+/* CARDIO_MET now loaded from kfit-exercise-library.js */
+/* CARDIO_MET_DEFAULT now loaded from kfit-exercise-library.js */
 // Static holds burn meaningfully less than dynamic bodyweight movement --
 // research consistently notes isometrics are "a supporting player, not the
 // star" for calorie burn (Compendium of Physical Activities-aligned
@@ -5455,13 +5391,8 @@ const CARDIO_MET_DEFAULT={Easy:4.0,Moderate:6.0,Hard:8.0,Max:10.0};
 // there's no well-established formula for how much a loaded hold adds to
 // energy cost, so the field stays purely for progression tracking, not
 // calorie precision.
-const FUNCTIONAL_MET={
-'Plank':3.0,'Side Plank':3.0,'Wall Sit':3.5,'Dead Hang':2.5,'Glute Bridge Hold':2.5,
-'Hollow Body Hold':3.5,'Superman Hold':2.5,'Bird Dog Hold':2.5,'Split Squat Hold':3.5,
-'Push-Up Hold':3.0,'Squat Hold':3.5,'Farmer\'s Carry':4.5,
-'Bear Crawl':6.0,'Jumping Jacks':7.0,'Mountain Climbers':8.0,'High Knees':8.0,'Burpees':10.0
-};
-const FUNCTIONAL_MET_DEFAULT=4.0;
+/* FUNCTIONAL_MET now loaded from kfit-exercise-library.js */
+/* FUNCTIONAL_MET_DEFAULT now loaded from kfit-exercise-library.js */
 const CAL_FALLBACK_SEC_PER_SET=45;
 
 function latestClientWeightKg(){
@@ -7358,7 +7289,7 @@ function onFbFileSelected(){
 var input=document.getElementById('fbAttachInput');
 if(!input.files||!input.files[0]) return;
 var file=input.files[0];
-var MAX_BYTES=20*1024*1024;
+// MAX_BYTES now loaded from kfit-exercise-library.js
 if(file.size>MAX_BYTES){
 toast('File too large (max 20MB)');
 input.value='';

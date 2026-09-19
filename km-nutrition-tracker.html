@@ -228,6 +228,7 @@ body{overflow-x:hidden;}
     <button onclick="document.getElementById('criosBanner').style.display='none'" style="width:100%;margin-top:8px;padding:14px;background:transparent;color:#1a1a18;border:1.5px solid rgba(0,0,0,.2);border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;">Continue anyway</button>
   </div>
 </div>
+<script src="./kfit-exercise-library.js"></script>
 <script>
 if(/CriOS/i.test(navigator.userAgent)&&/iphone|ipad|ipod/i.test(navigator.userAgent)){
 document.getElementById('criosBanner').style.display='flex';
@@ -541,8 +542,8 @@ const MEAS_FIELDS_NUT=[
 {key:'neck',label:'Neck (cm)'}
 ];
 
-var SB_URL='https://naabtmffdlgpjqmflscn.supabase.co';
-var SB_KEY='sb_publishable_DcSjGaAuUJhGu_3lP82zNw_eKrGnpvz';
+/* SB_URL now loaded from kfit-exercise-library.js */
+/* SB_KEY now loaded from kfit-exercise-library.js */
 var sbClient=null;
 function localDateStr(d){
 d=d||new Date();
@@ -558,7 +559,7 @@ return sbClient;
 // Not yet set -- fill this in with your real coach id (from `select id
 // from coaches;` in Supabase, once you've logged into Merge) once you have
 // it. Until then, this safely defaults to null so saves still work.
-const KFIT_DEFAULT_COACH_ID='48bd790c-8097-4bd8-be81-3d76daaa0890';
+/* KFIT_DEFAULT_COACH_ID now loaded from kfit-exercise-library.js */
 function getClientCoachId(){
   var stored=localStorage.getItem('kmnut_coach_id');
   if(stored) return stored;
@@ -570,7 +571,7 @@ function getClientCoachId(){
   }
   return KFIT_DEFAULT_COACH_ID;
 }
-const COACH_SCOPED_TABLES_CLIENT=['tracker_data','app_feedback','client_name_history'];
+const COACH_SCOPED_TABLES_CLIENT=COACH_SCOPED_TABLES_BASE; // loaded from kfit-exercise-library.js -- nutrition needs exactly the base set, no extras
 function getSBScoped(){
   const real=getSB();
   return {
@@ -1799,7 +1800,7 @@ function onFbFileSelected(){
 var input=document.getElementById('fbAttachInput');
 if(!input.files||!input.files[0]) return;
 var file=input.files[0];
-var MAX_BYTES=20*1024*1024;
+// MAX_BYTES now loaded from kfit-exercise-library.js
 if(file.size>MAX_BYTES){
 showToast('File too large (max 20MB)');
 input.value='';
@@ -2217,7 +2218,7 @@ function onScanFileSelectedNut(){
 var input=document.getElementById('scanFileInputNut');
 if(!input.files||!input.files[0])return;
 var file=input.files[0];
-var MAX_BYTES=20*1024*1024;
+// MAX_BYTES now loaded from kfit-exercise-library.js
 if(file.size>MAX_BYTES){
 showToast('File too large (max 20MB) -- try a smaller file or photo');
 input.value='';
