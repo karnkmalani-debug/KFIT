@@ -1683,46 +1683,7 @@ if(!loaded) registerNewFitnessClient();
 initApp();
 });
 }
-function registerNewFitnessClient(){
-// Writes a minimal row immediately on signup, before any session is logged.
-// Without this, a client who creates a profile but hasn't logged anything
-// yet has zero rows in Supabase and is invisible in Merge -- this closes
-// that gap. syncFitnessToSupabase() deliberately skips writing when
-// everything is empty (to avoid clobbering real data during normal sync),
-// so this is a separate, one-time registration write, not a regular sync.
-var key=getFitClientKey();
-if(key==='unknown')return;
-ensureAnonAuth(function(uid){
-if(!uid)return;
-var payload={
-user_id:uid,
-client_id:key,
-tracker:'fitness',
-data:{
-sessions:[],
-notes:{},
-assignedWorkouts:{},
-deletedSessionIds:[],
-measurements:JSON.parse(localStorage.getItem('kmfit_measurements')||'[]'),
-routines:[],
-name:localStorage.getItem('kmfit_name'),
-mobile:localStorage.getItem('kmfit_mobile'),
-email:localStorage.getItem('kmfit_email'),
-target:localStorage.getItem('kmfit_target'),
-age:localStorage.getItem('kmfit_age'),
-gender:localStorage.getItem('kmfit_gender'),
-unit:localStorage.getItem('kmfit_unit')
-},
-updated_at:new Date().toISOString()
-};
-getSBScoped().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(){
-var deviceId=localStorage.getItem('kfit_device_id');
-if(deviceId&&deviceId!==key){
-getSBScoped().from('tracker_data').delete().eq('client_id',deviceId).eq('tracker','fitness').then(function(){});
-}
-});
-});
-}
+
 function checkExisting(cb){
 ensureAnonAuth(function(uid){
 if(!uid){cb(false);return;}
@@ -2119,6 +2080,18 @@ updated_at:new Date().toISOString()
 function initApp(){
 _dbg('initApp: start, isUnlocked='+isUnlocked()+' sessionFlag='+sessionStorage.getItem('kmfit_session'));
 
+// Coach preview mode skips the device-unlock gate entirely -- that gate is
+// about whether THIS BROWSER has proven itself before, which is irrelevant
+// here: Merge itself is already the authenticated, trusted context. Without
+// this, opening the live tracker landed on the sign-in form instead of
+// going straight in, because the unlock state is separate from and checked
+// before the client-identity override handles.
+if(window.__KFIT_COACH_PREVIEW__){
+hideLoader();
+_continueInitApp();
+return;
+}
+
 var isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
 var isStandalone=('standalone' in window.navigator)&&window.navigator.standalone||window.matchMedia('(display-mode: standalone)').matches;
 var iw2=document.getElementById('installWrap');
@@ -2200,17 +2173,6 @@ document.getElementById('setupScreen').style.display='none';
 document.getElementById('mainApp').style.display='block';
 document.querySelector('.rest-bar').classList.add('visible');
 updateDateChip(); buildBpGrid(); setTodayDate();
-
-if(window.__KFIT_COACH_PREVIEW__){
-var banner=document.getElementById('coachPreviewBanner');
-if(!banner){
-banner=document.createElement('div');
-banner.id='coachPreviewBanner';
-banner.style.cssText='position:sticky;top:0;z-index:500;background:var(--terra,#b33);color:#fff;text-align:center;padding:8px 12px;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:800;letter-spacing:.02em;';
-banner.textContent='⚠ Coach view -- editing '+(localStorage.getItem('kmfit_name')||'this client')+"'s account, not your own";
-document.body.insertBefore(banner,document.body.firstChild);
-}
-}
 
 var clientName=localStorage.getItem('kmfit_name');
 var elHCN=document.getElementById('headerClientName');
@@ -4524,6 +4486,53 @@ function getSBScoped(){
       return builder;
     }
   };
+}
+
+// Moved to global scope -- this was nested inside the signup flow, invisible
+// to a second call site (the "local profile exists but never made it to
+// Supabase" self-healing path) that needs to call it too. That second call
+// would have thrown a silent ReferenceError for any real returning client
+// hitting exactly that gap -- caught by the automated tracker-flow tests,
+// not a live report.
+function registerNewFitnessClient(){
+// Writes a minimal row immediately on signup, before any session is logged.
+// Without this, a client who creates a profile but hasn't logged anything
+// yet has zero rows in Supabase and is invisible in Merge -- this closes
+// that gap. syncFitnessToSupabase() deliberately skips writing when
+// everything is empty (to avoid clobbering real data during normal sync),
+// so this is a separate, one-time registration write, not a regular sync.
+var key=getFitClientKey();
+if(key==='unknown')return;
+ensureAnonAuth(function(uid){
+if(!uid)return;
+var payload={
+user_id:uid,
+client_id:key,
+tracker:'fitness',
+data:{
+sessions:[],
+notes:{},
+assignedWorkouts:{},
+deletedSessionIds:[],
+measurements:JSON.parse(localStorage.getItem('kmfit_measurements')||'[]'),
+routines:[],
+name:localStorage.getItem('kmfit_name'),
+mobile:localStorage.getItem('kmfit_mobile'),
+email:localStorage.getItem('kmfit_email'),
+target:localStorage.getItem('kmfit_target'),
+age:localStorage.getItem('kmfit_age'),
+gender:localStorage.getItem('kmfit_gender'),
+unit:localStorage.getItem('kmfit_unit')
+},
+updated_at:new Date().toISOString()
+};
+getSBScoped().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(){
+var deviceId=localStorage.getItem('kfit_device_id');
+if(deviceId&&deviceId!==key){
+getSBScoped().from('tracker_data').delete().eq('client_id',deviceId).eq('tracker','fitness').then(function(){});
+}
+});
+});
 }
 
 function getFitClientKey(){

@@ -169,9 +169,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div style="padding:0 16px 6px;font-size:10px;color:var(--muted);opacity:.5;">build 2026-09-18-inset-fix</div>
 
   <div class="mode-toggle">
-    <button class="mode-btn" id="modeBtnClients" onclick="switchMode('clients')">👤 Clients</button>
-    <button class="mode-btn active" id="modeBtnFitness" onclick="switchMode('fitness')">Fitness</button>
-    <button class="mode-btn" id="modeBtnNutrition" onclick="switchMode('nutrition')">Nutrition</button>
+    <button class="mode-btn active" id="modeBtnClients" onclick="switchMode('clients')">👤 Clients</button>
+    <button class="mode-btn" id="modeBtnFitness" onclick="switchMode('fitness')" style="display:none;">Fitness</button>
+    <button class="mode-btn" id="modeBtnNutrition" onclick="switchMode('nutrition')" style="display:none;">Nutrition</button>
     <button class="mode-btn" id="modeBtnExercises" onclick="switchMode('exercises')">Exercises<span id="exSuggestBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
     <button class="mode-btn" id="modeBtnFeedback" onclick="switchMode('feedback')">Feedback<span id="fbBadge" style="display:none;margin-left:5px;background:var(--terra);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;font-weight:800;"></span></button>
     <button class="mode-btn" id="modeBtnAccount" onclick="switchMode('account')">Account</button>
@@ -184,7 +184,26 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
        the same person. Fitness/Nutrition tabs still work standalone too --
        every client-card click (old or new) converges here. -->
   <div id="clientsSection" style="display:none;">
-    <div class="content" id="uniDashView">
+    <div class="content" id="uniLandingView">
+      <div style="font-size:20px;font-weight:800;margin-bottom:4px;">Clients</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:20px;">What do you want to work on?</div>
+      <div onclick="chooseUniDiscipline('fitness')" class="card" style="margin-bottom:12px;padding:20px;cursor:pointer;display:flex;align-items:center;gap:14px;">
+        <div style="font-size:32px;">🏋️</div>
+        <div><div style="font-size:16px;font-weight:800;">Fitness</div><div style="font-size:12px;color:var(--muted);">Clients you coach on training</div></div>
+      </div>
+      <div onclick="chooseUniDiscipline('nutrition')" class="card" style="margin-bottom:12px;padding:20px;cursor:pointer;display:flex;align-items:center;gap:14px;">
+        <div style="font-size:32px;">🥗</div>
+        <div><div style="font-size:16px;font-weight:800;">Nutrition</div><div style="font-size:12px;color:var(--muted);">Clients you coach on nutrition</div></div>
+      </div>
+      <div onclick="switchMode('admin')" class="card" style="padding:20px;cursor:pointer;display:flex;align-items:center;gap:14px;">
+        <div style="font-size:32px;">👑</div>
+        <div><div style="font-size:16px;font-weight:800;">Coaches</div><div style="font-size:12px;color:var(--muted);">Other coaches using KFit</div></div>
+      </div>
+    </div>
+    <div class="content" id="uniDashView" style="display:none;">
+      <div style="margin-bottom:14px;">
+        <button class="back-btn" onclick="showUniLanding()">← Clients</button>
+      </div>
       <div id="uniActionAlerts"></div>
       <div class="stat-grid" id="uniOverallStats"></div>
       <div style="display:flex;gap:8px;margin-bottom:12px;">
@@ -284,7 +303,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
   <!-- ══════════════ FITNESS SECTION ══════════════ -->
-  <div id="fitSection">
+  <div id="fitSection" style="display:none;">
 
   <!-- Dashboard view -->
   <div class="content" id="dashView">
@@ -837,6 +856,7 @@ async function onCoachAuthenticated(session){
   document.getElementById('billingGate').style.display='none';
   document.getElementById('mainApp').style.display='block';
   loadAll();
+  switchMode('clients');
   loadApprovedExercisesIntoCoachLib();
   getSBScoped().from('custom_exercises').select('id').eq('status','pending').then(function(res){
     if(!res.error&&res.data){
@@ -2292,6 +2312,8 @@ function buildUnifiedRoster(){
 function renderUniDash(){
   const now=new Date();
   let roster=buildUnifiedRoster();
+  if(uniDisciplineFilter==='fitness') roster=roster.filter(function(c){return !!c.fit;});
+  if(uniDisciplineFilter==='nutrition') roster=roster.filter(function(c){return !!c.nut;});
   const searchQ=(document.getElementById('uniClientSearch')?.value||'').trim().toLowerCase();
   if(searchQ) roster=roster.filter(function(c){return (c.name||'').toLowerCase().includes(searchQ);});
   if(uniRosterView==='clients') roster=roster.filter(function(c){return c.isTagged;});
@@ -2364,6 +2386,29 @@ function showUniDash(){
   document.getElementById('uniClientView').style.display='none';
   document.getElementById('uniDashView').style.display='block';
   renderUniDash();
+}
+
+// Landing chooser -- Clients now opens to "which kind of work" instead of a
+// single flat roster with Fitness/Nutrition as separate top-level tabs
+// alongside it. Coaches routes into the existing Admin coach list, the
+// closest existing concept -- it doesn't yet distinguish "coaches who are
+// effectively my own paying clients" from every coach on the platform;
+// that's a real, separate distinction still to build if you want it split
+// out further.
+var uniDisciplineFilter=null;
+function chooseUniDiscipline(discipline){
+  uniDisciplineFilter=discipline;
+  document.getElementById('uniLandingView').style.display='none';
+  document.getElementById('uniClientView').style.display='none';
+  document.getElementById('uniDashView').style.display='block';
+  renderUniDash();
+}
+function showUniLanding(){
+  uniDisciplineFilter=null;
+  uniCurrentKey=null;
+  document.getElementById('uniDashView').style.display='none';
+  document.getElementById('uniClientView').style.display='none';
+  document.getElementById('uniLandingView').style.display='block';
 }
 
 function setUniSubTab(which){
@@ -2471,12 +2516,12 @@ function showClient(key,targetContainer){
     </div>
 
     <div id="clientTabBar" style="position:sticky;top:0;z-index:20;display:flex;gap:6px;background:var(--bg);padding:8px 0;margin-bottom:10px;border-bottom:1px solid var(--border);">
-      <button id="clientTabBtn-assign" onclick="setClientTab('assign')" style="flex:1;padding:10px 0;border-radius:9px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">📋 Assign</button>
-      <button id="clientTabBtn-log" onclick="setClientTab('log')" style="flex:1;padding:10px 0;border-radius:9px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">✎ Log</button>
-      <button id="clientTabBtn-edit" onclick="setClientTab('edit')" style="flex:1;padding:10px 0;border-radius:9px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">⚙ Edit</button>
+      <button onclick="openLiveTracker('${(c.mobile||'').replace(/'/g,"\\'")}','${c.name.replace(/'/g,"\\'")}')" style="flex:1;padding:10px 0;border-radius:9px;border:none;background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">📋 Assign</button>
+      <button onclick="openLiveTracker('${(c.mobile||'').replace(/'/g,"\\'")}','${c.name.replace(/'/g,"\\'")}')" style="flex:1;padding:10px 0;border-radius:9px;border:none;background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">✎ Log</button>
+      <button onclick="openLiveTracker('${(c.mobile||'').replace(/'/g,"\\'")}','${c.name.replace(/'/g,"\\'")}')" style="flex:1;padding:10px 0;border-radius:9px;border:none;background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">⚙ Edit</button>
       <button onclick="openStartConversation('${c.mobile||''}','${c.name.replace(/'/g,"\\'")}')" title="Message this client" style="width:42px;flex-shrink:0;padding:10px 0;border-radius:9px;border:1px solid var(--border);background:none;font-size:15px;cursor:pointer;">💬</button>
     </div>
-    <button onclick="openLiveTracker('${(c.mobile||'').replace(/'/g,"\\'")}','${c.name.replace(/'/g,"\\'")}')" style="width:100%;padding:11px;margin-bottom:14px;background:var(--gold);border:none;border-radius:9px;color:#1a1408;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">🏋️ Open Live Tracker -- the actual client app, as ${c.name.replace(/'/g,"\\'")} sees it</button>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px;">Assign, Log, and Edit all open the real client app for ${c.name.replace(/'/g,"\\'")} -- same page they use, whichever you tap.</div>
 
     <div id="clientTab-assign" style="display:none;">
       <div class="card" style="margin-bottom:14px;">
@@ -2566,13 +2611,13 @@ function showClient(key,targetContainer){
       </div>
     </div>
 
-    <div id="clientTab-edit" style="display:none;">
+    <div id="clientTab-edit" style="display:block;">
       <div class="card" style="margin-bottom:14px;">
         <div class="quick-add-header" onclick="toggleMergeSection('fitMeas')">
           <span class="card-title" style="margin-bottom:0;">📏 Body Measurements</span>
-          <span class="quick-add-toggle" id="fitMeasToggle">⌄</span>
+          <span class="quick-add-toggle open" id="fitMeasToggle">⌄</span>
         </div>
-        <div class="quick-add-body" id="fitMeasBody">
+        <div class="quick-add-body open" id="fitMeasBody" style="display:block;">
           <div style="text-align:right;margin-bottom:8px;"><button onclick="openMeasurementModal('${fitClientId}','fitness','fitMeasList',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button></div>
           <div id="fitMeasList">Loading...</div>
         </div>
@@ -2580,29 +2625,25 @@ function showClient(key,targetContainer){
       <div class="card" style="margin-bottom:14px;">
         <div class="quick-add-header" onclick="toggleMergeSection('nameHist')">
           <span class="card-title" style="margin-bottom:0;">Name History</span>
-          <span class="quick-add-toggle" id="nameHistToggle">⌄</span>
+          <span class="quick-add-toggle open" id="nameHistToggle">⌄</span>
         </div>
-        <div class="quick-add-body" id="nameHistBody">
+        <div class="quick-add-body open" id="nameHistBody" style="display:block;">
         <div id="nameHistList" style="font-size:14px;color:var(--muted);">Loading...</div>
         </div>
       </div>
       <div class="card" style="border-color:var(--terra);">
         <div class="quick-add-header" onclick="toggleMergeSection('fitDanger')">
           <span class="card-title" style="color:var(--terra);margin-bottom:0;">⚠️ Danger Zone</span>
-          <span class="quick-add-toggle" id="fitDangerToggle">⌄</span>
+          <span class="quick-add-toggle open" id="fitDangerToggle">⌄</span>
         </div>
-        <div class="quick-add-body" id="fitDangerBody">
+        <div class="quick-add-body open" id="fitDangerBody" style="display:block;">
         <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Permanently deletes this client's fitness history and attendance record. Cannot be undone.</div>
         <button onclick="deleteClientFitness('${key.replace(/'/g,"\\'")}')" style="width:100%;padding:11px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Delete Fitness Data for ${c.name}</button>
         </div>
       </div>
     </div>`;
   loadNameHistoryForClient(c.mobile);
-  loadAssignedWorkoutsForClient(key,c);
   loadMeasurementsForClient(buildClientId(c.name,c.mobile),'fitness','fitMeasList');
-  populateRtAssignSelect();
-  loadClientRoutinesList(key);
-  setClientTab('log');
 }
 
 // One consistent entry point for a client's page, every time: three tabs
@@ -4828,7 +4869,7 @@ function switchMode(mode){
   } else if(mode==='clients'){
     pageTitle.textContent='Coach · Clients';
     if(!window.nutDataLoaded){ window.nutDataLoaded=true; nutLoadAll(); }
-    renderUniDash();
+    showUniLanding();
   } else if(mode==='fitness'){
     pageTitle.textContent='Coach · Fitness';
   } else if(mode==='nutrition'){
@@ -4837,7 +4878,15 @@ function switchMode(mode){
     nutLoadAll();
   } else if(mode==='feedback'){
     pageTitle.textContent='Coach · Feedback';
-    loadFeedback();
+    loadFeedback().then(function(){
+      // Opening the Feedback tab and seeing the list is "I've seen this" --
+      // previously only expanding a specific thread cleared its unread
+      // status, so the badge kept coming back even after you'd genuinely
+      // looked at everything there.
+      Object.keys(_fbGroups||{}).forEach(function(k){
+        if(!fbIsArchived(_fbGroups[k])) markClientMessagesRead(k);
+      });
+    });
   } else if(mode==='account'){
     pageTitle.textContent='Coach · Account';
     loadAccountSection();
@@ -6003,9 +6052,9 @@ function nutShowClient(clientId,targetContainer){
       +'<div class="card" style="margin-bottom:14px;">'
         +'<div class="quick-add-header" onclick="toggleMergeSection(\'nutMeas\')">'
           +'<span class="card-title" style="margin-bottom:0;">📏 Body Measurements</span>'
-          +'<span class="quick-add-toggle" id="nutMeasToggle">⌄</span>'
+          +'<span class="quick-add-toggle open" id="nutMeasToggle">⌄</span>'
         +'</div>'
-        +'<div class="quick-add-body" id="nutMeasBody">'
+        +'<div class="quick-add-body open" id="nutMeasBody" style="display:block;">'
           +'<div style="text-align:right;margin-bottom:8px;"><button onclick="openMeasurementModal(\''+clientId+'\',\'nutrition\',\'nutMeasList\',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button></div>'
           +'<div id="nutMeasList">Loading...</div>'
         +'</div>'
@@ -6013,9 +6062,9 @@ function nutShowClient(clientId,targetContainer){
       +'<div class="card" style="border-color:var(--terra);">'
         +'<div class="quick-add-header" onclick="toggleMergeSection(\'nutDanger\')">'
           +'<span class="card-title" style="color:var(--terra);margin-bottom:0;">⚠️ Danger Zone</span>'
-          +'<span class="quick-add-toggle" id="nutDangerToggle">⌄</span>'
+          +'<span class="quick-add-toggle open" id="nutDangerToggle">⌄</span>'
         +'</div>'
-        +'<div class="quick-add-body" id="nutDangerBody">'
+        +'<div class="quick-add-body open" id="nutDangerBody" style="display:block;">'
         +'<div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Permanently deletes this client\'s nutrition history. Cannot be undone.</div>'
         +'<button onclick="deleteClientNutrition(\''+clientId+'\')" style="width:100%;padding:11px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Delete Nutrition Data for '+(cw?cw.name:'this client')+'</button>'
         +'</div>'
