@@ -195,9 +195,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div style="font-size:32px;">🥗</div>
         <div><div style="font-size:16px;font-weight:800;">Nutrition</div><div style="font-size:12px;color:var(--muted);">Clients you coach on nutrition</div></div>
       </div>
-      <div onclick="switchMode('admin')" class="card" style="padding:20px;cursor:pointer;display:flex;align-items:center;gap:14px;">
+      <div onclick="switchMode('admin')" class="card" style="margin-bottom:12px;padding:20px;cursor:pointer;display:flex;align-items:center;gap:14px;">
         <div style="font-size:32px;">👑</div>
         <div><div style="font-size:16px;font-weight:800;">Coaches</div><div style="font-size:12px;color:var(--muted);">Other coaches using KFit</div></div>
+      </div>
+      <div onclick="chooseAllUsers()" class="card" style="padding:20px;cursor:pointer;display:flex;align-items:center;gap:14px;">
+        <div style="font-size:32px;">📋</div>
+        <div><div style="font-size:16px;font-weight:800;">All Users</div><div style="font-size:12px;color:var(--muted);">Everyone with any record, fitness or nutrition, tagged as a client or not</div></div>
       </div>
     </div>
     <div class="content" id="uniDashView" style="display:none;">
@@ -206,10 +210,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       </div>
       <div id="uniActionAlerts"></div>
       <div class="stat-grid" id="uniOverallStats"></div>
-      <div style="display:flex;gap:8px;margin-bottom:12px;">
-        <button id="uniRosterTabClients" class="mode-btn active" style="flex:1;" onclick="setUniRosterView('clients')">Clients</button>
-        <button id="uniRosterTabAll" class="mode-btn" style="flex:1;" onclick="setUniRosterView('all')">All Users</button>
-      </div>
       <input id="uniClientSearch" type="text" placeholder="🔍 Search by name..." oninput="renderUniDash()" style="width:100%;padding:9px 12px;margin-bottom:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
       <div id="uniClientList"><div class="empty">Loading...</div></div>
     </div>
@@ -2422,6 +2422,15 @@ function showUniDash(){
 var uniDisciplineFilter=null;
 function chooseUniDiscipline(discipline){
   uniDisciplineFilter=discipline;
+  uniRosterView='clients'; // Fitness/Nutrition always show tagged clients only now -- All Users is its own separate destination, not a toggle buried inside these.
+  document.getElementById('uniLandingView').style.display='none';
+  document.getElementById('uniClientView').style.display='none';
+  document.getElementById('uniDashView').style.display='block';
+  renderUniDash();
+}
+function chooseAllUsers(){
+  uniDisciplineFilter=null;
+  uniRosterView='all';
   document.getElementById('uniLandingView').style.display='none';
   document.getElementById('uniClientView').style.display='none';
   document.getElementById('uniDashView').style.display='block';
