@@ -1154,26 +1154,29 @@ async function loadClientAccess(){
 function openAdminCoachDetail(id){
 var c=(window._adminCoaches||[]).find(function(x){return x.id===id;});
 if(!c) return;
-// Filtered to actually-tagged clients only (client_tags), not just anyone
-// whose raw attendance/tracker_data happens to carry this coach_id. Untagged
-// rows -- e.g. a walk-in who landed here via the no-?coach?-link fallback --
-// stay in Supabase for aggregate data purposes, they just don't count as
-// this coach's clientele here since the coach never actually added them.
-var taggedKeysForCoach={};
-(window._adminClientTags||[]).forEach(function(t){
-if(t.coach_id===id) taggedKeysForCoach[t.client_key]=true;
+// Fitness and Nutrition shown as separate lists -- they're separate billing
+// services, not one combined "clients" count. Membership and name/mobile
+// both come straight from client_tags (which already records which tracker
+// each tag is for); fitness additionally gets a session count from
+// attendance since that data's already loaded here, nutrition doesn't have
+// an equivalent cheaply available in this admin view yet.
+var fitTags=(window._adminClientTags||[]).filter(function(t){return t.coach_id===id&&t.tracker!=='nutrition';});
+var nutTags=(window._adminClientTags||[]).filter(function(t){return t.coach_id===id&&t.tracker==='nutrition';});
+var sessionCountByKey={};
+(window._adminAttendance||[]).filter(function(a){return a.coach_id===id;}).forEach(function(a){
+var k=canonicalClientKey(a.client_name,a.client_mobile);
+sessionCountByKey[k]=(sessionCountByKey[k]||0)+1;
 });
-var attendance=(window._adminAttendance||[]).filter(function(a){return a.coach_id===id;});
-var clientMap={};
-attendance.forEach(function(a){
-var canonKey=canonicalClientKey(a.client_name,a.client_mobile);
-if(!canonKey||!taggedKeysForCoach[canonKey]) return;
-var key=(a.client_mobile||a.client_name||'').toLowerCase();
-if(!key) return;
-if(!clientMap[key]) clientMap[key]={name:a.client_name||'(no name)',mobile:a.client_mobile||'',count:0};
-clientMap[key].count++;
-});
-var clients=Object.values(clientMap).sort(function(a,b){return b.count-a.count;});
+var fitClients=fitTags.map(function(t){return {name:t.name||'(no name)',mobile:t.mobile||'',count:sessionCountByKey[t.client_key]||0,tracker:'fitness'};}).sort(function(a,b){return b.count-a.count;});
+var nutClients=nutTags.map(function(t){return {name:t.name||'(no name)',mobile:t.mobile||'',tracker:'nutrition'};});
+function renderClientRow(cl){
+var mobEsc=(cl.mobile||'').replace(/'/g,"\\'");
+var nameEsc=(cl.name||'').replace(/'/g,"\\'");
+return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px;color:var(--muted,#999);">'
++'<div>'+cl.name+(cl.mobile?' &middot; '+cl.mobile:'')+(cl.count!=null?' &middot; '+cl.count+' session'+(cl.count===1?'':'s'):'')+'</div>'
++'<button onclick="adminRemoveClientFromCoach(\''+id+'\',\''+mobEsc+'\',\''+nameEsc+'\',\''+cl.tracker+'\')" title="Remove this client from this coach" style="flex-shrink:0;background:none;border:1px solid var(--terra,#b33);border-radius:6px;color:var(--terra,#b33);font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;">Remove</button>'
++'</div>';
+}
 var existing=document.getElementById('adminCoachDetailModal');
 if(existing) existing.remove();
 var overlay=document.createElement('div');
@@ -1182,15 +1185,10 @@ overlay.style.cssText='position:fixed;top:0;right:0;bottom:0;left:0;z-index:9999
 overlay.innerHTML='<div style="background:var(--surf,#1a1a18);border:1px solid var(--border,#333);border-radius:14px;padding:22px;max-width:400px;width:100%;max-height:80vh;overflow-y:auto;">'
 +'<div style="font-size:19px;font-weight:800;color:var(--text,#fff);margin-bottom:4px;">'+(c.name||'(no name)')+'</div>'
 +'<div style="font-size:13px;color:var(--muted,#999);margin-bottom:16px;">'+(c.email||'no email on file')+' &middot; joined '+(c.created_at?new Date(c.created_at).toDateString():'—')+'</div>'
-+'<div style="font-size:13px;font-weight:700;color:var(--text,#fff);margin-bottom:8px;">Clients ('+clients.length+')</div>'
-+(clients.length?clients.map(function(cl){
-var mobEsc=(cl.mobile||'').replace(/'/g,"\\'");
-var nameEsc=(cl.name||'').replace(/'/g,"\\'");
-return '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px;color:var(--muted,#999);">'
-+'<div>'+cl.name+(cl.mobile?' &middot; '+cl.mobile:'')+' &middot; '+cl.count+' session'+(cl.count===1?'':'s')+'</div>'
-+'<button onclick="adminRemoveClientFromCoach(\''+id+'\',\''+mobEsc+'\',\''+nameEsc+'\')" title="Remove this client from this coach" style="flex-shrink:0;background:none;border:1px solid var(--terra,#b33);border-radius:6px;color:var(--terra,#b33);font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;">Remove</button>'
-+'</div>';
-}).join(''):'<div style="font-size:13px;color:var(--muted,#999);">No tagged clients.</div>')
++'<div style="font-size:13px;font-weight:700;color:var(--text,#fff);margin-bottom:8px;">🏋️ Fitness Clients ('+fitClients.length+')</div>'
++(fitClients.length?fitClients.map(renderClientRow).join(''):'<div style="font-size:13px;color:var(--muted,#999);">No tagged fitness clients.</div>')
++'<div style="font-size:13px;font-weight:700;color:var(--text,#fff);margin:16px 0 8px;">🥗 Nutrition Clients ('+nutClients.length+')</div>'
++(nutClients.length?nutClients.map(renderClientRow).join(''):'<div style="font-size:13px;color:var(--muted,#999);">No tagged nutrition clients.</div>')
 +'<div style="display:flex;gap:10px;margin-top:20px;">'
 +'<button onclick="document.getElementById(\'adminCoachDetailModal\').remove()" style="flex:1;padding:11px;background:none;border:1px solid var(--border,#333);border-radius:8px;color:var(--muted,#999);font-weight:700;font-size:14px;">Close</button>'
 +'<button onclick="deleteAdminCoach(\''+c.id+'\',\''+(c.name||c.email||'this coach').replace(/'/g,"\\'")+'\')" style="flex:1;padding:11px;background:none;border:1px solid var(--terra,#b33);border-radius:8px;color:var(--terra,#b33);font-weight:700;font-size:14px;">Delete Account</button>'
@@ -1204,24 +1202,35 @@ document.body.appendChild(overlay);
 // KFIT_DEFAULT_COACH_ID fallback (no ?coach= link) and isn't actually that
 // coach's client. Removes their attendance + tracker_data (both trackers)
 // scoped to this specific coach_id only, then refreshes the panel in place.
-async function adminRemoveClientFromCoach(coachId,mobile,name){
-if(!confirm('Remove '+(name||mobile||'this client')+' from this coach\'s account? This deletes their attendance and tracked data under this coach permanently -- it does not affect any other coach they may actually belong to.')) return;
+async function adminRemoveClientFromCoach(coachId,mobile,name,tracker){
+tracker=tracker==='nutrition'?'nutrition':'fitness';
+if(!confirm('Remove '+(name||mobile||'this client')+' as a '+tracker+' client from this coach\'s account? This deletes their '+tracker+' data and tag under this coach permanently -- it does not affect any other coach they may actually belong to, or their other tracker if they use both.')) return;
 var m=(mobile||'').replace(/\D/g,'');
+var canonKey=m||( name||'').toLowerCase().trim();
 var errors=[];
-if(m){
+if(tracker==='fitness'&&m){
 var attRes=await getSB().from('attendance').delete().eq('coach_id',coachId).eq('client_mobile',m);
 if(attRes.error) errors.push(attRes.error.message);
-var tdRes=await getSB().from('tracker_data').delete().eq('coach_id',coachId).like('client_id','%'+m);
-if(tdRes.error) errors.push(tdRes.error.message);
-} else {
+} else if(tracker==='fitness'){
 var attRes2=await getSB().from('attendance').delete().eq('coach_id',coachId).eq('client_name',name||'');
 if(attRes2.error) errors.push(attRes2.error.message);
 }
+if(canonKey){
+var tdRes=await getSB().from('tracker_data').delete().eq('coach_id',coachId).eq('tracker',tracker).like('client_id','%'+canonKey);
+if(tdRes.error) errors.push(tdRes.error.message);
+var tagRes=await getSB().from('client_tags').delete().eq('coach_id',coachId).eq('tracker',tracker).eq('client_key',canonKey);
+if(tagRes.error) errors.push(tagRes.error.message);
+}
 if(errors.length){ alert('Error removing client: '+errors.join('; ')); return; }
+if(tracker==='fitness'){
 window._adminAttendance=(window._adminAttendance||[]).filter(function(a){
 if(a.coach_id!==coachId) return true;
 if(m) return (a.client_mobile||'').replace(/\D/g,'')!==m;
 return (a.client_name||'')!==(name||'');
+});
+}
+window._adminClientTags=(window._adminClientTags||[]).filter(function(t){
+return !(t.coach_id===coachId&&t.client_key===canonKey&&(t.tracker==='nutrition'?'nutrition':'fitness')===tracker);
 });
 openAdminCoachDetail(coachId);
 }
@@ -1241,7 +1250,7 @@ var listEl=document.getElementById('adminCoachList');
 Promise.all([
 getSB().from('coaches').select('*'),
 getSB().from('attendance').select('coach_id,client_mobile,client_name'),
-getSB().from('client_tags').select('coach_id,client_key')
+getSB().from('client_tags').select('coach_id,client_key,tracker')
 ]).then(function(results){
 var coachRes=results[0], attRes=results[1], tagRes=results[2];
 if(coachRes.error){
@@ -1272,6 +1281,19 @@ if(!clientsByCoach[a.coach_id]) clientsByCoach[a.coach_id]=new Set();
 clientsByCoach[a.coach_id].add((a.client_mobile||a.client_name||'').toLowerCase());
 });
 
+// Fitness and Nutrition are separate billing services, so this counts each
+// separately, and both only count someone the coach actually tagged as a
+// client -- not every name that happens to have a row (that raw-count bug
+// was exactly why this summary once said "5 clients" while the detail view,
+// correctly filtered by tag, said "Clients (3)").
+var fitCountByCoach={}, nutCountByCoach={};
+(window._adminClientTags||[]).forEach(function(t){
+if(!t.coach_id||!t.client_key) return;
+var bucket=t.tracker==='nutrition'?nutCountByCoach:fitCountByCoach;
+if(!bucket[t.coach_id]) bucket[t.coach_id]=new Set();
+bucket[t.coach_id].add(t.client_key);
+});
+
 var filtered=coaches.filter(function(c){
 if(!searchQ) return true;
 return ((c.name||'').toLowerCase().includes(searchQ))||((c.email||'').toLowerCase().includes(searchQ));
@@ -1291,7 +1313,8 @@ return;
 
 var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 listEl.innerHTML=filtered.map(function(c){
-var clientCount=clientsByCoach[c.id]?clientsByCoach[c.id].size:0;
+var fitCount=fitCountByCoach[c.id]?fitCountByCoach[c.id].size:0;
+var nutCount=nutCountByCoach[c.id]?nutCountByCoach[c.id].size:0;
 var joined=c.created_at?new Date(c.created_at):null;
 var joinedStr=joined?joined.getDate()+' '+M[joined.getMonth()]+' '+joined.getFullYear():'—';
 var statusRaw=c.subscription_status||c.status||(c.trial_ends_at?'trial':'');
@@ -1307,7 +1330,8 @@ return '<div class="client-card" onclick="openAdminCoachDetail(\''+c.id+'\')">'
 +'</div>'
 +'<div class="client-meta">'
   +'<span>✉️ '+(c.email||'—')+'</span>'
-  +'<span>👥 '+clientCount+' client'+(clientCount===1?'':'s')+'</span>'
+  +'<span>🏋️ '+fitCount+' Fitness</span>'
+  +'<span>🥗 '+nutCount+' Nutrition</span>'
   +'<span>📅 Joined '+joinedStr+'</span>'
 +'</div>'
 +(c.trial_ends_at?'<div style="font-size:12px;color:var(--muted);margin-top:4px;">Trial ends: '+new Date(c.trial_ends_at).toDateString()+'</div>':'')
