@@ -884,13 +884,13 @@ async function onCoachAuthenticated(session){
       if(res.data.length){ badge.style.display='inline-block'; badge.textContent=res.data.length; }
     }
   }).catch(function(err){ console.error('Pending-exercise badge failed to load:',err); });
-  getSBScoped().from('app_feedback').select('id').eq('status','new').then(function(res){
-    if(!res.error&&res.data){
-      var badge=document.getElementById('fbBadge');
-      if(res.data.length){ badge.style.display='inline-block'; badge.textContent=res.data.length; }
-    }
-  }).catch(function(err){ console.error('Feedback badge failed to load:',err); });
-}
+  // Was a second, separate badge computation here, counting by a status
+  // column that nothing ever updates when a message gets marked read --
+  // it would silently overwrite whatever updateFbBadge() had correctly set,
+  // on every single reload. loadFeedback() already builds the same data
+  // updateFbBadge() uses and calls it internally -- one source of truth now,
+  // not two that can disagree.
+  loadFeedback();}
 // Kill switch: blocks the whole coach dashboard once a trial has expired or
 // billing is inactive. 'active' always passes. 'trial' passes until
 // trial_ends_at. Anything else (including a missing row, which shouldn't
@@ -1898,7 +1898,7 @@ async function loadFeedback(){
           <div style="font-size:14px;font-weight:600;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;">${(preview||'').replace(/</g,'&lt;')}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-          ${awaitingReply?'<span style="width:9px;height:9px;border-radius:50%;background:var(--terra);display:inline-block;"></span>':''}
+          ${awaitingReply?'<span style="padding:2px 8px;border-radius:10px;background:var(--terra);color:#fff;font-size:10px;font-weight:800;white-space:nowrap;">AWAITING REPLY</span>':''}
           <span style="color:var(--muted);font-size:15px;font-weight:600;">${isOpen?'&#9650;':'&#9660;'}</span>
         </div>
       </div>
