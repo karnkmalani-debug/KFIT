@@ -2591,9 +2591,9 @@ function showClient(key,targetContainer){
     <div class="card" style="margin-bottom:14px;">
       <div class="quick-add-header" onclick="toggleMergeSection('recentSess')">
         <span class="card-title" style="margin-bottom:0;">📅 Recent Sessions</span>
-        <span class="quick-add-toggle open" id="recentSessToggle">⌄</span>
+        <span class="quick-add-toggle" id="recentSessToggle">⌄</span>
       </div>
-      <div class="quick-add-body open" id="recentSessBody" style="display:block;">
+      <div class="quick-add-body" id="recentSessBody">
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">A quick glance without opening the live tracker -- read-only, tap Log or Edit above to actually change anything.</div>
         <div id="recentSessList">Loading...</div>
       </div>
@@ -3755,7 +3755,7 @@ async function loadRecentSessionsForClient(clientId,listElId,clientKey){
     if(s.avgRestManual) return s.avgRestManual;
     return null;
   }
-  listEl.innerHTML=sessions.slice(0,8).map(function(s){
+  listEl.innerHTML=sessions.map(function(s){
     const d=new Date(s.date+'T12:00:00');
     const exCount=s.exercises&&s.exercises.length?s.exercises.length:0;
     const cardioCount=s.cardio&&s.cardio.length?s.cardio.length:0;
@@ -3779,8 +3779,7 @@ async function loadRecentSessionsForClient(clientId,listElId,clientKey){
       +'<div class="sess-tags">'+(cardioPills||bpPills)+'</div>'
       +'</div>'
       +'</div>';
-  }).join('')
-  + (sessions.length>8?'<div style="font-size:12px;color:var(--muted);margin-top:6px;">+ '+(sessions.length-8)+' more -- open History in the live tracker for the full list.</div>':'');
+  }).join('');
 }
 
 let _measLoadTokens={};
