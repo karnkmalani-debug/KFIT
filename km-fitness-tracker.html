@@ -577,7 +577,7 @@ btn.textContent='Could not copy -- select the address bar manually';
         <div class="date-chip" id="headerDate" style="cursor:pointer;pointer-events:none;white-space:nowrap;" title="Tap to change date"></div>
         <input type="date" id="datePicker" style="position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;opacity:0;margin:0;padding:0;border:none;cursor:pointer;-webkit-appearance:none;" onchange="onDatePicked(this.value)" onpointerdown="return guardDatePicker(event)">
       </div>
-      <a href="https://kfit.pages.dev" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;text-decoration:none;flex-shrink:0;">🏠 Home</a>
+      <a id="homeBtn" href="https://kfit.pages.dev" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;text-decoration:none;flex-shrink:0;">🏠 Home</a>
       <button id="logoutBtn" onclick="logout()" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;">Log Out</button>
     </div>
   </div>
@@ -2190,6 +2190,35 @@ updateDateChip(); buildBpGrid(); setTodayDate();
 if(window.__KFIT_COACH_PREVIEW__){
 var logoutBtn=document.getElementById('logoutBtn');
 if(logoutBtn) logoutBtn.style.display='none';
+var homeBtn=document.getElementById('homeBtn');
+if(homeBtn) homeBtn.style.display='none';
+var noteWeekly=document.getElementById('noteWeekly'), noteMonthly=document.getElementById('noteMonthly');
+if(noteWeekly) noteWeekly.readOnly=true;
+if(noteMonthly) noteMonthly.readOnly=true;
+var params=new URLSearchParams(location.search);
+if(params.get('coach_intent')==='assign'){
+// Assign should mean "give this client a routine to do later," not "log a
+// completed session on their behalf" -- Save Session writes real, dated
+// performance data, which is wrong here. My Routines' own "Add exercises,
+// then Set a Routine" flow is the correct one: it saves a reusable list
+// without creating a fake completed session. Auto-opening it and banking
+// on it being the obviously right button, rather than leaving Save
+// Session as the default, more visible action.
+var myRoutinesBody=document.getElementById('myRoutinesBody');
+var myRoutinesToggle=document.getElementById('myRoutinesToggle');
+if(myRoutinesBody&&!myRoutinesBody.classList.contains('open')){
+myRoutinesBody.classList.add('open');
+if(myRoutinesToggle) myRoutinesToggle.classList.add('open');
+}
+if(typeof toggleInlineRoutineBuilder==='function') toggleInlineRoutineBuilder();
+var bpCard=document.getElementById('bpCard');
+if(bpCard){
+var banner=document.createElement('div');
+banner.style.cssText='background:var(--sage);color:#fff;padding:10px 14px;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;margin-bottom:10px;';
+banner.textContent='📋 Assigning a routine -- add exercises below, then tap "Set a Routine" to save it. Don\'t use Save Session -- that logs it as done today.';
+bpCard.parentNode.insertBefore(banner,bpCard);
+}
+}
 }
 
 var clientName=localStorage.getItem('kmfit_name');
@@ -2267,6 +2296,7 @@ setTimeout(updateFbUnreadBadge, 1000);
 // not inside that function) threw a silent ReferenceError on every tap and the
 // modal never opened. This is the actual root cause of "name edit inoperative".
 function editClientName(){
+if(window.__KFIT_COACH_PREVIEW__){ toast('Name is view-only here -- it belongs to the client, not something to change on their behalf.'); return; }
 try{
 var current=localStorage.getItem('kmfit_name')||'';
 _openNameModal(current==='Client'?'':current);
@@ -4993,6 +5023,7 @@ localStorage.setItem('kmfit_sessions',JSON.stringify(sessions));
 syncFitnessToSupabase();
 }
 function saveNotes(){
+if(window.__KFIT_COACH_PREVIEW__){ toast('Notes are view-only here -- this is the client\'s own reflection space.'); return; }
 notes.weekly=document.getElementById('noteWeekly').value;
 notes.monthly=document.getElementById('noteMonthly').value;
 localStorage.setItem('kmfit_notes',JSON.stringify(notes));
@@ -7371,6 +7402,7 @@ previewEl.innerHTML='';
 }
 
 function sendClientReply(){
+if(window.__KFIT_COACH_PREVIEW__){ toast('Sending here would be recorded as a message from the client. Use Merge\'s own messaging to message them instead.'); return; }
 var input=document.getElementById('fbThreadReplyInput');
 var msg=input.value.trim();
 if(!msg&&!_fbPendingAttachment) return;

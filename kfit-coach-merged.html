@@ -2569,7 +2569,7 @@ function showClient(key,targetContainer){
     </div>
 
     <div id="clientTabBar" style="position:sticky;top:0;z-index:20;display:flex;gap:6px;background:var(--bg);padding:8px 0;margin-bottom:10px;border-bottom:1px solid var(--border);">
-      <button onclick="openLiveTracker('${(c.mobile||'').replace(/'/g,"\\'")}','${c.name.replace(/'/g,"\\'")}')" style="flex:1;padding:10px 0;border-radius:9px;border:none;background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">📋 Assign</button>
+      <button onclick="setClientTab('assign')" style="flex:1;padding:10px 0;border-radius:9px;border:none;background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">📋 Assign</button>
       <button onclick="openLiveTracker('${(c.mobile||'').replace(/'/g,"\\'")}','${c.name.replace(/'/g,"\\'")}')" style="flex:1;padding:10px 0;border-radius:9px;border:none;background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">✎ Log</button>
       <button onclick="openLiveTracker('${(c.mobile||'').replace(/'/g,"\\'")}','${c.name.replace(/'/g,"\\'")}')" style="flex:1;padding:10px 0;border-radius:9px;border:none;background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">⚙ Edit</button>
       <button onclick="openStartConversation('${c.mobile||''}','${c.name.replace(/'/g,"\\'")}')" title="Message this client" style="width:42px;flex-shrink:0;padding:10px 0;border-radius:9px;border:1px solid var(--border);background:none;font-size:15px;cursor:pointer;">💬</button>
@@ -2697,6 +2697,9 @@ function showClient(key,targetContainer){
     </div>`;
   loadNameHistoryForClient(c.mobile);
   loadMeasurementsForClient(buildClientId(c.name,c.mobile),'fitness','fitMeasList');
+  loadAssignedWorkoutsForClient(key,c);
+  populateRtAssignSelect();
+  loadClientRoutinesList(key);
 }
 
 // One consistent entry point for a client's page, every time: three tabs
@@ -2707,15 +2710,15 @@ function showClient(key,targetContainer){
 // that's what made behavior feel inconsistent depending on what you'd
 // clicked last.
 function setClientTab(tab){
-  ['assign','log','edit'].forEach(function(t){
-    var body=document.getElementById('clientTab-'+t);
-    var btn=document.getElementById('clientTabBtn-'+t);
-    if(!body||!btn) return;
-    var active=(t===tab);
-    body.style.display=active?'block':'none';
-    btn.style.background=active?'var(--sage)':'var(--surf2)';
-    btn.style.color=active?'#fff':'var(--muted)';
-  });
+  // Simplified for the current layout: Edit is always visible now (a
+  // separate earlier fix, since it used to look empty when collapsed), Log
+  // no longer has its own panel here at all (it opens the Live Tracker
+  // directly), and there's no longer a per-tab button element to toggle --
+  // this just shows or hides the Assign panel specifically, which is the
+  // only one still reachable through this function.
+  var assignBody=document.getElementById('clientTab-assign');
+  if(!assignBody) return;
+  assignBody.style.display=(tab==='assign')?'block':'none';
 }
 
 // Opens the REAL client tracker -- km-fitness-tracker.html, completely
@@ -2724,9 +2727,10 @@ function setClientTab(tab){
 // lookalike: it is the exact same file the client uses, so anything that
 // works, breaks, or changes there is automatically true here too. Requires
 // km-fitness-tracker.html to be deployed in the same folder as this file.
-function openLiveTracker(mobile,name){
+function openLiveTracker(mobile,name,intent){
   if(!mobile){ alert('This client has no mobile number on file, so the live tracker can\'t be opened for them.'); return; }
   var url='./km-fitness-tracker.html?coach_preview_mobile='+encodeURIComponent(mobile)+'&coach_preview_name='+encodeURIComponent(name||'');
+  if(intent) url+='&coach_intent='+encodeURIComponent(intent);
   document.getElementById('liveTrackerFrame').src=url;
   document.getElementById('liveTrackerModal').style.display='block';
 }
