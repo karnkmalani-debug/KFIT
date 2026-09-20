@@ -2595,6 +2595,7 @@ function showClient(key,targetContainer){
       </div>
       <div class="quick-add-body" id="recentSessBody">
         <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">A quick glance without opening the live tracker -- read-only, tap Log or Edit above to actually change anything.</div>
+        <div id="recentSessRangeRow" style="display:flex;gap:6px;margin-bottom:8px;"></div>
         <div id="recentSessList">Loading...</div>
       </div>
     </div>
@@ -3723,6 +3724,12 @@ let measModalCtx=null;
 let _recentSessTokens={};
 let _recentSessCache={};
 let _recentSessVisible={};
+let _recentSessRange={};
+function setRecentSessRange(listElId,clientKey,range){
+  _recentSessRange[listElId]=range;
+  _recentSessVisible[listElId]=5;
+  renderRecentSessionsPage(listElId,clientKey);
+}
 async function loadRecentSessionsForClient(clientId,listElId,clientKey){
   const listEl=document.getElementById(listElId);
   if(!listEl) return;
@@ -3738,6 +3745,7 @@ async function loadRecentSessionsForClient(clientId,listElId,clientKey){
   sessions.sort(function(a,b){ return new Date(b.date)-new Date(a.date); });
   _recentSessCache[listElId]=sessions;
   _recentSessVisible[listElId]=5; // 5 to start, +10 per "show more" -- not everything at once, since this needs to hold up at hundreds of sessions, not just a handful
+  if(!_recentSessRange[listElId]) _recentSessRange[listElId]='all';
   renderRecentSessionsPage(listElId,clientKey);
 }
 function showMoreRecentSessions(listElId,clientKey){
@@ -3747,11 +3755,37 @@ function showMoreRecentSessions(listElId,clientKey){
 function renderRecentSessionsPage(listElId,clientKey){
   const listEl=document.getElementById(listElId);
   if(!listEl) return;
-  const sessions=_recentSessCache[listElId]||[];
-  if(!sessions.length){ listEl.innerHTML='<div style="color:var(--muted);">No sessions logged yet.</div>'; return; }
+  const allSessions=_recentSessCache[listElId]||[];
+  const rangeEl=document.getElementById(listElId.replace('List','RangeRow'));
+  if(!allSessions.length){
+    if(rangeEl) rangeEl.innerHTML='';
+    listEl.innerHTML='<div style="color:var(--muted);">No sessions logged yet.</div>';
+    return;
+  }
+  const range=_recentSessRange[listElId]||'all';
+  // Range pills -- rendered every call so the active one stays highlighted
+  // as it changes. Purely a display filter over what's already loaded, not
+  // a separate fetch -- there's nothing here worth re-querying the server
+  // for, the difference is just which of the already-cached sessions show.
+  if(rangeEl){
+    const ranges=[['week','This Week'],['month','This Month'],['all','All Time']];
+    rangeEl.innerHTML=ranges.map(function(r){
+      const active=range===r[0];
+      return '<button onclick="setRecentSessRange(\''+listElId+'\',\''+clientKey.replace(/'/g,"\\'")+'\',\''+r[0]+'\')" style="flex:1;padding:6px;border-radius:7px;font-family:\'DM Sans\',sans-serif;font-size:11px;font-weight:700;cursor:pointer;border:1px solid '+(active?'var(--sage)':'var(--border)')+';background:'+(active?'var(--sage)':'transparent')+';color:'+(active?'#fff':'var(--muted)')+';">'+r[1]+'</button>';
+    }).join('');
+  }
+  const now=new Date();
+  const sessions=allSessions.filter(function(s){
+    if(range==='all') return true;
+    const d=new Date(s.date+'T12:00:00');
+    if(range==='week'){ const weekAgo=new Date(now); weekAgo.setDate(now.getDate()-7); return d>=weekAgo; }
+    if(range==='month'){ const monthAgo=new Date(now); monthAgo.setMonth(now.getMonth()-1); return d>=monthAgo; }
+    return true;
+  });
+  if(!sessions.length){ listEl.innerHTML='<div style="color:var(--muted);padding:8px 0;">No sessions in this range.</div>'; return; }
   const visible=_recentSessVisible[listElId]||5;
   const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const prMap=sessions.length>=8?calcPersonalRecordsCoach(sessions):{};
+  const prMap=allSessions.length>=8?calcPersonalRecordsCoach(allSessions):{};
   // Compact rows, not the big tracker-style cards -- a glance list, not a
   // second copy of the full detail view (which is one tap away via the
   // existing rich session panel, PR/dropsets/supersets/calories and all).
