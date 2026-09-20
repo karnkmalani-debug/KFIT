@@ -2197,26 +2197,22 @@ if(noteWeekly) noteWeekly.readOnly=true;
 if(noteMonthly) noteMonthly.readOnly=true;
 var params=new URLSearchParams(location.search);
 if(params.get('coach_intent')==='assign'){
-// Assign should mean "give this client a routine to do later," not "log a
-// completed session on their behalf" -- Save Session writes real, dated
-// performance data, which is wrong here. My Routines' own "Add exercises,
-// then Set a Routine" flow is the correct one: it saves a reusable list
-// without creating a fake completed session. Auto-opening it and banking
-// on it being the obviously right button, rather than leaving Save
-// Session as the default, more visible action.
-var myRoutinesBody=document.getElementById('myRoutinesBody');
-var myRoutinesToggle=document.getElementById('myRoutinesToggle');
-if(myRoutinesBody&&!myRoutinesBody.classList.contains('open')){
-myRoutinesBody.classList.add('open');
-if(myRoutinesToggle) myRoutinesToggle.classList.add('open');
+// Same page, same exercise-picking the client would use -- the only real
+// difference for assigning is what happens at the bottom. Relabeling Save
+// Session to Assign Workout and making saveSession() itself write to
+// assignedWorkouts (a plan for the selected date) instead of sessions (a
+// completed, dated log entry) when this flag is set.
+window.__KFIT_ASSIGN_MODE__=true;
+var saveBtn=document.getElementById('saveSessionBtn');
+if(saveBtn) saveBtn.textContent='Assign Workout';
+var targetDate=params.get('coach_target_date');
+if(targetDate){
+var sessDateEl=document.getElementById('sessDate');
+if(sessDateEl){
+sessDateEl.value=targetDate;
+if(typeof updateDateChip==='function') updateDateChip();
+if(typeof applyAssignedWorkoutIfAny==='function') applyAssignedWorkoutIfAny();
 }
-if(typeof toggleInlineRoutineBuilder==='function') toggleInlineRoutineBuilder();
-var bpCard=document.getElementById('bpCard');
-if(bpCard){
-var banner=document.createElement('div');
-banner.style.cssText='background:var(--sage);color:#fff;padding:10px 14px;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;margin-bottom:10px;';
-banner.textContent='📋 Assigning a routine -- add exercises below, then tap "Set a Routine" to save it. Don\'t use Save Session -- that logs it as done today.';
-bpCard.parentNode.insertBefore(banner,bpCard);
 }
 }
 }
@@ -4232,11 +4228,41 @@ setTimeout(function(){ overlay.style.display='none'; },220);
 },1300);
 }
 
+// Assign-mode counterpart to the normal save path in saveSession() below --
+// reads the same exercise blocks off the same page, but only exercise names
+// and set counts, no reps or weight (a plan doesn't have those yet), and
+// writes to assignedWorkouts[date] instead of creating a dated, completed
+// session. This is what "Assign Workout" actually does when reached from
+// Merge. Top-level, not nested, so it's reachable the same way every other
+// function here is.
+function assignWorkoutFromLogPage(dateStr){
+const exList=[];
+document.querySelectorAll('#exBody .ex-block').forEach(function(block){
+const ex=block.querySelector('.ex-select').value;
+if(!ex) return;
+const sets=+block.querySelector('.sets-select').value||3;
+exList.push({ex:ex,sets:sets});
+});
+if(!exList.length && !cardioBlocks.length && !functionalBlocks.length){
+toast('Add at least one exercise, cardio activity, or functional movement');
+return;
+}
+assignedWorkouts[dateStr]={
+bodyParts:[...selectedBP],
+exercises:exList,
+cardio:cardioBlocks.map(function(c){return {ex:c.ex,duration:c.duration,intensity:c.intensity};}),
+functional:functionalBlocks.map(function(f){return {ex:f.ex,duration:f.duration,weight:f.weight};})
+};
+syncFitnessToSupabase();
+toast('Workout assigned for '+dateStr+' ✓');
+}
+
 function saveSession(){
 const saveBtn=document.getElementById('saveSessionBtn');
 if(saveBtn&&saveBtn.disabled) return;
 const date=document.getElementById('sessDate').value;
 if(!date){toast('Set a date first');return;}
+if(window.__KFIT_ASSIGN_MODE__){ assignWorkoutFromLogPage(date); return; }
 const exercises=[];
 let incompleteMsg=null;
 const _exOrder=getExBodyOrder();

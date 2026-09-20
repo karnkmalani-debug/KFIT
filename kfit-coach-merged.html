@@ -2629,7 +2629,7 @@ function showClient(key,targetContainer){
       </div>
       <div class="card">
         <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">📋 Assigned Workouts
-          <button onclick="openAddSession('${key.replace(/'/g,"\\'")}');setAsMode('assign');" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Assign Another Workout</button>
+          <button onclick="openLiveTracker('${(c.mobile||'').replace(/'/g,"\\'")}','${c.name.replace(/'/g,"\\'")}','assign')" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Assign Another Workout</button>
         </div>
         <div id="assignedWorkoutsList">Loading...</div>
       </div>
@@ -2727,10 +2727,11 @@ function setClientTab(tab){
 // lookalike: it is the exact same file the client uses, so anything that
 // works, breaks, or changes there is automatically true here too. Requires
 // km-fitness-tracker.html to be deployed in the same folder as this file.
-function openLiveTracker(mobile,name,intent){
+function openLiveTracker(mobile,name,intent,targetDate){
   if(!mobile){ alert('This client has no mobile number on file, so the live tracker can\'t be opened for them.'); return; }
   var url='./km-fitness-tracker.html?coach_preview_mobile='+encodeURIComponent(mobile)+'&coach_preview_name='+encodeURIComponent(name||'');
   if(intent) url+='&coach_intent='+encodeURIComponent(intent);
+  if(targetDate) url+='&coach_target_date='+encodeURIComponent(targetDate);
   document.getElementById('liveTrackerFrame').src=url;
   document.getElementById('liveTrackerModal').style.display='block';
 }
@@ -3019,74 +3020,13 @@ async function deleteAssignedWorkout(clientKey,dateStr){
 }
 
 async function editAssignedWorkout(clientKey,dateStr){
+  // Opens the real Live Tracker directly on the assignment's date -- its own
+  // applyAssignedWorkoutIfAny() already knows how to pre-fill exercises from
+  // an existing assignedWorkouts[date] entry, so there's no need to
+  // duplicate that pre-fill logic here anymore the way the old modal did.
   const c=Object.values(groupClients()).find(c=>(c.mobile||c.name)===clientKey);
   if(!c)return;
-  const clientId=buildClientId(c.name,c.mobile);
-  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
-  if(error||!data||!data.length||!data[0].data){alert('Could not load this assignment.');return;}
-  const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
-  const w=(d.assignedWorkouts||{})[dateStr];
-  if(!w){alert('Could not find this assignment.');return;}
-
-  openAddSession(clientKey);
-  setAsMode('assign');
-  document.getElementById('as-date-start').value=dateStr;
-  document.getElementById('as-date-end').value=dateStr;
-  asSelectedDOW=[0,1,2,3,4,5,6];
-  renderAsDowRow();
-
-  asSelectedBP=[...(w.bodyParts||[])];
-  document.querySelectorAll('#as-bp-grid .as-bp-btn').forEach(btn=>{
-    if(asSelectedBP.includes(btn.textContent)) btn.classList.add('active');
-  });
-
-  asExercises=(w.exercises||[]).map(e=>({
-    id:Date.now()+Math.random(), ex:e.ex, sets:(e.setData&&e.setData.length)?e.setData.filter(r=>!r.dropset).length||e.setData.length:(e.sets||3),
-    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',dropset:r.dropset||false,afterMain:r.afterMain!=null?r.afterMain:null})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
-  }));
-  renderAsExercises();
-
-  asSupersets=(w.supersets||[]).map(ss=>({
-    id:Date.now()+Math.random(),
-    exercises:(ss.exercises||[]).map(e=>({
-      id:Date.now()+Math.random(), ex:e.ex, sets:(e.setData&&e.setData.length)?(e.setData.filter(r=>!r.dropset).length||e.setData.length):(e.sets||3),
-      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',dropset:r.dropset||false,afterMain:r.afterMain!=null?r.afterMain:null})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
-    }))
-  }));
-  renderAsSupersets();
-
-  asCardioBlocks=(w.cardio||[]).map(c2=>({id:Date.now()+Math.random(),ex:c2.ex||'',duration:c2.duration||'',intensity:c2.intensity||''}));
-  renderAsCardio();
-  if(asCardioBlocks.length) document.getElementById('as-cardio-section').style.display='block';
-
-  asFunctionalBlocks=(w.functional||[]).map(f=>({id:Date.now()+Math.random(),ex:f.ex||'',duration:f.duration||'',weight:f.weight||''}));
-  renderAsFunctional();
-
-  document.getElementById('as-notes').value=w.notes||'';
-  document.getElementById('as-modal-title').textContent='Edit Assigned Workout';
-  document.getElementById('as-save-btn').textContent='Update Assignment';
-
-  let convertBtn=document.getElementById('as-convert-btn');
-  if(!convertBtn){
-    convertBtn=document.createElement('button');
-    convertBtn.id='as-convert-btn';
-    convertBtn.style.cssText='width:100%;margin-top:10px;padding:12px;background:none;border:1px solid var(--sage);border-radius:10px;font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;color:var(--sage);cursor:pointer;';
-    document.getElementById('as-save-btn').insertAdjacentElement('afterend',convertBtn);
-  }
-  convertBtn.style.display='block';
-  convertBtn.textContent='✓ Convert to Logged Session';
-  convertBtn.onclick=function(){ convertAssignmentToSession(clientKey,dateStr); };
-
-  let cancelBtn=document.getElementById('as-cancel-assign-btn');
-  if(!cancelBtn){
-    cancelBtn=document.createElement('button');
-    cancelBtn.id='as-cancel-assign-btn';
-    cancelBtn.style.cssText='width:100%;margin-top:10px;padding:12px;background:none;border:1px solid var(--terra);border-radius:10px;font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;color:var(--terra);cursor:pointer;';
-    convertBtn.insertAdjacentElement('afterend',cancelBtn);
-  }
-  cancelBtn.style.display='block';
-  cancelBtn.textContent='🗑 Cancel This Assignment';
-  cancelBtn.onclick=function(){ deleteAssignedWorkout(clientKey,dateStr); closeAddSession(); };
+  openLiveTracker(c.mobile,c.name,'assign',dateStr);
 }
 
 function convertAssignmentToSession(clientKey,dateStr){
