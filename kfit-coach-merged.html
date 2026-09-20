@@ -94,6 +94,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   * {color:#000!important;background:transparent!important;box-shadow:none!important;text-shadow:none!important;}
   .client-card{border:1px solid #ccc!important;margin-bottom:12px!important;page-break-inside:avoid;}
 }
+/* Exact copy from km-fitness-tracker.html's own history card styling, so
+   Merge's Recent Sessions view actually looks like the real history, not an
+   approximation of it. */
+.sess-card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r,12px);padding:14px;margin-bottom:9px;display:flex;align-items:flex-start;gap:10px;}
+.sess-date{font-family:'DM Mono',monospace;font-size:15px;font-weight:800;color:var(--text);margin-bottom:4px;}
+.sess-name{font-size:17px;font-weight:900;margin-bottom:3px;color:var(--text);}
+.sess-meta{font-size:13px;font-weight:600;color:var(--text);}
+.sess-dur{font-family:'DM Mono',monospace;font-size:16px;font-weight:800;color:var(--sage);margin-top:3px;}
+.sess-rest{font-size:13px;font-weight:600;color:var(--text);margin-top:2px;}
+.sess-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
+.sess-tag{padding:5px 14px;background:var(--surf2);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:900;color:var(--gold);letter-spacing:2px;text-transform:uppercase;}
+.sess-tag-pr{background:var(--gold);border-color:var(--gold);color:#171200;}
 </style>
 </head>
 <body>
@@ -2576,6 +2588,17 @@ function showClient(key,targetContainer){
     </div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:14px;">Assign, Log, and Edit all open the real client app for ${c.name.replace(/'/g,"\\'")} -- same page they use, whichever you tap.</div>
 
+    <div class="card" style="margin-bottom:14px;">
+      <div class="quick-add-header" onclick="toggleMergeSection('recentSess')">
+        <span class="card-title" style="margin-bottom:0;">📅 Recent Sessions</span>
+        <span class="quick-add-toggle open" id="recentSessToggle">⌄</span>
+      </div>
+      <div class="quick-add-body open" id="recentSessBody" style="display:block;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">A quick glance without opening the live tracker -- read-only, tap Log or Edit above to actually change anything.</div>
+        <div id="recentSessList">Loading...</div>
+      </div>
+    </div>
+
     <div id="clientTab-assign" style="display:none;">
       <div class="card" style="margin-bottom:14px;">
         <div class="card-title">📚 Assign a Routine</div>
@@ -2700,6 +2723,7 @@ function showClient(key,targetContainer){
   loadAssignedWorkoutsForClient(key,c);
   populateRtAssignSelect();
   loadClientRoutinesList(key);
+  loadRecentSessionsForClient(buildClientId(c.name,c.mobile),'recentSessList',key);
 }
 
 // One consistent entry point for a client's page, every time: three tabs
@@ -3695,6 +3719,69 @@ const MEAS_FIELDS_COACH=MEAS_FIELDS;
 function measKeyForTracker(tracker){ return tracker==='fitness'?'measurements':'bodyMeasurements'; }
 let _measCache={};
 let measModalCtx=null;
+
+let _recentSessTokens={};
+async function loadRecentSessionsForClient(clientId,listElId,clientKey){
+  const listEl=document.getElementById(listElId);
+  if(!listEl) return;
+  // Same race-condition guard as loadMeasurementsForClient below -- switching
+  // clients quickly could otherwise let a slower fetch for one client land
+  // after a faster one for another and overwrite the display with the wrong
+  // person's sessions.
+  const myToken=(_recentSessTokens[listElId]=(_recentSessTokens[listElId]||0)+1);
+  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+  if(myToken!==_recentSessTokens[listElId]) return;
+  if(error){ listEl.innerHTML='<div style="color:var(--muted);">Error loading sessions: '+error.message+'</div>'; return; }
+  let sessions=[];
+  if(data&&data.length&&data[0].data){
+    const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
+    sessions=(d.sessions||[]).slice();
+  }
+  if(!sessions.length){ listEl.innerHTML='<div style="color:var(--muted);">No sessions logged yet.</div>'; return; }
+  sessions.sort(function(a,b){ return new Date(b.date)-new Date(a.date); });
+  const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  // PR detection reuses the same calcPersonalRecordsCoach/getSessionPRInfoCoach
+  // already built for the full session detail panel -- same 8-session
+  // minimum the tracker itself uses before bothering to compute PRs at all.
+  const prMap=sessions.length>=8?calcPersonalRecordsCoach(sessions):{};
+  // Same formatting helpers as the tracker's own renderHistory(), copied
+  // directly rather than approximated, since the whole point here is to
+  // match it exactly.
+  function fmtDurM(secs){ if(!secs) return '--'; const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60); return h>0?(h+'h '+m+'m'):(m+'m'); }
+  function fmtSecsM(s){ if(s===null||s===undefined) return '--'; const m=Math.floor(s/60),r=Math.round(s%60); return m>0?(m+':'+String(r).padStart(2,'0')):(r+'s'); }
+  function sessRestAvgM(s){
+    if(s.restTimes&&s.restTimes.length>0){ const flat=s.restTimes.filter(function(n){return n>0;}); if(!flat.length) return null; return flat.reduce(function(a,b){return a+b;},0)/flat.length; }
+    if(s.avgRestManual) return s.avgRestManual;
+    return null;
+  }
+  listEl.innerHTML=sessions.slice(0,8).map(function(s){
+    const d=new Date(s.date+'T12:00:00');
+    const exCount=s.exercises&&s.exercises.length?s.exercises.length:0;
+    const cardioCount=s.cardio&&s.cardio.length?s.cardio.length:0;
+    const metaStr=exCount?(exCount+' exercise'+(exCount!==1?'s':'')):(cardioCount?cardioCount+' cardio session'+(cardioCount!==1?'s':''):'');
+    const cardioDurSecs=s.duration||null;
+    const cardioDurMins=!cardioDurSecs&&cardioCount?s.cardio.reduce(function(a,c){return a+(parseInt(c.duration)||0);},0):0;
+    const cardioIntensities=cardioCount?s.cardio.filter(function(c){return c.intensity;}).map(function(c){return c.intensity;}).filter(function(v,i,a){return a.indexOf(v)===i;}):[];
+    const cardioPills=cardioCount?s.cardio.map(function(c){return '<span class="sess-tag">'+(c.ex||'').toUpperCase()+'</span>';}).join(''):'';
+    const prInfo=getSessionPRInfoCoach(s,prMap,sessions);
+    const bpPills=(s.bodyParts||[]).map(function(b){return '<span class="sess-tag'+(prInfo.bodyParts.has(b)?' sess-tag-pr':'')+'">'+b+'</span>';}).join('')
+      +(!cardioCount&&prInfo.count?('<span class="sess-tag sess-tag-pr">🏆 '+prInfo.count+' P.R.</span>'):'');
+    const avg=sessRestAvgM(s);
+    return '<div class="sess-card" style="cursor:pointer;" onclick="openCoachSession(\''+clientKey.replace(/'/g,"\\'")+'\',\''+s.date+'\',\''+(s.timeOfDay||'').replace(/'/g,"\\'")+'\')">'
+      +'<div style="flex:1;">'
+      +'<div class="sess-date">'+D[d.getDay()]+' . '+d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear()+(s.timeOfDay?' - '+s.timeOfDay:'')+'</div>'
+      +'<div class="sess-name">'+(s.client||'')+'</div>'
+      +'<div class="sess-meta">'+metaStr+'</div>'
+      +((cardioDurSecs||cardioDurMins)?('<div class="sess-dur">⏱ '+(cardioDurSecs?fmtDurM(cardioDurSecs):cardioDurMins+'m')+'</div>'):(s.duration?('<div class="sess-dur">⏱ '+fmtDurM(s.duration)+'</div>'):''))
+      +(cardioIntensities.length?('<div class="sess-rest">Intensity: '+cardioIntensities.join(', ')+'</div>'):'')
+      +((!cardioCount&&avg)?('<div class="sess-rest">Avg Rest '+fmtSecsM(avg)+'</div>'):'')
+      +'<div class="sess-tags">'+(cardioPills||bpPills)+'</div>'
+      +'</div>'
+      +'</div>';
+  }).join('')
+  + (sessions.length>8?'<div style="font-size:12px;color:var(--muted);margin-top:6px;">+ '+(sessions.length-8)+' more -- open History in the live tracker for the full list.</div>':'');
+}
 
 let _measLoadTokens={};
 async function loadMeasurementsForClient(clientId,tracker,listElId){
