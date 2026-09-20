@@ -4942,6 +4942,16 @@ return'Session';
 
 function logAttendance(record,attempt){
 attempt=attempt||1;
+// Flagged as pending immediately, before even attempting the network
+// call -- not just after 3 failed attempts like before. That gap meant a
+// phone getting locked or backgrounded right after saving (a very normal
+// thing mid-training-session) could kill the sync before it ever failed
+// three times, so nothing ever got remembered for a retry -- the session
+// would just silently never reach the dashboard, with no trace anywhere
+// that it needed to. Flagging up front means retryPendingAttendance() (run
+// on next app open) can always recover it, even if this exact attempt
+// never gets to finish, succeed, or fail.
+if(attempt===1) _flagPendingAttendance(record);
 ensureAnonAuth(function(){
 var payload={
 client_name: record.client,
@@ -4960,7 +4970,6 @@ console.warn('Attendance log error (attempt '+attempt+'):',res.error.message);
 if(attempt<3){
 setTimeout(function(){logAttendance(record,attempt+1);},1500*attempt);
 } else {
-_flagPendingAttendance(record);
 showBlockingAlert('Your workout saved, but we couldn\'t confirm it with your coach\'s dashboard (connection issue). It will keep retrying in the background -- if this keeps happening, check your internet connection.');
 }
 } else {
@@ -4972,8 +4981,14 @@ _clearPendingAttendance(record);
 function _flagPendingAttendance(record){
 try{
 var pending=JSON.parse(localStorage.getItem('kmfit_pending_attendance')||'[]');
+// Dedup by date/time/mobile -- this can now be called immediately at save
+// time as well as after 3 failed attempts, so avoid double-queuing the
+// same session if both paths happen to fire for it.
+var alreadyQueued=pending.some(function(p){return p.date===record.date&&p.time===record.time&&p.mobile===record.mobile;});
+if(!alreadyQueued){
 pending.push(record);
 localStorage.setItem('kmfit_pending_attendance',JSON.stringify(pending));
+}
 }catch(e){}
 }
 function _clearPendingAttendance(record){
