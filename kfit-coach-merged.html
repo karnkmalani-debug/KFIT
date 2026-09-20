@@ -3721,13 +3721,11 @@ let _measCache={};
 let measModalCtx=null;
 
 let _recentSessTokens={};
+let _recentSessCache={};
+let _recentSessVisible={};
 async function loadRecentSessionsForClient(clientId,listElId,clientKey){
   const listEl=document.getElementById(listElId);
   if(!listEl) return;
-  // Same race-condition guard as loadMeasurementsForClient below -- switching
-  // clients quickly could otherwise let a slower fetch for one client land
-  // after a faster one for another and overwrite the display with the wrong
-  // person's sessions.
   const myToken=(_recentSessTokens[listElId]=(_recentSessTokens[listElId]||0)+1);
   const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
   if(myToken!==_recentSessTokens[listElId]) return;
@@ -3737,49 +3735,46 @@ async function loadRecentSessionsForClient(clientId,listElId,clientKey){
     const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
     sessions=(d.sessions||[]).slice();
   }
-  if(!sessions.length){ listEl.innerHTML='<div style="color:var(--muted);">No sessions logged yet.</div>'; return; }
   sessions.sort(function(a,b){ return new Date(b.date)-new Date(a.date); });
+  _recentSessCache[listElId]=sessions;
+  _recentSessVisible[listElId]=5; // 5 to start, +10 per "show more" -- not everything at once, since this needs to hold up at hundreds of sessions, not just a handful
+  renderRecentSessionsPage(listElId,clientKey);
+}
+function showMoreRecentSessions(listElId,clientKey){
+  _recentSessVisible[listElId]=(_recentSessVisible[listElId]||5)+10;
+  renderRecentSessionsPage(listElId,clientKey);
+}
+function renderRecentSessionsPage(listElId,clientKey){
+  const listEl=document.getElementById(listElId);
+  if(!listEl) return;
+  const sessions=_recentSessCache[listElId]||[];
+  if(!sessions.length){ listEl.innerHTML='<div style="color:var(--muted);">No sessions logged yet.</div>'; return; }
+  const visible=_recentSessVisible[listElId]||5;
   const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  // PR detection reuses the same calcPersonalRecordsCoach/getSessionPRInfoCoach
-  // already built for the full session detail panel -- same 8-session
-  // minimum the tracker itself uses before bothering to compute PRs at all.
   const prMap=sessions.length>=8?calcPersonalRecordsCoach(sessions):{};
-  // Same formatting helpers as the tracker's own renderHistory(), copied
-  // directly rather than approximated, since the whole point here is to
-  // match it exactly.
-  function fmtDurM(secs){ if(!secs) return '--'; const h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60); return h>0?(h+'h '+m+'m'):(m+'m'); }
-  function fmtSecsM(s){ if(s===null||s===undefined) return '--'; const m=Math.floor(s/60),r=Math.round(s%60); return m>0?(m+':'+String(r).padStart(2,'0')):(r+'s'); }
-  function sessRestAvgM(s){
-    if(s.restTimes&&s.restTimes.length>0){ const flat=s.restTimes.filter(function(n){return n>0;}); if(!flat.length) return null; return flat.reduce(function(a,b){return a+b;},0)/flat.length; }
-    if(s.avgRestManual) return s.avgRestManual;
-    return null;
-  }
-  listEl.innerHTML=sessions.map(function(s){
+  // Compact rows, not the big tracker-style cards -- a glance list, not a
+  // second copy of the full detail view (which is one tap away via the
+  // existing rich session panel, PR/dropsets/supersets/calories and all).
+  const rows=sessions.slice(0,visible).map(function(s){
     const d=new Date(s.date+'T12:00:00');
+    const dateStr=d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear();
     const exCount=s.exercises&&s.exercises.length?s.exercises.length:0;
     const cardioCount=s.cardio&&s.cardio.length?s.cardio.length:0;
-    const metaStr=exCount?(exCount+' exercise'+(exCount!==1?'s':'')):(cardioCount?cardioCount+' cardio session'+(cardioCount!==1?'s':''):'');
-    const cardioDurSecs=s.duration||null;
-    const cardioDurMins=!cardioDurSecs&&cardioCount?s.cardio.reduce(function(a,c){return a+(parseInt(c.duration)||0);},0):0;
-    const cardioIntensities=cardioCount?s.cardio.filter(function(c){return c.intensity;}).map(function(c){return c.intensity;}).filter(function(v,i,a){return a.indexOf(v)===i;}):[];
-    const cardioPills=cardioCount?s.cardio.map(function(c){return '<span class="sess-tag">'+(c.ex||'').toUpperCase()+'</span>';}).join(''):'';
+    const metaStr=exCount?(exCount+' ex'):(cardioCount?(cardioCount+' cardio'):'');
     const prInfo=getSessionPRInfoCoach(s,prMap,sessions);
-    const bpPills=(s.bodyParts||[]).map(function(b){return '<span class="sess-tag'+(prInfo.bodyParts.has(b)?' sess-tag-pr':'')+'">'+b+'</span>';}).join('')
-      +(!cardioCount&&prInfo.count?('<span class="sess-tag sess-tag-pr">🏆 '+prInfo.count+' P.R.</span>'):'');
-    const avg=sessRestAvgM(s);
-    return '<div class="sess-card" style="cursor:pointer;" onclick="openCoachSession(\''+clientKey.replace(/'/g,"\\'")+'\',\''+s.date+'\',\''+(s.timeOfDay||'').replace(/'/g,"\\'")+'\')">'
-      +'<div style="flex:1;">'
-      +'<div class="sess-date">'+D[d.getDay()]+' . '+d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear()+(s.timeOfDay?' - '+s.timeOfDay:'')+'</div>'
-      +'<div class="sess-name">'+(s.client||'')+'</div>'
-      +'<div class="sess-meta">'+metaStr+'</div>'
-      +((cardioDurSecs||cardioDurMins)?('<div class="sess-dur">⏱ '+(cardioDurSecs?fmtDurM(cardioDurSecs):cardioDurMins+'m')+'</div>'):(s.duration?('<div class="sess-dur">⏱ '+fmtDurM(s.duration)+'</div>'):''))
-      +(cardioIntensities.length?('<div class="sess-rest">Intensity: '+cardioIntensities.join(', ')+'</div>'):'')
-      +((!cardioCount&&avg)?('<div class="sess-rest">Avg Rest '+fmtSecsM(avg)+'</div>'):'')
-      +'<div class="sess-tags">'+(cardioPills||bpPills)+'</div>'
+    const prBadge=prInfo.count?(' <span style="color:var(--gold);font-weight:800;">🏆'+prInfo.count+'</span>'):'';
+    const bp=(s.bodyParts||[]).join(', ')||(cardioCount?(s.cardio.map(function(c){return c.ex;}).filter(Boolean).join(', ')):'');
+    return '<div onclick="openCoachSession(\''+clientKey.replace(/'/g,"\\'")+'\',\''+s.date+'\',\''+(s.timeOfDay||'').replace(/'/g,"\\'")+'\')" '
+      +'style="padding:8px 4px;border-top:1px solid rgba(255,255,255,.08);font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;">'
+      +'<div><b>'+dateStr+'</b><span style="color:var(--muted);"> · '+(s.timeOfDay||'')+'</span><br>'
+      +'<span style="color:var(--muted);">'+bp+(bp&&metaStr?' · ':'')+metaStr+'</span>'+prBadge
       +'</div>'
+      +'<span style="color:var(--muted);">›</span>'
       +'</div>';
   }).join('');
+  const remaining=sessions.length-visible;
+  const moreBtn=remaining>0?('<button onclick="showMoreRecentSessions(\''+listElId+'\',\''+clientKey.replace(/'/g,"\\'")+'\')" style="width:100%;margin-top:8px;padding:8px;background:none;border:1px solid var(--border);border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;">Show '+Math.min(10,remaining)+' more ('+remaining+' remaining)</button>'):'';
+  listEl.innerHTML=rows+moreBtn;
 }
 
 let _measLoadTokens={};
