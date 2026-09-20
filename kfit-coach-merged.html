@@ -2773,6 +2773,13 @@ async function deleteClientRoutine(clientKey,routineId){
   let d={};
   if(data&&data.length&&data[0].data) d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
   d.routines=(d.routines||[]).filter(function(r){ return r.id!==routineId; });
+  // The client's own device merges routines by id on every sync, using a
+  // deletedRoutineIds tombstone list to know something was removed rather
+  // than just missing. Filtering the array here alone isn't enough -- their
+  // device still has its own cached copy locally, and without a tombstone
+  // its next sync silently re-adds the routine right back, which is exactly
+  // why this kept reappearing after being deleted.
+  d.deletedRoutineIds=(d.deletedRoutineIds||[]).concat([routineId]);
   const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
     client_id:fitId, tracker:'fitness', data:JSON.stringify(d), updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
@@ -2994,6 +3001,15 @@ async function deleteAssignedWorkout(clientKey,dateStr){
   if(error||!data||!data.length||!data[0].data){alert('Could not load this client\'s data.');return;}
   const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
   if(d.assignedWorkouts) delete d.assignedWorkouts[dateStr];
+  // Same tombstone requirement as deleteClientRoutine above -- assignedWorkouts
+  // has no id-based array to filter, it's a plain date-keyed object, but the
+  // client's own device merges its local copy back on top of the server's on
+  // every sync (their pending assignment overlays what the server has). Without
+  // recording that this date was explicitly deleted, their device has no way
+  // to know the difference between "never assigned" and "was assigned, then
+  // removed" -- it just sees its own cached copy is missing from the server
+  // and helpfully re-uploads it.
+  d.deletedAssignedWorkoutDates=(d.deletedAssignedWorkoutDates||[]).concat([dateStr]);
   const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
     client_id:clientId, tracker:'fitness', data:JSON.stringify(d), updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});

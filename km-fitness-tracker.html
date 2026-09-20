@@ -1277,7 +1277,7 @@ const CARDIO_EX = new Set(EX_LIB['Cardio']);
 const FUNCTIONAL_EX = new Set(EX_LIB['Functional']);
 function isFunctional(exName){ return FUNCTIONAL_EX.has(exName); }
 
-let selectedBP=[], sessions=[], notes={}, assignedWorkouts={}, deletedSessionIds=[], measurements=[], routines=[], deletedRoutineIds=[];
+let selectedBP=[], sessions=[], notes={}, assignedWorkouts={}, deletedSessionIds=[], measurements=[], routines=[], deletedRoutineIds=[], deletedAssignedWorkoutDates=[];
 // A deleted session's full data (not just its id) so a coach can actually
 // restore what was there, not just re-log blind. Capped in saveSessions.
 let deletedSessionsArchive=[];
@@ -4647,6 +4647,7 @@ var serverMeasurements=[];
 var serverRoutines=[];
 var serverArchive=[];
 try{
+var serverDeletedAssignedDates=[];
 if(!fres.error&&fres.data&&fres.data.length){
 fres.data.forEach(function(row){
 if(!row.data) return;
@@ -4656,10 +4657,18 @@ serverSessions=serverSessions.concat(fd.sessions||[]);
 serverMeasurements=serverMeasurements.concat(fd.measurements||[]);
 serverRoutines=serverRoutines.concat(fd.routines||[]);
 serverArchive=serverArchive.concat(fd.deletedSessionsArchive||[]);
+serverDeletedAssignedDates=serverDeletedAssignedDates.concat(fd.deletedAssignedWorkoutDates||[]);
 });
 }
 }catch(e){}
 var mergedAssigned=Object.assign({},serverAssigned,assignedWorkouts);
+// A coach deleting an assignment (via Merge) only removes it from the server
+// copy -- this device's own local assignedWorkouts, if it still has that
+// date cached, would otherwise just get overlaid right back on top above,
+// silently undoing the deletion on this very sync. Applying the tombstone
+// list here is what actually makes a coach's deletion stick.
+deletedAssignedWorkoutDates=(deletedAssignedWorkoutDates||[]).concat(serverDeletedAssignedDates);
+deletedAssignedWorkoutDates.forEach(function(dt){ delete mergedAssigned[dt]; });
 assignedWorkouts=mergedAssigned;
 
 var measById={};
@@ -4722,6 +4731,7 @@ assignedWorkouts:mergedAssigned,
 deletedSessionIds:deletedSessionIds,
 deletedSessionsArchive:deletedSessionsArchive,
 deletedRoutineIds:deletedRoutineIds,
+deletedAssignedWorkoutDates:deletedAssignedWorkoutDates,
 measurements:measurements,
 routines:routines,
 name:localStorage.getItem('kmfit_name'),
@@ -4830,6 +4840,12 @@ var remoteDeletedRoutines=d.deletedRoutineIds||[];
 deletedRoutineIds=Array.from(new Set([...localDeletedRoutines,...remoteDeletedRoutines]));
 var deletedRoutineSet=new Set(deletedRoutineIds.map(String));
 
+var localDeletedAssignedRaw=localStorage.getItem('kmfit_deleted_assigned_dates');
+var localDeletedAssigned=[];
+try{localDeletedAssigned=JSON.parse(localDeletedAssignedRaw)||[];}catch(e){}
+var remoteDeletedAssigned=d.deletedAssignedWorkoutDates||[];
+deletedAssignedWorkoutDates=Array.from(new Set([...localDeletedAssigned,...remoteDeletedAssigned]));
+
 var remoteSessions=(d.sessions||[]).filter(function(s){return !deletedSet.has(String(s.id));});
 localSessions=localSessions.filter(function(s){return !deletedSet.has(String(s.id));});
 var sessionMap={};
@@ -4843,7 +4859,12 @@ return (b.updatedAt||0)-(a.updatedAt||0);
 });
 sessions=merged.length>0?merged:remoteSessions;
 if(d.notes)notes=d.notes;
-if(d.assignedWorkouts)assignedWorkouts=d.assignedWorkouts;
+if(d.assignedWorkouts){
+var loadedAssigned=Object.assign({},d.assignedWorkouts);
+deletedAssignedWorkoutDates.forEach(function(dt){ delete loadedAssigned[dt]; });
+assignedWorkouts=loadedAssigned;
+try{localStorage.setItem('kmfit_deleted_assigned_dates',JSON.stringify(deletedAssignedWorkoutDates));}catch(e){}
+}
 if(d.measurements){
 var localM=measurements||[];
 var mMap={};
