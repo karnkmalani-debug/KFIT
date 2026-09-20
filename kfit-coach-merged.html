@@ -3244,7 +3244,7 @@ function openCoachSession(clientKey, date, time){
       document.getElementById('coachSessActions').innerHTML=`
         <button onclick="editCoachSession()" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">✎ Edit</button>
         <button onclick="deleteCoachSessionFromPanel()" style="background:none;border:1px solid var(--terra);border-radius:8px;padding:8px 14px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🗑 Delete</button>`;
-      renderCoachSession(s,sessions);
+      renderCoachSession(s,sessions,d);
     });
 }
 
@@ -3408,7 +3408,7 @@ function ssBodyHtmlCoach(ss,uLabel,prMap8,s,allSessions){
   }).join('');
 }
 
-function renderCoachSession(s,allSessions){
+function renderCoachSession(s,allSessions,full){
   const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const uLabel=s.unit||'kg';
   const prMap8=(allSessions&&allSessions.length>=8)?calcPersonalRecordsCoach(allSessions):{};
@@ -3429,7 +3429,7 @@ function renderCoachSession(s,allSessions){
     var _hasStr=(s.exercises&&s.exercises.length>0)||(s.supersets&&s.supersets.length>0);
     var _strSecs=_hasStr?Math.max(0,(sessDur||0)-_cSecs-_fSecs):0;
     var _avgRest=(s.restTimes&&s.restTimes.length)?(s.restTimes.reduce((a,b)=>a+b,0)/s.restTimes.length):s.avgRestManual;
-    return computeSessionCalories({strengthSecs:_strSecs,avgRestSec:_avgRest,cardioBlocks:(s.cardio||[]).map(c=>({ex:c.ex,duration:c.duration,intensity:c.intensity})),functionalBlocks:(s.functional||[]).map(f=>({ex:f.ex,duration:f.duration})),profile:{}});
+    return computeSessionCalories({strengthSecs:_strSecs,avgRestSec:_avgRest,cardioBlocks:(s.cardio||[]).map(c=>({ex:c.ex,duration:c.duration,intensity:c.intensity})),functionalBlocks:(s.functional||[]).map(f=>({ex:f.ex,duration:f.duration})),profile:getClientProfileFromFull(full)});
   })();
   const _calBadgeCoach=_sessCal?`<span style="color:var(--terra);font-size:14px;font-weight:800;">&#128293; ${_sessCal.isRange?(_sessCal.low+'-'+_sessCal.high):_sessCal.value} kcal</span>`:'';
   const bpHtml=(s.bodyParts&&s.bodyParts.length)?
