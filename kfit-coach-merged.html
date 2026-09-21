@@ -3118,7 +3118,14 @@ async function deleteClientFitness(clientKey){
   if(!confirm('This cannot be undone. Really delete '+c.name+'\'s fitness data?')) return;
   const fitId=buildClientId(c.name,c.mobile);
   const {error:attErr}=await getSBScoped().from('attendance').delete().eq('client_mobile',c.mobile||'');
-  const {error:tdErr}=await getSBScoped().from('tracker_data').delete().eq('client_id',fitId).eq('tracker','fitness');
+  // Was a plain DELETE on tracker_data -- but the client's own device keeps
+  // its own local copy of everything, and finding nothing on the server on
+  // next open reads as "never synced yet, upload mine" rather than
+  // "deliberately wiped", silently resurrecting everything. Writing a wipe
+  // marker instead of removing the row lets their device tell the two
+  // apart and clear its own copy too -- see the matching check in
+  // km-fitness-tracker.html's loadFitnessFromSupabase.
+  const {error:tdErr}=await getSBScoped().from('tracker_data').update({data:{wiped:true,wiped_at:new Date().toISOString()}}).eq('client_id',fitId).eq('tracker','fitness');
   if(attErr||tdErr){alert('Error deleting: '+((attErr&&attErr.message)||(tdErr&&tdErr.message)));return;}
   allRecords=allRecords.filter(function(r){return (r.client_mobile||r.client_name)!==clientKey;});
   alert(c.name+"'s fitness data has been deleted.");
@@ -3130,7 +3137,10 @@ async function deleteClientNutrition(clientId){
   const name=cw?cw.name:clientId;
   if(!confirm('Delete ALL nutrition data for '+name+'? This removes their entire meal log history permanently.')) return;
   if(!confirm('This cannot be undone. Really delete '+name+"'s nutrition data?")) return;
-  const {error}=await getSBScoped().from('tracker_data').delete().eq('client_id',clientId).eq('tracker','nutrition');
+  // Same wipe-marker approach as deleteClientFitness -- see that function's
+  // comment for why a plain DELETE lets the client's own device silently
+  // bring everything back on its next sync.
+  const {error}=await getSBScoped().from('tracker_data').update({data:{wiped:true,wiped_at:new Date().toISOString()}}).eq('client_id',clientId).eq('tracker','nutrition');
   if(error){alert('Error deleting: '+error.message);return;}
   allClients=allClients.filter(function(c){return c.client_id!==clientId;});
   alert(name+"'s nutrition data has been deleted.");

@@ -4860,6 +4860,31 @@ callback(true);
 }
 
 function _applyFitnessData(d){
+if(d&&d.wiped){
+// A coach used Danger Zone to intentionally delete this account's data.
+// The alternative here -- treating an empty/missing server row as "never
+// synced yet" -- is exactly what silently resurrected deleted data before:
+// this device would just re-upload its own local copy on the next save.
+// A wipe marker instead of an actually-missing row lets this be told apart
+// from that case, so the coach's delete can actually stick.
+try{
+['kmfit_sessions','kmfit_sessions_backup','kmfit_measurements','kmfit_routines','kmfit_assignedWorkouts','kmfit_deleted_ids','kmfit_deleted_archive','kmfit_deleted_routine_ids','kmfit_deleted_assigned_dates','kmfit_weekly_notes','kmfit_monthly_notes'].forEach(function(k){localStorage.removeItem(k);});
+}catch(e){}
+sessions=[];measurements=[];routines=[];assignedWorkouts=[];deletedSessionIds=[];
+if(typeof deletedRoutineIds!=='undefined')deletedRoutineIds=[];
+if(typeof deletedAssignedWorkoutDates!=='undefined')deletedAssignedWorkoutDates=[];
+// Write back a fresh, non-wiped (empty) row so normal syncing resumes for
+// whatever this client logs from here on -- otherwise every future save
+// would be checked against, and rejected by, the wipe marker forever.
+try{
+var key=getFitClientKey();
+getSBScoped().from('tracker_data').update({data:{sessions:[],measurements:[],routines:[],assignedWorkouts:[]}}).eq('client_id',key).eq('tracker','fitness').then(function(){});
+}catch(e){}
+if(!window.__KFIT_COACH_PREVIEW__){
+toast('Your coach has reset your fitness history on this account.');
+}
+return;
+}
 var localRaw=localStorage.getItem('kmfit_sessions');
 var localSessions=[];
 try{localSessions=JSON.parse(localRaw)||[];}catch(e){}
@@ -5823,6 +5848,11 @@ const label=buildLabel(r);
 // a normal, linked record still only deletes through its session, so the
 // two stay in sync.
 const orphanDelete=!sessId?`<span onclick="event.stopPropagation();deleteOrphanAttendanceRow(this,'${r.session_date}','${(r.session_time||'').replace(/'/g,"\\'")}')" style="font-size:15px;color:var(--terra);cursor:pointer;padding:2px 4px;">🗑</span>`:'';
+// Read-only -- purely informational for the client, nothing here is
+// editable by them. Kept deliberately low-key (small, muted text rather
+// than a loud badge) since "Unpaid" displayed to the client themselves
+// should read as a quiet status note, not a confrontational alert.
+const paidPill=r.paid===true?`<span style="font-size:11px;font-weight:700;color:var(--sage);">✓ Paid</span>`:`<span style="font-size:11px;font-weight:700;color:var(--muted2);">Unpaid</span>`;
 return`<div onclick="${sessId?`openDetail(${sessId})`:`toast('No workout details linked to this attendance record')`}" style="background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .18s;" onmouseenter="this.style.borderColor='var(--sage)'" onmouseleave="this.style.borderColor='var(--border)'">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
 <span style="font-size:15px;font-weight:700;color:var(--text);">${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}</span>
@@ -5832,6 +5862,7 @@ ${r.session_time?`<span style="font-size:14px;font-weight:600;color:var(--muted)
 <span style="font-size:14px;font-weight:700;color:var(--sage);">${label}</span>
 <div style="display:flex;align-items:center;gap:6px;">
 ${r.duration_secs?`<span style="font-size:15px;font-weight:600;color:var(--muted);">${Math.round(r.duration_secs/60)}m</span>`:''}
+${paidPill}
 ${orphanDelete}
 <span style="font-size:16px;color:var(--muted2);">›</span>
 </div>

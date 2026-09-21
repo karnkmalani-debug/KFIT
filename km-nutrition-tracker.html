@@ -1174,6 +1174,27 @@ callback(true);
 }
 
 function _applyNutData(d){
+if(d&&d.wiped){
+// Same wipe-marker handling as the fitness tracker -- see that file's
+// _applyFitnessData for the full reasoning. A coach deliberately deleted
+// this account's data via Danger Zone; without this check, this device's
+// own locally cached data would silently re-upload on the next save and
+// undo the delete.
+try{
+localStorage.removeItem(LS_DATA);
+localStorage.removeItem('kmnut_vices');
+localStorage.removeItem('kmnut_vices_backup');
+}catch(e){}
+data=[];
+try{
+var key=getClientKey();
+getSBScoped().from('tracker_data').update({data:{data:[]}}).eq('client_id',key).eq('tracker','nutrition').then(function(){});
+}catch(e){}
+if(!window.__KFIT_COACH_PREVIEW__){
+showToast('Your coach has reset your nutrition history on this account.');
+}
+return;
+}
 if(d.setup)appSetup=d.setup;
 if(d.weekNotes)weekNotes=d.weekNotes;
 if(d.ui)ui=d.ui;
