@@ -7122,9 +7122,9 @@ localStorage.setItem('kmfit_deleted_ids',JSON.stringify(deletedSessionIds));
 saveSessions();closeDetail();renderHistory();renderStats();toast('Deleted');
 }
 
-function deleteAttendance(date,time){
+function deleteAttendance(date,time,callback){
 var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
-if(!mobile||!date) return;
+if(!mobile||!date){ if(callback) callback(false); return; }
 ensureAnonAuth(function(){
 getSBScoped().from('attendance')
 .delete()
@@ -7133,14 +7133,28 @@ getSBScoped().from('attendance')
 .eq('session_time', time)
 .then(function(res){
 if(res.error) console.warn('Attendance delete error:',res.error.message);
+if(callback) callback(!res.error,res.error);
 });
 });
 }
 function deleteOrphanAttendanceRow(el,date,time){
 if(!confirm('Remove this attendance record? It has no workout details linked to it, so nothing else will be affected.')) return;
-deleteAttendance(date,time);
+// Used to remove the row from view immediately, before the server delete
+// even finished -- a failed delete looked identical to a successful one,
+// then the record would silently reappear on the next reload with no
+// indication anything went wrong. Now the row only disappears once the
+// server actually confirms it.
 var row=el.closest('div[style]');
+if(row){ row.style.opacity='0.4'; row.style.pointerEvents='none'; }
+deleteAttendance(date,time,function(ok,err){
+if(ok){
 if(row) row.remove();
+toast('Deleted');
+} else {
+if(row){ row.style.opacity=''; row.style.pointerEvents=''; }
+alert('Could not delete this record: '+(err&&err.message?err.message:'unknown error')+'\n\nNothing was removed -- it should still be here.');
+}
+});
 }
 
 let sharedAC=null;
