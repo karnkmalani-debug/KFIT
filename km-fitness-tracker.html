@@ -111,11 +111,14 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .set-rows{padding:6px 8px 8px;}
 .set-header{display:grid;grid-template-columns:26px 1fr 18px 1fr 20px;gap:6px;margin-bottom:4px;}
 .set-header span{font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted2);text-align:center;}
-.set-row{display:grid;grid-template-columns:26px 0.85fr 34px 34px 1fr 20px;gap:6px;align-items:center;margin-bottom:5px;}
+.set-row{display:grid;grid-template-columns:26px 0.72fr 34px 34px 34px 0.85fr 20px;gap:6px;align-items:center;margin-bottom:5px;}
+.set-row.functional-row{grid-template-columns:26px 1fr 1fr;}
 .assist-toggle{width:32px;height:24px;border-radius:6px;border:1.5px solid var(--red);background:transparent;color:var(--red);font-size:8px;font-weight:900;letter-spacing:0.4px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
 .assist-toggle.active{background:var(--red);border-color:var(--red);color:#fff;font-size:13px;}
 .lp-toggle{width:32px;height:24px;border-radius:6px;border:1.5px solid var(--gold);background:transparent;color:var(--gold);font-size:8px;font-weight:900;letter-spacing:0.4px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
 .lp-toggle.active{background:var(--gold);border-color:var(--gold);color:#1a1408;}
+.mm-toggle{width:32px;height:24px;border-radius:6px;border:1.5px solid #5a3a8a;background:transparent;color:#9a6ad4;font-size:8px;font-weight:900;letter-spacing:0.4px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+.mm-toggle.active{background:#9a6ad4;border-color:#9a6ad4;color:#1a0e2a;}
 .set-row:last-child{margin-bottom:0;}
 .set-num{font-family:'DM Mono',monospace;font-size:17px;color:var(--muted);text-align:center;font-weight:600;}
 .set-row.drop-row{position:relative;margin-left:14px;padding-left:8px;border-left:2px solid rgba(200,120,63,.35);}
@@ -2867,7 +2870,7 @@ const existingAll=[...container.querySelectorAll('.set-row')];
 const existingMain=existingAll.filter(r=>!r.classList.contains('drop-row'));
 const existingDrops=existingAll.filter(r=>r.classList.contains('drop-row'));
 const vals=[];
-existingMain.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value,assistedReps:parseInt(r.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(r.querySelector('.lp-toggle')?.dataset.count)||0}));
+existingMain.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value,assistedReps:parseInt(r.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(r.querySelector('.lp-toggle')?.dataset.count)||0,myoRepMatch:r.querySelector('.mm-toggle')?.classList.contains('active')||false}));
 
 const dropsByMain={};
 existingDrops.forEach(d=>{
@@ -2880,8 +2883,10 @@ const row=document.createElement('div');
 row.className='set-row';
 const startCount=vals[i]?.assistedReps||0;
 const startLPCount=vals[i]?.lengthenedPartialReps||0;
+const startMM=vals[i]?.myoRepMatch||false;
 row.innerHTML=`<span class="set-num">S${i+1}</span>
 <input class="reps-input" type="number" inputmode="numeric" min="0" max="999" placeholder="--" value="${vals[i]?.reps||''}" onblur="autoFixNum(this)">
+<button type="button" class="mm-toggle${startMM?' active':''}" title="Myo-rep match / rest-pause set" onclick="this.classList.toggle('active')">MM</button>
 <button type="button" class="assist-toggle${startCount>0?' active':''}" data-count="${startCount}" title="Tap: +1 rep needed help. Hold: -1">${startCount>0?startCount:'H'}</button>
 <button type="button" class="lp-toggle${startLPCount>0?' active':''}" data-count="${startLPCount}" title="Tap: +1 lengthened partial rep. Hold: -1">${startLPCount>0?startLPCount:'LP'}</button>
 <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" value="${vals[i]?.weight||''}" onblur="autoFixNum(this)">
@@ -2982,6 +2987,7 @@ row.className='set-row drop-row';
 row.dataset.afterMain=afterMain;
 row.innerHTML=`<span class="set-num dropset">D</span>
 <input class="reps-input" type="number" inputmode="numeric" min="0" max="999" placeholder="--" onblur="autoFixNum(this)">
+<button type="button" class="mm-toggle" title="Myo-rep match / rest-pause set" onclick="this.classList.toggle('active')">MM</button>
 <button type="button" class="assist-toggle" data-count="0" title="Tap: +1 rep needed help. Hold: -1">H</button>
 <button type="button" class="lp-toggle" title="Lengthened partial rep">LP</button>
 <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" onblur="autoFixNum(this)">
@@ -3032,6 +3038,7 @@ dropRow.querySelector('.reps-input').value=sd.reps||'';
 dropRow.querySelector('.weight-input').value=sd.weight||'';
 if(n>0){ const btn=dropRow.querySelector('.assist-toggle'); btn.dataset.count=n; btn.textContent=n; btn.classList.add('active'); }
 if(sd.lengthenedPartialReps>0){ const lp=dropRow.querySelector('.lp-toggle'); if(lp){ lp.dataset.count=sd.lengthenedPartialReps; lp.textContent=sd.lengthenedPartialReps; lp.classList.add('active'); } }
+if(sd.myoRepMatch){ const mm=dropRow.querySelector('.mm-toggle'); if(mm) mm.classList.add('active'); }
 renumberDropGroup(container,afterMain);
 }
 } else {
@@ -3042,6 +3049,7 @@ row.querySelector('.reps-input').value=sd.reps||'';
 row.querySelector('.weight-input').value=sd.weight||'';
 if(n>0){ const btn=row.querySelector('.assist-toggle'); btn.dataset.count=n; btn.textContent=n; btn.classList.add('active'); }
 if(sd.lengthenedPartialReps>0){ const lp=row.querySelector('.lp-toggle'); if(lp){ lp.dataset.count=sd.lengthenedPartialReps; lp.textContent=sd.lengthenedPartialReps; lp.classList.add('active'); } }
+if(sd.myoRepMatch){ const mm=row.querySelector('.mm-toggle'); if(mm) mm.classList.add('active'); }
 }
 }
 });
@@ -3986,7 +3994,7 @@ innerHtml=setData.map(function(r){
 const label=r.dropset?(++dsN>1?'D'+dsN:'D'):(dsN=0,mainN++,'Set '+mainN);
 return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;'+(r.dropset?'margin-left:16px;border-left:2px solid var(--red);':'')+'">'
 +'<span style="font-family:\'DM Mono\',monospace;font-size:17px;color:'+(r.dropset?'var(--red)':'var(--muted2)')+';width:42px;flex-shrink:0;text-transform:uppercase;">'+label+'</span>'
-+(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:14px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
++(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.myoRepMatch?' <span style="color:#9a6ad4;font-size:14px;font-weight:700;">(MM)</span>':'')+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:14px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
 +(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:17px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
 +'</div>';
 }).join('');
@@ -4104,7 +4112,7 @@ exercises.push({ex,type:'functional',sets:setsCount,setData});
 const setsCount=+exBlock.querySelector('.sets-select').value;
 const setData=[];
 exBlock.querySelectorAll('.set-row').forEach((row,i)=>{
-setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(row.querySelector('.lp-toggle')?.dataset.count)||0,dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
+setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(row.querySelector('.lp-toggle')?.dataset.count)||0,myoRepMatch:row.querySelector('.mm-toggle')?.classList.contains('active')||false,dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
 });
 exercises.push({ex,sets:setsCount,setData});
 }
@@ -4213,7 +4221,7 @@ innerHtml=setData.map(function(r){
 const label=r.dropset?(++dsN>1?'D'+dsN:'D'):(dsN=0,mainN++,'Set '+mainN);
 return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;'+(r.dropset?'margin-left:16px;border-left:2px solid var(--red);':'')+'">'
 +'<span style="font-family:\'DM Mono\',monospace;font-size:17px;color:'+(r.dropset?'var(--red)':'var(--muted2)')+';width:42px;flex-shrink:0;text-transform:uppercase;">'+label+'</span>'
-+(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:14px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
++(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.myoRepMatch?' <span style="color:#9a6ad4;font-size:14px;font-weight:700;">(MM)</span>':'')+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:14px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
 +(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:17px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
 +'</div>';
 }).join('');
@@ -4312,7 +4320,7 @@ row.style.borderRadius='6px';
 } else {
 row.style.outline='';
 }
-setData.push({set:i+1,reps:reps,weight:weight,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(row.querySelector('.lp-toggle')?.dataset.count)||0,dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
+setData.push({set:i+1,reps:reps,weight:weight,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(row.querySelector('.lp-toggle')?.dataset.count)||0,myoRepMatch:row.querySelector('.mm-toggle')?.classList.contains('active')||false,dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
 });
 exercises.push({ex,sets:setsCount,setData,order:_exOrder.get(block)});
 }
@@ -5333,7 +5341,7 @@ const ex=block.querySelector('.ex-select').value;
 const sets=+block.querySelector('.sets-select').value;
 const setData=[];
 block.querySelectorAll('.set-row').forEach((row,i)=>{
-setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(row.querySelector('.lp-toggle')?.dataset.count)||0,dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
+setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(row.querySelector('.lp-toggle')?.dataset.count)||0,myoRepMatch:row.querySelector('.mm-toggle')?.classList.contains('active')||false,dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
 });
 exercises.push({ex,sets,setData,autobp:block.dataset.autobp||null});
 });
@@ -5921,7 +5929,7 @@ if(e.type!=='cardio') allEx.push(e);
 allEx.forEach(function(e){
 if(!e.ex||e.ex.toLowerCase().trim()!==exKey) return;
 (e.setData||[]).forEach(function(set){
-if((set.assistedReps>0)||set.dropset||(set.lengthenedPartialReps>0)) return;
+if((set.assistedReps>0)||set.dropset||(set.lengthenedPartialReps>0)||set.myoRepMatch) return;
 var w=parseFloat(set.weight);
 var r=set.reps?String(set.reps).trim():'';
 if(!w||isNaN(w)||!r) return;
@@ -5947,7 +5955,7 @@ var isSessionPR=exPR&&s.date===exPR.date&&(s.timeOfDay||'')===(exPR.timeOfDay||'
 if(!isSessionPR) return;
 var priorBest=calcPriorBest(key,s.date,s.timeOfDay);
 (e.setData||[]).forEach(function(set){
-if((set.assistedReps>0)||set.dropset||(set.lengthenedPartialReps>0)) return;
+if((set.assistedReps>0)||set.dropset||(set.lengthenedPartialReps>0)||set.myoRepMatch) return;
 var w=parseFloat(set.weight);
 var rNum=set.reps?parseInt(set.reps):NaN;
 if(!w||isNaN(w)||!set.reps) return;
@@ -5975,7 +5983,7 @@ allEx.forEach(function(e){
 if(!e.ex) return;
 var key=e.ex.toLowerCase().trim();
 (e.setData||[]).forEach(function(set){
-if((set.assistedReps>0)||set.dropset||(set.lengthenedPartialReps>0)) return;
+if((set.assistedReps>0)||set.dropset||(set.lengthenedPartialReps>0)||set.myoRepMatch) return;
 var w=parseFloat(set.weight);
 var r=set.reps?String(set.reps).trim():'';
 if(!w||isNaN(w)||!r) return;
@@ -6050,8 +6058,9 @@ const reps=repsInp&&repsInp.value?repsInp.value.trim():'';
 const weight=weightInp&&weightInp.value?parseFloat(weightInp.value):null;
 const isAssisted=r.querySelector('.assist-toggle')?.classList.contains('active')||false;
 const isLP=(parseInt(r.querySelector('.lp-toggle')?.dataset.count)||0)>0;
+const isMM=r.querySelector('.mm-toggle')?.classList.contains('active')||false;
 const isDrop=r.classList.contains('drop-row');
-if(!reps||!weight||isNaN(weight)||isAssisted||isLP||isDrop) return;
+if(!reps||!weight||isNaN(weight)||isAssisted||isLP||isMM||isDrop) return;
 const repsNum=parseInt(reps);
 if(weight>bestWeight||(weight===bestWeight&&!isNaN(repsNum)&&(isNaN(bestReps)||repsNum>bestReps))){
 bestWeight=weight; bestReps=repsNum; bestRow=r;
@@ -6256,7 +6265,7 @@ if(!realSets.length) return '';
 var hasWeight=realSets.some(function(r){return r.weight;});
 var rows=realSets.map(function(r){
 return '<tr><td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">S'+r.set+(r.dropset?' (drop)':'')+'</td>'+
-'<td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">'+(r.reps||'--')+(r.assistedReps>0?' (H '+r.assistedReps+')':'')+(r.lengthenedPartialReps>0?' (LP '+r.lengthenedPartialReps+')':'')+'</td>'+
+'<td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">'+(r.reps||'--')+(r.myoRepMatch?' (MM)':'')+(r.assistedReps>0?' (H '+r.assistedReps+')':'')+(r.lengthenedPartialReps>0?' (LP '+r.lengthenedPartialReps+')':'')+'</td>'+
 (hasWeight?'<td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">'+(r.weight||'--')+' '+uLabel+'</td>':'')+'</tr>';
 }).join('');
 return '<div style="margin-bottom:10px;"><div style="font-size:14px;font-weight:700;margin-bottom:4px;">'+e.ex+'</div>'+
@@ -6986,12 +6995,12 @@ ${hasWeight?`<th style="text-align:center;font-size:12px;font-weight:800;letter-
 <tbody>${(()=>{let dropN=0;return realSets.map(r=>{
 const w=parseFloat(r.weight)||0;
 const rNum=r.reps?parseInt(r.reps):NaN;
-const showTrophy=isSessionPR&&!(r.assistedReps>0)&&!r.dropset&&!(r.lengthenedPartialReps>0)&&w>0&&r.reps&&
+const showTrophy=isSessionPR&&!(r.assistedReps>0)&&!r.dropset&&!(r.lengthenedPartialReps>0)&&!r.myoRepMatch&&w>0&&r.reps&&
 (!priorBest||w>priorBest.weight||(w===priorBest.weight&&!isNaN(rNum)&&rNum>parseInt(priorBest.reps)));
 const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
 return`<tr>
 <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${dropLabel}</td>
-<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">H '+r.assistedReps+'</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.lengthenedPartialReps+' lengthened partial rep(s)">LP '+r.lengthenedPartialReps+'</span>':''}</td>
+<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.myoRepMatch?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Myo-rep match / rest-pause set">MM</span>':''}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">H '+r.assistedReps+'</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.lengthenedPartialReps+' lengthened partial rep(s)">LP '+r.lengthenedPartialReps+'</span>':''}</td>
 ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
 </tr>`;}).join('')})()}</tbody>
 </table>
@@ -7055,12 +7064,12 @@ ${hasWeight?`<th style="text-align:center;font-size:12px;font-weight:800;letter-
 <tbody>${(()=>{let dropN=0;return ssRealSets.map(r=>{
 const w=parseFloat(r.weight)||0;
 const rNum=r.reps?parseInt(r.reps):NaN;
-const showTrophy=ssIsSessionPR&&!(r.assistedReps>0)&&!r.dropset&&!(r.lengthenedPartialReps>0)&&w>0&&r.reps&&
+const showTrophy=ssIsSessionPR&&!(r.assistedReps>0)&&!r.dropset&&!(r.lengthenedPartialReps>0)&&!r.myoRepMatch&&w>0&&r.reps&&
 (!ssPriorBest||w>ssPriorBest.weight||(w===ssPriorBest.weight&&!isNaN(rNum)&&rNum>parseInt(ssPriorBest.reps)));
 const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
 return`<tr>
 <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${dropLabel}</td>
-<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">H '+r.assistedReps+'</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.lengthenedPartialReps+' lengthened partial rep(s)">LP '+r.lengthenedPartialReps+'</span>':''}</td>
+<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.myoRepMatch?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Myo-rep match / rest-pause set">MM</span>':''}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">H '+r.assistedReps+'</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.lengthenedPartialReps+' lengthened partial rep(s)">LP '+r.lengthenedPartialReps+'</span>':''}</td>
 ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
 </tr>`;}).join('')})()}</tbody>
 </table>
@@ -7299,6 +7308,7 @@ const HELP_TEXT=[
 '<b>2. For each exercise, fill in your sets</b><br>Every exercise shows boxes for Reps and Weight, one row per set. Just type the numbers in as you finish each set. Did an extra set that isn\'t shown? Tap "+ Add Set" to add another row.<br><br>'+
 '<b>3. The H button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "H" (for Help). Tap it once for every rep in that set where someone helped you finish (a spot) -- it\'ll show a number like "H 2". Tapped it by mistake, or want to lower the count? Press and hold the button to subtract one. Didn\'t need help at all? Just leave it alone.<br><br>'+
 '<b>3b. The LP button (lengthened partials)</b><br>Works exactly the same way as H, right next to it. Tap "LP" once for every rep in that set done as a lengthened partial -- a shorter rep performed in the stretched position of the movement (e.g. the bottom half of a leg extension or bicep curl), a technique some research suggests builds muscle as well as full-range reps for certain exercises. Same as H: tap to add one, press and hold to subtract one. Like H and drop sets, LP reps are excluded from your Personal Records, since a partial-range rep isn\'t really the same lift as a full-range one.<br><br>'+
+'<b>3c. The MM button (myo-rep match / rest-pause)</b><br>Tap MM to mark a set done as a myo-rep match or rest-pause set -- a few seconds\' pause mid-set instead of stopping between sets. Same as H and LP, MM sets are excluded from Personal Records.<br><br>'+
 '<b>4. Drop sets</b><br>Right after a set, you\'ll see a small "+ Drop set" link. Tap it if you dropped the weight and kept going with no rest (a classic drop set) -- it adds a new row marked "D" underneath that set.<br><br>'+
 '<b>5. How to actually do each rep</b><br>This matters as much as the numbers you log: lower the weight slowly (2-4 seconds), pause for a second at the bottom, then lift back up fast and with intent. Always use the full range of motion -- never half-reps. If you can\'t do this with control, the weight is too heavy; use less weight, not less range.<br><br>'+
 '<b>6. Doing two exercises back-to-back with no rest? Use Superset</b><br>Tap "+ Add Superset" instead of logging them as two separate exercises. This links them together properly in your history.<br><br>'+
@@ -7312,17 +7322,18 @@ const HELP_TEXT=[
 '<b>12. Logging a workout from a past day</b><br>Forgot to log yesterday? Tap the date at the very top of the screen (next to the KFit logo) -- it opens your phone\'s own calendar so you can pick any earlier date and log for that day instead of today. If that day already has a workout logged, you\'ll get asked whether to edit it or add another one -- useful if you train twice in a day.<br><br>'+
 '<b>13. Exercise isn\'t in the list?</b><br>Scroll to the bottom of the exercise list and tap "Suggest a new exercise to your coach." It gets sent to your coach, who can add it permanently so it shows up for everyone next time.'},
 {title:'History',body:
-'<b>What this page is</b><br>Every workout you\'ve ever saved, listed with the newest at the top.<br><br>'+
-'<b>Narrowing it down</b><br>Tap All Time, This Month, This Week, or Custom (pick your own two dates) to only see workouts from that period. The list below changes to match instantly.<br><br>'+
-'<b>Printing</b><br>Two buttons here: "Print Summary View" prints the short list you can see on screen. "Print Full Report" prints the complete detail for every workout in whatever range you\'ve selected -- every exercise, every set, every rep -- with one workout per printed page. Both respect whichever filter (This Week/Month/etc.) you currently have selected.'},
+'<b>What this page is</b><br>Every workout you\'ve saved, newest first.<br><br>'+
+'<b>Narrowing it down</b><br>All Time, This Month, This Week, or Custom (pick your own two dates) -- the list updates instantly.<br><br>'+
+'<b>Printing</b><br>"Print Summary View" prints the on-screen list. "Print Full Report" prints full detail -- every exercise, set, rep -- for whatever range you\'ve selected, one workout per page.<br><br>'+
+'<b>My Attendance</b><br>Below that: your total sessions, days trained, and current streak, then every attendance record. Each shows whether your coach has marked that session paid or unpaid -- a status note for you to see, not something you can change.'},
 {title:'Stats',body:'A look at how your training is trending over time -- how your rest times between sets have changed, which exercises you do most, and total calories burned (this week, this month, all time -- needs your age/sex/height/weight filled in to show up). Below that, the Training FAQ has common questions (total reps, hours, cardio vs strength, heaviest lifts, and more) -- pick a time range and tap one to see the answer instantly, computed from your own logged sessions with nothing sent anywhere. Underneath it, type a specific exercise name to ask about that exercise alone. Tap "Share Progress Report" to send a summary of this straight to your coach.'},
 {title:'Notes',body:'A simple text box to write how a week or month of training went, in your own words -- how you felt, what was hard, anything you want your coach to know. Your coach reads these alongside your actual numbers to understand the full picture. Further down, "Import Data" lets you bring in past workout history from another app or your own spreadsheet as a CSV file -- it always shows you exactly what it found before anything is actually added, so nothing gets imported without your confirmation.'},
 {title:'Personal Records (PR)',body:'Pick any exercise from the dropdown list to see the best set you\'ve ever logged for it -- your heaviest weight, or the most reps at a given weight. This updates by itself the moment you beat your own record in a future session -- you don\'t have to do anything for it to update.'},
 {title:'Body Measurements',body:
-'<b>What to log</b><br>Your weight, height, and body measurements (chest, waist, arms, etc.) -- as well as Body Fat % and Muscle Mass if you know them (e.g. from a DEXA or InBody scan).<br><br>'+
-'<b>How often</b><br>Not every session -- just whenever you want to check in. Leave any box blank if you don\'t want to track that particular thing.<br><br>'+
-'<b>Uploading a scan report</b><br>If you\'ve had a DEXA or InBody scan done, tap "Upload Scan / Report" to attach the photo or PDF to that date\'s entry, so it\'s saved here for you and your coach to look back on any time.<br><br>'+
-'<b>Tracking change over time</b><br>Each new entry automatically shows how much it changed since your last one, right next to the number.'}
+'<b>What to log</b><br>Weight, height, age, and sex -- age/sex/height/weight together are what let calorie estimates work. Also chest, waist, arms and other measurements, plus Body Fat % and Muscle Mass if you know them (e.g. from a DEXA or InBody scan).<br><br>'+
+'<b>How often</b><br>Whenever you want to check in, not every session. Leave anything blank you don\'t want to track.<br><br>'+
+'<b>Uploading a scan report</b><br>Tap "Upload Scan / Report" to attach a DEXA/InBody photo or PDF to that entry, saved for you and your coach to look back on.<br><br>'+
+'<b>Tracking change over time</b><br>Each new entry shows how much it changed since your last one.'}
 ];
 function showHelp(i){
 var h=HELP_TEXT[i];
