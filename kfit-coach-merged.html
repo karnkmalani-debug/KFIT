@@ -2172,14 +2172,35 @@ async function toggleClientTag(canonKey,name,mobile,btnEvent,trackerType){
     const {error}=await getSBScoped().from('client_tags').delete().eq('client_key',canonKey).eq('tracker',tk);
     if(error){alert('Could not remove this tag -- nothing changed. Error: '+error.message);return;}
     delete taggedClients[tk][canonKey];
+    if(tk==='fitness') mirrorActiveStatusToClientRecord(name,mobile,false);
   } else {
     const {error}=await getSBScoped().from('client_tags').upsert({client_key:canonKey,name,mobile:mobile||'',tracker:tk},{onConflict:'client_key,tracker'});
     if(error){alert('Could not save this tag -- it will not persist after reload. Error: '+error.message);return;}
     taggedClients[tk][canonKey]=true;
+    if(tk==='fitness') mirrorActiveStatusToClientRecord(name,mobile,true);
   }
   if(tk==='fitness') renderDash();
   else if(tk==='nutrition'&&typeof nutRenderDash==='function'&&document.getElementById('nutClientList')) nutRenderDash();
   if(document.getElementById('uniClientList')) renderUniDash();
+}
+// The client's own tracker needs to know whether it's currently tagged, to
+// decide whether the paid/unpaid pill should show. Having it query
+// client_tags directly turned out unreliable -- that table's RLS policies
+// (managed in the Supabase project, not visible here) may silently filter
+// out rows the client's own login can't see, with no error to catch,
+// which made every client look untagged. Writing this directly into the
+// client's own tracker_data record instead sidesteps that: it's a table
+// they already have full read access to, since it's their own data.
+async function mirrorActiveStatusToClientRecord(name,mobile,isActive){
+  if(!mobile) return;
+  const fitId=buildClientId(name,mobile);
+  const res=await getSBScoped().from('tracker_data').select('data').eq('client_id',fitId).eq('tracker','fitness');
+  if(res.error||!res.data||!res.data.length) return; // no record yet -- nothing to mirror onto
+  const d=typeof res.data[0].data==='string'?JSON.parse(res.data[0].data):res.data[0].data;
+  const updates={isActiveClient:isActive};
+  if(isActive) updates.activeSinceDate=new Date().toISOString().slice(0,10);
+  const newData=Object.assign({},d,updates);
+  await getSBScoped().from('tracker_data').update({data:newData}).eq('client_id',fitId).eq('tracker','fitness');
 }
 
 function renderDash(){
