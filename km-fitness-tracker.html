@@ -268,18 +268,29 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .detail-hdr{display:flex;align-items:center;gap:12px;padding:16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:201;}
 .back-btn{background:var(--surf);border:1px solid var(--border);border-radius:8px;padding:10px 16px;color:var(--text);font-size:20px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;min-width:48px;min-height:48px;display:flex;align-items:center;justify-content:center;}
 
-.rest-bar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:var(--surf);border-top:2px solid var(--gold);padding:14px 18px calc(14px + env(safe-area-inset-bottom));display:none;align-items:center;justify-content:center;gap:14px;row-gap:10px;flex-wrap:wrap;max-width:520px;margin:0 auto;}
+.rest-bar{position:fixed;bottom:0;left:0;right:0;z-index:100;background:var(--surf);border-top:2px solid var(--gold);padding:8px 14px calc(8px + env(safe-area-inset-bottom));display:none;align-items:center;justify-content:center;gap:10px;row-gap:6px;flex-wrap:wrap;max-width:520px;margin:0 auto;}
 .rest-bar.visible{display:flex;}
-.rest-lbl{font-size:17px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
-.rest-time{font-family:'DM Mono',monospace;font-size:38px;font-weight:900;color:var(--gold);min-width:90px;}
+.rest-lbl{font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
+.rest-time{font-family:'DM Mono',monospace;font-size:26px;font-weight:900;color:var(--gold);min-width:68px;}
 .rest-time.go{color:var(--sage);} .rest-time.urgent{color:var(--terra);}
 .rest-btns{display:flex;gap:5px;flex-wrap:wrap;}
-.rest-preset{padding:6px 9px;background:var(--surf2);border:1px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:600;color:var(--text);cursor:pointer;}
+.rest-preset{padding:5px 8px;background:var(--surf2);border:1px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--text);cursor:pointer;}
 .rest-preset.active,.rest-preset:hover{background:var(--gold-d);border-color:var(--gold);color:var(--gold);}
 .rest-stop{margin-left:auto;background:none;border:none;color:var(--muted2);font-size:17px;cursor:pointer;padding:4px;transition:color .18s;}
 .rest-stop:hover{color:var(--terra);}
 /* Big red stop square */
-.rest-stop-btn{background:var(--terra);border:none;border-radius:8px;width:44px;height:44px;font-size:20px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .18s;}
+.rest-stop-btn{background:var(--terra);border:none;border-radius:8px;width:36px;height:36px;font-size:16px;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .18s;}
+/* Extra compaction for narrow/older phones -- the base sizing above still
+   wraps onto two rows on a ~360-375px wide screen with everything (label,
+   time, 4 presets, stop, cancel) fighting for space in one flex row. This
+   doesn't fix the wrap, it just makes each wrapped row shorter. */
+@media (max-width:400px){
+.rest-bar{padding:6px 10px calc(6px + env(safe-area-inset-bottom));gap:8px;row-gap:4px;}
+.rest-lbl{font-size:10px;}
+.rest-time{font-size:22px;min-width:56px;}
+.rest-preset{padding:4px 7px;font-size:12px;}
+.rest-stop-btn{width:32px;height:32px;font-size:14px;}
+}
 .rest-stop-btn:active{opacity:.8;}
 
 
@@ -2214,6 +2225,13 @@ if(typeof updateDateChip==='function') updateDateChip();
 if(typeof applyAssignedWorkoutIfAny==='function') applyAssignedWorkoutIfAny();
 }
 }
+} else if(params.get('coach_intent')==='edit'){
+// Editing a past session from Merge used to open a separate, simpler
+// modal that lived only in Merge and had its own, less complete editing
+// UI. This instead jumps straight into editSession() -- the exact same
+// edit flow the client uses on their own device -- once sessions have
+// loaded (they haven't yet at this point in init).
+window.__KFIT_PENDING_EDIT_SESSION_ID__=params.get('coach_edit_session_id');
 }
 }
 
@@ -2280,6 +2298,10 @@ if(!hasAny) autoFillExercisesForBodyPart(bp);
 registerNewFitnessClient();
 }
 applyAssignedWorkoutIfAny();
+if(window.__KFIT_PENDING_EDIT_SESSION_ID__){
+editSession(window.__KFIT_PENDING_EDIT_SESSION_ID__);
+window.__KFIT_PENDING_EDIT_SESSION_ID__=null;
+}
 });
 showMobilePromptIfNeeded();
 setTimeout(checkVoiceSession, 800);
@@ -5796,6 +5818,11 @@ const matchSess=sessions.find(s=>s.date===r.session_date&&(s.timeOfDay===r.sessi
 const sessId=matchSess?matchSess.id:null;
 const d=new Date(r.session_date+'T12:00:00');
 const label=buildLabel(r);
+// Orphaned attendance records (no linked session) get their own delete
+// icon here since there's no session detail view to remove them from --
+// a normal, linked record still only deletes through its session, so the
+// two stay in sync.
+const orphanDelete=!sessId?`<span onclick="event.stopPropagation();deleteOrphanAttendanceRow(this,'${r.session_date}','${(r.session_time||'').replace(/'/g,"\\'")}')" style="font-size:15px;color:var(--terra);cursor:pointer;padding:2px 4px;">🗑</span>`:'';
 return`<div onclick="${sessId?`openDetail(${sessId})`:`toast('No workout details linked to this attendance record')`}" style="background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .18s;" onmouseenter="this.style.borderColor='var(--sage)'" onmouseleave="this.style.borderColor='var(--border)'">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
 <span style="font-size:15px;font-weight:700;color:var(--text);">${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}</span>
@@ -5805,6 +5832,7 @@ ${r.session_time?`<span style="font-size:14px;font-weight:600;color:var(--muted)
 <span style="font-size:14px;font-weight:700;color:var(--sage);">${label}</span>
 <div style="display:flex;align-items:center;gap:6px;">
 ${r.duration_secs?`<span style="font-size:15px;font-weight:600;color:var(--muted);">${Math.round(r.duration_secs/60)}m</span>`:''}
+${orphanDelete}
 <span style="font-size:16px;color:var(--muted2);">›</span>
 </div>
 </div>
@@ -7067,6 +7095,12 @@ getSBScoped().from('attendance')
 if(res.error) console.warn('Attendance delete error:',res.error.message);
 });
 });
+}
+function deleteOrphanAttendanceRow(el,date,time){
+if(!confirm('Remove this attendance record? It has no workout details linked to it, so nothing else will be affected.')) return;
+deleteAttendance(date,time);
+var row=el.closest('div[style]');
+if(row) row.remove();
 }
 
 let sharedAC=null;

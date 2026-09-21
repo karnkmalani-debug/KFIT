@@ -56,7 +56,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .meal-card{background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;}
 .meal-card-title{font-size:14px;font-weight:700;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
 .meal-photo{width:100%;border-radius:8px;margin-top:8px;display:block;}
-.back-btn{background:none;border:1px solid var(--border);border-radius:8px;padding:7px 14px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;}
+.back-btn{background:var(--surf2);border:1px solid var(--sage);border-radius:8px;padding:7px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
 .pw-gate{position:fixed;top:0;right:0;bottom:0;left:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;}
 .pw-box{background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:32px 28px;width:90%;max-width:360px;text-align:center;}
 .pw-title{font-size:22px;font-weight:900;margin-bottom:6px;}
@@ -225,7 +225,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     </div>
     <div class="content" id="uniDashView" style="display:none;">
       <div style="margin-bottom:14px;">
-        <button class="back-btn" onclick="showUniLanding()">← Clients</button>
+        <button class="back-btn" onclick="showUniLanding()"><span style="font-size:16px;font-weight:900;">←</span> Clients</button>
       </div>
       <div id="uniActionAlerts"></div>
       <button id="uniDietTemplatesBtn" onclick="openDietTemplateModal()" style="display:none;width:100%;padding:11px;margin-bottom:12px;background:none;border:1px solid var(--sage);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;color:var(--sage);cursor:pointer;">📋 Diet Templates</button>
@@ -240,7 +240,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     </div>
     <div class="content" id="uniClientView" style="display:none;">
       <div style="margin-bottom:14px;">
-        <button class="back-btn" onclick="showUniDash()">← All Clients</button>
+        <button class="back-btn" onclick="showUniDash()"><span style="font-size:16px;font-weight:900;">←</span> All Clients</button>
       </div>
       <div id="uniClientHeader" style="margin-bottom:14px;"></div>
       <div style="display:flex;gap:8px;margin-bottom:14px;">
@@ -349,7 +349,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <!-- Client detail view -->
   <div class="content" id="clientView" style="display:none;">
     <div style="margin-bottom:14px;display:flex;gap:8px;">
-      <button class="back-btn" onclick="showDash()">← All Clients</button>
+      <button class="back-btn" onclick="showDash()"><span style="font-size:16px;font-weight:900;">←</span> All Clients</button>
       <button onclick="openAddSession(currentClientKey)" style="padding:7px 14px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:#fff;cursor:pointer;">+ Add Session</button>
     </div>
     <div id="clientDetail"></div>
@@ -423,7 +423,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
   <div class="content" id="nutClientView" style="display:none;">
     <div style="margin-bottom:14px;">
-      <button class="back-btn" onclick="nutShowDash()">← All Clients</button>
+      <button class="back-btn" onclick="nutShowDash()"><span style="font-size:16px;font-weight:900;">←</span> All Clients</button>
     </div>
     <div id="nutClientDetail"></div>
   </div>
@@ -2710,20 +2710,20 @@ function showClient(key,targetContainer){
     <div id="clientTab-edit" style="display:block;">
       <div class="card" style="margin-bottom:14px;">
         <div class="quick-add-header" onclick="toggleMergeSection('fitMeas')">
-          <span class="card-title" style="margin-bottom:0;">📏 Body Measurements</span>
-          <span class="quick-add-toggle open" id="fitMeasToggle">⌄</span>
+          <span class="card-title" style="margin-bottom:0;font-size:15px;letter-spacing:.5px;color:var(--text);">📏 Body Measurements</span>
+          <span class="quick-add-toggle" id="fitMeasToggle">⌄</span>
         </div>
-        <div class="quick-add-body open" id="fitMeasBody" style="display:block;">
+        <div class="quick-add-body" id="fitMeasBody">
           <div style="text-align:right;margin-bottom:8px;"><button onclick="openMeasurementModal('${fitClientId}','fitness','fitMeasList',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button></div>
           <div id="fitMeasList">Loading...</div>
         </div>
       </div>
       <div class="card" style="margin-bottom:14px;">
         <div class="quick-add-header" onclick="toggleMergeSection('nameHist')">
-          <span class="card-title" style="margin-bottom:0;">Name History</span>
-          <span class="quick-add-toggle open" id="nameHistToggle">⌄</span>
+          <span class="card-title" style="margin-bottom:0;font-size:15px;letter-spacing:.5px;color:var(--text);">Name History</span>
+          <span class="quick-add-toggle" id="nameHistToggle">⌄</span>
         </div>
-        <div class="quick-add-body open" id="nameHistBody" style="display:block;">
+        <div class="quick-add-body" id="nameHistBody">
         <div id="nameHistList" style="font-size:14px;color:var(--muted);">Loading...</div>
         </div>
       </div>
@@ -2734,10 +2734,10 @@ function showClient(key,targetContainer){
       </div>
       <div class="card" style="border-color:var(--terra);">
         <div class="quick-add-header" onclick="toggleMergeSection('fitDanger')">
-          <span class="card-title" style="color:var(--terra);margin-bottom:0;">⚠️ Danger Zone</span>
-          <span class="quick-add-toggle open" id="fitDangerToggle">⌄</span>
+          <span class="card-title" style="color:var(--terra);margin-bottom:0;font-size:15px;letter-spacing:.5px;">⚠️ Danger Zone</span>
+          <span class="quick-add-toggle" id="fitDangerToggle">⌄</span>
         </div>
-        <div class="quick-add-body open" id="fitDangerBody" style="display:block;">
+        <div class="quick-add-body" id="fitDangerBody">
         <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Permanently deletes this client's fitness history and attendance record from your dashboard AND theirs. Cannot be undone, and does not stop their device from re-uploading its own local copy the next time they open their tracker -- for that, use Remove From My Clients above instead, which is almost always what you actually want.</div>
         <button onclick="deleteClientFitness('${key.replace(/'/g,"\\'")}')" style="width:100%;padding:11px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Delete Fitness Data for ${c.name}</button>
         </div>
@@ -4606,62 +4606,21 @@ function removeAsExercise(id){
 
 function editCoachSession(){
   if(!currentCoachSession)return;
-  const {clientKey,clientId,date,time,session:s,attendanceId}=currentCoachSession;
-  openAddSession(clientKey);
-  excludeSessionIdFromHistory=s.id;
-  // openAddSession resets everything to "new" defaults — now overwrite with the real session's data
-  document.getElementById('as-modal-title').textContent='Edit Session';
-  document.getElementById('as-save-btn').textContent='Save Changes';
-  document.getElementById('as-delete-btn').style.display='block';
-  document.getElementById('as-client').disabled=true; // don't let an edit reassign the session to a different client
-  document.getElementById('as-date').value=date;
-  document.getElementById('as-time').value=time?to24Hour(time):'';
-  document.getElementById('as-duration').value=s.duration?Math.round(s.duration/60):'';
-  document.getElementById('as-notes').value=(s.notes&&s.notes!=='Added by coach')?s.notes:'';
-  setAsUnit(s.unit||'kg');
-
-  // Body parts
-  asSelectedBP=[...(s.bodyParts||[])];
-  document.querySelectorAll('#as-bp-grid .as-bp-btn').forEach(btn=>{
-    if(asSelectedBP.includes(btn.textContent))btn.classList.add('active');
-  });
-
-  // Exercises
-  asExercises=(s.exercises||[]).filter(e=>e.type!=='cardio').map(e=>({
-    id:Date.now()+Math.random(),
-    ex:e.ex,
-    sets:(e.setData&&e.setData.length)?e.setData.filter(r=>!r.dropset).length||e.setData.length:(e.sets||3),
-    setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assistedReps:r.assistedReps||0,lengthenedPartialReps:r.lengthenedPartialReps||0,dropset:r.dropset||false,afterMain:r.afterMain!=null?r.afterMain:null})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
-  }));
-  renderAsExercises();
-
-  // Supersets
-  asSupersets=(s.supersets||[]).map(ss=>({
-    id:Date.now()+Math.random(),
-    exercises:(ss.exercises||[]).filter(e=>e.type!=='cardio').map(e=>({
-      id:Date.now()+Math.random(),
-      ex:e.ex,
-      sets:(e.setData&&e.setData.length)?e.setData.filter(r=>!r.dropset).length||e.setData.length:(e.sets||3),
-      setData:(e.setData&&e.setData.length)?e.setData.map((r,i)=>({set:i+1,reps:r.reps||'',weight:r.weight||'',assistedReps:r.assistedReps||0,lengthenedPartialReps:r.lengthenedPartialReps||0,dropset:r.dropset||false,afterMain:r.afterMain!=null?r.afterMain:null})):[{set:1,reps:'',weight:''},{set:2,reps:'',weight:''},{set:3,reps:'',weight:''}]
-    }))
-  }));
-  renderAsSupersets();
-
-  // Average rest
-  document.getElementById('as-avg-rest').value=s.avgRestManual||'';
-
-  // Cardio
-  asCardioBlocks=(s.cardio||[]).map(c=>({id:Date.now()+Math.random(),ex:c.ex||'',duration:c.duration||'',intensity:c.intensity||''}));
-  renderAsCardio();
-  if(asCardioBlocks.length){
-    document.getElementById('as-cardio-section').style.display='block';
-  }
-
-  // Functional
-  asFunctionalBlocks=(s.functional||[]).map(f=>({id:Date.now()+Math.random(),ex:f.ex||'',duration:f.duration||'',weight:f.weight||''}));
-  renderAsFunctional();
-
-  editingContext={attendanceId,sessionId:s.id,clientId,origDate:date,origTime:time};
+  const {clientKey,date,time,session:s}=currentCoachSession;
+  // Used to rebuild a separate, simpler modal here with its own copy of the
+  // exercise/superset/cardio editing logic -- permanently behind the real
+  // tracker's own capabilities and a second place for every future editing
+  // feature to be added to (or forgotten). This opens the exact same
+  // editSession() flow the client uses on their own device instead, via a
+  // coach_edit_session_id param the tracker's init picks up once sessions
+  // have loaded (see the matching handler in km-fitness-tracker.html).
+  const clients=groupClients();
+  const c=Object.values(clients).find(cl=>(cl.mobile||cl.name)===clientKey);
+  if(!c||!c.mobile){ alert('This client has no mobile number on file, so the live tracker can\'t be opened for them.'); return; }
+  closeCoachSession();
+  var url='./km-fitness-tracker.html?coach_preview_mobile='+encodeURIComponent(c.mobile)+'&coach_preview_name='+encodeURIComponent(c.name||'')+'&coach_intent=edit&coach_edit_session_id='+encodeURIComponent(s.id);
+  document.getElementById('liveTrackerFrame').src=url;
+  document.getElementById('liveTrackerModal').style.display='block';
 }
 
 async function deleteCoachSessionFromPanel(){
@@ -6193,10 +6152,10 @@ function nutShowClient(clientId,targetContainer){
     +'<div id="nutClientTab-edit" style="display:none;">'
       +'<div class="card" style="margin-bottom:14px;">'
         +'<div class="quick-add-header" onclick="toggleMergeSection(\'nutMeas\')">'
-          +'<span class="card-title" style="margin-bottom:0;">📏 Body Measurements</span>'
-          +'<span class="quick-add-toggle open" id="nutMeasToggle">⌄</span>'
+          +'<span class="card-title" style="margin-bottom:0;font-size:15px;letter-spacing:.5px;color:var(--text);">📏 Body Measurements</span>'
+          +'<span class="quick-add-toggle" id="nutMeasToggle">⌄</span>'
         +'</div>'
-        +'<div class="quick-add-body open" id="nutMeasBody" style="display:block;">'
+        +'<div class="quick-add-body" id="nutMeasBody">'
           +'<div style="text-align:right;margin-bottom:8px;"><button onclick="openMeasurementModal(\''+clientId+'\',\'nutrition\',\'nutMeasList\',null)" style="padding:6px 12px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;color:#fff;cursor:pointer;">+ Add Entry</button></div>'
           +'<div id="nutMeasList">Loading...</div>'
         +'</div>'
@@ -6208,10 +6167,10 @@ function nutShowClient(clientId,targetContainer){
       +'</div>'
       +'<div class="card" style="border-color:var(--terra);">'
         +'<div class="quick-add-header" onclick="toggleMergeSection(\'nutDanger\')">'
-          +'<span class="card-title" style="color:var(--terra);margin-bottom:0;">⚠️ Danger Zone</span>'
-          +'<span class="quick-add-toggle open" id="nutDangerToggle">⌄</span>'
+          +'<span class="card-title" style="color:var(--terra);margin-bottom:0;font-size:15px;letter-spacing:.5px;">⚠️ Danger Zone</span>'
+          +'<span class="quick-add-toggle" id="nutDangerToggle">⌄</span>'
         +'</div>'
-        +'<div class="quick-add-body open" id="nutDangerBody" style="display:block;">'
+        +'<div class="quick-add-body" id="nutDangerBody">'
         +'<div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:10px;">Permanently deletes this client\'s nutrition history from your dashboard AND theirs. Cannot be undone, and does not stop their device from re-uploading its own local copy the next time they open their tracker -- for that, use Remove From My Clients above instead, which is almost always what you actually want.</div>'
         +'<button onclick="deleteClientNutrition(\''+clientId+'\')" style="width:100%;padding:11px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Delete Nutrition Data for '+(cw?cw.name:'this client')+'</button>'
         +'</div>'
