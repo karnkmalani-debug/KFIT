@@ -4907,15 +4907,6 @@ return;
 // against client_tags turned out unreliable.
 _isActiveTaggedClient=!!d.isActiveClient;
 _activeTaggedSinceDate=d.activeSinceDate||null;
-// TEMPORARY DIAGNOSTIC: shows exactly what this device received for
-// isActiveClient, once per browser session, so this can be confirmed
-// directly in the app without going back to Supabase each time.
-try{
-if(!sessionStorage.getItem('_kfit_diag_shown')){
-sessionStorage.setItem('_kfit_diag_shown','1');
-alert('DIAGNOSTIC (remove after use):\nmobile: '+(d.mobile||localStorage.getItem('kmfit_mobile'))+'\nisActiveClient in data: '+JSON.stringify(d.isActiveClient)+'\nactiveSinceDate in data: '+JSON.stringify(d.activeSinceDate)+'\n_isActiveTaggedClient set to: '+_isActiveTaggedClient);
-}
-}catch(e){}
 var localRaw=localStorage.getItem('kmfit_sessions');
 var localSessions=[];
 try{localSessions=JSON.parse(localRaw)||[];}catch(e){}
@@ -5955,9 +5946,9 @@ inner.innerHTML=`
 <div style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;">Streak</div>
 </div>
 </div>
-${payTrackedRecords.length?`<div style="display:flex;gap:14px;margin-bottom:10px;font-size:13px;">
-<span style="color:var(--sage);font-weight:700;">✅ ${paidCount} Paid</span>
-<span style="color:var(--red);font-weight:700;">🔴 ${dueCount} Due</span>
+${payTrackedRecords.length?`<div style="display:flex;gap:14px;margin-bottom:10px;font-size:14px;">
+<span style="color:var(--sage);font-weight:700;">✅ ${paidCount}</span>
+<span style="color:var(--red);font-weight:700;">🔴 ${dueCount}</span>
 </div>`:''}
 ${noneInRangeMsg}${visibleRows}
 ${hiddenRows}`;
@@ -7394,7 +7385,7 @@ const HELP_TEXT=[
 '<b>What this page is</b><br>Every workout you\'ve saved, newest first.<br><br>'+
 '<b>Narrowing it down</b><br>All Time, This Month, This Week, or Custom (pick your own two dates) -- the list updates instantly.<br><br>'+
 '<b>Printing</b><br>"Print Summary View" prints the on-screen list. "Print Full Report" prints full detail -- every exercise, set, rep -- for whatever range you\'ve selected, one workout per page.<br><br>'+
-'<b>My Attendance</b><br>Below that: your total sessions, days trained, and current streak. If your coach has marked you an active client, a ✅ Paid / 🔴 Due count shows above the list, and each record carries the same ✅ or 🔴 -- a status note for you to see, not something you can change.'},
+'<b>My Attendance</b><br>Below that: your total sessions, days trained, and current streak. If your coach has marked you an active client, a ✅ / 🔴 count shows above the list (paid vs due), and each record below carries the same ✅ or 🔴 -- a status note for you to see, not something you can change.'},
 {title:'Stats',body:'A look at how your training is trending over time -- how your rest times between sets have changed, which exercises you do most, and total calories burned (this week, this month, all time -- needs your age/sex/height/weight filled in to show up). Below that, the Training FAQ has common questions (total reps, hours, cardio vs strength, heaviest lifts, and more) -- pick a time range and tap one to see the answer instantly, computed from your own logged sessions with nothing sent anywhere. Underneath it, type a specific exercise name to ask about that exercise alone. Tap "Share Progress Report" to send a summary of this straight to your coach.'},
 {title:'Notes',body:'A simple text box to write how a week or month of training went, in your own words -- how you felt, what was hard, anything you want your coach to know. Your coach reads these alongside your actual numbers to understand the full picture. Further down, "Import Data" lets you bring in past workout history from another app or your own spreadsheet as a CSV file -- it always shows you exactly what it found before anything is actually added, so nothing gets imported without your confirmation.'},
 {title:'Personal Records (PR)',body:'Pick any exercise from the dropdown list to see the best set you\'ve ever logged for it -- your heaviest weight, or the most reps at a given weight. This updates by itself the moment you beat your own record in a future session -- you don\'t have to do anything for it to update.'},

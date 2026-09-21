@@ -2302,8 +2302,41 @@ async function markClientPaidInFull(mobile,name,count){
     if((r.client_mobile||'')===(mobile||'')&&!r.paid) r.paid=true;
   });
   toast('Marked '+count+' session'+(count===1?'':'s')+' as paid for '+name+' \u2713');
-  if(currentClientKey) showClient(currentClientKey);
+  refreshPaidUI(mobile||'');
+}
+
+// Updates every place a client's paid/unpaid status shows, without the
+// full showClient() re-render that used to run after every toggle --
+// that rebuilt the whole client page from scratch, which meant any
+// collapsible section you had open (Recent Sessions included) snapped
+// shut on every single click. This just touches the specific pieces that
+// actually need new numbers.
+function refreshPaidUI(mobile){
+  // Recent Sessions list + its Paid/Unpaid count row, if that's what's
+  // currently loaded for this client.
+  Object.keys(_recentSessClientKey).forEach(function(listElId){
+    const ck=_recentSessClientKey[listElId];
+    if(ck!==mobile) return;
+    const cached=_recentSessCache[listElId];
+    if(!cached) return;
+    cached.forEach(function(s){
+      const rec=allRecords.find(r=>(r.client_mobile||'')===mobile&&r.session_date===s.date&&(r.session_time||'')===(s.timeOfDay||''));
+      if(rec) s._paid=rec.paid;
+    });
+    renderRecentSessionsPage(listElId,ck);
+  });
+  // Header "Unpaid" stat box, if this client's page is the one open.
+  const statEl=document.getElementById('clientUnpaidStatVal');
+  if(statEl&&currentClientKey===mobile){
+    const unpaidCount=allRecords.filter(function(r){return (r.client_mobile||'')===mobile&&!r.paid;}).length;
+    statEl.textContent=unpaidCount;
+    statEl.style.color=unpaidCount?'var(--terra)':'var(--sage)';
+  }
+  // Roster-level badges (both the legacy fitness-only list and the
+  // current unified one) -- cheap to rebuild and neither is inside a
+  // collapsible section, so no collapse risk here.
   renderDash();
+  if(document.getElementById('uniClientList')) renderUniDash();
 }
 
 function togglePaid(mobile,date,time,currentPaid){
@@ -2319,8 +2352,7 @@ function togglePaid(mobile,date,time,currentPaid){
     if(actionsEl&&actionsEl.innerHTML.includes("togglePaid('"+(mobile||'')+"','"+date+"'")){
       actionsEl.innerHTML=`<button onclick="togglePaid('${(mobile||'').replace(/'/g,"\\'")}','${date}','${(time||'').replace(/'/g,"\\'")}',${newPaid})" style="padding:5px 12px;border-radius:12px;border:1px solid ${newPaid?'var(--sage)':'var(--terra)'};background:${newPaid?'var(--sage)':'transparent'};color:${newPaid?'#fff':'var(--terra)'};font-family:'DM Sans',sans-serif;font-size:11px;font-weight:800;letter-spacing:0.5px;cursor:pointer;">${newPaid?'PAID':'UNPAID'}</button>`;
     }
-    if(currentClientKey) showClient(currentClientKey);
-    renderDash(); // keep the roster's unpaid badge correct even though it's hidden behind clientView right now
+    refreshPaidUI(mobile||'');
   });
 }
 
@@ -2446,7 +2478,7 @@ function renderUniDash(){
     const daysSince=c.lastDate?Math.floor((now-c.lastDate)/86400000):null;
     const recencyBadge=daysSince===null?'':daysSince<=7?'<span class="badge badge-sage">Active</span>':daysSince<=14?'<span class="badge badge-gold">'+daysSince+'d ago</span>':'<span class="badge badge-terra">'+daysSince+'d ago</span>';
     const blockedBadge=c.isBlocked?'<span class="badge" style="background:var(--terra);color:#fff;">Blocked</span>':'';
-    const unpaidBadge=c.unpaidN?'<span class="badge" style="background:var(--terra);color:#fff;">'+c.unpaidN+' unpaid</span>':'';
+    const unpaidBadge=c.unpaidN?'<button onclick="event.stopPropagation();markClientPaidInFull(\''+(c.mobile||'').replace(/'/g,"\\'")+'\',\''+c.name.replace(/'/g,"\\'")+'\','+c.unpaidN+')" class="badge" style="background:var(--terra);color:#fff;border:none;cursor:pointer;font-family:\'DM Sans\',sans-serif;">'+c.unpaidN+' unpaid</button>':'';
     const trackerTags='<span style="font-size:11px;color:var(--muted);">'+(c.fit?'🏋️ Fitness  ':'')+(c.nut?'🥗 Nutrition':'')+'</span>';
     const isFitTagged=!!(taggedClients.fitness&&taggedClients.fitness[c.key]);
     const isNutTagged=!!(taggedClients.nutrition&&taggedClients.nutrition[c.key]);
@@ -2617,7 +2649,7 @@ function showClient(key,targetContainer){
       <div class="stat-box"><div class="stat-val" style="color:var(--sage);">${c.records.length}</div><div class="stat-lbl">Total</div></div>
       <div class="stat-box"><div class="stat-val" style="color:var(--gold);">${monthSessions}</div><div class="stat-lbl">This Month</div></div>
       <div class="stat-box"><div class="stat-val" style="color:var(--terra);">${calcStreak(c.records)}w</div><div class="stat-lbl">Streak</div></div>
-      <div class="stat-box"><div class="stat-val" style="color:${unpaidCount?'var(--terra)':'var(--sage)'};">${unpaidCount}</div><div class="stat-lbl">Unpaid</div></div>
+      <div class="stat-box"><div class="stat-val" id="clientUnpaidStatVal" style="color:${unpaidCount?'var(--terra)':'var(--sage)'};">${unpaidCount}</div><div class="stat-lbl">Unpaid</div></div>
     </div>
 
     <div id="clientTabBar" style="position:sticky;top:0;z-index:20;display:flex;gap:6px;background:var(--bg);padding:8px 0;margin-bottom:10px;border-bottom:1px solid var(--border);">
@@ -3781,6 +3813,7 @@ let _recentSessTokens={};
 let _recentSessCache={};
 let _recentSessVisible={};
 let _recentSessRange={};
+let _recentSessClientKey={};
 function setRecentSessRange(listElId,clientKey,range){
   _recentSessRange[listElId]=range;
   _recentSessVisible[listElId]=5;
@@ -3789,6 +3822,7 @@ function setRecentSessRange(listElId,clientKey,range){
 async function loadRecentSessionsForClient(clientId,listElId,clientKey){
   const listEl=document.getElementById(listElId);
   if(!listEl) return;
+  _recentSessClientKey[listElId]=clientKey;
   const myToken=(_recentSessTokens[listElId]=(_recentSessTokens[listElId]||0)+1);
   const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
   if(myToken!==_recentSessTokens[listElId]) return;
