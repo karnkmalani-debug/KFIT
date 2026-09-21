@@ -5132,6 +5132,35 @@ callback(res.error?[]:res.data||[]);
 }).catch(function(){callback([]);});
 });
 }
+// Whether the paid/unpaid pill in history should show at all -- only
+// meaningful while there's an active, currently-tagged coaching
+// relationship, AND only for sessions dated on or after this specific tag
+// period started. Untagging then re-tagging later must not make the
+// gap-period sessions (logged independently, never touched by any coach)
+// retroactively show as unpaid -- the cutoff date is what prevents that
+// spillover, not just a plain "are they tagged right now" check.
+var _isActiveTaggedClient=true; // default to showing -- see fallback note below
+var _activeTaggedSinceDate=null; // null = no date cutoff known, show for all dates while tagged
+function checkActiveClientTagStatus(callback){
+var mobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
+if(!mobile){ callback(true,null); return; }
+ensureAnonAuth(function(uid){
+if(!uid){ callback(true,null); return; }
+getSBScoped().from('client_tags')
+.select('*')
+.eq('client_key',mobile)
+.eq('tracker','fitness')
+.then(function(res){
+if(res.error){ callback(true,null); return; } // can't tell -- default to showing, no cutoff
+var row=res.data&&res.data[0];
+if(!row){ callback(false,null); return; }
+// created_at not guaranteed present on older rows -- if missing, fall
+// back to showing for all dates rather than hiding everything, since
+// that's the safer direction when this specific piece is unknown.
+callback(true, row.created_at ? row.created_at.slice(0,10) : null);
+}).catch(function(){ callback(true,null); });
+});
+}
 
 function saveSessions(){
 
@@ -5806,7 +5835,11 @@ function renderAttendance(){
 const el=document.getElementById('attendanceSection');
 if(!el)return;
 el.innerHTML='<div class="card" style="margin-bottom:0;"><div class="card-title">My Attendance</div><div id="attendanceInner" style="font-size:14px;color:var(--muted);">Loading...</div></div>';
-loadAttendance(function(records){
+var tagDone=false, attDone=false, pendingRecords=null;
+checkActiveClientTagStatus(function(isActive,sinceDate){ _isActiveTaggedClient=isActive; _activeTaggedSinceDate=sinceDate; tagDone=true; if(attDone) renderAttendanceRows(pendingRecords); });
+loadAttendance(function(records){ pendingRecords=records; attDone=true; if(tagDone) renderAttendanceRows(records); });
+}
+function renderAttendanceRows(records){
 const inner=document.getElementById('attendanceInner');
 if(!inner)return;
 if(!records.length){inner.innerHTML='<span style="color:var(--muted2);">No attendance records yet.</span>';return;}
@@ -5860,7 +5893,8 @@ const orphanDelete=!sessId?`<span onclick="event.stopPropagation();deleteOrphanA
 // editable by them. Kept deliberately low-key (small, muted text rather
 // than a loud badge) since "Unpaid" displayed to the client themselves
 // should read as a quiet status note, not a confrontational alert.
-const paidPill=r.paid===true?`<span style="font-size:11px;font-weight:700;color:var(--sage);">✓ Paid</span>`:`<span style="font-size:11px;font-weight:700;color:var(--muted2);">Unpaid</span>`;
+const showPaidPill=_isActiveTaggedClient&&(!_activeTaggedSinceDate||r.session_date>=_activeTaggedSinceDate);
+const paidPill=showPaidPill?(r.paid===true?`<span style="font-size:11px;font-weight:700;color:var(--sage);">✓ Paid</span>`:`<span style="font-size:11px;font-weight:800;color:var(--red);">Unpaid</span>`):'';
 return`<div onclick="${sessId?`openDetail(${sessId})`:`toast('No workout details linked to this attendance record')`}" style="background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .18s;" onmouseenter="this.style.borderColor='var(--sage)'" onmouseleave="this.style.borderColor='var(--border)'">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
 <span style="font-size:15px;font-weight:700;color:var(--text);">${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}</span>
@@ -5905,7 +5939,6 @@ inner.innerHTML=`
 </div>
 ${noneInRangeMsg}${visibleRows}
 ${hiddenRows}`;
-});
 }
 
 function toggleAttAll(btn){
