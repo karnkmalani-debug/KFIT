@@ -3797,6 +3797,23 @@ async function loadRecentSessionsForClient(clientId,listElId,clientKey){
     const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
     sessions=(d.sessions||[]).slice();
   }
+  // Paid/unpaid lives on the attendance record, not the session itself --
+  // fetched separately here and matched onto each session by date+time so
+  // the toggle can show right on this row, the same place a coach is
+  // actually looking, instead of only in the separate Log-tab history list.
+  const isTaggedClient=!!(taggedClients.fitness&&taggedClients.fitness[clientKey]);
+  if(isTaggedClient){
+    try{
+      const attRes=await getSBScoped().from('attendance').select('session_date,session_time,paid').eq('client_mobile',clientKey);
+      if(myToken!==_recentSessTokens[listElId]) return;
+      const attByKey={};
+      (attRes.data||[]).forEach(function(r){ attByKey[r.session_date+'|'+(r.session_time||'')]=r.paid; });
+      sessions.forEach(function(s){
+        var k=s.date+'|'+(s.timeOfDay||'');
+        if(attByKey.hasOwnProperty(k)) s._paid=attByKey[k];
+      });
+    }catch(e){}
+  }
   sessions.sort(function(a,b){ return new Date(b.date)-new Date(a.date); });
   _recentSessCache[listElId]=sessions;
   _recentSessVisible[listElId]=5; // 5 to start, +10 per "show more" -- not everything at once, since this needs to hold up at hundreds of sessions, not just a handful
@@ -3853,12 +3870,13 @@ function renderRecentSessionsPage(listElId,clientKey){
     const prInfo=getSessionPRInfoCoach(s,prMap,sessions);
     const prBadge=prInfo.count?(' <span style="color:var(--gold);font-weight:800;">🏆'+prInfo.count+'</span>'):'';
     const bp=(s.bodyParts||[]).join(', ')||(cardioCount?(s.cardio.map(function(c){return c.ex;}).filter(Boolean).join(', ')):'');
+    const paidBtn=s._paid!==undefined?('<button onclick="event.stopPropagation();togglePaid(\''+clientKey.replace(/'/g,"\\'")+'\',\''+s.date+'\',\''+(s.timeOfDay||'').replace(/'/g,"\\'")+'\','+(!!s._paid)+')" style="padding:3px 8px;border-radius:10px;border:1px solid '+(s._paid?'var(--sage)':'var(--terra)')+';background:'+(s._paid?'var(--sage)':'transparent')+';color:'+(s._paid?'#fff':'var(--terra)')+';font-family:\'DM Sans\',sans-serif;font-size:9px;font-weight:800;letter-spacing:0.4px;cursor:pointer;white-space:nowrap;flex-shrink:0;">'+(s._paid?'PAID':'UNPAID')+'</button>'):'';
     return '<div onclick="openCoachSession(\''+clientKey.replace(/'/g,"\\'")+'\',\''+s.date+'\',\''+(s.timeOfDay||'').replace(/'/g,"\\'")+'\')" '
       +'style="padding:8px 4px;border-top:1px solid rgba(255,255,255,.08);font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;">'
       +'<div><b>'+dateStr+'</b><span style="color:var(--muted);"> · '+(s.timeOfDay||'')+'</span><br>'
       +'<span style="color:var(--muted);">'+bp+(bp&&metaStr?' · ':'')+metaStr+'</span>'+prBadge
       +'</div>'
-      +'<span style="color:var(--muted);">›</span>'
+      +'<div style="display:flex;align-items:center;gap:6px;">'+paidBtn+'<span style="color:var(--muted);">›</span></div>'
       +'</div>';
   }).join('');
   const remaining=sessions.length-visible;
