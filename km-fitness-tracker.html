@@ -591,6 +591,10 @@ btn.textContent='Could not copy -- select the address bar manually';
         <div class="date-chip" id="headerDate" style="cursor:pointer;pointer-events:none;white-space:nowrap;" title="Tap to change date"></div>
         <input type="date" id="datePicker" style="position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;opacity:0;margin:0;padding:0;border:none;cursor:pointer;-webkit-appearance:none;" onchange="onDatePicked(this.value)" onpointerdown="return guardDatePicker(event)">
       </div>
+      <div style="position:relative;display:inline-block;flex-shrink:0;">
+        <div class="date-chip" id="headerTime" style="cursor:pointer;white-space:nowrap;" title="Tap to change time"></div>
+        <input type="time" id="timePicker" style="position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;opacity:0;margin:0;padding:0;border:none;cursor:pointer;-webkit-appearance:none;" onchange="onTimePicked(this.value)">
+      </div>
       <a id="homeBtn" href="https://kfit.pages.dev" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;text-decoration:none;flex-shrink:0;">🏠 Home</a>
       <button id="logoutBtn" onclick="logout()" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;">Log Out</button>
     </div>
@@ -2194,7 +2198,7 @@ function _launchMainApp(){
 document.getElementById('setupScreen').style.display='none';
 document.getElementById('mainApp').style.display='block';
 document.querySelector('.rest-bar').classList.add('visible');
-updateDateChip(); buildBpGrid(); setTodayDate();
+updateDateChip(); buildBpGrid(); setTodayDate(); updateTimeChip();
 
 // Logging out doesn't mean anything useful in coach preview -- Merge's own
 // close button is what actually exits this view -- and tapping it risked
@@ -2604,6 +2608,42 @@ document.getElementById('sessDate').value=localDateStr();
 updateDateChip();
 }
 
+function to24Hour(timeStr){
+// "08:11 PM" -> "20:11", for the native <input type="time"> value
+var m=(timeStr||'').match(/(\d+):(\d+)\s*(AM|PM)/i);
+if(!m)return'';
+var h=parseInt(m[1]),min=m[2],ap=m[3].toUpperCase();
+if(ap==='PM'&&h!==12)h+=12;
+if(ap==='AM'&&h===12)h=0;
+return (h<10?'0':'')+h+':'+min;
+}
+
+function to12Hour(timeStr){
+// "20:11" -> "08:11 PM", the format every session is actually stored in
+var m=(timeStr||'').match(/(\d+):(\d+)/);
+if(!m)return'';
+var h=parseInt(m[1]),min=m[2];
+var ap=h>=12?'PM':'AM';
+var h12=h%12; if(h12===0)h12=12;
+return (h12<10?'0':'')+h12+':'+min+' '+ap;
+}
+
+function updateTimeChip(){
+if(!window._sessTimeOverride){
+window._sessTimeOverride=new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
+}
+var hc=document.getElementById('headerTime');
+if(hc) hc.textContent=window._sessTimeOverride;
+var tp=document.getElementById('timePicker');
+if(tp) tp.value=to24Hour(window._sessTimeOverride);
+}
+
+function onTimePicked(val){
+if(!val) return;
+window._sessTimeOverride=to12Hour(val);
+updateTimeChip();
+}
+
 function updateDateChip(){
 const D=['SUN','MON','TUE','WED','THU','FRI','SAT'];
 const M=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
@@ -2705,6 +2745,8 @@ function pickNewSessionForDate(dateVal){
 closeSessionPicker();
 document.getElementById('sessDate').value=dateVal;
 updateDateChip();
+window._sessTimeOverride=null;
+updateTimeChip();
 goTab(0);
 toast('Logging a new session for '+new Date(dateVal+'T12:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}));
 }
@@ -4365,18 +4407,18 @@ toast('Saving cardio session (rest time is optional here)');
 }
 if(saveBtn) saveBtn.disabled=true;
 var _now=new Date();
-var _timeStr=_now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
+var _timeStr=window._sessTimeOverride||_now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
 const _newId=window._editingSessionId||Date.now();
 const _isEditing=!!window._editingSessionId;
 
 if(_isEditing){
 const _orig=sessions.find(x=>x.id===window._editingSessionId);
-if(_orig&&_orig.timeOfDay) _timeStr=_orig.timeOfDay;
 sessions=sessions.filter(x=>x.id!==window._editingSessionId);
 window._editingSessionId=null;
 var _hd=document.getElementById('headerDate');
 if(_hd){_hd.style.opacity='';_hd.title='Tap to change date';_hd.style.cursor='pointer';}
 }
+window._sessTimeOverride=null;
 var _cardioSecsTotal=cardioBlocks.reduce(function(a,c){return a+((parseInt(c.duration)||0)*60);},0);
 var _functionalSecsTotal=functionalBlocks.reduce(function(a,f){return a+(parseInt(f.duration)||0);},0);
 var _strengthSecs=hasStrengthWork?Math.max(0,(finalDur||0)-_cardioSecsTotal-_functionalSecsTotal):0;
@@ -4516,7 +4558,23 @@ function getSBScoped(){
       if(!COACH_SCOPED_TABLES_CLIENT.includes(table)) return builder;
       const origInsert=builder.insert.bind(builder);
       const origUpsert=builder.upsert.bind(builder);
+      const origUpdate=builder.update.bind(builder);
+      // Same guard as Merge's getSBScoped: a jsonb "data" column must get a
+      // real object, never a pre-stringified one. The client tracker never
+      // had this bug, but the point of a structural guard is that it
+      // doesn't matter which file makes the mistake next.
+      const guardTrackerData=function(payload){
+        if(table!=='tracker_data') return payload;
+        const rows=Array.isArray(payload)?payload:[payload];
+        rows.forEach(function(row){
+          if(row&&'data' in row&&typeof row.data==='string'){
+            throw new Error('Refused to write tracker_data: "data" was a JSON string instead of an object (double-encoding). Pass the raw object.');
+          }
+        });
+        return payload;
+      };
       builder.insert=function(payload,opts){
+        guardTrackerData(payload);
         const cid=getClientCoachId();
         const withCoach=Array.isArray(payload)
           ? payload.map(function(row){return Object.assign({coach_id:cid},row);})
@@ -4524,11 +4582,16 @@ function getSBScoped(){
         return origInsert(withCoach,opts);
       };
       builder.upsert=function(payload,opts){
+        guardTrackerData(payload);
         const cid=getClientCoachId();
         const withCoach=Array.isArray(payload)
           ? payload.map(function(row){return Object.assign({coach_id:cid},row);})
           : Object.assign({coach_id:cid},payload);
         return origUpsert(withCoach,opts);
+      };
+      builder.update=function(payload,opts){
+        guardTrackerData(payload);
+        return origUpdate(payload,opts);
       };
       return builder;
     }
@@ -5026,14 +5089,14 @@ var payload={
 client_name: record.client,
 client_mobile: record.mobile,
 session_date: record.date,
-session_time: record.time,
+session_time: record.time||'', // never null -- keeps this matchable against the unique constraint, and makes a retry idempotent instead of a duplicate
 duration_secs: record.duration,
 workout_type: record.workoutType,
 body_parts: record.bodyParts&&record.bodyParts.length?record.bodyParts.join(', '):'',
 activity: record.activity||'',
 logged_at: new Date().toISOString()
 };
-getSBScoped().from('attendance').insert(payload).then(function(res){
+getSBScoped().from('attendance').upsert(payload,{onConflict:'coach_id,client_mobile,session_date,session_time'}).then(function(res){
 if(res.error){
 console.warn('Attendance log error (attempt '+attempt+'):',res.error.message);
 if(attempt<3){
@@ -6810,6 +6873,8 @@ if(cn) cn.value=s.client||localStorage.getItem('kmfit_name')||'';
 var di=document.getElementById('sessDate');
 if(di) di.value=s.date;
 updateDateChip();
+window._sessTimeOverride=s.timeOfDay||'';
+updateTimeChip();
 var headerDate=document.getElementById('headerDate');
 if(headerDate){headerDate.style.opacity='0.5';headerDate.title='Date locked while editing';headerDate.style.cursor='not-allowed';}
 var sn=document.getElementById('sessNotes');

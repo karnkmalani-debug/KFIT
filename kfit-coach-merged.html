@@ -745,17 +745,41 @@ function getSBScoped(){
       if(!COACH_SCOPED_TABLES.includes(table)) return builder;
       const origInsert=builder.insert.bind(builder);
       const origUpsert=builder.upsert.bind(builder);
+      const origUpdate=builder.update.bind(builder);
+      // A payload going to tracker_data must have data as a real object,
+      // never a string -- a manually JSON.stringify'd value is exactly the
+      // bug that corrupted Manish's record (twice). The database constraint
+      // added tonight is the real backstop and blocks this either way, but
+      // catching it here means a clear error immediately, at the call site
+      // that made the mistake, rather than a rejected write discovered
+      // later with no indication of which of 19 write paths caused it.
+      const guardTrackerData=function(payload){
+        if(table!=='tracker_data') return payload;
+        const rows=Array.isArray(payload)?payload:[payload];
+        rows.forEach(function(row){
+          if(row&&'data' in row&&typeof row.data==='string'){
+            throw new Error('Refused to write tracker_data: "data" was a JSON string instead of an object (double-encoding). Pass the raw object -- Supabase serializes it correctly on its own.');
+          }
+        });
+        return payload;
+      };
       builder.insert=function(payload,opts){
+        guardTrackerData(payload);
         const withCoach=Array.isArray(payload)
           ? payload.map(function(row){return Object.assign({coach_id:window.currentCoachId},row);})
           : Object.assign({coach_id:window.currentCoachId},payload);
         return origInsert(withCoach,opts);
       };
       builder.upsert=function(payload,opts){
+        guardTrackerData(payload);
         const withCoach=Array.isArray(payload)
           ? payload.map(function(row){return Object.assign({coach_id:window.currentCoachId},row);})
           : Object.assign({coach_id:window.currentCoachId},payload);
         return origUpsert(withCoach,opts);
+      };
+      builder.update=function(payload,opts){
+        guardTrackerData(payload);
+        return origUpdate(payload,opts);
       };
       return builder;
     }
@@ -827,7 +851,7 @@ async function onCoachAuthenticated(session){
   document.getElementById('billingGate').style.display='none';
   document.getElementById('mainApp').style.display='block';
   loadAll();
-  switchMode('clients');
+  switchMode(localStorage.getItem('kfit_coach_last_mode')||'clients');
   loadApprovedExercisesIntoCoachLib();
   getSBScoped().from('custom_exercises').select('id').eq('status','pending').then(function(res){
     if(!res.error&&res.data){
@@ -1327,142 +1351,6 @@ if(!body)return;
 const open=body.classList.toggle('open');
 body.style.display=open?'block':'none';
 if(toggle)toggle.classList.toggle('open',open);
-}
-
-// Surfaces sessions sitting in a client's own tracker_data with no matching
-// attendance row -- the same signal used to find Rano's contaminated
-// backlog. Most of these turn out to be empty stale stubs from an
-// interrupted sync; a smaller number carry real exercise content and need
-// a human eye, since only the coach can tell "this isn't something I gave
-// this client." Every removal here goes through the same archive-first
-// path as deleteCoachSession, so it's recoverable from Trash for 7 days --
-// nothing is ever a one-way action on data this sensitive.
-let _unmatchedCache={};
-let _unmatchedToken=0;
-async function loadUnmatchedSessionsForClient(mobile,name,clientKey){
-  const listEl=document.getElementById('fitUnmatchedList');
-  const badgeEl=document.getElementById('fitUnmatchedBadge');
-  if(!listEl) return;
-  if(!mobile){ listEl.innerHTML='No mobile number on file for this client.'; return; }
-  const myToken=++_unmatchedToken;
-  try{
-  const clientId=buildClientId(name,mobile);
-  const [tdRes,attRes]=await Promise.all([
-    getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness'),
-    getSBScoped().from('attendance').select('session_date,session_time').eq('client_mobile',mobile)
-  ]);
-  if(myToken!==_unmatchedToken) return;
-  if(tdRes.error||!tdRes.data||!tdRes.data.length){ listEl.innerHTML='No tracker data found.'; if(badgeEl)badgeEl.textContent=''; return; }
-  const d=typeof tdRes.data[0].data==='string'?JSON.parse(tdRes.data[0].data):tdRes.data[0].data;
-  const attKeys=new Set((attRes.data||[]).map(function(r){return r.session_date+'|'+(r.session_time||'');}));
-  const reviewed=new Set(d.reviewedUnmatchedIds||[]);
-  const unmatched=(d.sessions||[]).filter(function(s){
-    return !attKeys.has(s.date+'|'+(s.timeOfDay||''))&&!reviewed.has(s.id);
-  });
-  const hasContent=function(s){
-    return (s.exercises||[]).length>0||(s.supersets||[]).some(function(ss){return (ss.exercises||[]).length>0;});
-  };
-  const empty=unmatched.filter(function(s){return !hasContent(s);});
-  const content=unmatched.filter(hasContent);
-  _unmatchedCache[clientKey]={clientId,mobile,name,d,empty,content,visible:15};
-  if(badgeEl) badgeEl.textContent=unmatched.length?' ('+unmatched.length+')':'';
-  renderUnmatchedList(clientKey);
-  }catch(err){
-    if(myToken!==_unmatchedToken) return;
-    console.error('loadUnmatchedSessionsForClient failed:',err);
-    listEl.innerHTML='<div style="color:var(--terra);">Something went wrong loading this. '+(err&&err.message?err.message:'Unknown error')+' <button onclick="loadUnmatchedSessionsForClient(\''+(mobile||'').replace(/'/g,"\\'")+'\',\''+(name||'').replace(/'/g,"\\'")+'\',\''+clientKey.replace(/'/g,"\\'")+'\')" style="background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;color:var(--text);cursor:pointer;">Retry</button></div>';
-  }
-}
-
-function renderUnmatchedList(clientKey){
-  const listEl=document.getElementById('fitUnmatchedList');
-  const cache=_unmatchedCache[clientKey];
-  if(!listEl||!cache) return;
-  const {empty,content,visible}=cache;
-  if(!empty.length&&!content.length){ listEl.innerHTML='<div style="color:var(--sage);">Nothing unmatched -- this client\'s record is clean.</div>'; return; }
-  const esc=function(s){return (s||'').replace(/'/g,"\\'");};
-  let html='';
-  if(empty.length){
-    html+='<div style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;">'
-      +'<div style="font-size:13px;color:var(--muted);margin-bottom:8px;">'+empty.length+' empty stale session'+(empty.length===1?'':'s')+' (no exercises logged) -- almost always leftovers from an interrupted sync, safe to clear as a batch.</div>'
-      +'<button onclick="removeUnmatchedEmptyBulk(\''+esc(clientKey)+'\')" style="padding:8px 14px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🗑 Remove all '+empty.length+' empty</button>'
-      +'</div>';
-  }
-  if(content.length){
-    const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    html+=content.slice(0,visible).map(function(s){
-      const dt=new Date(s.date+'T12:00:00');
-      const dStr=isNaN(dt)?s.date:dt.getDate()+' '+M[dt.getMonth()]+' '+dt.getFullYear();
-      const allEx=[...(s.exercises||[])];
-      (s.supersets||[]).forEach(function(ss){(ss.exercises||[]).forEach(function(e){allEx.push(e);});});
-      const exNames=allEx.map(function(e){return e.ex;}).filter(Boolean).slice(0,4).join(', ')+(allEx.length>4?' +'+(allEx.length-4)+' more':'');
-      return '<div style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;">'
-        +'<div style="font-size:14px;font-weight:700;margin-bottom:2px;">'+dStr+(s.timeOfDay?' · '+s.timeOfDay:'')+'</div>'
-        +'<div style="font-size:13px;color:var(--muted);margin-bottom:10px;">'+(exNames||'(no exercise names)')+'</div>'
-        +'<div style="display:flex;gap:8px;">'
-        +'<button onclick="keepUnmatchedSession(\''+esc(clientKey)+'\',\''+esc(s.id)+'\')" style="flex:1;padding:7px;background:none;border:1px solid var(--sage);border-radius:8px;color:var(--sage);font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">✓ Keep, it\'s theirs</button>'
-        +'<button onclick="removeUnmatchedSession(\''+esc(clientKey)+'\',\''+esc(s.id)+'\')" style="flex:1;padding:7px;background:none;border:1px solid var(--terra);border-radius:8px;color:var(--terra);font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🗑 Not theirs, remove</button>'
-        +'</div></div>';
-    }).join('');
-    if(content.length>visible){
-      html+='<button onclick="_unmatchedCache[\''+esc(clientKey)+'\'].visible+=15;renderUnmatchedList(\''+esc(clientKey)+'\')" style="width:100%;padding:10px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Show 15 more ('+(content.length-visible)+' remaining)</button>';
-    }
-  }
-  listEl.innerHTML=html;
-}
-
-async function _saveUnmatchedChange(clientKey,newD){
-  const cache=_unmatchedCache[clientKey];
-  const {error}=await getSBScoped().from('tracker_data').upsert({client_id:cache.clientId,tracker:'fitness',data:JSON.stringify(newD),updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
-  if(error){ alert('Could not save: '+error.message); return false; }
-  cache.d=newD;
-  return true;
-}
-
-async function keepUnmatchedSession(clientKey,sessionId){
-  const cache=_unmatchedCache[clientKey];
-  if(!cache) return;
-  const newD=Object.assign({},cache.d,{reviewedUnmatchedIds:Array.from(new Set([...(cache.d.reviewedUnmatchedIds||[]),sessionId]))});
-  if(!await _saveUnmatchedChange(clientKey,newD)) return;
-  cache.content=cache.content.filter(function(s){return s.id!==sessionId;});
-  renderUnmatchedList(clientKey);
-  toast('Kept -- won\'t show here again');
-}
-
-async function removeUnmatchedSession(clientKey,sessionId){
-  const cache=_unmatchedCache[clientKey];
-  if(!cache) return;
-  const removed=(cache.d.sessions||[]).find(function(s){return s.id===sessionId;});
-  if(!removed) return;
-  const newD=Object.assign({},cache.d,{
-    sessions:(cache.d.sessions||[]).filter(function(s){return s.id!==sessionId;}),
-    deletedSessionIds:Array.from(new Set([...(cache.d.deletedSessionIds||[]),sessionId])),
-    deletedSessionsArchive:[Object.assign({},removed,{deletedAt:Date.now(),deletedBy:'coach'}),...(cache.d.deletedSessionsArchive||[]).filter(function(x){return x.id!==sessionId;})].slice(0,80)
-  });
-  if(!await _saveUnmatchedChange(clientKey,newD)) return;
-  cache.content=cache.content.filter(function(s){return s.id!==sessionId;});
-  renderUnmatchedList(clientKey);
-  toast('Moved to Trash · restorable for 7 days');
-  refreshPaidUI(cache.mobile||'');
-}
-
-async function removeUnmatchedEmptyBulk(clientKey){
-  const cache=_unmatchedCache[clientKey];
-  if(!cache||!cache.empty.length) return;
-  const ok=confirm('Remove all '+cache.empty.length+' empty stale sessions? They move to Trash and are restorable for 7 days.');
-  if(!ok) return;
-  const ids=new Set(cache.empty.map(function(s){return s.id;}));
-  const archived=cache.empty.map(function(s){return Object.assign({},s,{deletedAt:Date.now(),deletedBy:'coach'});});
-  const newD=Object.assign({},cache.d,{
-    sessions:(cache.d.sessions||[]).filter(function(s){return !ids.has(s.id);}),
-    deletedSessionIds:Array.from(new Set([...(cache.d.deletedSessionIds||[]),...ids])),
-    deletedSessionsArchive:[...archived,...(cache.d.deletedSessionsArchive||[]).filter(function(x){return !ids.has(x.id);})].slice(0,80)
-  });
-  if(!await _saveUnmatchedChange(clientKey,newD)) return;
-  cache.empty=[];
-  renderUnmatchedList(clientKey);
-  toast('Moved to Trash · restorable for 7 days');
-  refreshPaidUI(cache.mobile||'');
 }
 
 function showConfirm(title,message){
@@ -2293,17 +2181,18 @@ async function markClientPaidInFull(mobile,name,count){
 // actually need new numbers.
 function refreshPaidUI(mobile){
   // Recent Sessions list + its Paid/Unpaid count row, if that's what's
-  // currently loaded for this client.
+  // currently loaded for this client. This re-fetches rather than patching
+  // the existing cache in place -- patching only ever updated paid status
+  // on sessions already there, so a deleted session's row just sat there
+  // looking undeleted until the whole page was reloaded. A real re-fetch
+  // is the only way a delete, restore, or bulk mark-as-paid actually shows
+  // up correctly without a full page reload.
   Object.keys(_recentSessClientKey).forEach(function(listElId){
     const ck=_recentSessClientKey[listElId];
     if(ck!==mobile) return;
-    const cached=_recentSessCache[listElId];
-    if(!cached) return;
-    cached.forEach(function(s){
-      const rec=allRecords.find(r=>(r.client_mobile||'')===mobile&&r.session_date===s.date&&(r.session_time||'')===(s.timeOfDay||''));
-      if(rec) s._paid=rec.paid;
-    });
-    renderRecentSessionsPage(listElId,ck);
+    const clientId=_recentSessTrackerClientId[listElId];
+    if(!clientId) return;
+    loadRecentSessionsForClient(clientId,listElId,ck);
   });
   // Header "Unpaid" stat box, if this client's page is the one open.
   const statEl=document.getElementById('clientUnpaidStatVal');
@@ -2761,16 +2650,6 @@ function showClient(key,targetContainer){
         </div>
       </div>
       <div class="card" style="margin-bottom:14px;">
-        <div class="quick-add-header" onclick="toggleMergeSection('fitUnmatched')">
-          <span class="card-title" style="margin-bottom:0;font-size:15px;letter-spacing:.5px;color:var(--text);">🔍 Review Unmatched Sessions<span id="fitUnmatchedBadge"></span></span>
-          <span class="quick-add-toggle" id="fitUnmatchedToggle">⌄</span>
-        </div>
-        <div class="quick-add-body" id="fitUnmatchedBody">
-        <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Sessions stored on this client's record with no matching check-in -- most often stale, incomplete, or (rarely) a session that landed under the wrong client from an old sync issue. Nothing here is touched until you choose to remove it, and removed sessions go to Trash like any other delete.</div>
-        <div id="fitUnmatchedList">Loading...</div>
-        </div>
-      </div>
-      <div class="card" style="margin-bottom:14px;">
         <div class="quick-add-header" onclick="toggleMergeSection('fitRemove')">
           <span class="card-title" style="margin-bottom:0;font-size:15px;letter-spacing:.5px;color:var(--text);">Remove From My Clients</span>
           <span class="quick-add-toggle" id="fitRemoveToggle">⌄</span>
@@ -2792,7 +2671,6 @@ function showClient(key,targetContainer){
       </div>
     </div>`;
   loadNameHistoryForClient(c.mobile);
-  loadUnmatchedSessionsForClient(c.mobile,c.name,key);
   loadMeasurementsForClient(buildClientId(c.name,c.mobile),'fitness','fitMeasList');
   loadAssignedWorkoutsForClient(key,c);
   populateRtAssignSelect();
@@ -2880,7 +2758,7 @@ async function deleteClientRoutine(clientKey,routineId){
   // why this kept reappearing after being deleted.
   d.deletedRoutineIds=(d.deletedRoutineIds||[]).concat([routineId]);
   const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
-    client_id:fitId, tracker:'fitness', data:JSON.stringify(d), updated_at:new Date().toISOString()
+    client_id:fitId, tracker:'fitness', data:d, updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
   if(saveErr){ alert('Error deleting: '+saveErr.message); return; }
   loadClientRoutinesList(clientKey);
@@ -2929,7 +2807,7 @@ async function performRoutineAssignment(template,c){
   });
   d.routines=routines;
   const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
-    client_id:fitId, tracker:'fitness', data:JSON.stringify(d), updated_at:new Date().toISOString()
+    client_id:fitId, tracker:'fitness', data:d, updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
   if(saveErr){ alert('Error assigning: '+saveErr.message); return false; }
   return true;
@@ -3110,7 +2988,7 @@ async function deleteAssignedWorkout(clientKey,dateStr){
   // and helpfully re-uploads it.
   d.deletedAssignedWorkoutDates=(d.deletedAssignedWorkoutDates||[]).concat([dateStr]);
   const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
-    client_id:clientId, tracker:'fitness', data:JSON.stringify(d), updated_at:new Date().toISOString()
+    client_id:clientId, tracker:'fitness', data:d, updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
   if(saveErr){alert('Error deleting: '+saveErr.message);return;}
   loadAssignedWorkoutsForClient(clientKey,c);
@@ -3239,8 +3117,12 @@ function cleanupOrphanedAttendance(clientKey,date,time){
       allRecords=allRecords.filter(function(r){
         return !((r.client_mobile||r.client_name)===clientKey&&r.session_date===date&&(r.session_time||'')===(time||''));
       });
-      document.getElementById('coachSessionPanel').style.display='none';
-      showClient(clientKey);
+      closeCoachSession();
+      refreshPaidUI(c.mobile||clientKey);
+      toast('Entry removed');
+    })
+    .catch(function(err){
+      alert('Could not remove entry: '+(err&&err.message?err.message:'Unknown error'));
     });
 }
 
@@ -3887,6 +3769,7 @@ let _recentSessCache={};
 let _recentSessVisible={};
 let _recentSessRange={};
 let _recentSessClientKey={};
+let _recentSessTrackerClientId={};
 function setRecentSessRange(listElId,clientKey,range){
   _recentSessRange[listElId]=range;
   _recentSessVisible[listElId]=5;
@@ -3896,6 +3779,7 @@ async function loadRecentSessionsForClient(clientId,listElId,clientKey){
   const listEl=document.getElementById(listElId);
   if(!listEl) return;
   _recentSessClientKey[listElId]=clientKey;
+  _recentSessTrackerClientId[listElId]=clientId;
   const myToken=(_recentSessTokens[listElId]=(_recentSessTokens[listElId]||0)+1);
   try{
   const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
@@ -4163,7 +4047,7 @@ async function saveMeasurementModal(){
         if(entry.gender!=null) d.gender=entry.gender;
       }
       const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
-        client_id:clientId, tracker:tracker, data:JSON.stringify(d), updated_at:new Date().toISOString()
+        client_id:clientId, tracker:tracker, data:d, updated_at:new Date().toISOString()
       },{onConflict:'client_id,tracker'});
       if(saveErr){alert('Error saving: '+saveErr.message);return;}
       closeMeasModal();
@@ -4203,7 +4087,7 @@ async function deleteMeasurementForClient(clientId,tracker,listElId,entryId){
   const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
   d[useKey]=(d[useKey]||[]).filter(function(m){return m.id!==entryId;});
   const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
-    client_id:clientId, tracker:tracker, data:JSON.stringify(d), updated_at:new Date().toISOString()
+    client_id:clientId, tracker:tracker, data:d, updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
   if(saveErr){alert('Error deleting: '+saveErr.message);return;}
   loadMeasurementsForClient(clientId,tracker,listElId);
@@ -4833,12 +4717,13 @@ async function deleteCoachSession(){
   if(removed){
     full.deletedSessionsArchive=[Object.assign({},removed,{deletedAt:Date.now(),deletedBy:'coach'}),...(full.deletedSessionsArchive||[]).filter(function(x){return x.id!==removed.id;})].slice(0,80);
   }
-  const {error:trackerErr}=await getSBScoped().from('tracker_data').upsert({client_id:clientId,tracker:'fitness',data:JSON.stringify(full),updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
+  const {error:trackerErr}=await getSBScoped().from('tracker_data').upsert({client_id:clientId,tracker:'fitness',data:full,updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
   if(trackerErr){alert('Attendance record deleted, but the tracker could not be updated: '+trackerErr.message);return;}
   editingContext=null;
   closeAddSession();
   closeCoachSession();
   await loadAll();
+  refreshPaidUI(clientId.indexOf('kfit__')===0?clientId.slice(6):(currentClientKey||''));
   toast('Moved to Trash · restorable for 7 days');
 }
 
@@ -4899,7 +4784,7 @@ async function saveAssignedWorkout(){
   dateList.forEach(d=>{ full.assignedWorkouts[d]=workout; });
 
   const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
-    client_id:clientKey, tracker:'fitness', data:JSON.stringify(full), updated_at:new Date().toISOString()
+    client_id:clientKey, tracker:'fitness', data:full, updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
 
   btn.disabled=false; btn.textContent='Assign Workout';
@@ -5003,7 +4888,7 @@ async function saveAdminSession(){
     if(idx>=0) sessions[idx]=updatedSession; else sessions.unshift(updatedSession);
     full.sessions=sessions;
 
-    const {error:trackerErr}=await getSBScoped().from('tracker_data').upsert({client_id:clientId,tracker:'fitness',data:JSON.stringify(full),updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
+    const {error:trackerErr}=await getSBScoped().from('tracker_data').upsert({client_id:clientId,tracker:'fitness',data:full,updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
     if(trackerErr){
       // Roll back the attendance update so the two records don't disagree
       if(attendanceId&&attendanceSnapshot){
@@ -5033,14 +4918,14 @@ async function saveAdminSession(){
     client_name:clientName,
     client_mobile:clientMobile,
     session_date:date,
-    session_time:timeStr,
+    session_time:timeStr||'', // never null -- keeps this matchable against the unique constraint on (coach_id,client_mobile,session_date,session_time)
     duration_secs:durationSecs,
     workout_type:workoutType,
     body_parts:bodyPartsStr,
     activity:activityStr,
     logged_at:new Date().toISOString()
   };
-  const {data:attData,error:attErr}=await getSBScoped().from('attendance').insert(attendancePayload).select();
+  const {data:attData,error:attErr}=await getSBScoped().from('attendance').upsert(attendancePayload,{onConflict:'coach_id,client_mobile,session_date,session_time'}).select();
   if(attErr){btn.disabled=false;btn.textContent=origBtnText;alert('Error saving attendance: '+attErr.message);return;}
   const insertedId=attData&&attData.length?attData[0].id:null;
 
@@ -5086,7 +4971,7 @@ async function saveAdminSession(){
   const trackerPayload={
     client_id:clientKey,
     tracker:'fitness',
-    data:JSON.stringify(full),
+    data:full,
     updated_at:new Date().toISOString()
   };
   const {error:trackerErr}=await getSBScoped().from('tracker_data').upsert(trackerPayload,{onConflict:'client_id,tracker'});
@@ -5109,6 +4994,7 @@ async function saveAdminSession(){
 let exDataLoaded=false;
 window.nutDataLoaded = window.nutDataLoaded || false;
 function switchMode(mode){
+  try{ localStorage.setItem('kfit_coach_last_mode',mode); }catch(e){}
   const clientsBtn=document.getElementById('modeBtnClients');
   const exBtn=document.getElementById('modeBtnExercises');
   const fbBtn=document.getElementById('modeBtnFeedback');
@@ -5453,7 +5339,7 @@ async function deleteMealPlanAssignment(clientId,m,w,di){
   }
   full.data=dataArr;
   const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
-    client_id:clientId, tracker:'nutrition', data:JSON.stringify(full), updated_at:new Date().toISOString()
+    client_id:clientId, tracker:'nutrition', data:full, updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
   if(saveErr){alert('Error deleting: '+saveErr.message);return;}
   const cw=allClients.find(function(c){return c.client_id===clientId;});
@@ -5732,7 +5618,7 @@ async function clearMpDay(){
   }
   full.data=dataArr;
   const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
-    client_id:clientId, tracker:'nutrition', data:JSON.stringify(full), updated_at:new Date().toISOString()
+    client_id:clientId, tracker:'nutrition', data:full, updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
   if(saveErr){alert('Error clearing day: '+saveErr.message);return;}
   mpClientCache[clientId].data=dataArr;
@@ -5991,7 +5877,7 @@ async function confirmDtAssign(templateId){
   const full=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
   full.assignedDietTemplateId=templateId;
   const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
-    client_id:clientId,tracker:'nutrition',data:JSON.stringify(full),updated_at:new Date().toISOString()
+    client_id:clientId,tracker:'nutrition',data:full,updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
   if(saveErr){alert('Error assigning: '+saveErr.message);return;}
   const c=allClients.find(function(x){return x.client_id===clientId;});
@@ -6094,7 +5980,7 @@ async function saveMealPlan(){
   full.data=dataArr;
 
   const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
-    client_id:clientId, tracker:'nutrition', data:JSON.stringify(full), updated_at:new Date().toISOString()
+    client_id:clientId, tracker:'nutrition', data:full, updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
 
   btn.disabled=false; btn.textContent='Save Meal Plan';
@@ -6139,7 +6025,7 @@ full=typeof existing[0].data==='string'?JSON.parse(existing[0].data):existing[0]
 }
 full.calories=full.calories||{target:null,log:{}};
 full.calories.target=target;
-const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({client_id:clientId,tracker:'nutrition',data:JSON.stringify(full),updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
+const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({client_id:clientId,tracker:'nutrition',data:full,updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
 if(saveErr){alert('Could not save -- '+saveErr.message);return;}
 var cw=allClients.find(function(c){return c.client_id===clientId;});
 if(cw) cw.calories=full.calories;
