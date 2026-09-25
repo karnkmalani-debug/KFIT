@@ -2083,6 +2083,11 @@ return id;
 function registerDeviceSeen(){
 try{
 var deviceId=getOrCreateSharedDeviceId();
+if(localStorage.getItem('kmfit_device_seen')&&localStorage.getItem('kmnut_device_seen')) return;
+ensureAnonAuth(function(uid){
+if(!uid)return;
+var idMap=getSBScoped().from('client_identity_map').upsert({auth_uid:uid,client_id:deviceId,coach_id:getClientCoachId()},{onConflict:'auth_uid',ignoreDuplicates:true});
+idMap.then(function(){
 if(!localStorage.getItem('kmfit_device_seen')){
 localStorage.setItem('kmfit_device_seen','1');
 getSBScoped().from('tracker_data').upsert({
@@ -2101,6 +2106,8 @@ data:{name:'(App opened -- not set up yet)',mobile:'',sessions:[]},
 updated_at:new Date().toISOString()
 },{onConflict:'client_id,tracker'}).then(function(){});
 }
+});
+});
 }catch(e){}
 }
 function initApp(){
@@ -4618,6 +4625,7 @@ var key=getFitClientKey();
 if(key==='unknown')return;
 ensureAnonAuth(function(uid){
 if(!uid)return;
+getSBScoped().from('client_identity_map').upsert({auth_uid:uid,client_id:key,coach_id:getClientCoachId()},{onConflict:'auth_uid',ignoreDuplicates:true}).then(function(){
 var payload={
 user_id:uid,
 client_id:key,
@@ -4644,6 +4652,7 @@ var deviceId=localStorage.getItem('kfit_device_id');
 if(deviceId&&deviceId!==key){
 getSBScoped().from('tracker_data').delete().eq('client_id',deviceId).eq('tracker','fitness').then(function(){});
 }
+});
 });
 });
 }
@@ -4760,7 +4769,16 @@ if((!sessions||sessions.length===0)&&(!deletedSessionIds||deletedSessionIds.leng
 ensureAnonAuth(function(uid){
 if(!uid)return;
 
-var fetchQuery=getSBScoped().from('tracker_data').select('client_id,data').eq('client_id',key).eq('tracker','fitness');
+// Must land before the tracker_data query below -- RLS now checks this
+// mapping to decide whether this identity may touch this row at all, so
+// a brand-new client's very first sync needs the mapping to exist first,
+// not the other way around. Upserting on every sync (not just once) keeps
+// it correct if a client's coach_id or client_id ever legitimately changes.
+var idMapUpsert=getSBScoped().from('client_identity_map').upsert({auth_uid:uid,client_id:key,coach_id:getClientCoachId()},{onConflict:'auth_uid',ignoreDuplicates:true});
+
+var fetchQuery=idMapUpsert.then(function(){
+return getSBScoped().from('tracker_data').select('client_id,data').eq('client_id',key).eq('tracker','fitness');
+});
 
 fetchQuery.then(function(fres){
 var serverAssigned={};
