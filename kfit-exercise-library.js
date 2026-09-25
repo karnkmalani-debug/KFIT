@@ -13,8 +13,11 @@ const EX_LIB = {
 'Triceps':['Tricep Pushdown (Bar)','Tricep Pushdown (Rope)','Overhead Tricep Extension (Dumbbell)','Overhead Tricep Extension (EZ Bar)','Overhead Tricep Extension (Cable)','Skull Crushers (Barbell)','Skull Crushers (EZ Bar)','Skull Crushers (Dumbbell)','Close Grip Bench Press','Dips (Tricep Focus)','Single Arm Pushdown (Cable)','Kickback (Dumbbell)','Kickback (Cable)'],
 'Legs':['Barbell Squat','Front Squat','Goblet Squat','Sumo Squat','Bulgarian Split Squat','Hack Squat','Leg Press','Leg Extension','Lying Hamstring Curl','Seated Hamstring Curl','Romanian Deadlift','Single Leg RDL','Stiff Leg Deadlift','Hip Thrust (Barbell)','Hip Thrust (Dumbbell)','Glute Bridge','Walking Lunges','Reverse Lunges','Forward Lunges','Step-Ups','Good Mornings','Nordic Curl','Calf Raise (Leg Press Machine)','Standing Calf Raise','Seated Calf Raise'],
 'Core':['Hanging Leg Raise','Cable Crunch','Crunches','Decline Crunches','Russian Twist','Ab Wheel Rollout','Dead Bug','Pallof Press','Reverse Crunch','Dragon Flag','Landmine Twist','Back Hyperextension','Dumbbell Side Bends'],
-'Cardio':['Running (Treadmill)','Running (Outdoor)','Cycling (Bike)','Cycling (Stationary)','Rowing Machine','Elliptical','Stair Climber','Jump Rope','Swimming','Walking','HIIT','Sprint Intervals','Battle Ropes','Assault Bike','Ski Erg'],
-'Functional':['Plank','Side Plank','Wall Sit','Dead Hang','Glute Bridge Hold','Hollow Body Hold','Superman Hold','Bird Dog Hold','Split Squat Hold','Push-Up Hold','Farmer\'s Carry','Squat Hold','Bear Crawl','Jumping Jacks','Mountain Climbers','High Knees','Burpees']
+// Yoga appears twice on purpose: under Cardio for a full class (logged in
+// minutes with an effort level), and under Functional for a short flow or
+// held poses inside a workout (logged in seconds, like a plank).
+'Cardio':['Running (Treadmill)','Running (Outdoor)','Cycling (Bike)','Cycling (Stationary)','Rowing Machine','Elliptical','Stair Climber','Jump Rope','Swimming','Walking','HIIT','Sprint Intervals','Battle Ropes','Assault Bike','Ski Erg','Yoga'],
+'Functional':['Plank','Side Plank','Wall Sit','Dead Hang','Glute Bridge Hold','Hollow Body Hold','Superman Hold','Bird Dog Hold','Split Squat Hold','Push-Up Hold','Farmer\'s Carry','Squat Hold','Bear Crawl','Jumping Jacks','Mountain Climbers','High Knees','Burpees','Yoga']
 };
 
 // Shared body-measurement field list -- same idea as EX_LIB above. Previously
@@ -130,14 +133,17 @@ const CARDIO_MET={
 'Sprint Intervals':{Easy:8.0,Moderate:10.0,Hard:12.0,Max:15.0},
 'Battle Ropes':{Easy:6.0,Moderate:8.0,Hard:10.0,Max:12.0},
 'Assault Bike':{Easy:6.0,Moderate:8.5,Hard:11.0,Max:14.0},
-'Ski Erg':{Easy:5.0,Moderate:7.0,Hard:9.0,Max:11.0}
+'Ski Erg':{Easy:5.0,Moderate:7.0,Hard:9.0,Max:11.0},
+// Compendium of Physical Activities: gentle/hatha ~2.5, vinyasa/power ~4.
+'Yoga':{Easy:2.5,Moderate:3.0,Hard:4.0,Max:5.0}
 };
 const CARDIO_MET_DEFAULT={Easy:4.0,Moderate:6.0,Hard:8.0,Max:10.0};
 const FUNCTIONAL_MET={
 'Plank':3.0,'Side Plank':3.0,'Wall Sit':3.5,'Dead Hang':2.5,'Glute Bridge Hold':2.5,
 'Hollow Body Hold':3.5,'Superman Hold':2.5,'Bird Dog Hold':2.5,'Split Squat Hold':3.5,
 'Push-Up Hold':3.0,'Squat Hold':3.5,'Farmer\'s Carry':4.5,
-'Bear Crawl':6.0,'Jumping Jacks':7.0,'Mountain Climbers':8.0,'High Knees':8.0,'Burpees':10.0
+'Bear Crawl':6.0,'Jumping Jacks':7.0,'Mountain Climbers':8.0,'High Knees':8.0,'Burpees':10.0,
+'Yoga':3.0
 };
 const FUNCTIONAL_MET_DEFAULT=4.0;
 

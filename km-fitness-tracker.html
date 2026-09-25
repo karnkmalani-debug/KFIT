@@ -2673,6 +2673,7 @@ window._sessTimeOverride=to12Hour(val);
 // time, so that value alone can't tell us the person changed it. This flag
 // is only set here, by an actual pick -- it's what coach approval checks.
 window._sessTimeManual=true;
+refreshSaveBtnLabel();
 updateTimeChip();
 }
 
@@ -2682,6 +2683,7 @@ const M=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'
 var dateVal=document.getElementById('sessDate').value||localDateStr();
 const d=new Date(dateVal+'T12:00:00');
 document.getElementById('headerDate').textContent=D[d.getDay()]+' '+d.getDate()+' '+M[d.getMonth()];
+refreshSaveBtnLabel();
 
 var dp=document.getElementById('datePicker');
 if(dp) dp.value=dateVal;
@@ -4362,6 +4364,19 @@ syncFitnessToSupabase();
 toast('Workout assigned for '+dateStr+' ✓');
 }
 
+function getBodyweightExList(){
+var base=['Pull-Ups','Chin-Ups','Push-Ups','Deficit Push Ups','Nordic Curl','Plank','Side Plank','Hanging Leg Raise','Dragon Flag','Hollow Body Hold','Dips (Chest Focus)','Dips (Tricep Focus)','Crunches','Decline Crunches','Dead Bug','Reverse Crunch',
+'Ab Wheel Rollout','Russian Twist','Back Hyperextension','Glute Bridge','Walking Lunges','Reverse Lunges','Forward Lunges','Step-Ups','Bulgarian Split Squat','Sumo Squat','Wall Sit','Dead Hang','Superman Hold','Bird Dog Hold','Squat Hold','Split Squat Hold','Push-Up Hold','Glute Bridge Hold','Bear Crawl','Jumping Jacks','Mountain Climbers','High Knees','Burpees','Yoga'];
+try{ JSON.parse(localStorage.getItem('kmfit_bw_ex')||'[]').forEach(function(n){ if(base.indexOf(n)===-1) base.push(n); }); }catch(e){}
+return base;
+}
+function rememberBodyweightEx(list){
+try{
+var cur=JSON.parse(localStorage.getItem('kmfit_bw_ex')||'[]');
+list.forEach(function(n){ if(cur.indexOf(n)===-1) cur.push(n); });
+localStorage.setItem('kmfit_bw_ex',JSON.stringify(cur));
+}catch(e){}
+}
 function saveSession(){
 const saveBtn=document.getElementById('saveSessionBtn');
 if(saveBtn&&saveBtn.disabled) return;
@@ -4371,8 +4386,14 @@ if(window.__KFIT_ASSIGN_MODE__){ assignWorkoutFromLogPage(date); return; }
 const exercises=[];
 let incompleteMsg=null;
 const _exOrder=getExBodyOrder();
+const _bwAsk=[];
 
-const BODYWEIGHT_EX=['Pull-Ups','Chin-Ups','Push-Ups','Deficit Push Ups','Nordic Curl','Plank','Side Plank','Hanging Leg Raise','Dragon Flag','Hollow Body Hold','Dips (Chest Focus)','Dips (Tricep Focus)','Crunches','Decline Crunches','Dead Bug','Reverse Crunch'];
+// Exercises normally done with body weight only -- no weight needed. Anything
+// NOT on this list that's logged with reps but no weight isn't blocked any
+// more: the person is asked once whether it's a body-weight exercise, and
+// the answer is remembered on this device (kmfit_bw_ex) so they're never
+// asked again for it.
+const BODYWEIGHT_EX=getBodyweightExList();
 document.querySelectorAll('#exBody .ex-block').forEach(block=>{
 const ex=block.querySelector('.ex-select').value;
 const setsCount=+block.querySelector('.sets-select').value;
@@ -4388,8 +4409,11 @@ const setData=[];
 block.querySelectorAll('.set-row').forEach((row,i)=>{
 const reps=row.querySelector('.reps-input').value.trim();
 const weight=row.querySelector('.weight-input').value.trim();
-if(!isBodyweight && ((reps&&!weight)||(!reps&&weight))){
-if(!incompleteMsg) incompleteMsg=ex+' -- Set '+(i+1)+' is missing '+(reps?'a weight':'reps')+'. Fill it in or clear both fields.';
+if(!isBodyweight && reps && !weight){
+if(_bwAsk.indexOf(ex)===-1) _bwAsk.push(ex);
+row.style.outline='';
+} else if(!reps&&weight){
+if(!incompleteMsg) incompleteMsg=ex+' -- Set '+(i+1)+' has a weight but no reps. Add the reps or clear the weight.';
 row.style.outline='1.5px solid var(--terra)';
 row.style.borderRadius='6px';
 } else {
@@ -4401,6 +4425,15 @@ exercises.push({ex,sets:setsCount,setData,order:_exOrder.get(block)});
 }
 });
 if(incompleteMsg){showBlockingAlert(incompleteMsg);return;}
+if(_bwAsk.length&&!window._bwConfirmedOnce){
+showConfirm('No weight entered','For '+_bwAsk.join(', ')+'. Is '+(_bwAsk.length>1?'these':'this')+' a body-weight exercise? Tap OK to save '+(_bwAsk.length>1?'them':'it')+' as body weight (you won\'t be asked again), or Cancel to go back and add the weight.').then(function(ok){
+if(!ok) return;
+rememberBodyweightEx(_bwAsk);
+window._bwConfirmedOnce=true;
+try{ saveSession(); } finally { window._bwConfirmedOnce=false; }
+});
+return;
+}
 if(!exercises.length && !cardioBlocks.length && !functionalBlocks.length){showBlockingAlert('Add at least one exercise, cardio activity, or functional movement');return;}
 const timerDur = durRunning ? durElapsed+Math.floor((Date.now()-durStart)/1000) : durElapsed;
 const manualRaw = document.getElementById('durManual').value.trim();
@@ -4499,19 +4532,29 @@ _newSess.approval={status:'pending',type:'new',requestedAt:Date.now()};
 _approvalMode='pendingNew';
 }
 }
+var _noChangeMsg=null;
 if(_approvalMode==='pendingEdit'){
 // The coach-approved original stays the official record; the edit rides
 // along on it as a request.
 var _proposal=Object.assign({},_newSess);
 delete _proposal.pendingEdit; delete _proposal.pendingDelete; delete _proposal.approval;
+if(sessionContentKey(_proposal)===sessionContentKey(_orig)){
+// Nothing actually changed -- don't bother the coach; drop any stale request.
+_noChangeMsg=_orig.pendingEdit?'No changes from the approved version -- your pending edit request was withdrawn.':'Nothing changed, so nothing was sent to your coach.';
+if(_orig.pendingEdit){ delete _orig.pendingEdit; _orig.updatedAt=Date.now(); }
+} else if(_orig.pendingEdit&&sessionContentKey(_proposal)===sessionContentKey(_orig.pendingEdit.session)){
+_noChangeMsg='This matches the edit already waiting for your coach -- nothing new to send.';
+} else {
 _orig.pendingEdit={session:_proposal,requestedAt:Date.now()};
 _orig.updatedAt=Date.now();
+}
 sessions.unshift(_orig);
 } else {
 sessions.unshift(_newSess);
 }
 saveSessions();
 if(_approvalMode==='live') showSaveConfirmation(_estCal);
+else if(_noChangeMsg) toast(_noChangeMsg);
 else showBlockingAlert(_approvalMode==='pendingEdit'
 ?'Your edit has been sent to your coach for approval. Until they approve it, your history keeps showing the original.'
 :'This log is for a past date or a changed time, so it has been sent to your coach for approval. It will count once they approve it.');
@@ -4582,6 +4625,8 @@ var headerDate=document.getElementById('headerDate');
 if(headerDate){headerDate.style.opacity='';headerDate.title='Tap to change date';headerDate.style.cursor='pointer';}
 
 window._editingSessionId=null;
+window._sessTimeManual=false;
+refreshSaveBtnLabel();
 if(window._preEditDraftBackup){
 
 localStorage.setItem('kmfit_draft',window._preEditDraftBackup);
@@ -5168,6 +5213,7 @@ return;
 // comment on checkActiveClientTagStatus below for why a separate query
 // against client_tags turned out unreliable.
 _isActiveTaggedClient=!!d.isActiveClient;
+refreshSaveBtnLabel();
 try{localStorage.setItem('kmfit_is_tagged',_isActiveTaggedClient?'1':'0');}catch(e){}
 _activeTaggedSinceDate=d.activeSinceDate||null;
 var localRaw=localStorage.getItem('kmfit_sessions');
@@ -5472,6 +5518,44 @@ try{_isActiveTaggedClient=localStorage.getItem('kmfit_is_tagged')==='1';}catch(e
 // users, and the coach using this tracker from Merge, are never gated.
 function needsCoachApproval(){
 return _isActiveTaggedClient&&!window.__KFIT_COACH_PREVIEW__;
+}
+// Whether saving what's on the log page right now would need coach approval,
+// and the Save button label that says so -- so the client knows BEFORE
+// tapping, not only from a popup afterwards.
+function refreshSaveBtnLabel(){
+try{
+var btn=document.getElementById('saveSessionBtn');
+if(!btn||window.__KFIT_ASSIGN_MODE__) return;
+if(!needsCoachApproval()){ btn.textContent='Save Session'; return; }
+var editId=window._editingSessionId;
+if(editId){
+var o=sessions.find(function(x){return String(x.id)===String(editId);});
+if(o&&o.approval){ btn.textContent='Update Log (waiting for coach)'; return; }
+btn.textContent=(o&&o.pendingEdit)?'Update Edit Request':'Send Edit to Coach';
+return;
+}
+var el=document.getElementById('sessDate');
+var d=el&&el.value;
+btn.textContent=((d&&d!==localDateStr())||window._sessTimeManual)?'Send to Coach for Approval':'Save Session';
+}catch(e){}
+}
+// Stable snapshot of the parts of a session that matter, for spotting a
+// "change" that isn't one.
+function sessionContentKey(x){
+if(!x) return '';
+return JSON.stringify({d:x.date,t:x.timeOfDay,bp:x.bodyParts||[],ex:x.exercises||[],ss:x.supersets||[],c:x.cardio||[],f:x.functional||[],du:x.duration||null,n:x.notes||'',r:x.restTimes||[],ar:x.avgRestManual||null});
+}
+function withdrawRequest(id){
+var s=sessions.find(function(x){return String(x.id)===String(id);});
+if(!s) return;
+var what=s.pendingDelete?'delete':'edit';
+showConfirm('Withdraw your '+what+' request?','Your coach won\'t see it any more, and the session stays exactly as it is.').then(function(ok){
+if(!ok) return;
+delete s.pendingEdit; delete s.pendingDelete;
+s.updatedAt=Date.now();
+saveSessions(); closeDetail(); renderHistory(); renderStats();
+toast('Request withdrawn');
+});
 }
 function sessionApprovalBadge(s){
 if(s.approval&&s.approval.status==='pending') return '<span style="display:inline-block;margin-top:4px;background:rgba(212,167,58,.15);border:1px solid var(--gold);color:var(--gold);font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;">⏳ New log — waiting for coach approval</span>';
@@ -6632,7 +6716,7 @@ ${cardioIntensities.length?`<div class="sess-rest">Intensity: ${cardioIntensitie
 ${!cardioCount&&avg?`<div class="sess-rest">Avg Rest ${fmtSecs(avg)}</div>`:''}
 <div class="sess-tags">${cardioPills||bpPills}</div>
 </div>
-<button onclick="editSession(${s.id})" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:600;color:var(--text);cursor:pointer;white-space:nowrap;align-self:flex-start;margin-top:4px;">Edit</button>
+${s.pendingDelete?`<button onclick="withdrawRequest(${s.id})" style="background:transparent;border:1px solid var(--terra);border-radius:8px;padding:6px 10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:var(--terra);cursor:pointer;white-space:nowrap;align-self:flex-start;margin-top:4px;">⏳ Withdraw</button>`:`<button onclick="editSession(${s.id})" style="background:transparent;border:1px solid ${s.pendingEdit?'var(--gold)':'var(--border)'};border-radius:8px;padding:6px 12px;font-family:'DM Sans',sans-serif;font-size:${s.pendingEdit?14:17}px;font-weight:600;color:${s.pendingEdit?'var(--gold)':'var(--text)'};cursor:pointer;white-space:nowrap;align-self:flex-start;margin-top:4px;">${s.pendingEdit?'⏳ Re-edit':'Edit'}</button>`}
 </div>`;
 }).join('');
 }
@@ -7275,6 +7359,7 @@ toast('Could not fully load this session -- please try again or tell your coach'
 },400);
 
 window._editingSessionId=id;
+refreshSaveBtnLabel();
 }
 
 // Reusable per-session calorie estimate -- uses the stored value from save
@@ -7479,9 +7564,14 @@ ${restSec}
 ${s.notes?`<div class="card"><div class="card-title">Notes</div><p style="font-size:17px;line-height:1.65;color:var(--muted)">${s.notes}</p></div>`:''}
 <div style="display:flex;gap:8px;margin-top:12px;">
 <button class="btn btn-accent btn-sm" onclick="shareSession(${id})" style="flex:1;">Send to Coach</button>
-<button class="btn btn-ghost btn-sm" onclick="closeDetail();editSession(${id})" style="flex:1;">Edit</button>
-<button class="btn btn-danger btn-sm" onclick="deleteSession(${id})" style="flex:1;">Delete Session</button>
-</div>`;
+${s.pendingDelete
+?`<button class="btn btn-ghost btn-sm" disabled style="flex:1;opacity:.55;">⏳ Delete requested</button>
+<button class="btn btn-ghost btn-sm" onclick="withdrawRequest(${id})" style="flex:1;">Withdraw request</button>`
+:`<button class="btn btn-ghost btn-sm" onclick="closeDetail();editSession(${id})" style="flex:1;">${s.pendingEdit?'⏳ Re-edit':'Edit'}</button>
+${s.pendingEdit?`<button class="btn btn-ghost btn-sm" onclick="withdrawRequest(${id})" style="flex:1;">Withdraw edit</button>`:''}
+<button class="btn btn-danger btn-sm" onclick="deleteSession(${id})" style="flex:1;">${needsCoachApproval()&&!s.approval?'Request Delete':'Delete Session'}</button>`}
+</div>
+${sessionApprovalBadge(s)?`<div style="margin-top:10px;">${sessionApprovalBadge(s)}</div>`:''}`;
 document.getElementById('detailPanel').classList.add('open');
 }
 
@@ -7496,11 +7586,13 @@ setTimeout(function(){panel.style.transform='';},300);
 
 async function deleteSession(id){
 const s=sessions.find(x=>x.id===id);
+if(s&&s.pendingDelete){ toast('Already waiting for your coach to approve this delete'); return; }
 const ok=await showConfirm('Delete this session?','This removes it from your history here. Your coach keeps a record of it and can bring it back if needed -- for billing or otherwise -- so this isn\'t permanent on their end even though it is on yours.');
 if(!ok)return;
 // A log the coach never approved (pending or rejected) is the client's own to remove.
 if(s&&needsCoachApproval()&&!s.approval){
 s.pendingDelete={requestedAt:Date.now()};
+delete s.pendingEdit; // a delete request replaces any pending edit
 s.updatedAt=Date.now();
 saveSessions();closeDetail();renderHistory();renderStats();
 showBlockingAlert('Delete request sent to your coach. The session stays in your history until they approve it.');

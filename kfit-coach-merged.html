@@ -749,11 +749,38 @@ function getSB(){
 // call site. select/update/delete pass straight through unmodified; RLS
 // already filters those correctly by coach_id regardless of the app query.
 const COACH_SCOPED_TABLES=['tracker_data','attendance','client_tags','custom_exercises','exercise_videos','routine_templates','app_feedback','diet_templates','client_access_kill_switch'];
+// ONE shared read per client record. Opening a client used to fire 6-10
+// separate downloads of the SAME full tracker record at once (history,
+// routines, assigned workouts, measurements, "last time" hints...). For a
+// client with a big history -- Karan's is the largest -- those parallel
+// full reads were what hit "canceling statement due to statement timeout".
+// Display-only reads now share one request (reused for 15s); every write to
+// tracker_data clears this, and read-then-write code paths still read fresh.
+// Read at startup, before any screen setup can clear it.
+window._mergeLastClientAtBoot=(function(){try{return JSON.parse(localStorage.getItem('merge_last_client')||'null');}catch(e){return null;}})();
+const _tdCache={};
+function cachedTrackerRow(clientId,tracker){
+  const k=tracker+'|'+clientId, now=Date.now(), hit=_tdCache[k];
+  if(hit&&now-hit.t<15000) return hit.p;
+  const p=getSB().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker',tracker).then(function(res){
+    if(res.error) delete _tdCache[k];
+    return res;
+  });
+  _tdCache[k]={t:now,p:p};
+  return p;
+}
+function invalidateTrackerRows(){ Object.keys(_tdCache).forEach(function(k){ delete _tdCache[k]; }); }
 function getSBScoped(){
   const real=getSB();
   return {
     from(table){
       const builder=real.from(table);
+      if(table==='tracker_data'){
+        ['update','upsert','insert','delete'].forEach(function(m){
+          const orig=builder[m]&&builder[m].bind(builder);
+          if(orig) builder[m]=function(){ invalidateTrackerRows(); return orig.apply(null,arguments); };
+        });
+      }
       if(!COACH_SCOPED_TABLES.includes(table)) return builder;
       const origInsert=builder.insert.bind(builder);
       const origUpsert=builder.upsert.bind(builder);
@@ -2101,6 +2128,16 @@ function loadAll(){
     allRecords=res.data||[];
     loadNewSignups();
     refreshRequestsBadge();
+    // iPhone often reloads a home-screen app you switched away from, which
+    // dropped you back on the client list. Reopen the client you were on
+    // (if it was within the last 30 minutes) -- once, on the first load.
+    if(!window._mergeRestoreDone){
+      window._mergeRestoreDone=true;
+      try{
+        const last=window._mergeLastClientAtBoot;
+        if(last&&last.key&&Date.now()-last.t<30*60*1000) setTimeout(function(){ openUniClient(last.key); },0);
+      }catch(e){}
+    }
   }).catch(function(err){
     console.error('Fitness load failed:',err);
     const el=document.getElementById('clientList');
@@ -2112,19 +2149,21 @@ function loadAll(){
     if(el) el.innerHTML='<div class="empty">Something went wrong starting the load.<br>'+(syncErr&&syncErr.message?syncErr.message:'Unknown error')+'</div>';
   }
 }
+let _newSignupsLast=0;
 function loadNewSignups(){
-  getSBScoped().from('tracker_data').select('client_id,data').eq('tracker','fitness').then(function(res){
+  // This ran on every refresh and downloaded EVERY client's full history
+  // just to find clients with zero sessions. Now it asks only for name,
+  // mobile and the first session's id (null = no sessions), at most every 2 min.
+  if(Date.now()-_newSignupsLast<120000) return;
+  _newSignupsLast=Date.now();
+  getSBScoped().from('tracker_data').select('client_id,nm:data->>name,mb:data->>mobile,first:data->sessions->0->>id').eq('tracker','fitness').then(function(res){
     if(res.error||!res.data)return;
     const attendedKeys=new Set(allRecords.map(function(r){return (r.client_mobile||r.client_name||'').toLowerCase().trim();}));
     const noSession=[];
     res.data.forEach(function(row){
-      var d=row.data;
-      try{ if(typeof d==='string') d=JSON.parse(d); }catch(e){ return; }
-      if(!d) return;
-      var sessions=d.sessions||[];
-      if(sessions.length>0) return; // has real sessions, belongs in the normal roster instead
-      var name=d.name||row.client_id;
-      var mobile=d.mobile||'';
+      if(row.first) return; // has real sessions, belongs in the normal roster instead
+      var name=row.nm||row.client_id;
+      var mobile=row.mb||'';
       var key=(mobile||name||'').toLowerCase().trim();
       if(attendedKeys.has(key)) return; // safety: already has attendance under this key somehow
       noSession.push({name:name,mobile:mobile});
@@ -2391,6 +2430,7 @@ function renderUniDash(){
 function showUniDash(){
   uniCurrentKey=null;
   document.getElementById('uniClientView').style.display='none';
+  try{localStorage.removeItem('merge_last_client');}catch(e){}
   document.getElementById('uniDashView').style.display='block';
   renderUniDash();
 }
@@ -2408,6 +2448,7 @@ function chooseUniDiscipline(discipline){
   uniRosterView='clients'; // Fitness/Nutrition always show tagged clients only now -- All Users is its own separate destination, not a toggle buried inside these.
   document.getElementById('uniLandingView').style.display='none';
   document.getElementById('uniClientView').style.display='none';
+  try{localStorage.removeItem('merge_last_client');}catch(e){}
   document.getElementById('uniDashView').style.display='block';
   // Diet Templates only makes sense for nutrition -- this button (and the
   // whole builder behind it) was fully working but became unreachable when
@@ -2421,6 +2462,7 @@ function chooseAllUsers(){
   uniRosterView='all';
   document.getElementById('uniLandingView').style.display='none';
   document.getElementById('uniClientView').style.display='none';
+  try{localStorage.removeItem('merge_last_client');}catch(e){}
   document.getElementById('uniDashView').style.display='block';
   renderUniDash();
 }
@@ -2429,6 +2471,7 @@ function showUniLanding(){
   uniCurrentKey=null;
   document.getElementById('uniDashView').style.display='none';
   document.getElementById('uniClientView').style.display='none';
+  try{localStorage.removeItem('merge_last_client');}catch(e){}
   document.getElementById('uniLandingView').style.display='block';
 }
 
@@ -2441,6 +2484,8 @@ function setUniSubTab(which){
 
 async function openUniClient(key){
   uniCurrentKey=key;
+  invalidateTrackerRows(); // fresh data on every open; the reads below then share it
+  try{localStorage.setItem('merge_last_client',JSON.stringify({key:key,t:Date.now()}));}catch(e){}
   // Real bug fix: allRecords was only ever fetched once at login (and after
   // the coach's OWN save/delete actions inside Merge) -- it never picked up
   // a session logged from the client's own phone while Merge stayed open.
@@ -2739,7 +2784,7 @@ async function loadClientRoutinesList(clientKey){
   const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
   if(!c){ listEl.innerHTML='<div class="empty">Client not found.</div>'; return; }
   const fitId=buildClientId(c.name,c.mobile);
-  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',fitId).eq('tracker','fitness');
+  const {data,error}=await cachedTrackerRow(fitId,'fitness');
   if(error){ listEl.innerHTML='<div class="empty">Error loading: '+error.message+'</div>'; return; }
   let d={};
   if(data&&data.length&&data[0].data) d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
@@ -2949,7 +2994,7 @@ async function loadAssignedWorkoutsForClient(key,c){
   const listEl=document.getElementById('assignedWorkoutsList');
   if(!listEl)return;
   const clientId=buildClientId(c.name,c.mobile);
-  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+  const {data,error}=await cachedTrackerRow(clientId,'fitness');
   if(error||!data||!data.length||!data[0].data){
     listEl.innerHTML='<div style="color:var(--muted);">Nothing assigned yet.</div>';
     return;
@@ -3166,7 +3211,7 @@ function openCoachSession(clientKey, date, time){
   document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">Loading...</div>';
   showFullscreenPanel('coachSessionPanel');
 
-  getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness')
+  cachedTrackerRow(clientId,'fitness')
     .then(function(res){
       if(myToken!==_openCoachSessionToken) return; // a newer open has since started -- discard this stale result
 
@@ -3452,7 +3497,7 @@ async function openTrash(){
   for(const c of clients){
     try{
     const clientId=buildClientId(c.name,c.mobile);
-    const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+    const {data,error}=await cachedTrackerRow(clientId,'fitness');
     if(error||!data||!data.length) continue;
     const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
     const archive=d.deletedSessionsArchive||[];
@@ -3884,7 +3929,7 @@ async function loadAsClientSessions(clientId){
   // "Last Session" history with the first client's data -- this is what was
   // actually behind "two options, one his, one someone else's" on today's date.
   const myToken=++_asClientSessionsToken;
-  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+  const {data,error}=await cachedTrackerRow(clientId,'fitness');
   if(myToken!==_asClientSessionsToken) return; // a newer load has since started -- discard this stale result
   if(error||!data||!data.length)return;
   const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
@@ -3999,7 +4044,7 @@ async function loadRecentSessionsForClient(clientId,listElId,clientKey){
   _recentSessTrackerClientId[listElId]=clientId;
   const myToken=(_recentSessTokens[listElId]=(_recentSessTokens[listElId]||0)+1);
   try{
-  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','fitness');
+  const {data,error}=await cachedTrackerRow(clientId,'fitness');
   if(myToken!==_recentSessTokens[listElId]) return;
   if(error){ listEl.innerHTML='<div style="color:var(--muted);">Error loading sessions: '+error.message+'</div>'; return; }
   let sessions=[];
@@ -4122,7 +4167,7 @@ async function loadMeasurementsForClient(clientId,tracker,listElId){
   // (not globally) so fitness and nutrition, which can legitimately load
   // at the same time for the same client, never cancel each other.
   const myToken=(_measLoadTokens[listElId]=(_measLoadTokens[listElId]||0)+1);
-  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker',tracker);
+  const {data,error}=await cachedTrackerRow(clientId,tracker);
   if(myToken!==_measLoadTokens[listElId]) return; // a newer load for this same list has since started -- discard this stale result
   const useKey=measKeyForTracker(tracker);
   if(error||!data||!data.length||!data[0].data){
@@ -5728,7 +5773,7 @@ async function onMpClientChange(){
   const clientId=document.getElementById('mp-client').value;
   if(!clientId){document.getElementById('mp-meals').innerHTML='';return;}
   document.getElementById('mp-meals').innerHTML='<div style="color:var(--muted);text-align:center;padding:20px;">Loading...</div>';
-  const {data,error}=await getSBScoped().from('tracker_data').select('data').eq('client_id',clientId).eq('tracker','nutrition');
+  const {data,error}=await cachedTrackerRow(clientId,'nutrition');
   if(error||!data||!data.length||!data[0].data){
     document.getElementById('mp-meals').innerHTML='<div style="color:var(--terra);text-align:center;padding:20px;">Could not load this client\'s program dates.</div>';
     return;
