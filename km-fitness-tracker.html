@@ -4909,13 +4909,25 @@ updated_at:new Date().toISOString()
 getSBScoped().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(res){
 if(res.error){
 console.error('Supabase write error:', JSON.stringify(res.error));
+var errMsg=res.error.message||res.error.code||'';
+// The ownership trigger's rejection is not a network problem -- it means
+// a session in this device's own local data doesn't actually belong to
+// whoever's logged in. Retrying sends the exact same rejected payload
+// again and again forever, which never succeeds and just repeats the
+// same alert. This needs a human to look at it, not another attempt.
+var isOwnershipRejection=/cannot contain session client/i.test(errMsg);
+if(isOwnershipRejection){
+_clearPendingTrackerSync();
+showBlockingAlert('A session stored on this device doesn\'t match your account and was blocked from syncing ('+errMsg+'). This needs your coach to look at it directly -- retrying automatically won\'t fix this one.');
+return;
+}
 _flagPendingTrackerSync();
 _trackerSyncFailCount++;
 if(_trackerSyncFailCount>=3){
-showBlockingAlert('Your workout is saved on this device, but hasn\'t reached your coach\'s dashboard after several tries ('+(res.error.message||res.error.code||'connection issue')+'). It will keep retrying automatically -- but if this keeps happening, tell your coach directly so this specific session doesn\'t get missed.');
+showBlockingAlert('Your workout is saved on this device, but hasn\'t reached your coach\'s dashboard after several tries ('+errMsg+'). It will keep retrying automatically -- but if this keeps happening, tell your coach directly so this specific session doesn\'t get missed.');
 _trackerSyncFailCount=0;
 } else {
-toast('Sync error: '+(res.error.message||res.error.code||JSON.stringify(res.error))+' -- will retry automatically');
+toast('Sync error: '+errMsg+' -- will retry automatically');
 setTimeout(retryPendingTrackerSync, 3000*_trackerSyncFailCount);
 }
 } else {
