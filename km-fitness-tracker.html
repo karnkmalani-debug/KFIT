@@ -2265,6 +2265,7 @@ renderExChips();
 loadExerciseVideos();
 loadLiveRoutineTemplates();
 retryPendingAttendance();
+retryPendingTrackerSync();
 renderRoutineList();
 renderSuggestedRoutines();
 renderKfitStandardRoutines();
@@ -2313,6 +2314,8 @@ window.__KFIT_PENDING_EDIT_SESSION_ID__=null;
 showMobilePromptIfNeeded();
 setTimeout(checkVoiceSession, 800);
 setTimeout(retryPendingAttendance, 2000);
+setTimeout(retryPendingTrackerSync, 2000);
+window.addEventListener('online', retryPendingTrackerSync);
 setTimeout(updateFbUnreadBadge, 1000);
 }
 
@@ -4824,7 +4827,20 @@ var localById={};
 sessions.forEach(function(s){ localById[s.id]=s; });
 var mergedById={};
 serverSessions.forEach(function(s){ mergedById[s.id]=s; });
+// Guards against exactly what happened tonight: a device's own local
+// cache holding onto session content that was never actually theirs (from
+// an old contamination incident), silently re-uploading it forever on
+// every sync even after the server side gets cleaned up. A local session
+// only gets merged back in if its embedded client name is missing (older
+// sessions predate this field) or actually matches this device's own
+// current name -- anything else is almost certainly stale cross-client
+// content and gets dropped rather than re-synced.
+var ownName=(localStorage.getItem('kmfit_name')||'').trim().toLowerCase();
 sessions.forEach(function(s){
+if(ownName&&s.client&&s.client.trim().toLowerCase()!==ownName){
+console.warn('Dropped a locally-cached session that doesn\'t belong to this device (client mismatch):',s.client,s.date,s.timeOfDay);
+return;
+}
 var srv=mergedById[s.id];
 if(!srv||(s.updatedAt||0)>=(srv.updatedAt||0)) mergedById[s.id]=s;
 });
@@ -4875,8 +4891,17 @@ updated_at:new Date().toISOString()
 getSBScoped().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(res){
 if(res.error){
 console.error('Supabase write error:', JSON.stringify(res.error));
-toast('Sync error: '+(res.error.message||res.error.code||JSON.stringify(res.error)));
+_flagPendingTrackerSync();
+_trackerSyncFailCount++;
+if(_trackerSyncFailCount>=3){
+showBlockingAlert('Your workout is saved on this device, but hasn\'t reached your coach\'s dashboard after several tries ('+(res.error.message||res.error.code||'connection issue')+'). It will keep retrying automatically -- but if this keeps happening, tell your coach directly so this specific session doesn\'t get missed.');
+_trackerSyncFailCount=0;
 } else {
+toast('Sync error: '+(res.error.message||res.error.code||JSON.stringify(res.error))+' -- will retry automatically');
+setTimeout(retryPendingTrackerSync, 3000*_trackerSyncFailCount);
+}
+} else {
+_clearPendingTrackerSync();
 refreshHistoryWhenIdle();
 }
 });
@@ -5134,6 +5159,28 @@ function retryPendingAttendance(){
 try{
 var pending=JSON.parse(localStorage.getItem('kmfit_pending_attendance')||'[]');
 pending.forEach(function(record){logAttendance(record,1);});
+}catch(e){}
+}
+
+// Same shape of problem as attendance, but for the actual workout content:
+// a failed tracker_data write used to just flash a toast and vanish, with
+// nothing left behind to say the session never actually reached the
+// server. The workout stayed looking saved locally, Merge showed nothing,
+// and there was no way to tell later that anything was wrong short of a
+// coach manually noticing and going digging. This makes a failed sync
+// retry automatically, the same way attendance already does, and escalate
+// to something the person can't miss if it keeps failing.
+var _trackerSyncFailCount=0;
+function _flagPendingTrackerSync(){
+try{ localStorage.setItem('kmfit_pending_tracker_sync','1'); }catch(e){}
+}
+function _clearPendingTrackerSync(){
+try{ localStorage.removeItem('kmfit_pending_tracker_sync'); }catch(e){}
+_trackerSyncFailCount=0;
+}
+function retryPendingTrackerSync(){
+try{
+if(localStorage.getItem('kmfit_pending_tracker_sync')==='1') syncFitnessToSupabase();
 }catch(e){}
 }
 function updateAttendance(record,attempt){
