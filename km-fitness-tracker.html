@@ -2086,8 +2086,7 @@ var deviceId=getOrCreateSharedDeviceId();
 if(localStorage.getItem('kmfit_device_seen')&&localStorage.getItem('kmnut_device_seen')) return;
 ensureAnonAuth(function(uid){
 if(!uid)return;
-var idMap=getSBScoped().from('client_identity_map').upsert({auth_uid:uid,client_id:deviceId,coach_id:getClientCoachId()},{onConflict:'auth_uid',ignoreDuplicates:true});
-idMap.then(function(){
+(function(){
 if(!localStorage.getItem('kmfit_device_seen')){
 localStorage.setItem('kmfit_device_seen','1');
 getSBScoped().from('tracker_data').upsert({
@@ -2106,7 +2105,7 @@ data:{name:'(App opened -- not set up yet)',mobile:'',sessions:[]},
 updated_at:new Date().toISOString()
 },{onConflict:'client_id,tracker'}).then(function(){});
 }
-});
+})();
 });
 }catch(e){}
 }
@@ -2323,6 +2322,13 @@ setTimeout(checkVoiceSession, 800);
 setTimeout(retryPendingAttendance, 2000);
 setTimeout(retryPendingTrackerSync, 2000);
 window.addEventListener('online', retryPendingTrackerSync);
+// A home-screen app on iPhone is usually resumed, not reopened, so the
+// "retry on app open" above could wait days (Rano's session only reached
+// Merge after she logged out and back in). Retry whenever the app comes back
+// to the foreground too.
+document.addEventListener('visibilitychange',function(){
+if(document.visibilityState==='visible'){retryPendingTrackerSync();retryPendingAttendance();}
+});
 setTimeout(updateFbUnreadBadge, 1000);
 }
 
@@ -4625,7 +4631,6 @@ var key=getFitClientKey();
 if(key==='unknown')return;
 ensureAnonAuth(function(uid){
 if(!uid)return;
-getSBScoped().from('client_identity_map').upsert({auth_uid:uid,client_id:key,coach_id:getClientCoachId()},{onConflict:'auth_uid',ignoreDuplicates:true}).then(function(){
 var payload={
 user_id:uid,
 client_id:key,
@@ -4652,7 +4657,6 @@ var deviceId=localStorage.getItem('kfit_device_id');
 if(deviceId&&deviceId!==key){
 getSBScoped().from('tracker_data').delete().eq('client_id',deviceId).eq('tracker','fitness').then(function(){});
 }
-});
 });
 });
 }
@@ -4762,25 +4766,51 @@ var o=document.getElementById('moveOverlay');
 if(o){o.style.display='none';}
 }
 
+// Only one sync runs at a time. Every edit (routine change, set logged,
+// measurement saved) calls this, and before this lock several could run in
+// parallel: each read the server copy, merged, and wrote the whole row back,
+// so a slower, older sync could land last and overwrite a newer one. Now a
+// call that arrives mid-sync just marks "run again", and exactly one more
+// sync runs after the current one finishes, with the latest local data.
+var _fitSyncInFlight=false,_fitSyncQueued=false;
+function _fitSyncDone(){
+_fitSyncInFlight=false;
+if(_fitSyncQueued){_fitSyncQueued=false;setTimeout(syncFitnessToSupabase,300);}
+}
 function syncFitnessToSupabase(){
 var key=getFitClientKey();
 if(key==='unknown')return;
 if((!sessions||sessions.length===0)&&(!deletedSessionIds||deletedSessionIds.length===0)&&(!measurements||measurements.length===0)&&(!routines||routines.length===0))return;
+if(_fitSyncInFlight){_fitSyncQueued=true;return;}
+_fitSyncInFlight=true;
+// Hard stop so a hung request can never leave the lock stuck forever.
+var _lockTimer=setTimeout(_fitSyncDone,30000);
+var finish=function(){clearTimeout(_lockTimer);_fitSyncDone();};
 ensureAnonAuth(function(uid){
-if(!uid)return;
+if(!uid){_flagPendingTrackerSync();finish();return;}
 
-// Must land before the tracker_data query below -- RLS now checks this
-// mapping to decide whether this identity may touch this row at all, so
-// a brand-new client's very first sync needs the mapping to exist first,
-// not the other way around. Upserting on every sync (not just once) keeps
-// it correct if a client's coach_id or client_id ever legitimately changes.
-var idMapUpsert=getSBScoped().from('client_identity_map').upsert({auth_uid:uid,client_id:key,coach_id:getClientCoachId()},{onConflict:'auth_uid',ignoreDuplicates:true});
-
-var fetchQuery=idMapUpsert.then(function(){
-return getSBScoped().from('tracker_data').select('client_id,data').eq('client_id',key).eq('tracker','fitness');
-});
+var fetchQuery=getSBScoped().from('tracker_data').select('client_id,data').eq('client_id',key).eq('tracker','fitness');
 
 fetchQuery.then(function(fres){
+// If reading the server copy failed, STOP. Previously this carried on with
+// an empty server copy and then wrote this device's data over the whole
+// row -- silently wiping anything that only existed server-side (sessions
+// added or edited in Merge, coach-assigned workouts, the active-client
+// tag). Nothing is lost by stopping: the data is safe on this device and
+// the pending flag makes it retry.
+if(fres.error){
+console.error('Supabase read error (sync aborted, will retry):', JSON.stringify(fres.error));
+_flagPendingTrackerSync();
+_trackerSyncFailCount++;
+if(_trackerSyncFailCount>=3){
+showBlockingAlert('Your workout is saved on this device, but it can\'t reach your coach\'s dashboard right now ('+(fres.error.message||fres.error.code||'')+'). It will keep retrying automatically.');
+_trackerSyncFailCount=0;
+} else {
+setTimeout(retryPendingTrackerSync, 3000*_trackerSyncFailCount);
+}
+finish();
+return;
+}
 var serverAssigned={};
 var serverSessions=[];
 var serverMeasurements=[];
@@ -4919,6 +4949,7 @@ var isOwnershipRejection=/cannot contain session client/i.test(errMsg);
 if(isOwnershipRejection){
 _clearPendingTrackerSync();
 showBlockingAlert('A session stored on this device doesn\'t match your account and was blocked from syncing ('+errMsg+'). This needs your coach to look at it directly -- retrying automatically won\'t fix this one.');
+finish();
 return;
 }
 _flagPendingTrackerSync();
@@ -4930,11 +4961,17 @@ _trackerSyncFailCount=0;
 toast('Sync error: '+errMsg+' -- will retry automatically');
 setTimeout(retryPendingTrackerSync, 3000*_trackerSyncFailCount);
 }
+finish();
 } else {
 _clearPendingTrackerSync();
+finish();
 refreshHistoryWhenIdle();
 }
 });
+}).catch(function(err){
+console.error('Sync crashed (will retry):',err);
+_flagPendingTrackerSync();
+finish();
 });
 });
 }
@@ -5151,13 +5188,23 @@ body_parts: record.bodyParts&&record.bodyParts.length?record.bodyParts.join(', '
 activity: record.activity||'',
 logged_at: new Date().toISOString()
 };
-getSBScoped().from('attendance').upsert(payload,{onConflict:'coach_id,client_mobile,session_date,session_time'}).then(function(res){
+// ignoreDuplicates = "insert if new, do nothing if this check-in already
+// exists". Before, a plain upsert turned into an UPDATE whenever the row was
+// already there (a re-save, or the automatic retry of a check-in that had in
+// fact landed). Clients aren't allowed to UPDATE attendance, so that failed
+// every single time, three attempts per pending record, and raised the
+// "couldn't confirm it with your coach's dashboard (connection issue)" alert
+// even on perfect internet. Time/duration edits go through updateAttendance.
+getSBScoped().from('attendance').upsert(payload,{onConflict:'coach_id,client_mobile,session_date,session_time',ignoreDuplicates:true}).then(function(res){
 if(res.error){
 console.warn('Attendance log error (attempt '+attempt+'):',res.error.message);
 if(attempt<3){
 setTimeout(function(){logAttendance(record,attempt+1);},1500*attempt);
-} else {
-showBlockingAlert('Your workout saved, but we couldn\'t confirm it with your coach\'s dashboard (connection issue). It will keep retrying in the background -- if this keeps happening, check your internet connection.');
+} else if(!window._attAlertShown){
+// One alert per app session, not one per pending record, and it shows the
+// real error text instead of assuming it's the connection.
+window._attAlertShown=true;
+showBlockingAlert('Your workout saved, but its check-in didn\'t reach your coach\'s dashboard yet ('+(res.error.message||res.error.code||'unknown error')+'). It will retry automatically next time you open the app.');
 }
 } else {
 _clearPendingAttendance(record);

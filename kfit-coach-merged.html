@@ -2346,7 +2346,10 @@ function renderUniDash(){
     const daysSince=c.lastDate?Math.floor((now-c.lastDate)/86400000):null;
     const recencyBadge=daysSince===null?'':daysSince<=7?'<span class="badge badge-sage">Active</span>':daysSince<=14?'<span class="badge badge-gold">'+daysSince+'d ago</span>':'<span class="badge badge-terra">'+daysSince+'d ago</span>';
     const blockedBadge=c.isBlocked?'<span class="badge" style="background:var(--terra);color:#fff;">Blocked</span>':'';
-    const unpaidBadge=c.unpaidN?'<button onclick="event.stopPropagation();markClientPaidInFull(\''+(c.mobile||'').replace(/'/g,"\\'")+'\',\''+c.name.replace(/'/g,"\\'")+'\','+c.unpaidN+')" class="badge" style="background:var(--terra);color:#fff;border:none;cursor:pointer;font-family:\'DM Sans\',sans-serif;">'+c.unpaidN+' unpaid</button>':'';
+    // Paid/unpaid only means something for current (tagged) clients -- the
+    // client page and the unpaid alert already ignore untagged people, so the
+    // roster pill must too (Kunal/Suraj showed old unpaid counts while untagged).
+    const unpaidBadge=(c.isTagged&&c.unpaidN)?'<button onclick="event.stopPropagation();markClientPaidInFull(\''+(c.mobile||'').replace(/'/g,"\\'")+'\',\''+c.name.replace(/'/g,"\\'")+'\','+c.unpaidN+')" class="badge" style="background:var(--terra);color:#fff;border:none;cursor:pointer;font-family:\'DM Sans\',sans-serif;">'+c.unpaidN+' unpaid</button>':'';
     const trackerTags='<span style="font-size:11px;color:var(--muted);">'+(c.fit?'🏋️ Fitness  ':'')+(c.nut?'🥗 Nutrition':'')+'</span>';
     const isFitTagged=!!(taggedClients.fitness&&taggedClients.fitness[c.key]);
     const isNutTagged=!!(taggedClients.nutrition&&taggedClients.nutrition[c.key]);
@@ -3331,7 +3334,7 @@ function calcPersonalRecordsCoach(sessions){
       if(!e.ex) return;
       var key=e.ex.toLowerCase().trim();
       (e.setData||[]).forEach(function(set){
-        if((set.assistedReps>0)||set.dropset) return;
+        if((set.assistedReps>0)||set.dropset||(set.lengthenedPartialReps>0)||set.myoRepMatch) return;
         var w=parseFloat(set.weight);
         var r=set.reps?String(set.reps).trim():'';
         if(!w||isNaN(w)||!r) return;
@@ -3361,7 +3364,7 @@ function calcPriorBestCoach(exKey,excludeDate,excludeTimeOfDay,allSessions){
     allEx.forEach(function(e){
       if(!e.ex||e.ex.toLowerCase().trim()!==exKey) return;
       (e.setData||[]).forEach(function(set){
-        if((set.assistedReps>0)||set.dropset) return;
+        if((set.assistedReps>0)||set.dropset||(set.lengthenedPartialReps>0)||set.myoRepMatch) return;
         var w=parseFloat(set.weight);
         var r=set.reps?String(set.reps).trim():'';
         if(!w||isNaN(w)||!r) return;
@@ -3395,7 +3398,7 @@ function getSessionPRInfoCoach(s,prMap,allSessions){
     if(!isSessionPR) return;
     var priorBest=calcPriorBestCoach(key,s.date,s.timeOfDay,allSessions);
     (e.setData||[]).forEach(function(set){
-      if((set.assistedReps>0)||set.dropset) return;
+      if((set.assistedReps>0)||set.dropset||(set.lengthenedPartialReps>0)||set.myoRepMatch) return;
       var w=parseFloat(set.weight);
       var rNum=set.reps?parseInt(set.reps):NaN;
       if(!w||isNaN(w)||!set.reps) return;
@@ -3438,12 +3441,12 @@ function ssBodyHtmlCoach(ss,uLabel,prMap8,s,allSessions){
         <tbody>${(()=>{let dropN=0;return ssRealSets.map(r=>{
           const w=parseFloat(r.weight)||0;
           const rNum=r.reps?parseInt(r.reps):NaN;
-          const showTrophy=ssIsSessionPR&&!(r.assistedReps>0)&&!r.dropset&&w>0&&r.reps&&
+          const showTrophy=ssIsSessionPR&&!(r.assistedReps>0)&&!r.dropset&&!(r.lengthenedPartialReps>0)&&!r.myoRepMatch&&w>0&&r.reps&&
             (!ssPriorBest||w>ssPriorBest.weight||(w===ssPriorBest.weight&&!isNaN(rNum)&&rNum>parseInt(ssPriorBest.reps)));
           const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
           return`<tr>
           <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${r.dropset?'var(--terra)':'inherit'};border-bottom:1px solid var(--border);padding:6px 0;">${dropLabel}</td>
-          <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">H '+r.assistedReps+'</span>':''}</td>
+          <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">H '+r.assistedReps+'</span>':''}${r.myoRepMatch?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">MM</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">LP '+r.lengthenedPartialReps+'</span>':''}</td>
           ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
         </tr>`;}).join('')})()}</tbody>
       </table>
@@ -3536,12 +3539,12 @@ function renderCoachSession(s,allSessions,full){
           <tbody>${(()=>{let dropN=0;return realSets.map(r=>{
             const w=parseFloat(r.weight)||0;
             const rNum=r.reps?parseInt(r.reps):NaN;
-            const showTrophy=isSessionPR&&!(r.assistedReps>0)&&!r.dropset&&w>0&&r.reps&&
+            const showTrophy=isSessionPR&&!(r.assistedReps>0)&&!r.dropset&&!(r.lengthenedPartialReps>0)&&!r.myoRepMatch&&w>0&&r.reps&&
               (!priorBest||w>priorBest.weight||(w===priorBest.weight&&!isNaN(rNum)&&rNum>parseInt(priorBest.reps)));
             const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
             return`<tr>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${r.dropset?'var(--terra)':'inherit'};border-bottom:1px solid var(--border);padding:6px 0;">${dropLabel}</td>
-            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">H '+r.assistedReps+'</span>':''}</td>
+            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">H '+r.assistedReps+'</span>':''}${r.myoRepMatch?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">MM</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">LP '+r.lengthenedPartialReps+'</span>':''}</td>
             ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
           </tr>`;}).join('')})()}</tbody>
         </table>
@@ -3701,7 +3704,7 @@ function lastPerfHtml(exName){
     const label=r.dropset?(++dsN>1?'D'+dsN:'D'):(dsN=0,mainN++,'Set '+mainN);
     return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;'+(r.dropset?'margin-left:16px;border-left:2px solid var(--terra);':'')+'">'
     +'<span style="font-family:\'DM Mono\',monospace;font-size:13px;color:'+(r.dropset?'var(--terra)':'var(--muted)')+';width:36px;flex-shrink:0;text-transform:uppercase;">'+label+'</span>'
-    +(r.reps?'<span style="font-size:13px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.assistedReps>0?' <span style="color:var(--terra);font-size:11px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
+    +(r.reps?'<span style="font-size:13px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.assistedReps>0?' <span style="color:var(--terra);font-size:11px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.myoRepMatch?' <span style="color:#9a6ad4;font-size:11px;font-weight:700;">(MM)</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:11px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
     +(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:13px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
     +'</div>';
   }).join('');
@@ -4406,11 +4409,12 @@ function renderAsSupersets(){
           <div style="display:flex;flex-direction:column;gap:6px;">
             <div style="display:grid;grid-template-columns:30px 1fr auto auto 1fr;gap:6px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);"><span></span><span>Reps</span><span></span><span></span><span>${asUnit}</span></div>
             ${groups.map(g=>`
-              <div style="display:grid;grid-template-columns:30px 1fr auto auto 1fr;gap:6px;align-items:center;">
+              <div style="display:grid;grid-template-columns:30px 1fr auto auto auto 1fr;gap:6px;align-items:center;">
                 <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:600;color:var(--muted);text-align:center;">S${g.mainIdx+1}</span>
                 <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${g.mainItem.reps}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${g.mainRealIdx},'reps',this.value)">
                 ${asAssistLPHtml(g.mainItem.assistedReps||0,'H',`bumpAsSupersetAssist('${ss.id}','${e.id}',${g.mainRealIdx},1)`,`bumpAsSupersetAssist('${ss.id}','${e.id}',${g.mainRealIdx},-1)`)}
                 ${asAssistLPHtml(g.mainItem.lengthenedPartialReps||0,'LP',`bumpAsSupersetLP('${ss.id}','${e.id}',${g.mainRealIdx},1)`,`bumpAsSupersetLP('${ss.id}','${e.id}',${g.mainRealIdx},-1)`)}
+                ${asMMHtml(!!g.mainItem.myoRepMatch,`toggleAsSupersetMM('${ss.id}','${e.id}',${g.mainRealIdx})`)}
                 <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${g.mainItem.weight}" oninput="updateAsSupersetExSetData('${ss.id}','${e.id}',${g.mainRealIdx},'weight',this.value)">
               </div>
               ${g.drops.map((d,di)=>`<div style="display:grid;grid-template-columns:30px 1fr auto auto 1fr auto;gap:6px;align-items:center;margin-left:14px;padding-left:8px;border-left:2px solid rgba(200,120,63,.35);">
@@ -4467,11 +4471,12 @@ function renderAsExercises(){
       <div style="display:flex;flex-direction:column;gap:6px;">
         <div style="display:grid;grid-template-columns:30px 1fr auto auto 1fr;gap:6px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--muted);"><span></span><span>Reps</span><span></span><span></span><span>${asUnit}</span></div>
         ${groups.map(g=>`
-          <div style="display:grid;grid-template-columns:30px 1fr auto auto 1fr;gap:6px;align-items:center;">
+          <div style="display:grid;grid-template-columns:30px 1fr auto auto auto 1fr;gap:6px;align-items:center;">
             <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:600;color:var(--muted);text-align:center;">S${g.mainIdx+1}</span>
             <input class="form-inp" type="number" inputmode="numeric" placeholder="Reps" value="${g.mainItem.reps}" oninput="updateAsExSetData('${b.id}',${g.mainRealIdx},'reps',this.value)">
             ${asAssistLPHtml(g.mainItem.assistedReps||0,'H',`bumpAsAssist('${b.id}',${g.mainRealIdx},1)`,`bumpAsAssist('${b.id}',${g.mainRealIdx},-1)`)}
             ${asAssistLPHtml(g.mainItem.lengthenedPartialReps||0,'LP',`bumpAsLP('${b.id}',${g.mainRealIdx},1)`,`bumpAsLP('${b.id}',${g.mainRealIdx},-1)`)}
+            ${asMMHtml(!!g.mainItem.myoRepMatch,`toggleAsMM('${b.id}',${g.mainRealIdx})`)}
             <input class="form-inp" type="number" inputmode="decimal" placeholder="${asUnit}" value="${g.mainItem.weight}" oninput="updateAsExSetData('${b.id}',${g.mainRealIdx},'weight',this.value)">
           </div>
           ${g.drops.map((d,di)=>`<div style="display:grid;grid-template-columns:30px 1fr auto auto 1fr auto;gap:6px;align-items:center;margin-left:14px;padding-left:8px;border-left:2px solid rgba(200,120,63,.35);">
@@ -4649,6 +4654,22 @@ function bumpAsSupersetLP(ssId,exId,idx,delta){
 // every change rather than tracking DOM state, so instead of tap=+1/hold=-1
 // like the tracker, tapping the pill itself increments and a small "-"
 // appears once the count is above 0 to step back down.
+function asMMHtml(on,fn){
+  return '<button type="button" onclick="'+fn+'" title="Myo-rep match / rest-pause set" style="min-width:30px;height:22px;padding:0 4px;background:'+(on?'#9a6ad4':'var(--surf2)')+';border:1px solid '+(on?'transparent':'var(--border)')+';border-radius:5px;color:'+(on?'#1a0e2a':'var(--muted)')+';font-size:10px;font-weight:800;cursor:pointer;">MM</button>';
+}
+function toggleAsMM(id,idx){
+  const b=asExercises.find(b=>b.id==id);
+  if(!b||!b.setData[idx])return;
+  b.setData[idx].myoRepMatch=!b.setData[idx].myoRepMatch;
+  renderAsExercises();
+}
+function toggleAsSupersetMM(ssId,exId,idx){
+  const ss=asSupersets.find(s=>s.id==ssId);
+  const e=ss&&ss.exercises.find(x=>x.id==exId);
+  if(!e||!e.setData[idx])return;
+  e.setData[idx].myoRepMatch=!e.setData[idx].myoRepMatch;
+  renderAsSupersets();
+}
 function asAssistLPHtml(count,label,incFn,decFn){
   const active=count>0;
   return '<div style="display:flex;align-items:center;gap:2px;">'

@@ -1047,7 +1047,6 @@ if(!appSetup||!appSetup.clientName)return;
 if((!data||data.length===0)&&(!bodyMeasurements||bodyMeasurements.length===0))return;
 ensureAnonAuth(function(uid){
 if(!uid)return;
-getSBScoped().from('client_identity_map').upsert({auth_uid:uid,client_id:getClientKey(),coach_id:getClientCoachId()},{onConflict:'auth_uid',ignoreDuplicates:true}).then(function(){
 var payload={
 user_id:uid,
 client_id:getClientKey(),
@@ -1062,7 +1061,6 @@ var realKey=getClientKey();
 if(deviceId&&deviceId!==realKey&&realKey!=='unknown'){
 getSBScoped().from('tracker_data').delete().eq('client_id',deviceId).eq('tracker','nutrition').then(function(){});
 }
-});
 });
 });
 }
@@ -3776,8 +3774,7 @@ var deviceId=getOrCreateSharedDeviceId();
 if(localStorage.getItem('kmnut_device_seen')&&localStorage.getItem('kmfit_device_seen')) return;
 ensureAnonAuth(function(uid){
 if(!uid)return;
-var idMap=getSBScoped().from('client_identity_map').upsert({auth_uid:uid,client_id:deviceId,coach_id:getClientCoachId()},{onConflict:'auth_uid',ignoreDuplicates:true});
-idMap.then(function(){
+(function(){
 if(!localStorage.getItem('kmnut_device_seen')){
 localStorage.setItem('kmnut_device_seen','1');
 getSBScoped().from('tracker_data').upsert({
@@ -3796,7 +3793,7 @@ data:{name:'(App opened -- not set up yet)',mobile:'',sessions:[]},
 updated_at:new Date().toISOString()
 },{onConflict:'client_id,tracker'}).then(function(){});
 }
-});
+})();
 });
 }catch(e){}
 }
