@@ -4954,6 +4954,8 @@ var mById={};
 (d.measurements||[]).forEach(function(m){ if(!m) return; var k=m.id||m.date; var p=mById[k]; if(!p||(m.updatedAt||0)>=(p.updatedAt||0)) mById[k]=m; });
 d.measurements=Object.values(mById);
 d.deletedSessionIds=Array.from(new Set(d.deletedSessionIds||[]));
+d.deletedAssignedWorkoutDates=Array.from(new Set(d.deletedAssignedWorkoutDates||[]));
+d.deletedRoutineIds=Array.from(new Set(d.deletedRoutineIds||[]));
 return d;
 }
 // Human-readable size of the upload and its three biggest parts, shown in
@@ -5038,7 +5040,13 @@ var mergedAssigned=Object.assign({},serverAssigned,assignedWorkouts);
 // date cached, would otherwise just get overlaid right back on top above,
 // silently undoing the deletion on this very sync. Applying the tombstone
 // list here is what actually makes a coach's deletion stick.
-deletedAssignedWorkoutDates=(deletedAssignedWorkoutDates||[]).concat(serverDeletedAssignedDates);
+// Union WITHOUT duplicates. This used to be a plain concat of this
+// phone's list + the server's list on every sync -- and the result was
+// uploaded back, so the list doubled every single sync. It reached 38.8 MB
+// on Karan's record: that's what broke his uploads ("Load failed") and made
+// Merge time out opening his history.
+deletedAssignedWorkoutDates=Array.from(new Set([...(deletedAssignedWorkoutDates||[]),...serverDeletedAssignedDates]));
+try{localStorage.setItem('kmfit_deleted_assigned_dates',JSON.stringify(deletedAssignedWorkoutDates));}catch(e){}
 deletedAssignedWorkoutDates.forEach(function(dt){ delete mergedAssigned[dt]; });
 assignedWorkouts=mergedAssigned;
 

@@ -2135,7 +2135,15 @@ function loadAll(){
       window._mergeRestoreDone=true;
       try{
         const last=window._mergeLastClientAtBoot;
-        if(last&&last.key&&Date.now()-last.t<30*60*1000) setTimeout(function(){ openUniClient(last.key); },0);
+        if(last&&last.key&&Date.now()-last.t<30*60*1000) setTimeout(function(){
+          // Put back the list you came from too, so "← All Clients" returns
+          // to Fitness (or wherever you were), not an unfiltered list.
+          uniDisciplineFilter=last.disc||null;
+          if(last.view) uniRosterView=last.view;
+          const tb=document.getElementById('uniDietTemplatesBtn');
+          if(tb) tb.style.display=(uniDisciplineFilter==='nutrition')?'block':'none';
+          openUniClient(last.key);
+        },0);
       }catch(e){}
     }
   }).catch(function(err){
@@ -2485,7 +2493,7 @@ function setUniSubTab(which){
 async function openUniClient(key){
   uniCurrentKey=key;
   invalidateTrackerRows(); // fresh data on every open; the reads below then share it
-  try{localStorage.setItem('merge_last_client',JSON.stringify({key:key,t:Date.now()}));}catch(e){}
+  try{localStorage.setItem('merge_last_client',JSON.stringify({key:key,t:Date.now(),disc:uniDisciplineFilter,view:uniRosterView}));}catch(e){}
   // Real bug fix: allRecords was only ever fetched once at login (and after
   // the coach's OWN save/delete actions inside Merge) -- it never picked up
   // a session logged from the client's own phone while Merge stayed open.
@@ -2504,6 +2512,10 @@ async function openUniClient(key){
     switchMode('clients');
   }
   document.getElementById('uniDashView').style.display='none';
+  // Also hide the Fitness/Nutrition/Coaches chooser. Normally you've already
+  // left it before opening a client, but reopening your last client after the
+  // iPhone reloads Merge comes straight from it -- both showed at once.
+  document.getElementById('uniLandingView').style.display='none';
   document.getElementById('uniClientView').style.display='block';
   document.getElementById('uniClientHeader').innerHTML=
     '<div class="card"><div style="font-size:22px;font-weight:800;margin-bottom:4px;">'+c.name+'</div>'
@@ -3047,7 +3059,7 @@ async function deleteAssignedWorkout(clientKey,dateStr){
   // to know the difference between "never assigned" and "was assigned, then
   // removed" -- it just sees its own cached copy is missing from the server
   // and helpfully re-uploads it.
-  d.deletedAssignedWorkoutDates=(d.deletedAssignedWorkoutDates||[]).concat([dateStr]);
+  d.deletedAssignedWorkoutDates=Array.from(new Set([...(d.deletedAssignedWorkoutDates||[]),dateStr]));
   const {error:saveErr}=await getSBScoped().from('tracker_data').upsert({
     client_id:clientId, tracker:'fitness', data:d, updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
