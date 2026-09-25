@@ -4426,9 +4426,12 @@ var _now=new Date();
 var _timeStr=window._sessTimeOverride||_now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
 const _newId=window._editingSessionId||Date.now();
 const _isEditing=!!window._editingSessionId;
+const _timeWasOverridden=!!window._sessTimeOverride;
+const _gate=needsCoachApproval();
+var _orig=null;
 
 if(_isEditing){
-const _orig=sessions.find(x=>x.id===window._editingSessionId);
+_orig=sessions.find(x=>x.id===window._editingSessionId);
 sessions=sessions.filter(x=>x.id!==window._editingSessionId);
 window._editingSessionId=null;
 var _hd=document.getElementById('headerDate');
@@ -4445,7 +4448,7 @@ cardioBlocks:cardioBlocks.map(function(c){return {ex:c.ex,duration:c.duration,in
 functionalBlocks:functionalBlocks.map(function(f){return {ex:f.ex,duration:f.duration};}),
 profile:getClientProfile()
 });
-sessions.unshift({
+var _newSess={
 id:_newId,
 client:document.getElementById('clientName').value.trim()||('Unnamed '+(localStorage.getItem('kmfit_mobile')||'client')),
 date, timeOfDay:_timeStr,
@@ -4460,9 +4463,38 @@ unit: weightUnit,
 notes:document.getElementById('sessNotes').value,
 estCalories:_estCal,
 updatedAt: Date.now()
-});
+};
+// 'live' = what happens without approval. For a gated client this is only a
+// brand-new log for today with the automatic time.
+var _approvalMode='live';
+if(_gate){
+if(_isEditing&&_orig&&_orig.approval&&_orig.approval.status==='pending'){
+// Still an unapproved new log -- just update the request itself.
+_newSess.approval={status:'pending',type:'new',requestedAt:Date.now()};
+_approvalMode='pendingNew';
+} else if(_isEditing&&_orig){
+_approvalMode='pendingEdit';
+} else if(!_isEditing&&(date!==localDateStr()||_timeWasOverridden)){
+_newSess.approval={status:'pending',type:'new',requestedAt:Date.now()};
+_approvalMode='pendingNew';
+}
+}
+if(_approvalMode==='pendingEdit'){
+// The coach-approved original stays the official record; the edit rides
+// along on it as a request.
+var _proposal=Object.assign({},_newSess);
+delete _proposal.pendingEdit; delete _proposal.pendingDelete; delete _proposal.approval;
+_orig.pendingEdit={session:_proposal,requestedAt:Date.now()};
+_orig.updatedAt=Date.now();
+sessions.unshift(_orig);
+} else {
+sessions.unshift(_newSess);
+}
 saveSessions();
-showSaveConfirmation(_estCal);
+if(_approvalMode==='live') showSaveConfirmation(_estCal);
+else showBlockingAlert(_approvalMode==='pendingEdit'
+?'Your edit has been sent to your coach for approval. Until they approve it, your history keeps showing the original.'
+:'This log is for a past date or a changed time, so it has been sent to your coach for approval. It will count once they approve it.');
 var _capturedStructure=captureCurrentExerciseStructure();
 
 var _attRecord={
@@ -4474,7 +4506,11 @@ workoutType: detectWorkoutType(exercises, collectSupersets(_exOrder), cardioBloc
 bodyParts: [...selectedBP],
 activity: cardioBlocks.length?cardioBlocks.map(c=>c.ex).filter(Boolean).join(', '):''
 };
-if(_isEditing){
+if(_approvalMode!=='live'){
+// No attendance/billing change until the coach approves -- Merge writes it.
+window._editingOrigDate=null;
+window._editingOrigTime=null;
+} else if(_isEditing){
 var _origDate=window._editingOrigDate||date;
 var _origTime=window._editingOrigTime||_timeStr;
 updateAttendance(Object.assign({},_attRecord,{date:_origDate,time:_origTime,newDate:date,newTime:_timeStr}));
@@ -4823,6 +4859,7 @@ var serverArchive=[];
 var serverIsActiveClient=null, serverActiveSinceDate=null;
 try{
 var serverDeletedAssignedDates=[];
+var serverDeletedSessionIds=[];
 if(!fres.error&&fres.data&&fres.data.length){
 fres.data.forEach(function(row){
 if(!row.data) return;
@@ -4833,6 +4870,7 @@ serverMeasurements=serverMeasurements.concat(fd.measurements||[]);
 serverRoutines=serverRoutines.concat(fd.routines||[]);
 serverArchive=serverArchive.concat(fd.deletedSessionsArchive||[]);
 serverDeletedAssignedDates=serverDeletedAssignedDates.concat(fd.deletedAssignedWorkoutDates||[]);
+serverDeletedSessionIds=serverDeletedSessionIds.concat(fd.deletedSessionIds||[]);
 if(fd.isActiveClient!==undefined) serverIsActiveClient=fd.isActiveClient;
 if(fd.activeSinceDate!==undefined) serverActiveSinceDate=fd.activeSinceDate;
 });
@@ -4893,6 +4931,12 @@ var srv=mergedById[s.id];
 if(!srv||(s.updatedAt||0)>=(srv.updatedAt||0)) mergedById[s.id]=s;
 });
 
+// Deletions made on the server (by the coach in Merge, or a delete request
+// the coach approved) must stick here too. Only this device's own list was
+// applied before, so a session the coach deleted came straight back from
+// this phone's local copy on its next sync.
+deletedSessionIds=Array.from(new Set([...(deletedSessionIds||[]),...serverDeletedSessionIds]));
+try{localStorage.setItem('kmfit_deleted_ids',JSON.stringify(deletedSessionIds));}catch(e){}
 (deletedSessionIds||[]).forEach(function(id){ delete mergedById[id]; });
 var mergedSessions=Object.values(mergedById).sort(function(a,b){
 var dateDiff=new Date(b.date)-new Date(a.date);
@@ -5061,6 +5105,7 @@ return;
 // comment on checkActiveClientTagStatus below for why a separate query
 // against client_tags turned out unreliable.
 _isActiveTaggedClient=!!d.isActiveClient;
+try{localStorage.setItem('kmfit_is_tagged',_isActiveTaggedClient?'1':'0');}catch(e){}
 _activeTaggedSinceDate=d.activeSinceDate||null;
 var localRaw=localStorage.getItem('kmfit_sessions');
 var localSessions=[];
@@ -5351,6 +5396,28 @@ callback(res.error?[]:res.data||[]);
 // directly onto the client's own record instead, which they always have
 // full read access to since it's their own data.
 var _isActiveTaggedClient=false;
+try{_isActiveTaggedClient=localStorage.getItem('kmfit_is_tagged')==='1';}catch(e){}
+// COACH APPROVAL. For a client tagged by their coach, the coach (Merge) is the
+// authority over the log. Anything that changes the official record from this
+// device becomes a request the coach approves or rejects in Merge:
+//   - editing a saved session   -> session.pendingEdit  (original stays official)
+//   - deleting a saved session  -> session.pendingDelete (session stays)
+//   - a new log for a past date, or with a manually changed time
+//                                -> session.approval={status:'pending'}; no
+//                                   attendance/billing row until approved
+// A normal log made live (today, auto time) goes straight through. Untagged
+// users, and the coach using this tracker from Merge, are never gated.
+function needsCoachApproval(){
+return _isActiveTaggedClient&&!window.__KFIT_COACH_PREVIEW__;
+}
+function sessionApprovalBadge(s){
+if(s.approval&&s.approval.status==='pending') return '<span style="display:inline-block;margin-top:4px;background:rgba(212,167,58,.15);border:1px solid var(--gold);color:var(--gold);font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;">⏳ New log — waiting for coach approval</span>';
+if(s.approval&&s.approval.status==='rejected') return '<span style="display:inline-block;margin-top:4px;background:rgba(200,120,63,.15);border:1px solid var(--terra);color:var(--terra);font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;">✕ Not approved by coach'+(s.approval.note?' — '+String(s.approval.note).replace(/</g,'&lt;'):'')+'</span>';
+if(s.pendingDelete) return '<span style="display:inline-block;margin-top:4px;background:rgba(200,120,63,.15);border:1px solid var(--terra);color:var(--terra);font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;">⏳ Delete requested — waiting for coach</span>';
+if(s.pendingEdit) return '<span style="display:inline-block;margin-top:4px;background:rgba(212,167,58,.15);border:1px solid var(--gold);color:var(--gold);font-size:12px;font-weight:700;padding:2px 8px;border-radius:10px;">⏳ Edit sent — showing your coach-approved version until they review it</span>';
+if(s.lastDecision&&s.lastDecision.result==='rejected'&&(Date.now()-(s.lastDecision.at||0))<14*86400000) return '<span style="display:inline-block;margin-top:4px;color:var(--terra);font-size:12px;font-weight:700;">Your coach declined your last '+(s.lastDecision.type==='delete'?'delete':'edit')+' request for this session</span>';
+return '';
+}
 var _activeTaggedSinceDate=null;
 
 function saveSessions(){
@@ -6085,7 +6152,7 @@ const label=buildLabel(r);
 // icon here since there's no session detail view to remove them from --
 // a normal, linked record still only deletes through its session, so the
 // two stay in sync.
-const orphanDelete=!sessId?`<span onclick="event.stopPropagation();deleteOrphanAttendanceRow(this,'${r.session_date}','${(r.session_time||'').replace(/'/g,"\\'")}')" style="font-size:15px;color:var(--terra);cursor:pointer;padding:2px 4px;">🗑</span>`:'';
+const orphanDelete=(!sessId&&!needsCoachApproval())?`<span onclick="event.stopPropagation();deleteOrphanAttendanceRow(this,'${r.session_date}','${(r.session_time||'').replace(/'/g,"\\'")}')" style="font-size:15px;color:var(--terra);cursor:pointer;padding:2px 4px;">🗑</span>`:'';
 // Read-only -- purely informational for the client, nothing here is
 // editable by them. Emoji-only (no "Unpaid" text) so a due session reads
 // as a quiet status note, not a confrontational alert.
@@ -6477,6 +6544,7 @@ return`<div class="sess-card">
 <div class="sess-date">${D[d.getDay()]} . ${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}${s.timeOfDay?' - '+s.timeOfDay:''}</div>
 <div class="sess-name">${s.client}</div>
 <div class="sess-meta">${metaStr}</div>
+${sessionApprovalBadge(s)}
 ${(cardioDurSecs||cardioDurMins)?`<div class="sess-dur">&#128336; ${cardioDurSecs?fmtDur(cardioDurSecs):cardioDurMins+'m'}</div>`:(s.duration?`<div class="sess-dur">&#128336; ${fmtDur(s.duration)}</div>`:'')}
 ${cardioIntensities.length?`<div class="sess-rest">Intensity: ${cardioIntensities.join(', ')}</div>`:''}
 ${!cardioCount&&avg?`<div class="sess-rest">Avg Rest ${fmtSecs(avg)}</div>`:''}
@@ -6970,7 +7038,8 @@ alert('Edit session error: '+(e&&e.message?e.message:e));
 }
 }
 function editSessionInner(id){
-const s=sessions.find(x=>x.id===id)||sessions.find(x=>String(x.id)===String(id));
+const _found=sessions.find(x=>x.id===id)||sessions.find(x=>String(x.id)===String(id));
+const s=(_found&&_found.pendingEdit&&_found.pendingEdit.session)?Object.assign({},_found.pendingEdit.session,{id:_found.id}):_found;
 if(!s){
 toast('Could not find that session -- please try again');
 return;
@@ -7347,6 +7416,14 @@ async function deleteSession(id){
 const s=sessions.find(x=>x.id===id);
 const ok=await showConfirm('Delete this session?','This removes it from your history here. Your coach keeps a record of it and can bring it back if needed -- for billing or otherwise -- so this isn\'t permanent on their end even though it is on yours.');
 if(!ok)return;
+// A log the coach never approved (pending or rejected) is the client's own to remove.
+if(s&&needsCoachApproval()&&!s.approval){
+s.pendingDelete={requestedAt:Date.now()};
+s.updatedAt=Date.now();
+saveSessions();closeDetail();renderHistory();renderStats();
+showBlockingAlert('Delete request sent to your coach. The session stays in your history until they approve it.');
+return;
+}
 if(s){
 deletedSessionsArchive=[s,...(deletedSessionsArchive||[]).filter(function(x){return x.id!==s.id;})].slice(0,80);
 try{localStorage.setItem('kmfit_deleted_archive',JSON.stringify(deletedSessionsArchive));}catch(e){}
@@ -7568,12 +7645,14 @@ const HELP_TEXT=[
 '<b>9. Timing the whole workout</b><br>At the top of the screen, next to Help and Feedback, there\'s a timer with Start/Stop -- tap Start when you begin your session. It stays visible even if you switch to another tab, and its total gets saved with the session. Made a mistake or want to start over? Tap Reset to clear it back to 00:00. Prefer to just type the total afterwards instead? Scroll down to Session Duration and enter it manually there.<br><br>'+
 '<b>10. Notes and sending things to your coach</b><br>Session Notes is just for writing how the workout felt. Progress Pic and Record Video are separate buttons that send a photo or video straight to your coach -- they don\'t affect your sets/reps data at all. Coming from another app or your own spreadsheet? "Import Data" further down lets you bring in your past workout history as a CSV file -- it always shows you exactly what it found before anything is actually added, so nothing gets imported without your confirmation.<br><br>'+
 '<b>11. You can\'t lose your work</b><br>Everything you type is saved as a draft automatically, even if you close the app halfway through a workout and come back later. It only becomes a real, permanent entry in your History once you tap "Save Session" at the bottom. This also covers editing a past session from History mid-workout: your in-progress session is safely tucked away while you edit, and comes right back once you\'re done.<br><br>'+
+'<b>11b. Training with a coach? Changes go to them for approval</b><br>If your coach has marked you as their client, they keep the official record. Editing or deleting a saved session, or logging for a past date or with a changed time, sends a request to your coach instead of changing your history straight away -- you\'ll see a ⏳ tag on it until they approve or decline. Logging today\'s workout as you do it still saves instantly.<br><br>'+
 '<b>12. Logging a workout from a past day</b><br>Forgot to log yesterday? Tap the date at the very top of the screen (next to the KFit logo) -- it opens your phone\'s own calendar so you can pick any earlier date and log for that day instead of today. If that day already has a workout logged, you\'ll get asked whether to edit it or add another one -- useful if you train twice in a day.<br><br>'+
 '<b>13. Exercise isn\'t in the list?</b><br>Scroll to the bottom of the exercise list and tap "Suggest a new exercise to your coach." It gets sent to your coach, who can add it permanently so it shows up for everyone next time.'},
 {title:'History',body:
 '<b>What this page is</b><br>Every workout you\'ve saved, newest first.<br><br>'+
 '<b>Narrowing it down</b><br>All Time, This Month, This Week, or Custom (pick your own two dates) -- the list updates instantly.<br><br>'+
 '<b>Printing</b><br>"Print Summary View" prints the on-screen list. "Print Full Report" prints full detail -- every exercise, set, rep -- for whatever range you\'ve selected, one workout per page.<br><br>'+
+'<b>⏳ tags</b><br>If you train with a coach, a session marked ⏳ has an edit, delete, or back-dated log waiting for their approval. Until then your history shows the approved version.<br><br>'+
 '<b>My Attendance</b><br>Below that: your total sessions, days trained, and current streak. If your coach has marked you an active client, a ✅ / 🔴 count shows above the list (paid vs due), and each record below carries the same ✅ or 🔴 -- a status note for you to see, not something you can change.'},
 {title:'Stats',body:'A look at how your training is trending over time -- how your rest times between sets have changed, which exercises you do most, and total calories burned (this week, this month, all time -- needs your age/sex/height/weight filled in to show up). Below that, the Training FAQ has common questions (total reps, hours, cardio vs strength, heaviest lifts, and more) -- pick a time range and tap one to see the answer instantly, computed from your own logged sessions with nothing sent anywhere. Underneath it, type a specific exercise name to ask about that exercise alone. Tap "Share Progress Report" to send a summary of this straight to your coach.'},
 {title:'Notes',body:'A simple text box to write how a week or month of training went, in your own words -- how you felt, what was hard, anything you want your coach to know. Your coach reads these alongside your actual numbers to understand the full picture. Further down, "Import Data" lets you bring in past workout history from another app or your own spreadsheet as a CSV file -- it always shows you exactly what it found before anything is actually added, so nothing gets imported without your confirmation.'},

@@ -182,6 +182,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="page-title" id="pageTitle">Coach</div>
     <button onclick="showCoachHelp()" title="Help" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;">?</button>
     <button onclick="coachLogout()" title="Log out" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;">&#128274;</button>
+    <button onclick="openRequests()" title="Client requests" style="position:relative;width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;">📥<span id="reqBadge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:var(--terra);color:#fff;font-size:10px;font-weight:800;align-items:center;justify-content:center;">0</span></button>
     <button onclick="openTrash()" title="Trash" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;">🗑</button>
     <button onclick="window.print()" title="Print this screen" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">&#128424;</button>
   </div>
@@ -506,6 +507,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div id="coachSessActions" style="display:flex;gap:8px;"></div>
       </div>
       <div id="coachSessBody"></div>
+    </div>
+  </div>
+
+<div id="requestsPanel" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:var(--bg);z-index:100;overflow-y:auto;">
+    <div style="max-width:520px;margin:0 auto;padding:14px;">
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0 16px;border-bottom:1px solid var(--border);margin-bottom:16px;">
+        <button onclick="closeRequests()" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;">← Back</button>
+        <div style="font-size:15px;font-weight:700;color:var(--muted);flex:1;">📥 Client Requests</div>
+      </div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Your clients' edits, deletes, and back-dated logs. Nothing changes in their official log (or billing) until you approve it here.</div>
+      <div id="requestsBody"><div style="color:var(--muted);text-align:center;padding:30px;">Loading...</div></div>
     </div>
   </div>
 
@@ -2088,6 +2100,7 @@ function loadAll(){
     if(res.error){document.getElementById('clientList').innerHTML='<div class="empty">Error loading data.<br>'+res.error.message+'</div>';return;}
     allRecords=res.data||[];
     loadNewSignups();
+    refreshRequestsBadge();
   }).catch(function(err){
     console.error('Fitness load failed:',err);
     const el=document.getElementById('clientList');
@@ -3223,6 +3236,191 @@ function openCoachSession(clientKey, date, time){
       document.getElementById('coachSessBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">Something went wrong loading this session.<br>'+(err&&err.message?err.message:'Unknown error')+'<br><br><button onclick="openCoachSession(\''+clientKey.replace(/'/g,"\\'")+'\',\''+date+'\',\''+(time||'').replace(/'/g,"\\'")+'\')" style="background:var(--sage);border:none;border-radius:8px;padding:10px 16px;color:#fff;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;margin-top:8px;">Retry</button></div>';
     });
 }
+
+// ===== CLIENT CHANGE REQUESTS (coach approval) =====
+// Tagged clients can't change their official log directly any more. The
+// tracker attaches requests to the session itself inside tracker_data:
+//   session.approval={status:'pending'}  -> a new log for a past date/changed time
+//   session.pendingEdit={session:{...}}   -> an edit to a saved session
+//   session.pendingDelete={requestedAt}   -> a delete request
+// This inbox finds them across all clients. Every decision re-reads the
+// client's row fresh, changes only that one session, and stamps a new
+// updatedAt so the coach's decision wins on the client's next sync.
+function reqEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function reqSessLines(s){
+  const lines=[];
+  lines.push('📅 '+(s.date||'?')+(s.timeOfDay?' · '+s.timeOfDay:''));
+  if(s.duration) lines.push('⏱ '+Math.round(s.duration/60)+' min');
+  const setStr=function(sd){return (sd||[]).filter(function(r){return r.reps||r.weight;}).map(function(r){
+    return (r.dropset?'D ':'')+(r.reps||'-')+'×'+(r.weight||'-')+(r.myoRepMatch?' MM':'')+(r.assistedReps>0?' H'+r.assistedReps:'')+(r.lengthenedPartialReps>0?' LP'+r.lengthenedPartialReps:'');
+  }).join(', ');};
+  (s.exercises||[]).forEach(function(e){
+    if(e.type==='cardio') lines.push(e.ex+': '+(e.duration||'-')+' min'+(e.intensity?' '+e.intensity:''));
+    else lines.push(e.ex+': '+(setStr(e.setData)||'no sets'));
+  });
+  (s.supersets||[]).forEach(function(ss){(ss.exercises||[]).forEach(function(e){lines.push('SS'+(ss.num||'')+' '+e.ex+': '+(setStr(e.setData)||(e.duration?e.duration:'')));});});
+  (s.cardio||[]).forEach(function(c){lines.push(c.ex+': '+(c.duration||'-')+' min'+(c.intensity?' '+c.intensity:''));});
+  (s.functional||[]).forEach(function(f){lines.push(f.ex+': '+(f.duration||'-')+'s'+(f.weight?' @'+f.weight:''));});
+  if(s.notes) lines.push('📝 '+s.notes);
+  return lines;
+}
+function reqMobileFromRow(clientId,d){
+  const m=(d&&d.mobile)||'';
+  if(m) return String(m).replace(/\D/g,'');
+  const i=clientId.lastIndexOf('__');
+  return i>-1?clientId.slice(i+2):'';
+}
+let _reqItems=[];
+async function fetchClientRequests(){
+  const {data,error}=await getSBScoped().from('tracker_data').select('client_id,data').eq('tracker','fitness').eq('coach_id',window.currentCoachId);
+  if(error) throw error;
+  const items=[];
+  (data||[]).forEach(function(row){
+    let d=row.data; if(!d) return;
+    if(typeof d==='string'){try{d=JSON.parse(d);}catch(e){return;}}
+    (d.sessions||[]).forEach(function(s){
+      const base={clientId:row.client_id,clientName:s.client||d.name||row.client_id,session:s};
+      if(s.approval&&s.approval.status==='pending') items.push(Object.assign({kind:'new',at:s.approval.requestedAt||0},base));
+      else if(s.pendingDelete) items.push(Object.assign({kind:'delete',at:s.pendingDelete.requestedAt||0},base));
+      else if(s.pendingEdit&&s.pendingEdit.session) items.push(Object.assign({kind:'edit',at:s.pendingEdit.requestedAt||0},base));
+    });
+  });
+  items.sort(function(a,b){return (b.at||0)-(a.at||0);});
+  return items;
+}
+async function refreshRequestsBadge(){
+  try{
+    _reqItems=await fetchClientRequests();
+    const b=document.getElementById('reqBadge');
+    if(b){b.textContent=_reqItems.length;b.style.display=_reqItems.length?'flex':'none';}
+  }catch(e){console.warn('Request count failed:',e);}
+}
+function closeRequests(){document.getElementById('requestsPanel').style.display='none';}
+async function openRequests(){
+  showFullscreenPanel('requestsPanel');
+  const body=document.getElementById('requestsBody');
+  body.innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">Loading...</div>';
+  try{
+    _reqItems=await fetchClientRequests();
+    refreshRequestsBadgeFromCache();
+    renderRequests();
+  }catch(err){
+    body.innerHTML='<div style="color:var(--terra);text-align:center;padding:30px;">Could not load requests.<br>'+reqEsc(err&&err.message)+'</div>';
+  }
+}
+function refreshRequestsBadgeFromCache(){
+  const b=document.getElementById('reqBadge');
+  if(b){b.textContent=_reqItems.length;b.style.display=_reqItems.length?'flex':'none';}
+}
+function renderRequests(){
+  const body=document.getElementById('requestsBody');
+  if(!_reqItems.length){body.innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">No pending requests. 👍</div>';return;}
+  const label={new:'🆕 New log (past date / changed time)',edit:'✏️ Edit request',delete:'🗑 Delete request'};
+  body.innerHTML=_reqItems.map(function(it,i){
+    const s=it.session;
+    let detail='';
+    if(it.kind==='edit'){
+      const oldL=reqSessLines(s), newL=reqSessLines(it.session.pendingEdit.session);
+      detail='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">'
+        +'<div><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);margin-bottom:4px;">CURRENT (OFFICIAL)</div>'
+        +oldL.map(function(l){const gone=newL.indexOf(l)===-1;return '<div style="font-size:12px;line-height:1.4;margin-bottom:3px;'+(gone?'color:var(--terra);text-decoration:line-through;':'color:var(--muted);')+'">'+reqEsc(l)+'</div>';}).join('')+'</div>'
+        +'<div><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--gold);margin-bottom:4px;">CLIENT\'S VERSION</div>'
+        +newL.map(function(l){const added=oldL.indexOf(l)===-1;return '<div style="font-size:12px;line-height:1.4;margin-bottom:3px;'+(added?'color:var(--gold);font-weight:700;':'color:var(--muted);')+'">'+reqEsc(l)+'</div>';}).join('')+'</div>'
+        +'</div>';
+    } else {
+      detail='<div style="margin-top:8px;">'+reqSessLines(s).map(function(l){return '<div style="font-size:12px;line-height:1.4;margin-bottom:3px;color:var(--muted);">'+reqEsc(l)+'</div>';}).join('')+'</div>';
+    }
+    return '<div style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'
+      +'<span style="font-size:14px;font-weight:700;">'+reqEsc(it.clientName)+'</span>'
+      +'<span style="font-size:11px;color:var(--muted);">'+(it.at?new Date(it.at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'')+'</span></div>'
+      +'<div style="font-size:12px;font-weight:700;color:var(--gold);margin-top:2px;">'+label[it.kind]+'</div>'
+      +detail
+      +'<div style="display:flex;gap:8px;margin-top:10px;">'
+      +'<button onclick="decideRequest('+i+',true)" style="flex:1;padding:9px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;color:#0c0c0a;cursor:pointer;">Approve</button>'
+      +'<button onclick="decideRequest('+i+',false)" style="flex:1;padding:9px;background:none;border:1px solid var(--terra);border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;color:var(--terra);cursor:pointer;">Reject</button>'
+      +'</div></div>';
+  }).join('');
+}
+function reqWorkoutType(s){
+  const w=(s.exercises||[]).some(function(e){return e.type!=='cardio';}), ss=(s.supersets||[]).length>0, c=(s.cardio||[]).length>0||(s.exercises||[]).some(function(e){return e.type==='cardio';});
+  if(ss&&c) return 'Superset + Cardio'; if(ss) return 'Superset'; if(w&&c) return 'Strength + Cardio'; if(w) return 'Strength'; if(c) return 'Cardio'; return 'Session';
+}
+let _reqBusy=false;
+async function decideRequest(i,approve){
+  if(_reqBusy) return;
+  const it=_reqItems[i]; if(!it) return;
+  let note='';
+  if(!approve){
+    if(!confirm('Reject this request?')) return;
+  }
+  _reqBusy=true;
+  try{
+    const res=await getSBScoped().from('tracker_data').select('data').eq('client_id',it.clientId).eq('tracker','fitness');
+    if(res.error||!res.data||!res.data.length) throw new Error(res.error?res.error.message:'Client data not found');
+    const d=typeof res.data[0].data==='string'?JSON.parse(res.data[0].data):res.data[0].data;
+    const sessions=d.sessions||[];
+    const idx=sessions.findIndex(function(x){return String(x.id)===String(it.session.id);});
+    if(idx===-1) throw new Error('That session no longer exists -- it may already have been handled.');
+    const cur=sessions[idx];
+    const mobile=reqMobileFromRow(it.clientId,d);
+    const now=Date.now();
+    if(it.kind==='new'){
+      if(!(cur.approval&&cur.approval.status==='pending')) throw new Error('This request was already handled.');
+      if(approve){
+        delete cur.approval; cur.updatedAt=now;
+        const att=await getSBScoped().from('attendance').upsert({
+          client_name:cur.client||d.name||'', client_mobile:mobile, session_date:cur.date, session_time:cur.timeOfDay||'',
+          duration_secs:cur.duration||null, workout_type:reqWorkoutType(cur),
+          body_parts:(cur.bodyParts||[]).join(', '), activity:(cur.cardio||[]).map(function(c){return c.ex;}).filter(Boolean).join(', '),
+          logged_at:new Date().toISOString()
+        },{onConflict:'coach_id,client_mobile,session_date,session_time'});
+        if(att.error) throw new Error('Could not create the attendance record: '+att.error.message);
+      } else {
+        cur.approval={status:'rejected',decidedAt:now}; cur.updatedAt=now;
+      }
+    } else if(it.kind==='edit'){
+      if(!cur.pendingEdit) throw new Error('This request was already handled.');
+      if(approve){
+        const next=Object.assign({},cur.pendingEdit.session,{id:cur.id,updatedAt:now});
+        delete next.pendingEdit; delete next.pendingDelete; delete next.approval;
+        if(mobile){
+          const upd={duration_secs:next.duration||null,workout_type:reqWorkoutType(next),body_parts:(next.bodyParts||[]).join(', '),session_date:next.date,session_time:next.timeOfDay||''};
+          const a=await getSBScoped().from('attendance').update(upd).eq('client_mobile',mobile).eq('session_date',cur.date).eq('session_time',cur.timeOfDay||'');
+          if(a.error) throw new Error('Could not update the attendance record: '+a.error.message);
+        }
+        sessions[idx]=next;
+      } else {
+        delete cur.pendingEdit; cur.lastDecision={type:'edit',result:'rejected',at:now}; cur.updatedAt=now;
+      }
+    } else if(it.kind==='delete'){
+      if(!cur.pendingDelete) throw new Error('This request was already handled.');
+      if(approve){
+        if(mobile){
+          const a=await getSBScoped().from('attendance').delete().eq('client_mobile',mobile).eq('session_date',cur.date).eq('session_time',cur.timeOfDay||'');
+          if(a.error) throw new Error('Could not remove the attendance record: '+a.error.message);
+        }
+        sessions.splice(idx,1);
+        d.deletedSessionIds=Array.from(new Set([...(d.deletedSessionIds||[]),cur.id]));
+        const arch=Object.assign({},cur,{deletedAt:now,deletedBy:'client-approved'}); delete arch.pendingDelete;
+        d.deletedSessionsArchive=[arch,...(d.deletedSessionsArchive||[]).filter(function(x){return x.id!==cur.id;})].slice(0,80);
+      } else {
+        delete cur.pendingDelete; cur.lastDecision={type:'delete',result:'rejected',at:now}; cur.updatedAt=now;
+      }
+    }
+    d.sessions=sessions;
+    const w=await getSBScoped().from('tracker_data').update({data:d,updated_at:new Date().toISOString()}).eq('client_id',it.clientId).eq('tracker','fitness');
+    if(w.error) throw new Error(w.error.message);
+    toast(approve?'Approved ✓':'Rejected');
+    _reqItems.splice(i,1);
+    refreshRequestsBadgeFromCache();
+    renderRequests();
+    loadAll();
+  }catch(err){
+    alert('Nothing was changed: '+(err&&err.message?err.message:err));
+  }finally{_reqBusy=false;}
+}
+// ===== END CLIENT CHANGE REQUESTS =====
 
 function closeTrash(){
   document.getElementById('trashPanel').style.display='none';
