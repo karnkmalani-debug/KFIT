@@ -64,6 +64,14 @@ html,body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-seri
 .logo{font-size:20px;font-weight:900;letter-spacing:-1px;font-family:'Playfair Display',serif;color:#fff;}
 .logo .g{color:var(--sage);} .logo .t{color:var(--terra);}
 .date-chip{font-family:'DM Mono',monospace;font-size:16px;color:var(--muted);background:var(--surf);border:1px solid var(--border);border-radius:20px;padding:5px 10px;white-space:nowrap;}
+/* Phones: the date, time, Home and Log Out didn't fit on one row, which
+   pushed Log Out off the screen. Smaller chips, and Home/Log Out become
+   icon buttons (their labels stay for screen readers). */
+@media (max-width:480px){
+.header .date-chip{font-size:13px;padding:4px 8px;}
+.header .hdr-lbl{display:none;}
+#homeBtn,#logoutBtn{padding:5px 8px !important;font-size:.95rem !important;}
+}
 
 .tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:52px;z-index:49;}
 .help-strip{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:calc(52px + 45px);z-index:48;min-height:56px;}
@@ -595,8 +603,8 @@ btn.textContent='Could not copy -- select the address bar manually';
         <div class="date-chip" id="headerTime" style="cursor:pointer;white-space:nowrap;" title="Tap to change time"></div>
         <input type="time" id="timePicker" style="position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;opacity:0;margin:0;padding:0;border:none;cursor:pointer;-webkit-appearance:none;" onchange="onTimePicked(this.value)">
       </div>
-      <a id="homeBtn" href="https://kfit.pages.dev" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;text-decoration:none;flex-shrink:0;">🏠 Home</a>
-      <button id="logoutBtn" onclick="logout()" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;">Log Out</button>
+      <a id="homeBtn" href="https://kfit.pages.dev" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;text-decoration:none;flex-shrink:0;" aria-label="Home">🏠<span class="hdr-lbl"> Home</span></a>
+      <button id="logoutBtn" onclick="logout()" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;flex-shrink:0;" aria-label="Log out">⏻<span class="hdr-lbl"> Log Out</span></button>
     </div>
   </div>
   <div id="headerRestTimer" style="display:none;position:fixed;top:48px;left:0;right:0;z-index:299;background:var(--gold);color:#fff;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:900;padding:10px 16px;text-align:center;letter-spacing:2px;"></div>
@@ -1185,6 +1193,7 @@ btn.textContent='Could not copy -- select the address bar manually';
   <div style="background:var(--surf3);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:340px;width:100%;box-shadow:0 14px 40px rgba(0,0,0,.55);">
     <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px;">Save this as a routine?</div>
     <div style="font-size:14px;color:var(--muted);line-height:1.5;margin-bottom:16px;">This combination of exercises isn't in your saved routines yet -- name it now to load it again in one tap next time.</div>
+    <input id="routineOfferName" type="text" placeholder="e.g. Push Day A" maxlength="40" style="width:100%;box-sizing:border-box;margin-bottom:14px;padding:11px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:16px;">
     <div style="display:flex;gap:8px;">
       <button onclick="dismissSaveAsRoutineOffer()" style="flex:1;padding:11px;background:none;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Not now</button>
       <button onclick="confirmSaveAsRoutineOffer()" style="flex:1;padding:11px;background:var(--sage);border:none;border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Save it</button>
@@ -3639,7 +3648,12 @@ function maybeOfferSaveAsRoutine(structure){
 const names=allExerciseNamesFromStructure(structure);
 if(names.length<2) return; // trivial (0-1 exercises) -- not worth offering
 if(matchesKnownRoutine(names)) return; // already a known routine, nothing new to save
+// "Not now" on this exact combination is remembered, so it isn't offered again.
+var _sig=names.slice().sort().join('|');
+try{ if(JSON.parse(localStorage.getItem('kmfit_routine_offer_declined')||'[]').indexOf(_sig)>-1) return; }catch(e){}
+structure._offerSig=_sig;
 _pendingRoutineOffer=structure;
+var _inp=document.getElementById('routineOfferName'); if(_inp) _inp.value='';
 setTimeout(function(){
 var el=document.getElementById('saveAsRoutineOffer');
 if(el) el.style.display='flex';
@@ -3648,16 +3662,27 @@ if(el) el.style.display='flex';
 function dismissSaveAsRoutineOffer(){
 var el=document.getElementById('saveAsRoutineOffer');
 if(el) el.style.display='none';
+try{
+if(_pendingRoutineOffer&&_pendingRoutineOffer._offerSig){
+var d=JSON.parse(localStorage.getItem('kmfit_routine_offer_declined')||'[]');
+if(d.indexOf(_pendingRoutineOffer._offerSig)===-1) d.push(_pendingRoutineOffer._offerSig);
+localStorage.setItem('kmfit_routine_offer_declined',JSON.stringify(d.slice(-200)));
+}
+}catch(e){}
 _pendingRoutineOffer=null;
 }
 function confirmSaveAsRoutineOffer(){
+// Name typed into the box on the card itself -- prompt() doesn't reliably
+// appear in an iPhone home-screen app.
+var inp=document.getElementById('routineOfferName');
+const name=inp?inp.value:'';
+if(!name||!name.trim()){ if(inp) inp.focus(); toast('Give the routine a name first'); return; }
 var el=document.getElementById('saveAsRoutineOffer');
 if(el) el.style.display='none';
 if(!_pendingRoutineOffer) return;
 const structure=_pendingRoutineOffer;
 _pendingRoutineOffer=null;
-const name=prompt('Name this routine (e.g. "Push Day A", "Week 3 Legs"):');
-if(!name||!name.trim()) return;
+delete structure._offerSig;
 const routine={
 id:'rt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
 name:name.trim(),
@@ -4605,7 +4630,9 @@ renderCardioBlocks();
 renderFunctionalBlocks();
 clearLog(); renderHistory(); renderStats();
 if(saveBtn) saveBtn.disabled=false;
-maybeOfferSaveAsRoutine(_capturedStructure);
+// Only after a brand-new log saved for real -- never after an edit or an
+// approval request (that's what made it ask again and again while editing).
+if(_approvalMode==='live'&&!_isEditing) maybeOfferSaveAsRoutine(_capturedStructure);
 }
 
 function clearLog(){
@@ -5422,6 +5449,9 @@ if(res.error){
 console.warn('Attendance log error (attempt '+attempt+'):',res.error.message);
 if(attempt<3){
 setTimeout(function(){logAttendance(record,attempt+1);},1500*attempt);
+} else if(/load failed|failed to fetch|network/i.test(res.error.message||'')||(typeof navigator!=='undefined'&&navigator.onLine===false)){
+// No signal (airplane mode, gym dead zone): expected, already queued, and it
+// goes through by itself when the connection is back -- no alert needed.
 } else if(!window._attAlertShown){
 // One alert per app session, not one per pending record, and it shows the
 // real error text instead of assuming it's the connection.

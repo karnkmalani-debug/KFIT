@@ -1042,26 +1042,142 @@ function viceRow(dateStr,field,val,label,unit){
 return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">' +'<div>' +'<div style="font-size:15px;font-weight:600;color:var(--text);">'+label+'</div>' +'<div style="font-size:12px;color:var(--muted);">'+unit+'</div>' +'</div>' +'<div style="display:flex;align-items:center;gap:12px;">' +'<button onclick="setVice(\''+dateStr+'\',\''+field+'\',Math.max(0,'+(val)+'-1))" style="width:36px;height:36px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;font-size:20px;font-weight:700;color:var(--text);cursor:pointer;">-</button>' +'<div style="font-size:22px;font-weight:800;color:'+(val>0?'var(--terra)':'var(--muted)')+';min-width:30px;text-align:center;">'+val+'</div>' +'<button onclick="setVice(\''+dateStr+'\',\''+field+'\','+val+'+1)" style="width:36px;height:36px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;font-size:20px;font-weight:700;color:var(--text);cursor:pointer;">+</button>' +'</div>' +'</div>';
 }
 
+// ===== NUTRITION SYNC: merge, never blind-overwrite =====
+// This used to upload this phone's whole copy over the server's on every
+// save. Anything the coach changed in Merge in the meantime -- a meal plan
+// assigned to a day, a day cleared, a diet template assigned, a body
+// measurement added or deleted -- was silently wiped by the client's next
+// save. Now every save is a 3-way merge per day, against a fingerprint of
+// what this phone last synced:
+//   - only this phone changed a day  -> phone's version
+//   - only the server changed it     -> server's (coach's) version
+//   - both changed it                -> server's (the coach has authority)
+// Body measurements merge by id (newest wins; deletions on either side
+// stick). The diet template assignment is the coach's: if it changed on the
+// server, that wins. One sync at a time; a failed read never uploads.
+function _nutHash(o){
+var str=JSON.stringify(o==null?null:o), h=5381;
+for(var i=0;i<str.length;i++){ h=((h<<5)+h+str.charCodeAt(i))|0; }
+return String(h);
+}
+function _nutDayHashes(arr){
+var out={};
+(arr||[]).forEach(function(mo,m){ (mo||[]).forEach(function(wk,w){ (wk||[]).forEach(function(day,di){ out[m+'-'+w+'-'+di]=_nutHash(day); }); }); });
+return out;
+}
+function _nutDayIsEmpty(day){
+if(!day) return true;
+var keys=['meals','mealNotes','habits','order','proteinPlate','foodLog','mealTimes'];
+for(var i=0;i<keys.length;i++){ var v=day[keys[i]]; if(v&&typeof v==='object'&&Object.keys(v).length) return false; }
+return !day.note&&!day.coachAssigned;
+}
+function _nutMergeDays(local,server,baseHashes){
+var result=[];
+var maxM=Math.max((local||[]).length,(server||[]).length);
+for(var m=0;m<maxM;m++){
+var lm=(local||[])[m]||[], sm=(server||[])[m]||[];
+var maxW=Math.max(lm.length,sm.length), rm=[];
+for(var w=0;w<maxW;w++){
+var lw=lm[w]||[], sw=sm[w]||[];
+var maxD=Math.max(lw.length,sw.length), rw=[];
+for(var di=0;di<maxD;di++){
+var L=lw[di], S=sw[di], k=m+'-'+w+'-'+di;
+var B=baseHashes?baseHashes[k]:undefined;
+var pick;
+if(S===undefined) pick=L;
+else if(L===undefined) pick=S;
+else if(B!==undefined){
+var hL=_nutHash(L), hS=_nutHash(S);
+if(hS===B) pick=L;            // server untouched since last sync
+else if(hL===B) pick=S;       // only the server (coach) changed it
+else pick=S;                  // both changed: coach has authority
+} else {
+// No fingerprint yet (first sync on this version): keep the phone's
+// day unless it's empty or the coach assigned this day.
+pick=(_nutDayIsEmpty(L)||(S&&S.coachAssigned&&!(L&&L.coachAssigned)))?S:L;
+}
+rw.push(pick===undefined?null:pick);
+}
+rm.push(rw);
+}
+result.push(rm);
+}
+return result;
+}
+function _nutMergeMeasurements(local,server,baseIds){
+var byId={}, srvIds={}, locIds={};
+(server||[]).forEach(function(x){ if(x&&x.id){ srvIds[x.id]=1; byId[x.id]=x; } });
+(local||[]).forEach(function(x){
+if(!x||!x.id) return; locIds[x.id]=1;
+var sv=byId[x.id];
+if(!sv){
+// Not on the server: new on this phone -- or deleted by the coach.
+if(baseIds&&baseIds[x.id]) return; // was synced before, now gone = coach deleted it
+byId[x.id]=x;
+} else if((x.updatedAt||0)>=(sv.updatedAt||0)) byId[x.id]=x;
+});
+// On the server but not on this phone: new from the coach -- or deleted here.
+Object.keys(srvIds).forEach(function(id){ if(!locIds[id]&&baseIds&&baseIds[id]) delete byId[id]; });
+return Object.values(byId).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+}
+var _nutSyncInFlight=false,_nutSyncQueued=false;
+function _nutSyncDone(){
+_nutSyncInFlight=false;
+if(_nutSyncQueued){_nutSyncQueued=false;setTimeout(syncToSupabase,300);}
+}
 function syncToSupabase(){
 if(!appSetup||!appSetup.clientName)return;
 if((!data||data.length===0)&&(!bodyMeasurements||bodyMeasurements.length===0))return;
+if(_nutSyncInFlight){_nutSyncQueued=true;return;}
+_nutSyncInFlight=true;
+var _lock=setTimeout(_nutSyncDone,30000);
+var finish=function(){clearTimeout(_lock);_nutSyncDone();};
 ensureAnonAuth(function(uid){
-if(!uid)return;
+if(!uid){finish();return;}
+var key=getClientKey();
+getSBScoped().from('tracker_data').select('data').eq('client_id',key).eq('tracker','nutrition').then(function(fres){
+if(fres.error){ console.error('Nutrition sync read failed (nothing uploaded, will retry on next save):',fres.error); finish(); return; }
+var srv=(fres.data&&fres.data.length)?fres.data[0].data:null;
+if(typeof srv==='string'){ try{srv=JSON.parse(srv);}catch(e){srv=null;} }
+if(srv&&srv.wiped){ finish(); return; } // coach reset this account -- handled on load, never re-upload over it
+var base=null;
+try{ base=JSON.parse(localStorage.getItem('kmnut_sync_base')||'null'); }catch(e){}
+if(base&&base.key!==key) base=null;
+if(srv){
+var beforeHash=_nutHash(data);
+data=_nutMergeDays(data,srv.data||[],base?base.days:null);
+bodyMeasurements=_nutMergeMeasurements(bodyMeasurements,srv.bodyMeasurements||[],base?base.measIds:null);
+var srvAssigned=srv.assignedDietTemplateId||null;
+if(!base||srvAssigned!==(base.assigned||null)){
+if(srvAssigned!==(myAssignedTemplateId||null)){ myAssignedTemplateId=srvAssigned; if(typeof loadMyDietTemplateSection==='function'){ try{loadMyDietTemplateSection();}catch(e){} } }
+}
+try{
+localStorage.setItem(LS_DATA,JSON.stringify(data));
+localStorage.setItem(LS_MEAS,JSON.stringify(bodyMeasurements));
+}catch(e){}
+if(_nutHash(data)!==beforeHash&&typeof render==='function'){ try{render();}catch(e){} }
+}
 var payload={
 user_id:uid,
-client_id:getClientKey(),
+client_id:key,
 tracker:'nutrition',
 data:{setup:appSetup,data:data,weekNotes:weekNotes,ui:ui,mealPlan:mealPlan,bodyMeasurements:bodyMeasurements,mobile:localStorage.getItem('kmnut_mobile'),email:localStorage.getItem('kmnut_email'),vices:getVicesData(),calories:getCalorieData(),assignedDietTemplateId:myAssignedTemplateId},
 updated_at:new Date().toISOString()
 };
 getSBScoped().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(res){
-if(res.error){console.error('Supabase write error:',res.error);return;}
+if(res.error){console.error('Supabase write error:',res.error);finish();return;}
+// Fingerprint of what's now on the server, for the next merge.
+try{
+var mIds={}; (bodyMeasurements||[]).forEach(function(x){ if(x&&x.id) mIds[x.id]=1; });
+localStorage.setItem('kmnut_sync_base',JSON.stringify({key:key,days:_nutDayHashes(data),measIds:mIds,assigned:myAssignedTemplateId||null}));
+}catch(e){}
 var deviceId=localStorage.getItem('kfit_device_id');
-var realKey=getClientKey();
-if(deviceId&&deviceId!==realKey&&realKey!=='unknown'){
+if(deviceId&&deviceId!==key&&key!=='unknown'){
 getSBScoped().from('tracker_data').delete().eq('client_id',deviceId).eq('tracker','nutrition').then(function(){});
 }
+finish();
 });
+}).catch(function(e){ console.error('Nutrition sync crashed:',e); finish(); });
 });
 }
 
@@ -1515,7 +1631,7 @@ html+='<div class="nav-tabs">'
 +'<div class="ntab'+(activeView==='account'?' active':'')+'" onclick="setView(\'account\')">Account</div>'
 +'</div>';
 html+='<div class="help-strip">'
-+'<button class="feedback-btn" onclick="openFeedback()" title="Send feedback">&#128172;</button>'
++'<button class="feedback-btn" onclick="openFeedback()" title="Chat with your coach" style="position:relative;">&#128172;'+_fbBadgeHtml()+'</button>'
 +'<button class="help-btn" onclick="showHelp(\''+activeView+'\')" title="What is this page?">?</button>'
 +'</div>';
 
@@ -1722,7 +1838,33 @@ loadFeedbackChat();
 }
 function closeFeedback(){
 document.getElementById('feedbackOverlay').style.display='none';
+updateFbUnreadBadge();
 }
+// Unread badge on the chat button -- same as the fitness tracker, so a
+// message from the coach is impossible to miss even if the client never
+// opens the chat. The button is redrawn with each screen, so the count is
+// kept in _fbUnread and drawn from there.
+var _fbUnread=0;
+function _fbBadgeHtml(){
+if(!_fbUnread) return '';
+return '<span class="fb-unread" style="position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;background:var(--terra,#c8783f);color:#fff;font-size:10px;font-weight:800;border-radius:9px;display:flex;align-items:center;justify-content:center;line-height:1;">'+(_fbUnread>99?'99+':_fbUnread)+'</span>';
+}
+function updateFbUnreadBadge(){
+var mobile=localStorage.getItem('kmnut_mobile');
+if(!mobile||window.__KFIT_COACH_PREVIEW__) return;
+getSBScoped().from('app_feedback').select('replies').eq('submitted_by_mobile',mobile).then(function(res){
+if(res.error||!res.data) return;
+var count=0;
+res.data.forEach(function(row){ (row.replies||[]).forEach(function(rep){ if(rep.sender==='coach'&&!rep.read) count++; }); });
+_fbUnread=count;
+document.querySelectorAll('.feedback-btn').forEach(function(btn){
+var old=btn.querySelector('.fb-unread'); if(old) old.remove();
+if(count) btn.insertAdjacentHTML('beforeend',_fbBadgeHtml());
+});
+});
+}
+setTimeout(updateFbUnreadBadge,1500);
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') updateFbUnreadBadge(); });
 function fbFmtDate(iso){
 if(!iso) return '';
 var d=new Date(iso);
@@ -1888,6 +2030,7 @@ previewEl.style.display='none';
 previewEl.innerHTML='';
 }
 function sendClientReply(){
+if(window.__KFIT_COACH_PREVIEW__){ showToast('Sending here would be recorded as a message from the client. Use Merge\'s own messaging instead.'); return; }
 var input=document.getElementById('fbThreadReplyInput');
 var msg=input.value.trim();
 if(!msg&&!_fbPendingAttachment) return;
