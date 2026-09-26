@@ -46,7 +46,8 @@ function send(sb,clientId,role,o){
 // Coach side: an update card in the client's thread (never blocks the action that caused it).
 function postEvent(sb,clientId,ev){
   try{
-    return send(sb,clientId,'system',{kind:'event',body:ev.title||'',meta:{type:ev.type||'info',detail:ev.detail||'',popup:ev.popup!==false}})
+    var meta={type:ev.type||'info',detail:ev.detail||''}; ['routineId','name','dates'].forEach(function(k){ if(ev[k]!=null) meta[k]=ev[k]; });
+    return send(sb,clientId,'system',{kind:'event',body:ev.title||'',meta:meta})
       .catch(function(){ return {error:null}; });
   }catch(e){ return Promise.resolve({error:null}); }
 }
@@ -189,9 +190,15 @@ function mount(el,o){
     list.innerHTML=msgs.map(function(m){
       if(m.kind==='event'){
         var ic=ICON[(m.meta&&m.meta.type)||'info']||'💬';
+        var acts=(o.actionsFor&&o.actionsFor(m))||[];
         return '<div class="kc-ev"><span style="font-size:18px;">'+ic+'</span><div style="flex:1;min-width:0;"><b>'+esc(m.body)+'</b>'
           +((m.meta&&m.meta.detail)?'<div class="kc-d">'+esc(m.meta.detail)+'</div>':'')
-          +'<div class="kc-d">'+esc(when(m.created_at))+'</div></div></div>';
+          +'<div class="kc-d">'+esc(when(m.created_at))+'</div></div>'
+          +(acts.length?'<div style="display:flex;gap:6px;flex-shrink:0;">'+acts.map(function(a,ai){
+              return '<button class="kc-act" data-mid="'+m.id+'" data-ai="'+ai+'" style="padding:6px 10px;border-radius:8px;font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;'
+                +(a.style==='danger'?'background:transparent;border:1px solid var(--terra,#c8783f);color:var(--terra,#c8783f);':(a.style==='muted'?'background:transparent;border:1px solid var(--border,#3a372f);color:var(--muted,#9a958a);':'background:var(--sage,#3a6e40);border:none;color:#0c0c0a;'))
+                +'"'+(a.disabled?' disabled':'')+'>'+esc(a.label)+'</button>'; }).join('')+'</div>':'')
+          +'</div>';
       }
       var mine=(role==='client')?m.sender==='client':m.sender!=='client';
       var inner='', mp=esc(m.meta&&m.meta.path), mn=esc((m.meta&&m.meta.name)||''), mm=esc((m.meta&&m.meta.mime)||'');
@@ -210,6 +217,13 @@ function mount(el,o){
       var p=node.getAttribute('data-path'); if(!p) return;
       // (a video only downloads when someone taps play: preload="none")
       fileUrl(sb,p).then(function(u){ if(!u) return; if(node.tagName==='IMG'||node.tagName==='VIDEO') node.src=u; else node.href=u; });
+    });
+    list.querySelectorAll('.kc-act').forEach(function(btn){
+      btn.onclick=function(){
+        var id=btn.getAttribute('data-mid'), m=msgs.find(function(x){return String(x.id)===id;});
+        var a=m&&o.actionsFor&&o.actionsFor(m)[Number(btn.getAttribute('data-ai'))];
+        if(a&&a.run){ Promise.resolve(a.run(m)).then(function(){ lastSig=''; render(msgs); }); }
+      };
     });
     list.querySelectorAll('[data-save]').forEach(function(btn){
       btn.onclick=function(){
@@ -260,7 +274,7 @@ function mount(el,o){
   };
   var timer=setInterval(function(){ if(document.visibilityState==='visible'&&el.isConnected&&el.offsetParent!==null) refresh(); },20000);
   refresh();
-  return {refresh:refresh,destroy:function(){ alive=false; clearInterval(timer); }};
+  return {refresh:refresh,rerender:function(){ lastSig=''; return refresh(); },destroy:function(){ alive=false; clearInterval(timer); }};
 }
 
 global.KFitChat={KEEP_DAYS:KEEP_DAYS,isExpired:isExpired,saveToPhone:saveToPhone,cleanupExpired:cleanupExpired,linkify:linkify,shrinkImage:shrinkImage,mount:mount,fetchThread:fetchThread,unread:unread,markRead:markRead,send:send,postEvent:postEvent,upload:upload,preview:preview,when:when,esc:esc};

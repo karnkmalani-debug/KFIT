@@ -2875,8 +2875,9 @@ async function performRoutineAssignment(template,c){
   let d={};
   if(data&&data.length&&data[0].data) d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
   const routines=d.routines||[];
+  const newRid='rt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
   routines.unshift({
-    id:'rt_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    id:newRid,
     templateId:template.id,
     name:template.name,
     createdBy:'coach',
@@ -2891,7 +2892,8 @@ async function performRoutineAssignment(template,c){
     client_id:fitId, tracker:'fitness', data:d, updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
   if(saveErr){ alert('Error assigning: '+saveErr.message); return false; }
-  KFitChat.postEvent(getSB(),fitId,{type:'routine',title:'New routine: '+template.name,detail:'Find it in your routines on the Log tab.',popup:false});
+  KFitChat.postEvent(getSB(),fitId,{type:'routine',title:'New routine: '+template.name,routineId:newRid,name:template.name,
+    detail:((template.body_parts||[]).join(' · ')||'Routine')+' · '+((template.exercises||[]).length)+' exercise'+((template.exercises||[]).length===1?'':'s')});
   return true;
 }
 function previewRoutine(kind,idx,clientKey){
@@ -5223,7 +5225,7 @@ async function saveAssignedWorkout(){
 
   btn.disabled=false; btn.textContent='Assign Workout';
   if(saveErr){alert('Error assigning workout: '+saveErr.message);return;}
-  KFitChat.postEvent(getSB(),clientKey,{type:'workout',title:(dateList.length>1?dateList.length+' workouts':'A workout')+' assigned',detail:dateList.slice(0,5).join(', ')+(dateList.length>5?' ...':''),popup:true});
+  KFitChat.postEvent(getSB(),clientKey,{type:'workout',title:(dateList.length>1?dateList.length+' workouts':'A workout')+' assigned',detail:dateList.slice(0,5).join(', ')+(dateList.length>5?' ...':''),dates:dateList});
   closeAddSession();
   await loadAll();
   alert((dateList.length>1?dateList.length+' days':'Workout')+' assigned -- they\'ll see it pre-filled next time they open that day\'s log ✓');
