@@ -648,6 +648,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 <script src="./kfit-exercise-library.js"></script>
 <script src="./kfit-fitness-store.js"></script>
+<script src="./kfit-coach-chat.js"></script>
 <script>
 
 
@@ -2602,7 +2603,7 @@ function showClient(key,targetContainer){
       <button onclick="setClientTab('assign')" style="flex:1;padding:10px 0;border-radius:9px;border:none;background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">📋 Assign</button>
       <button onclick="openLiveTracker('${(c.mobile||'').replace(/'/g,"\\'")}','${c.name.replace(/'/g,"\\'")}')" style="flex:1;padding:10px 0;border-radius:9px;border:none;background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">✎ Log</button>
       <button onclick="openLiveTracker('${(c.mobile||'').replace(/'/g,"\\'")}','${c.name.replace(/'/g,"\\'")}')" style="flex:1;padding:10px 0;border-radius:9px;border:none;background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">⚙ Edit</button>
-      <button onclick="openStartConversation('${c.mobile||''}','${c.name.replace(/'/g,"\\'")}')" title="Message this client" style="width:42px;flex-shrink:0;padding:10px 0;border-radius:9px;border:1px solid var(--border);background:none;font-size:15px;cursor:pointer;">💬</button>
+      <button onclick="openCoachChat('${c.mobile||''}','${c.name.replace(/'/g,"\\'")}')" title="Chat with this client" style="width:42px;flex-shrink:0;padding:10px 0;border-radius:9px;border:1px solid var(--border);background:none;font-size:15px;cursor:pointer;">💬</button>
     </div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:14px;">Assign, Log, and Edit all open the real client app for ${c.name.replace(/'/g,"\\'")} -- same page they use, whichever you tap.</div>
 
@@ -2888,6 +2889,7 @@ async function performRoutineAssignment(template,c){
     client_id:fitId, tracker:'fitness', data:d, updated_at:new Date().toISOString()
   },{onConflict:'client_id,tracker'});
   if(saveErr){ alert('Error assigning: '+saveErr.message); return false; }
+  KFitChat.postEvent(getSB(),fitId,{type:'routine',title:'New routine: '+template.name,detail:'Find it in your routines on the Log tab.',popup:false});
   return true;
 }
 function previewRoutine(kind,idx,clientKey){
@@ -3341,7 +3343,63 @@ async function fetchRequestClientIds(){
   const {data,error}=await KFitStore.pendingRequestClientIds(getSBScoped(),window.currentCoachId);
   if(error) throw error;
   const links=await getSB().from('fitness_link_requests').select('id').eq('status','pending');
-  return (data||[]).concat(((links&&links.data)||[]).map(function(r){return 'link:'+r.id;}));
+  let chatIds=[];
+  try{ const u=await KFitChat.unread(getSB(),'coach'); chatIds=Array.from(new Set((u.data||[]).map(function(m){return 'chat:'+m.client_id;}))); }catch(e){}
+  return (data||[]).concat(((links&&links.data)||[]).map(function(r){return 'link:'+r.id;})).concat(chatIds);
+}
+// Unread client messages, one inbox card per client.
+async function fetchChatItems(){
+  const u=await KFitChat.unread(getSB(),'coach');
+  if(u.error) return [];
+  const names={};
+  Object.values(groupClients()).forEach(function(c){ names[buildClientId(c.name,c.mobile)]=c; });
+  const by={};
+  (u.data||[]).forEach(function(m){ (by[m.client_id]=by[m.client_id]||[]).push(m); });
+  return Object.keys(by).map(function(cid){
+    const ms=by[cid], last=ms[ms.length-1], c=names[cid];
+    return {kind:'chat',at:Date.parse(last.created_at)||0,clientId:cid,clientName:c?c.name:cid.replace(/^kfit__/,'+'),
+      mobile:c?c.mobile:cid.replace(/^kfit__/,''),count:ms.length,last:last};
+  });
+}
+// ---- Coach chat panel ----
+let _mergeChat=null;
+function openCoachChat(mobile,name){
+  const clientId=buildClientId(name,mobile);
+  let panel=document.getElementById('coachChatPanel');
+  if(!panel){
+    panel=document.createElement('div');
+    panel.id='coachChatPanel';
+    panel.style.cssText='display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:var(--bg);z-index:120;';
+    panel.innerHTML='<div style="max-width:560px;margin:0 auto;padding:10px 14px 0;height:100%;display:flex;flex-direction:column;">'
+      +'<div style="display:flex;align-items:center;gap:12px;padding:6px 0 10px;border-bottom:1px solid var(--border);">'
+      +'<button onclick="closeCoachChat()" style="background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-family:inherit;font-size:14px;cursor:pointer;">← Back</button>'
+      +'<div id="coachChatTitle" style="font-size:16px;font-weight:800;color:var(--text);flex:1;"></div></div>'
+      +'<div id="coachChatMergeBox" style="flex:1;min-height:0;"></div></div>';
+    document.body.appendChild(panel);
+  }
+  document.getElementById('coachChatTitle').textContent='💬 '+(name||'Client');
+  panel.style.display='block';
+  if(_mergeChat) _mergeChat.destroy();
+  _mergeChat=KFitChat.mount(document.getElementById('coachChatMergeBox'),{sb:getSB(),clientId:clientId,role:'coach',
+    emptyText:'No messages yet. Send '+(name||'your client')+' a note, photo, GIF or file.',
+    onRead:function(){ refreshRequestsBadge(true); }});
+}
+function closeCoachChat(){
+  const p=document.getElementById('coachChatPanel'); if(p) p.style.display='none';
+  if(_mergeChat){ _mergeChat.destroy(); _mergeChat=null; }
+  refreshRequestsBadge(true);
+  const rp=document.getElementById('requestsPanel');
+  if(rp&&rp.style.display==='block') openRequests();
+}
+// Change-by-change approval helpers
+function _reqDay(d,fb){ if(!d) return fb; const x=new Date(d+'T00:00:00'); if(isNaN(x)) return d; return x.getDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][x.getMonth()]; }
+function _reqOfficial(s){ const c=JSON.parse(JSON.stringify(s||{})); delete c.pendingEdit; delete c.pendingDelete; delete c.approval; delete c.lastDecision; return c; }
+function _reqAccCount(it){ return it.changes?it.changes.filter(function(c){return it.accepted[c.id];}).length:0; }
+function reqOpenChat(i){ const it=_reqItems[i]; if(it) openCoachChat(it.mobile,it.clientName); }
+function reqToggleChange(i,cid){
+  const it=_reqItems[i]; if(!it||!it.changes) return;
+  it.accepted[cid]=!it.accepted[cid];
+  renderRequests();
 }
 // New phones / new sign-ups waiting for this coach (the database only
 // shows a coach their own).
@@ -3369,7 +3427,8 @@ async function fetchClientRequests(){
     else if(row.request_kind==='edit') items.push(Object.assign({kind:'edit',at:(s.pendingEdit&&s.pendingEdit.requestedAt)||0},base));
   });
   const links=await fetchLinkRequests();
-  const all=links.concat(items);
+  let chats=[]; try{ chats=await fetchChatItems(); }catch(e){}
+  const all=chats.concat(links,items);
   all.sort(function(a,b){return (b.at||0)-(a.at||0);});
   return all;
 }
@@ -3406,6 +3465,14 @@ function renderRequests(){
   if(!_reqItems.length){body.innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">No pending requests. 👍</div>';return;}
   const label={new:'🆕 New log (past date / changed time)',edit:'✏️ Edit request',delete:'🗑 Delete request',link:'📱 Phone access'};
   body.innerHTML=_reqItems.map(function(it,i){
+    if(it.kind==='chat'){
+      return '<div style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span style="font-size:14px;font-weight:700;">'+reqEsc(it.clientName)+'</span>'
+        +'<span style="font-size:11px;color:var(--muted);">'+reqEsc(KFitChat.when(it.last.created_at))+'</span></div>'
+        +'<div style="font-size:12px;font-weight:700;color:var(--gold);margin-top:2px;">💬 '+it.count+' new message'+(it.count===1?'':'s')+'</div>'
+        +'<div style="font-size:13px;color:var(--muted);margin-top:6px;white-space:pre-wrap;">'+reqEsc(KFitChat.preview(it.last)).slice(0,200)+'</div>'
+        +'<button onclick="reqOpenChat('+i+')" style="width:100%;margin-top:10px;padding:9px;background:var(--sage);border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:700;color:#0c0c0a;cursor:pointer;">Open chat</button></div>';
+    }
     const s=it.session;
     let detail='';
     if(it.kind==='link'){
@@ -3415,13 +3482,24 @@ function renderRequests(){
         +'<br>📞 '+reqEsc(r.mobile||'')+(r.name?' · '+reqEsc(r.name):'')+(r.email?' · '+reqEsc(r.email):'')
         +'<br>Only approve if you know this is really them.</div>';
     } else if(it.kind==='edit'){
-      const oldL=reqSessLines(s), newL=reqSessLines(it.session.pendingEdit.session);
-      detail='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">'
-        +'<div><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);margin-bottom:4px;">CURRENT (OFFICIAL)</div>'
-        +oldL.map(function(l){const gone=newL.indexOf(l)===-1;return '<div style="font-size:12px;line-height:1.4;margin-bottom:3px;'+(gone?'color:var(--terra);text-decoration:line-through;':'color:var(--muted);')+'">'+reqEsc(l)+'</div>';}).join('')+'</div>'
-        +'<div><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--gold);margin-bottom:4px;">CLIENT\'S VERSION</div>'
-        +newL.map(function(l){const added=oldL.indexOf(l)===-1;return '<div style="font-size:12px;line-height:1.4;margin-bottom:3px;'+(added?'color:var(--gold);font-weight:700;':'color:var(--muted);')+'">'+reqEsc(l)+'</div>';}).join('')+'</div>'
-        +'</div>';
+      // Each change on its own: the current value crossed out (red ✕) and
+      // the client's value (green ✓). Tap Accepted/Declined per change.
+      if(!it.changes){
+        it.proposalSig=KFitStore.sig(it.session.pendingEdit.session);
+        it.changes=KFitStore.diffSessions(_reqOfficial(s),it.session.pendingEdit.session);
+        it.accepted={}; it.changes.forEach(function(c){ it.accepted[c.id]=true; });
+      }
+      detail='<div style="margin-top:6px;font-size:12px;color:var(--muted);">'+it.changes.length+' change'+(it.changes.length===1?'':'s')+' · '+reqEsc(_reqDay(s.date,''))+(s.timeOfDay?' · '+reqEsc(s.timeOfDay):'')+'</div>'
+        +it.changes.map(function(c){
+          const on=!!it.accepted[c.id];
+          return '<div style="padding:9px 0;border-top:1px solid var(--border);'+(on?'':'opacity:.55;')+'">'
+            +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px;">'
+            +'<span style="font-size:12px;color:var(--muted);">'+reqEsc(c.label)+'</span>'
+            +'<button onclick="reqToggleChange('+i+',\''+c.id+'\')" style="flex-shrink:0;padding:3px 10px;border-radius:12px;border:1px solid '+(on?'var(--sage)':'var(--border)')+';background:'+(on?'var(--sage)':'transparent')+';color:'+(on?'#0c0c0a':'var(--muted)')+';font-family:inherit;font-size:11px;font-weight:800;cursor:pointer;">'+(on?'Accepted':'Declined')+'</button></div>'
+            +(c.oldText?'<div style="font-size:14px;line-height:1.5;"><span style="color:#e24b4a;font-weight:800;">✕</span> <span style="color:#e24b4a;text-decoration:line-through;">'+reqEsc(c.oldText)+'</span></div>':'')
+            +(c.newText?'<div style="font-size:14px;line-height:1.5;"><span style="color:#3fae5c;font-weight:800;">✓</span> <span style="color:#3fae5c;font-weight:700;">'+reqEsc(c.newText)+'</span></div>':'')
+            +'</div>';
+        }).join('');
     } else {
       detail='<div style="margin-top:8px;">'+reqSessLines(s).map(function(l){return '<div style="font-size:12px;line-height:1.4;margin-bottom:3px;color:var(--muted);">'+reqEsc(l)+'</div>';}).join('')+'</div>';
     }
@@ -3432,8 +3510,8 @@ function renderRequests(){
       +'<div style="font-size:12px;font-weight:700;color:var(--gold);margin-top:2px;">'+label[it.kind]+'</div>'
       +detail
       +'<div style="display:flex;gap:8px;margin-top:10px;">'
-      +'<button onclick="decideRequest('+i+',true)" style="flex:1;padding:9px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;color:#0c0c0a;cursor:pointer;">Approve</button>'
-      +'<button onclick="decideRequest('+i+',false)" style="flex:1;padding:9px;background:none;border:1px solid var(--terra);border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;color:var(--terra);cursor:pointer;">Reject</button>'
+      +'<button onclick="decideRequest('+i+',true)" style="flex:1;padding:9px;background:var(--sage);border:none;border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;color:#0c0c0a;cursor:pointer;">'+(it.kind==='edit'&&it.changes?('Approve '+_reqAccCount(it)+' accepted'):'Approve')+'</button>'
+      +'<button onclick="decideRequest('+i+',false)" style="flex:1;padding:9px;background:none;border:1px solid var(--terra);border-radius:8px;font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:700;color:var(--terra);cursor:pointer;">'+(it.kind==='edit'&&it.changes?'Reject all':'Reject')+'</button>'
       +'</div></div>';
   }).join('');
 }
@@ -3450,6 +3528,7 @@ async function decideRequest(i,approve){
     if(!confirm('Reject this request?')) return;
   }
   _reqBusy=true;
+  let _evt=null;
   try{
     if(it.kind==='link'){
       const r=await getSB().rpc('kfit_decide_link',{p_request_id:it.request.id,p_approve:!!approve});
@@ -3472,6 +3551,7 @@ async function decideRequest(i,approve){
     const now=Date.now();
     if(it.kind==='new'){
       if(!(cur.approval&&cur.approval.status==='pending')) throw new Error('This request was already handled.');
+      _evt=approve?{type:'decision',title:'Your log for '+_reqDay(cur.date,'that day')+' was approved'}:{type:'declined',title:'Your log for '+_reqDay(cur.date,'that day')+' wasn\'t approved'};
       if(approve){
         delete cur.approval; cur.updatedAt=now;
         const att=await getSBScoped().from('attendance').upsert({
@@ -3486,9 +3566,23 @@ async function decideRequest(i,approve){
       }
     } else if(it.kind==='edit'){
       if(!cur.pendingEdit) throw new Error('This request was already handled.');
+      const _prop=cur.pendingEdit.session;
+      const _changes=KFitStore.diffSessions(_reqOfficial(cur),_prop);
+      if(it.proposalSig&&KFitStore.sig(_prop)!==it.proposalSig) throw new Error('The client changed this request since you opened it -- reopen the inbox.');
+      const _acc=_changes.filter(function(c){ return !it.accepted||it.accepted[c.id]; });
+      if(approve&&!_acc.length){
+        if(!confirm('No changes are accepted. Reject the whole request?')){ _reqBusy=false; return; }
+        approve=false;
+      }
+      const _declined=_changes.filter(function(c){ return _acc.indexOf(c)===-1; }).map(function(c){ return c.label; });
+      _evt=approve
+        ?{type:'decision',title:'Your edit to '+_reqDay(cur.date,'a session')+': '+(_declined.length?(_acc.length+' of '+_changes.length+' changes approved'):'approved'),detail:_declined.length?('Not approved: '+_declined.join(', ')):''}
+        :{type:'declined',title:'Your edit to '+_reqDay(cur.date,'a session')+' wasn\'t approved',detail:'Your coach kept the original.'};
       if(approve){
-        const next=Object.assign({},cur.pendingEdit.session,{id:cur.id,updatedAt:now});
+        const next=KFitStore.applySessionChanges(_reqOfficial(cur),_prop,_acc.map(function(c){return c.id;}));
+        next.id=cur.id; next.updatedAt=now;
         delete next.pendingEdit; delete next.pendingDelete; delete next.approval;
+        next.lastDecision={type:'edit',result:_declined.length?'partial':'approved',declined:_declined,at:now};
         if(mobile){
           const upd={duration_secs:next.duration||null,workout_type:reqWorkoutType(next),body_parts:(next.bodyParts||[]).join(', '),session_date:next.date,session_time:next.timeOfDay||''};
           const a=await getSBScoped().from('attendance').update(upd).eq('client_mobile',mobile).eq('session_date',cur.date).eq('session_time',cur.timeOfDay||'');
@@ -3500,6 +3594,7 @@ async function decideRequest(i,approve){
       }
     } else if(it.kind==='delete'){
       if(!cur.pendingDelete) throw new Error('This request was already handled.');
+      _evt=approve?{type:'decision',title:'Your session on '+_reqDay(cur.date,'that day')+' was deleted',detail:'As you asked.'}:{type:'declined',title:'Delete request for '+_reqDay(cur.date,'that day')+' declined',detail:'The session stays in your history.'};
       if(approve){
         if(mobile){
           const a=await getSBScoped().from('attendance').delete().eq('client_mobile',mobile).eq('session_date',cur.date).eq('session_time',cur.timeOfDay||'');
@@ -3517,6 +3612,7 @@ async function decideRequest(i,approve){
     d.pendingRequests=sessions.filter(function(x){return (x.approval&&x.approval.status==='pending')||x.pendingEdit||x.pendingDelete;}).length;
     const w=await getSBScoped().from('tracker_data').update({data:d,updated_at:new Date().toISOString()}).eq('client_id',it.clientId).eq('tracker','fitness');
     if(w.error) throw new Error(w.error.message);
+    if(_evt) KFitChat.postEvent(getSB(),it.clientId,_evt);
     toast(approve?'Approved ✓':'Rejected');
     _reqItems.splice(i,1);
     refreshRequestsBadgeFromCache();
@@ -5101,6 +5197,7 @@ async function saveAssignedWorkout(){
 
   btn.disabled=false; btn.textContent='Assign Workout';
   if(saveErr){alert('Error assigning workout: '+saveErr.message);return;}
+  KFitChat.postEvent(getSB(),clientKey,{type:'workout',title:(dateList.length>1?dateList.length+' workouts':'A workout')+' assigned',detail:dateList.slice(0,5).join(', ')+(dateList.length>5?' ...':''),popup:true});
   closeAddSession();
   await loadAll();
   alert((dateList.length>1?dateList.length+' days':'Workout')+' assigned -- they\'ll see it pre-filled next time they open that day\'s log ✓');

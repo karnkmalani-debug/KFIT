@@ -1,4 +1,4 @@
-const V = "kfit-v5";
+const V = "kfit-v6";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => e.waitUntil(
   // v5: new per-row fitness storage (kfit-fitness-store.js). Bumping the

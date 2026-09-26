@@ -484,6 +484,125 @@ function listTrash(db,sinceMs){
   });
 }
 
+// ---------- change-by-change approval (Merge inbox) ----------
+// Splits a client's edit request into separate changes (each set, each
+// added/removed exercise, date, time, notes ...) so the coach can accept
+// some and decline others. applySessionChanges() then builds the official
+// session with ONLY the accepted changes.
+var REQ_KEYS=['id','updatedAt','client','mobile','pendingEdit','pendingDelete','approval','lastDecision','estCalories'];
+var FIELD_LABELS={date:'Date',timeOfDay:'Time',duration:'Duration',notes:'Notes',bodyParts:'Body parts'};
+var LISTS=[['exercises',true,''],['cardio',false,''],['functional',false,'']];
+function _k(it){ return String(it&&it.ex||'').trim().toLowerCase(); }
+function _keyed(list){
+  var occ={}, out=[];
+  (list||[]).forEach(function(it,i){ var k=_k(it); occ[k]=(occ[k]||0)+1; out.push({key:k+'#'+occ[k],it:it,i:i}); });
+  return out;
+}
+function _setStr(r){
+  if(!r) return '';
+  return (r.dropset?'Drop ':'')+(r.reps||'-')+' × '+(r.weight||'-')+(r.assistedReps>0?' (+'+r.assistedReps+' helped)':'')+(r.lengthenedPartialReps>0?' (+'+r.lengthenedPartialReps+' partials)':'');
+}
+function _itemStr(it,list){
+  if(!it) return '';
+  if(list==='cardio') return (it.ex||'')+': '+(it.duration||'-')+' min'+(it.intensity?' · '+it.intensity:'');
+  if(list==='functional') return (it.ex||'')+': '+(it.duration||'-')+' s'+(it.weight?' @ '+it.weight:'');
+  var sets=(it.setData||[]).filter(function(r){return r&&(r.reps||r.weight);});
+  if(it.type==='cardio') return (it.ex||'')+': '+(it.duration||'-')+' min';
+  return (it.ex||'')+(sets.length?': '+sets.map(_setStr).join(', '):'');
+}
+function _fieldStr(f,v){
+  if(v==null||v==='') return '—';
+  if(f==='duration') return Math.round(Number(v)/60)+' min';
+  if(Array.isArray(v)) return v.join(', ');
+  return String(v);
+}
+function diffSessions(o,n){
+  o=o||{}; n=n||{};
+  var ch=[], seq=0;
+  function add(c){ c.id='c'+(++seq); ch.push(c); }
+  Object.keys(FIELD_LABELS).forEach(function(f){
+    if(stable(o[f]===undefined?null:o[f])!==stable(n[f]===undefined?null:n[f]))
+      add({kind:'field',field:f,label:FIELD_LABELS[f],oldText:_fieldStr(f,o[f]),newText:_fieldStr(f,n[f])});
+  });
+  function diffList(list,withSets,prefix,oList,nList){
+    var oa=_keyed(oList), na=_keyed(nList), om={}, used={};
+    oa.forEach(function(x){ om[x.key]=x; });
+    na.forEach(function(x){
+      var ox=om[x.key];
+      if(!ox){ add({kind:'add',list:list,key:x.key,label:prefix+(x.it.ex||'Item')+' · added',oldText:'',newText:_itemStr(x.it,list)}); return; }
+      used[x.key]=1;
+      if(stable(ox.it)===stable(x.it)) return;
+      var restO=Object.assign({},ox.it), restN=Object.assign({},x.it);
+      delete restO.setData; delete restO.sets; delete restN.setData; delete restN.sets;
+      if(withSets&&stable(restO)===stable(restN)){
+        var os=ox.it.setData||[], ns=x.it.setData||[];
+        for(var i=0;i<Math.max(os.length,ns.length);i++){
+          if(stable(os[i]===undefined?null:os[i])===stable(ns[i]===undefined?null:ns[i])) continue;
+          add({kind:'set',list:list,key:x.key,index:i,label:prefix+(x.it.ex||'Exercise')+' · set '+(i+1),
+               oldText:os[i]?_setStr(os[i]):'',newText:ns[i]?_setStr(ns[i]):'(set removed)'});
+        }
+        if(stable(ox.it.sets)!==stable(x.it.sets)&&os.length===ns.length)
+          add({kind:'item',list:list,key:x.key,label:prefix+(x.it.ex||'Exercise')+' · sets',oldText:String(ox.it.sets||''),newText:String(x.it.sets||'')});
+      } else {
+        add({kind:'item',list:list,key:x.key,label:prefix+(x.it.ex||'Item'),oldText:_itemStr(ox.it,list),newText:_itemStr(x.it,list)});
+      }
+    });
+    oa.forEach(function(x){ if(!used[x.key]) add({kind:'remove',list:list,key:x.key,label:prefix+(x.it.ex||'Item')+' · removed',oldText:_itemStr(x.it,list),newText:''}); });
+  }
+  LISTS.forEach(function(L){ diffList(L[0],L[1],L[2],o[L[0]],n[L[0]]); });
+  var oss={}, nss={};
+  (o.supersets||[]).forEach(function(x){ oss[String(x.num)]=x; });
+  (n.supersets||[]).forEach(function(x){ nss[String(x.num)]=x; });
+  Object.keys(nss).forEach(function(num){
+    if(!oss[num]){ add({kind:'ssadd',num:num,label:'Superset '+num+' · added',oldText:'',newText:(nss[num].exercises||[]).map(function(e){return _itemStr(e,'exercises');}).join(' / ')}); return; }
+    diffList('ss:'+num,true,'Superset '+num+' · ',oss[num].exercises,nss[num].exercises);
+  });
+  Object.keys(oss).forEach(function(num){
+    if(!nss[num]) add({kind:'ssremove',num:num,label:'Superset '+num+' · removed',oldText:(oss[num].exercises||[]).map(function(e){return _itemStr(e,'exercises');}).join(' / '),newText:''});
+  });
+  var skip={}; REQ_KEYS.concat(Object.keys(FIELD_LABELS),['exercises','cardio','functional','supersets']).forEach(function(k){skip[k]=1;});
+  var otherKeys=[];
+  Object.keys(o).concat(Object.keys(n)).forEach(function(k){ if(!skip[k]&&otherKeys.indexOf(k)===-1&&stable(o[k]===undefined?null:o[k])!==stable(n[k]===undefined?null:n[k])) otherKeys.push(k); });
+  if(otherKeys.length) add({kind:'other',keys:otherKeys,label:'Other details',oldText:otherKeys.join(', '),newText:'updated'});
+  return ch;
+}
+function applySessionChanges(o,n,acceptedIds){
+  var changes=diffSessions(o,n);
+  var acc={}; (acceptedIds||[]).forEach(function(id){acc[id]=1;});
+  var chosen=changes.filter(function(c){return acc[c.id];});
+  var strip=function(x){ var c=clone(x)||{}; ['pendingEdit','pendingDelete','approval','lastDecision'].forEach(function(k){delete c[k];}); return c; };
+  if(chosen.length===changes.length) return strip(n);
+  var r=strip(o);
+  if(!chosen.length) return r;
+  function listRef(name){
+    if(name.indexOf('ss:')===0){ var num=name.slice(3); var ss=(r.supersets||[]).find(function(x){return String(x.num)===num;}); if(!ss) return null; ss.exercises=ss.exercises||[]; return ss.exercises; }
+    r[name]=r[name]||[]; return r[name];
+  }
+  function srcList(src,name){
+    if(name.indexOf('ss:')===0){ var num=name.slice(3); var ss=(src.supersets||[]).find(function(x){return String(x.num)===num;}); return ss?(ss.exercises||[]):[]; }
+    return src[name]||[];
+  }
+  function byKey(list,key){ var k=_keyed(list).find(function(x){return x.key===key;}); return k?k.it:null; }
+  // resolve targets against the ORIGINAL positions before anything moves
+  var removeTargets=[], setOps=[], itemOps=[], adds=[];
+  chosen.forEach(function(c){
+    if(c.kind==='field'){ if(n[c.field]===undefined) delete r[c.field]; else r[c.field]=clone(n[c.field]); }
+    else if(c.kind==='set'){ setOps.push({t:byKey(listRef(c.list)||[],c.key),i:c.index,v:(byKey(srcList(n,c.list),c.key).setData||[])[c.index]}); }
+    else if(c.kind==='item'){ itemOps.push({list:c.list,t:byKey(listRef(c.list)||[],c.key),v:byKey(srcList(n,c.list),c.key)}); }
+    else if(c.kind==='remove'){ removeTargets.push({list:c.list,t:byKey(listRef(c.list)||[],c.key)}); }
+    else if(c.kind==='add'){ adds.push({list:c.list,v:byKey(srcList(n,c.list),c.key)}); }
+    else if(c.kind==='ssadd'){ r.supersets=r.supersets||[]; r.supersets.push(clone((n.supersets||[]).find(function(x){return String(x.num)===c.num;}))); }
+    else if(c.kind==='ssremove'){ r.supersets=(r.supersets||[]).filter(function(x){return String(x.num)!==c.num;}); }
+    else if(c.kind==='other'){ c.keys.forEach(function(k){ if(n[k]===undefined) delete r[k]; else r[k]=clone(n[k]); }); }
+  });
+  setOps.forEach(function(op){ if(!op.t) return; op.t.setData=op.t.setData||[]; op.t.setData[op.i]=op.v===undefined?null:clone(op.v); });
+  setOps.forEach(function(op){ if(!op.t) return; op.t.setData=op.t.setData.filter(function(x){return x!=null;}); if(typeof op.t.sets==='number'||op.t.sets!=null) op.t.sets=op.t.setData.length; });
+  itemOps.forEach(function(op){ if(!op.t||!op.v) return; var L=listRef(op.list); var i=L.indexOf(op.t); if(i>-1) L[i]=clone(op.v); });
+  removeTargets.forEach(function(op){ if(!op.t) return; var L=listRef(op.list); var i=L.indexOf(op.t); if(i>-1) L.splice(i,1); });
+  adds.forEach(function(op){ if(!op.v) return; var L=listRef(op.list); if(L) L.push(clone(op.v)); });
+  return r;
+}
+
 // ---------- tracker_data compatibility wrapper ----------
 // wrapClient(real, {coachId:fn, userId:fn}) returns an object that behaves
 // like the Supabase client, except .from('tracker_data') for fitness.
@@ -723,6 +842,7 @@ global.KFitStore={
   sessionRow:sessionRow, tombstoneRow:tombstoneRow, measRow:measRow, measTombstoneRow:measTombstoneRow,
   // I/O
   loadBlob:loadBlob, saveBlob:saveBlob, snapshotOf:snapshotOf, wipeClient:wipeClient, deleteClients:deleteClients,
+  diffSessions:diffSessions, applySessionChanges:applySessionChanges,
   pull:pull, push:push, myClients:myClients, linkVerified:linkVerified, requestAccess:requestAccess, official:official,
   listClientSummaries:listClientSummaries, pendingRequestClientIds:pendingRequestClientIds,
   listRequests:listRequests, listTrash:listTrash,
