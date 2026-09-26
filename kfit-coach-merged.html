@@ -2498,6 +2498,7 @@ function setUniSubTab(which){
 
 async function openUniClient(key){
   uniCurrentKey=key;
+  setTimeout(refreshClientChatBadge,600);
   invalidateTrackerRows(); // fresh data on every open; the reads below then share it
   try{localStorage.setItem('merge_last_client',JSON.stringify({key:key,t:Date.now(),disc:uniDisciplineFilter,view:uniRosterView}));}catch(e){}
   // Real bug fix: allRecords was only ever fetched once at login (and after
@@ -2546,6 +2547,7 @@ async function openUniClient(key){
 }
 
 function showClient(key,targetContainer){
+  setTimeout(function(){ refreshClientChatBadge(); },250);
   const c0=Object.values(groupClients()).find(c=>(c.mobile||c.name)===key);
   if(!targetContainer&&c0){
     openUniClient(canonicalClientKey(c0.name,c0.mobile));
@@ -2603,7 +2605,7 @@ function showClient(key,targetContainer){
       <button onclick="setClientTab('assign')" style="flex:1;padding:10px 0;border-radius:9px;border:none;background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">📋 Assign</button>
       <button onclick="openLiveTracker('${(c.mobile||'').replace(/'/g,"\\'")}','${c.name.replace(/'/g,"\\'")}')" style="flex:1;padding:10px 0;border-radius:9px;border:none;background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">✎ Log</button>
       <button onclick="openLiveTracker('${(c.mobile||'').replace(/'/g,"\\'")}','${c.name.replace(/'/g,"\\'")}')" style="flex:1;padding:10px 0;border-radius:9px;border:none;background:var(--sage);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">⚙ Edit</button>
-      <button onclick="openCoachChat('${c.mobile||''}','${c.name.replace(/'/g,"\\'")}')" title="Chat with this client" style="width:42px;flex-shrink:0;padding:10px 0;border-radius:9px;border:1px solid var(--border);background:none;font-size:15px;cursor:pointer;">💬</button>
+      <button data-chat-mobile="${c.mobile||''}" data-chat-name="${(c.name||'').replace(/"/g,'&quot;')}" onclick="openCoachChat('${c.mobile||''}','${c.name.replace(/'/g,"\\'")}')" title="Chat with this client" style="position:relative;width:42px;flex-shrink:0;padding:10px 0;border-radius:9px;border:1px solid var(--border);background:none;font-size:15px;cursor:pointer;">💬<span id="clientChatBadge" style="display:none;position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--terra);color:#fff;font-size:11px;font-weight:800;line-height:18px;"></span></button>
     </div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:14px;">Assign, Log, and Edit all open the real client app for ${c.name.replace(/'/g,"\\'")} -- same page they use, whichever you tap.</div>
 
@@ -3361,6 +3363,17 @@ async function fetchChatItems(){
       mobile:c?c.mobile:cid.replace(/^kfit__/,''),count:ms.length,last:last};
   });
 }
+// KFit keeps chat photos/videos/files for 30 days only: once a day, delete
+// expired ones for all of this coach's clients.
+setInterval(function(){
+  const day=new Date().toDateString();
+  if(!window.currentCoachId||localStorage.getItem('merge_chat_cleanup_day')===day||typeof KFitChat==='undefined') return;
+  try{ localStorage.setItem('merge_chat_cleanup_day',day); }catch(e){}
+  getSB().from('fitness_clients').select('client_id').eq('coach_id',window.currentCoachId).then(function(r){
+    const ids=((r&&r.data)||[]).map(function(x){return x.client_id;});
+    if(ids.length) KFitChat.cleanupExpired(getSB(),ids);
+  });
+},60000);
 // ---- Coach chat panel ----
 let _mergeChat=null;
 function openCoachChat(mobile,name){
@@ -3381,13 +3394,26 @@ function openCoachChat(mobile,name){
   panel.style.display='block';
   if(_mergeChat) _mergeChat.destroy();
   _mergeChat=KFitChat.mount(document.getElementById('coachChatMergeBox'),{sb:getSB(),clientId:clientId,role:'coach',
-    emptyText:'No messages yet. Send '+(name||'your client')+' a note, photo, GIF or file.',
+    emptyText:'No messages yet. Send '+(name||'your client')+' a note, photo, short video, GIF or file. Files are kept 30 days -- "Save to phone" to keep one.',
     onRead:function(){ refreshRequestsBadge(true); }});
+}
+// Unread count from this client, on their page's 💬 button.
+function refreshClientChatBadge(tries){
+  const b=document.getElementById('clientChatBadge');
+  if(!b){ tries=(tries||0)+1; if(tries<15) setTimeout(function(){ refreshClientChatBadge(tries); },400); return; }
+  const btn=b.parentElement;
+  const mobile=btn.getAttribute('data-chat-mobile')||'', name=btn.getAttribute('data-chat-name')||'';
+  if(!mobile&&!name) return;
+  KFitChat.unread(getSB(),'coach',buildClientId(name,mobile)).then(function(r){
+    const n=(r&&r.data||[]).length;
+    b.textContent=n>9?'9+':String(n); b.style.display=n?'inline-block':'none';
+  });
 }
 function closeCoachChat(){
   const p=document.getElementById('coachChatPanel'); if(p) p.style.display='none';
   if(_mergeChat){ _mergeChat.destroy(); _mergeChat=null; }
   refreshRequestsBadge(true);
+  refreshClientChatBadge();
   const rp=document.getElementById('requestsPanel');
   if(rp&&rp.style.display==='block') openRequests();
 }

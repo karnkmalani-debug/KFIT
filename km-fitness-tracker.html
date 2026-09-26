@@ -8976,7 +8976,7 @@ tabs.appendChild(t);
 var p=document.createElement('div'); p.className='panel'; p.id='panel6';
 p.innerHTML='<div id="coachChatBox" style="height:calc(100vh - 230px);min-height:360px;max-width:560px;margin:0 auto;"></div>';
 p5.parentNode.insertBefore(p,p5.nextSibling);
-if(typeof HELP_TEXT!=='undefined'&&HELP_TEXT&&!HELP_TEXT[6]) HELP_TEXT[6]={title:'Coach',body:'Your chat with your coach. Send a message, photo, GIF or file (up to 10 MB), and see updates like new routines or your coach\'s decision on a change you asked for. App problems or suggestions? Use the 💬 feedback button instead -- that goes to the KFit team.'};
+if(typeof HELP_TEXT!=='undefined'&&HELP_TEXT&&!HELP_TEXT[6]) HELP_TEXT[6]={title:'Coach',body:'Your chat with your coach. Send a message, photo, short video, GIF or file. Photos, videos and files are kept for 30 days -- tap \'Save to phone\' to keep one, and see updates like new routines or your coach\'s decision on a change you asked for. App problems or suggestions? Use the 💬 feedback button instead -- that goes to the KFit team.'};
 }
 function _coachKey(){ var k=getFitClientKey(); return k==='unknown'?null:k; }
 function _coachOpenTab(){
@@ -9027,7 +9027,12 @@ document.getElementById('coachPopOk').onclick=function(){ ov.remove(); KFitChat.
 function start(){
 _coachSetup();
 setTimeout(_coachCheck,2500);
-setInterval(function(){ if(document.visibilityState==='visible') _coachCheck(); },60000);
+setTimeout(function(){
+var key=_coachKey(), day=new Date().toDateString();
+if(!key||localStorage.getItem('kmfit_chat_cleanup_day')===day) return;
+KFitChat.cleanupExpired(getSB(),[key]).then(function(){ try{localStorage.setItem('kmfit_chat_cleanup_day',day);}catch(e){} });
+},20000);
+setInterval(function(){ if(document.visibilityState==='visible') _coachCheck(); },30000);
 document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='visible') setTimeout(_coachCheck,1500); });
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
