@@ -1,8 +1,8 @@
-const V = "kfit-v4";
+const V = "kfit-v5";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => e.waitUntil(
-  // Bumping to v4 also wipes every old cache -- including the stale copies
-  // of Supabase data responses that earlier versions were storing.
+  // v5: new per-row fitness storage (kfit-fitness-store.js). Bumping the
+  // version wipes every old cache so no phone keeps an old app copy.
   caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())
 ));
 self.addEventListener("fetch", e => {

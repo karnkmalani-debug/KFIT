@@ -647,6 +647,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     </div>
   </div>
 <script src="./kfit-exercise-library.js"></script>
+<script src="./kfit-fitness-store.js"></script>
 <script>
 
 
@@ -740,7 +741,10 @@ function renderCoachHistPills(){
 }
 
 function getSB(){
-  if(!sb)sb=supabase.createClient(SB_URL,SB_KEY);
+  // Fitness tracker_data reads/writes are served from the per-row tables
+  // (kfit-fitness-store.js) and send only what changed; every other table,
+  // and nutrition, is the plain Supabase client.
+  if(!sb)sb=KFitStore.wrapClient(supabase.createClient(SB_URL,SB_KEY),{coachId:function(){return window.currentCoachId;}});
   return sb;
 }
 // Wraps the Supabase client so every insert/upsert on a coach-owned table
@@ -748,7 +752,7 @@ function getSB(){
 // with-check policy (coach_id = auth.uid()) without hand-editing every
 // call site. select/update/delete pass straight through unmodified; RLS
 // already filters those correctly by coach_id regardless of the app query.
-const COACH_SCOPED_TABLES=['tracker_data','attendance','client_tags','custom_exercises','exercise_videos','routine_templates','app_feedback','diet_templates','client_access_kill_switch'];
+const COACH_SCOPED_TABLES=['tracker_data','fitness_clients','fitness_sessions','fitness_measurements','attendance','client_tags','custom_exercises','exercise_videos','routine_templates','app_feedback','diet_templates','client_access_kill_switch'];
 // ONE shared read per client record. Opening a client used to fire 6-10
 // separate downloads of the SAME full tracker record at once (history,
 // routines, assigned workouts, measurements, "last time" hints...). For a
@@ -2164,8 +2168,9 @@ function loadNewSignups(){
   // mobile and the first session's id (null = no sessions), at most every 2 min.
   if(Date.now()-_newSignupsLast<120000) return;
   _newSignupsLast=Date.now();
-  getSBScoped().from('tracker_data').select('client_id,nm:data->>name,mb:data->>mobile,first:data->sessions->0->>id').eq('tracker','fitness').then(function(res){
+  KFitStore.listClientSummaries(getSBScoped()).then(function(res){
     if(res.error||!res.data)return;
+    res.data=res.data.map(function(r){ return {client_id:r.client_id,nm:r.name,mb:r.mobile,first:Number(r.live_sessions)>0?'1':null}; });
     const attendedKeys=new Set(allRecords.map(function(r){return (r.client_mobile||r.client_name||'').toLowerCase().trim();}));
     const noSession=[];
     res.data.forEach(function(row){
@@ -3333,28 +3338,40 @@ let _reqItems=[];
 // version of this pulled EVERY client's full history on every refresh,
 // which slowed all of Merge down and made the biggest rows time out.
 async function fetchRequestClientIds(){
-  const {data,error}=await getSBScoped().from('tracker_data').select('client_id,pending:data->pendingRequests').eq('tracker','fitness').eq('coach_id',window.currentCoachId).not('data->pendingRequests','is',null);
+  const {data,error}=await KFitStore.pendingRequestClientIds(getSBScoped(),window.currentCoachId);
   if(error) throw error;
-  return (data||[]).filter(function(r){return Number(r.pending)>0;}).map(function(r){return r.client_id;});
+  const links=await getSB().from('fitness_link_requests').select('id').eq('status','pending');
+  return (data||[]).concat(((links&&links.data)||[]).map(function(r){return 'link:'+r.id;}));
+}
+// New phones / new sign-ups waiting for this coach (the database only
+// shows a coach their own).
+async function fetchLinkRequests(){
+  const {data,error}=await getSB().from('fitness_link_requests').select('*').eq('status','pending').order('created_at',{ascending:false});
+  if(error) throw error;
+  const names={};
+  Object.values(groupClients()).forEach(function(c){ if(c.mobile) names[String(c.mobile).replace(/\D/g,'')]=c.name; });
+  return (data||[]).map(function(r){
+    return {kind:'link',at:Date.parse(r.created_at)||0,request:r,clientId:r.client_id,
+      clientName:r.name||names[r.mobile]||('+'+r.mobile)};
+  });
 }
 async function fetchClientRequests(){
-  const ids=await fetchRequestClientIds();
-  if(!ids.length) return [];
-  const {data,error}=await getSBScoped().from('tracker_data').select('client_id,data').eq('tracker','fitness').in('client_id',ids);
+  // Reads ONLY the sessions that have a pending request (fitness_requests),
+  // never anyone's full history.
+  const {data,error}=await KFitStore.listRequests(getSBScoped(),window.currentCoachId);
   if(error) throw error;
   const items=[];
   (data||[]).forEach(function(row){
-    let d=row.data; if(!d) return;
-    if(typeof d==='string'){try{d=JSON.parse(d);}catch(e){return;}}
-    (d.sessions||[]).forEach(function(s){
-      const base={clientId:row.client_id,clientName:s.client||d.name||row.client_id,session:s};
-      if(s.approval&&s.approval.status==='pending') items.push(Object.assign({kind:'new',at:s.approval.requestedAt||0},base));
-      else if(s.pendingDelete) items.push(Object.assign({kind:'delete',at:s.pendingDelete.requestedAt||0},base));
-      else if(s.pendingEdit&&s.pendingEdit.session) items.push(Object.assign({kind:'edit',at:s.pendingEdit.requestedAt||0},base));
-    });
+    const s=row.body; if(!s) return;
+    const base={clientId:row.client_id,clientName:s.client||row.client_name||row.client_id,session:s};
+    if(row.request_kind==='new') items.push(Object.assign({kind:'new',at:(s.approval&&s.approval.requestedAt)||0},base));
+    else if(row.request_kind==='delete') items.push(Object.assign({kind:'delete',at:(s.pendingDelete&&s.pendingDelete.requestedAt)||0},base));
+    else if(row.request_kind==='edit') items.push(Object.assign({kind:'edit',at:(s.pendingEdit&&s.pendingEdit.requestedAt)||0},base));
   });
-  items.sort(function(a,b){return (b.at||0)-(a.at||0);});
-  return items;
+  const links=await fetchLinkRequests();
+  const all=links.concat(items);
+  all.sort(function(a,b){return (b.at||0)-(a.at||0);});
+  return all;
 }
 let _reqBadgeLast=0;
 async function refreshRequestsBadge(force){
@@ -3387,11 +3404,17 @@ function refreshRequestsBadgeFromCache(){
 function renderRequests(){
   const body=document.getElementById('requestsBody');
   if(!_reqItems.length){body.innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">No pending requests. 👍</div>';return;}
-  const label={new:'🆕 New log (past date / changed time)',edit:'✏️ Edit request',delete:'🗑 Delete request'};
+  const label={new:'🆕 New log (past date / changed time)',edit:'✏️ Edit request',delete:'🗑 Delete request',link:'📱 Phone access'};
   body.innerHTML=_reqItems.map(function(it,i){
     const s=it.session;
     let detail='';
-    if(it.kind==='edit'){
+    if(it.kind==='link'){
+      const r=it.request;
+      detail='<div style="margin-top:8px;font-size:12px;line-height:1.5;color:var(--muted);">'
+        +(r.kind==='new_client'?'New sign-up -- approving adds them as your client.':'A new phone for an existing client -- approving lets it see and sync their history.')
+        +'<br>📞 '+reqEsc(r.mobile||'')+(r.name?' · '+reqEsc(r.name):'')+(r.email?' · '+reqEsc(r.email):'')
+        +'<br>Only approve if you know this is really them.</div>';
+    } else if(it.kind==='edit'){
       const oldL=reqSessLines(s), newL=reqSessLines(it.session.pendingEdit.session);
       detail='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">'
         +'<div><div style="font-size:11px;font-weight:800;letter-spacing:1px;color:var(--muted);margin-bottom:4px;">CURRENT (OFFICIAL)</div>'
@@ -3428,6 +3451,16 @@ async function decideRequest(i,approve){
   }
   _reqBusy=true;
   try{
+    if(it.kind==='link'){
+      const r=await getSB().rpc('kfit_decide_link',{p_request_id:it.request.id,p_approve:!!approve});
+      if(r.error) throw new Error(r.error.message);
+      toast(approve?'Phone approved ✓':'Rejected');
+      _reqItems.splice(i,1);
+      refreshRequestsBadgeFromCache();
+      renderRequests();
+      loadAll();
+      return;
+    }
     const res=await getSBScoped().from('tracker_data').select('data').eq('client_id',it.clientId).eq('tracker','fitness');
     if(res.error||!res.data||!res.data.length) throw new Error(res.error?res.error.message:'Client data not found');
     const d=typeof res.data[0].data==='string'?JSON.parse(res.data[0].data):res.data[0].data;
@@ -3503,36 +3536,21 @@ async function openTrash(){
   showFullscreenPanel('trashPanel');
   document.getElementById('trashBody').innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">Loading...</div>';
   try{
-  const clients=Object.values(groupClients());
   const cutoff=Date.now()-7*24*60*60*1000;
+  // One query for every session deleted in the last 7 days (each deleted
+  // session is a row that still carries its content), instead of opening
+  // every client's full history one by one.
+  const {data,error}=await KFitStore.listTrash(getSBScoped(),cutoff);
+  if(error) throw error;
+  const byId={};
+  Object.values(groupClients()).forEach(function(c){ byId[buildClientId(c.name,c.mobile)]=c; });
   const items=[];
-  for(const c of clients){
-    try{
-    const clientId=buildClientId(c.name,c.mobile);
-    const {data,error}=await cachedTrackerRow(clientId,'fitness');
-    if(error||!data||!data.length) continue;
-    const d=typeof data[0].data==='string'?JSON.parse(data[0].data):data[0].data;
-    const archive=d.deletedSessionsArchive||[];
-    // Only entries with a deletedAt timestamp are browsable here (that's
-    // everything deleted going forward). Older archive entries with no
-    // timestamp predate this and stay reachable the way they always were --
-    // via the restore prompt that shows up when opening that specific
-    // session. Anything past 7 days gets quietly trimmed from storage here
-    // so the archive doesn't grow forever.
-    const fresh=archive.filter(function(x){return !x.deletedAt||x.deletedAt>=cutoff;});
-    const expired=archive.filter(function(x){return x.deletedAt&&x.deletedAt<cutoff;});
-    if(expired.length){
-      const trimmed=Object.assign({},d,{deletedSessionsArchive:fresh});
-      getSBScoped().from('tracker_data').update({data:trimmed}).eq('client_id',clientId).eq('tracker','fitness').then(function(){}).catch(function(){});
-    }
-    fresh.filter(function(x){return x.deletedAt;}).forEach(function(x){
-      items.push({clientKey:c.mobile||c.name,clientName:c.name,session:x});
-    });
-    }catch(perClientErr){
-      console.error('openTrash: failed loading',c.name,perClientErr);
-      // one client's fetch failing shouldn't block everyone else's trash from showing
-    }
-  }
+  (data||[]).forEach(function(row){
+    const c=byId[row.client_id]; if(!c) return;
+    const s=Object.assign({},row.body||{});
+    if(!s.deletedAt) s.deletedAt=Number(row.deleted_ms)||Date.now();
+    items.push({clientKey:c.mobile||c.name,clientName:c.name,session:s});
+  });
   items.sort(function(a,b){return (b.session.deletedAt||0)-(a.session.deletedAt||0);});
   renderTrashList(items);
   }catch(err){

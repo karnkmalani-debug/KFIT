@@ -229,6 +229,7 @@ body{overflow-x:hidden;}
   </div>
 </div>
 <script src="./kfit-exercise-library.js"></script>
+<script src="./kfit-fitness-store.js"></script>
 <script>
 if(/CriOS/i.test(navigator.userAgent)&&/iphone|ipad|ipod/i.test(navigator.userAgent)){
 document.getElementById('criosBanner').style.display='flex';
@@ -551,7 +552,7 @@ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.g
 }
 
 function getSB(){
-if(!sbClient) sbClient=supabase.createClient(SB_URL,SB_KEY);
+if(!sbClient) sbClient=KFitStore.wrapClient(supabase.createClient(SB_URL,SB_KEY),{claim:true,coachId:function(){return getClientCoachId();}}); // fitness lookups -> per-row tables; nutrition unchanged
 return sbClient;
 }
 // IMPORTANT: replace this with your actual coach id (from `select id from

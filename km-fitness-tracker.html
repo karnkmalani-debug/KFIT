@@ -422,6 +422,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
   </div>
 </div>
 <script src="./kfit-exercise-library.js"></script>
+<script src="./kfit-fitness-store.js"></script>
 <script>
 if(/CriOS/i.test(navigator.userAgent)&&/iphone|ipad|ipod/i.test(navigator.userAgent)){
 document.getElementById('criosBanner').style.display='flex';
@@ -467,9 +468,18 @@ btn.textContent='Could not copy -- select the address bar manually';
         </div>
       </div>
       <div id="mobileStepOtp" style="display:none;">
+        <div id="otpEmailStep">
+          <label class="pw-label">Sign in with the email on your account <span id="otpEmailHint" style="font-weight:400;"></span></label>
+          <input class="pw-input" type="email" autocomplete="email" id="otpEmailInput" placeholder="you@example.com" onkeydown="if(event.key==='Enter')sendFitnessOtp()">
+          <button class="pw-btn" onclick="sendFitnessOtp()">Email me a sign-in code →</button>
+          <div style="text-align:center;margin:12px 0 4px;font-size:.75rem;color:var(--muted);">No email on your account, or no access to it?</div>
+          <button class="pw-btn" style="background:none;border:1px solid var(--sage);color:var(--sage);" onclick="requestCoachApproval()">Ask my coach to approve this phone</button>
+        </div>
+        <div id="otpCodeStep" style="display:none;">
         <label class="pw-label" id="otpLabel">Enter the code we emailed you</label>
         <input class="pw-input" type="text" inputmode="numeric" maxlength="12" id="otpInput" placeholder="Enter sign-in code" onkeydown="if(event.key==='Enter')verifyFitnessOtp()">
         <button class="pw-btn" onclick="verifyFitnessOtp()">Verify →</button>
+        </div>
         <div style="display:flex;justify-content:space-between;margin-top:10px;">
           <span onclick="backToMobileEntry()" style="font-size:.75rem;color:var(--muted);cursor:pointer;text-decoration:underline;">← Use a different number</span>
           <span onclick="resendFitnessOtp()" style="font-size:.75rem;color:var(--sage);cursor:pointer;text-decoration:underline;">Resend code</span>
@@ -1722,9 +1732,10 @@ initApp();
 function checkExisting(cb){
 ensureAnonAuth(function(uid){
 if(!uid){cb(false);return;}
-getSBScoped().from('tracker_data').select('client_id').eq('tracker','fitness').like('client_id','%__'+m).then(function(res){
-cb(!res.error&&res.data&&res.data.length>0);
-});
+// No "is this number registered?" check any more (it let anyone probe
+// numbers). Signing up with a number that already has an account just
+// asks the coach to approve this phone for it.
+cb(false);
 });
 }
 checkExisting(function(alreadyExists){
@@ -1781,6 +1792,10 @@ alert(msg);
 function _completeFitnessLoginInner(match,mobile){
 _dbg('_completeFitnessLoginInner: start');
 var d=match.data;
+// Signing in as a different person on this device: start from a clean
+// local copy; the first sync downloads their history.
+var _prevMobile=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
+if(_prevMobile&&_prevMobile!==String(mobile).replace(/\D/g,'')) _fitResetLocal(Infinity);
 var deviceId=localStorage.getItem('kfit_device_id');
 if(deviceId&&deviceId!==match.client_id){
 getSBScoped().from('tracker_data').delete().eq('client_id',deviceId).eq('tracker','fitness').then(function(){});
@@ -1837,14 +1852,8 @@ function _pickBestClientRow(rows,mobile){
 var canonical='kfit__'+mobile;
 var exact=rows.find(function(r){return r.client_id===canonical;});
 if(exact) return exact;
-var best=rows[0],bestCount=-1;
-rows.forEach(function(r){
-try{
-var d=typeof r.data==='string'?JSON.parse(r.data):r.data;
-var count=(d&&d.sessions&&d.sessions.length)||0;
-if(count>bestCount){bestCount=count;best=r;}
-}catch(e){}
-});
+var best=rows[0];
+rows.forEach(function(r){ if((r.liveSessions||0)>(best.liveSessions||0)) best=r; });
 return best;
 }
 
@@ -1861,14 +1870,18 @@ document.getElementById('pwError').textContent='Could not connect -- check your 
 return;
 }
 try{
-getSBScoped().from('tracker_data').select('data,client_id').eq('tracker','fitness').like('client_id','%__'+mobile).then(function(res){
+// Already approved for this phone? Sign straight in. Otherwise offer the
+// same two ways for EVERY number (nothing reveals whether it's registered):
+// an emailed code, or asking the coach to approve this phone.
+KFitStore.myClients(getSB(),mobile).then(function(res){
+if(!res.error&&res.data&&!res.data.length){ _showEmailOtpStep(mobile); return; }
 _dbg('checkMobileLogin: query resolved, error='+(res.error?JSON.stringify(res.error):'none')+' rows='+(res.data?res.data.length:'null'));
 if(!res.error&&res.data&&res.data.length){
 var best=_pickBestClientRow(res.data,mobile);
 _handleMobileLookupResult(best,mobile);
 return;
 }
-document.getElementById('pwError').textContent='Mobile number not found -- try "New" instead';
+document.getElementById('pwError').textContent='Something went wrong -- check your internet and try again';
 }).catch(function(err){
 _dbg('checkMobileLogin: query REJECTED -- '+(err&&err.message?err.message:err));
 document.getElementById('pwError').textContent='Something went wrong -- check your internet and try again';
@@ -1894,23 +1907,72 @@ _completeFitnessLogin(match,mobile);
 return;
 }
 
+// A client with an email on file proves it's them on a new phone: they
+// type their email (only a hint is shown), get a code, and the database
+// links this phone only if that verified email matches their account.
+var _otpPendingEmail=null;
+function requestCoachApproval(){
+var mobile=_otpPendingMobile; if(!mobile) return;
+document.getElementById('pwError').textContent='Checking...';
+KFitStore.requestAccess(getSB(),{mobile:mobile,name:null,coachId:getClientCoachId(),email:null}).then(function(r){
+if(r.status==='linked'){
+KFitStore.myClients(getSB(),mobile).then(function(res){
+if(res.error||!res.data||!res.data.length){document.getElementById('pwError').textContent='Something went wrong -- try again';return;}
+document.getElementById('pwError').textContent='';
+_completeFitnessLogin(_pickBestClientRow(res.data,mobile),mobile);
+});
+return;
+}
+document.getElementById('pwError').textContent=r.status==='pending'
+?'Request sent to your coach. Once they approve this phone, tap Sign In again.'
+:r.status==='rejected'?'Your coach didn\'t approve this phone. Please contact them.'
+:(r.message||'Something went wrong -- try again');
+});
+}
+function _showEmailOtpStep(mobile,hint){
+_otpPendingMobile=mobile; _otpPendingEmail=null;
+document.getElementById('mobileStepEntry').style.display='none';
+document.getElementById('mobileStepOtp').style.display='block';
+document.getElementById('otpEmailStep').style.display='block';
+document.getElementById('otpCodeStep').style.display='none';
+document.getElementById('otpEmailHint').textContent='';
+document.getElementById('pwError').textContent='';
+}
+function sendFitnessOtp(){
+var email=(document.getElementById('otpEmailInput').value||'').trim().toLowerCase();
+if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){document.getElementById('pwError').textContent='Enter the email on your account';return;}
+_otpPendingEmail=email;
+document.getElementById('pwError').textContent='Sending code...';
+getSB().auth.signInWithOtp({email:email,options:{shouldCreateUser:true}}).then(function(r){
+if(r.error){document.getElementById('pwError').textContent='Could not send the code: '+r.error.message;return;}
+document.getElementById('pwError').textContent='Code sent -- check your email';
+document.getElementById('otpEmailStep').style.display='none';
+document.getElementById('otpCodeStep').style.display='block';
+});
+}
 function verifyFitnessOtp(){
 var code=document.getElementById('otpInput').value.trim();
-var email=_otpPendingMatch&&_otpPendingMatch.data&&_otpPendingMatch.data.email;
-if(!code||!email){return;}
+var email=_otpPendingEmail;
+if(!code||!email||!_otpPendingMobile){return;}
 document.getElementById('pwError').textContent='Verifying...';
 getSB().auth.verifyOtp({email:email,token:code,type:'email'}).then(function(res){
 if(res.error){
 document.getElementById('pwError').textContent='Incorrect or expired code -- try again';
 return;
 }
+KFitStore.linkVerified(getSB(),_otpPendingMobile).then(function(lr){
+if(lr.error||!lr.data||!lr.data.length){
+document.getElementById('pwError').textContent='Couldn\'t confirm this number with that email. You can ask your coach to approve this phone instead.';
+return;
+}
 document.getElementById('pwError').textContent='';
-_completeFitnessLogin(_otpPendingMatch,_otpPendingMobile);
+_completeFitnessLogin(_pickBestClientRow(lr.data,_otpPendingMobile),_otpPendingMobile);
+});
 });
 }
 
 function resendFitnessOtp(){
-var email=_otpPendingMatch&&_otpPendingMatch.data&&_otpPendingMatch.data.email;
+var email=_otpPendingEmail;
 if(!email)return;
 document.getElementById('pwError').textContent='Resending...';
 getSB().auth.signInWithOtp({email:email,options:{shouldCreateUser:true}}).then(function(otpRes){
@@ -1922,6 +1984,7 @@ setTimeout(function(){document.getElementById('pwError').textContent='';},2500);
 function backToMobileEntry(){
 _otpPendingMobile=null;
 _otpPendingMatch=null;
+_otpPendingEmail=null;
 document.getElementById('otpInput').value='';
 document.getElementById('mobileStepOtp').style.display='none';
 document.getElementById('mobileStepEntry').style.display='block';
@@ -2096,15 +2159,9 @@ if(localStorage.getItem('kmfit_device_seen')&&localStorage.getItem('kmnut_device
 ensureAnonAuth(function(uid){
 if(!uid)return;
 (function(){
-if(!localStorage.getItem('kmfit_device_seen')){
-localStorage.setItem('kmfit_device_seen','1');
-getSBScoped().from('tracker_data').upsert({
-client_id:deviceId,
-tracker:'fitness',
-data:{name:'(App opened -- not set up yet)',mobile:'',sessions:[]},
-updated_at:new Date().toISOString()
-},{onConflict:'client_id,tracker'}).then(function(){});
-}
+// (Fitness no longer writes an "app opened" placeholder: a phone can't
+// write anything until the coach approves it -- the approval request in
+// the coach's inbox takes its place.)
 if(!localStorage.getItem('kmnut_device_seen')){
 localStorage.setItem('kmnut_device_seen','1');
 getSBScoped().from('tracker_data').upsert({
@@ -4674,7 +4731,9 @@ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.g
 }
 
 function getSB(){
-if(!sbClient) sbClient=supabase.createClient(SB_URL,SB_KEY);
+// Fitness reads/writes go to the per-row tables (kfit-fitness-store.js);
+// everything else is the plain Supabase client.
+if(!sbClient) sbClient=KFitStore.wrapClient(supabase.createClient(SB_URL,SB_KEY),{claim:true,coachId:function(){return getClientCoachId();}});
 return sbClient;
 }
 // IMPORTANT: replace this with your actual coach id (from `select id from
@@ -4696,7 +4755,7 @@ function getClientCoachId(){
   }
   return KFIT_DEFAULT_COACH_ID;
 }
-const COACH_SCOPED_TABLES_CLIENT=[...COACH_SCOPED_TABLES_BASE,'attendance','custom_exercises']; // base loaded from kfit-exercise-library.js, extended with fitness-only tables
+const COACH_SCOPED_TABLES_CLIENT=[...COACH_SCOPED_TABLES_BASE,'attendance','custom_exercises','fitness_clients','fitness_sessions','fitness_measurements']; // base loaded from kfit-exercise-library.js, extended with fitness-only tables
 function getSBScoped(){
   const real=getSB();
   return {
@@ -4752,43 +4811,16 @@ function getSBScoped(){
 // hitting exactly that gap -- caught by the automated tracker-flow tests,
 // not a live report.
 function registerNewFitnessClient(){
-// Writes a minimal row immediately on signup, before any session is logged.
-// Without this, a client who creates a profile but hasn't logged anything
-// yet has zero rows in Supabase and is invisible in Merge -- this closes
-// that gap. syncFitnessToSupabase() deliberately skips writing when
-// everything is empty (to avoid clobbering real data during normal sync),
-// so this is a separate, one-time registration write, not a regular sync.
+// Makes a brand-new client visible in Merge straight away, before any
+// session is logged: a sync always creates this client's row.
 var key=getFitClientKey();
 if(key==='unknown')return;
-ensureAnonAuth(function(uid){
-if(!uid)return;
-var payload={
-user_id:uid,
-client_id:key,
-tracker:'fitness',
-data:{
-sessions:[],
-notes:{},
-assignedWorkouts:{},
-deletedSessionIds:[],
-measurements:JSON.parse(localStorage.getItem('kmfit_measurements')||'[]'),
-routines:[],
-name:localStorage.getItem('kmfit_name'),
-mobile:localStorage.getItem('kmfit_mobile'),
-email:localStorage.getItem('kmfit_email'),
-target:localStorage.getItem('kmfit_target'),
-age:localStorage.getItem('kmfit_age'),
-gender:localStorage.getItem('kmfit_gender'),
-unit:localStorage.getItem('kmfit_unit')
-},
-updated_at:new Date().toISOString()
-};
-getSBScoped().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(){
+syncFitnessToSupabase(function(ok){
+if(!ok) return;
 var deviceId=localStorage.getItem('kfit_device_id');
 if(deviceId&&deviceId!==key){
 getSBScoped().from('tracker_data').delete().eq('client_id',deviceId).eq('tracker','fitness').then(function(){});
 }
-});
 });
 }
 
@@ -4998,207 +5030,383 @@ return 'upload '+fmt(total)+': '+parts.map(function(p){return p.k+' '+fmt(p.n);}
 }catch(e){return '';}
 }
 
-function syncFitnessToSupabase(){
+// ===== FITNESS SYNC (one row per session) =====
+// Each save now sends only what changed -- one small row per changed
+// session or measurement -- and each sync downloads only rows that changed
+// on the server since the last sync. Nothing ever re-uploads the whole
+// history again. The rules that used to live here as merge code now also
+// live in the database itself (kfit-fitness-rows.sql):
+//   - an older copy of a session can never overwrite a newer one
+//   - a deleted session stays deleted unless the coach restores it
+//   - nothing from before a coach wipe can come back
+// Offline: everything is saved on this device first; a failed sync leaves
+// the pending flag set and retries automatically (on open, on coming back
+// online, on returning to the app), exactly as before.
+var _fitNextWaiters=[];
+var _FIT_DEVICE_COLS=['name','mobile','email','profile','notes','routines','assigned_workouts','deleted_routine_ids','deleted_assigned_dates'];
+function _fitSyncState(){
 var key=getFitClientKey();
-if(key==='unknown')return;
-if((!sessions||sessions.length===0)&&(!deletedSessionIds||deletedSessionIds.length===0)&&(!measurements||measurements.length===0)&&(!routines||routines.length===0))return;
-if(_fitSyncInFlight){_fitSyncQueued=true;return;}
+var st=null;
+try{st=JSON.parse(localStorage.getItem('kmfit_sync_state')||'null');}catch(e){st=null;}
+if(!st||st.key!==key) st={key:key};
+st.cur=st.cur||{s:null,m:null}; st.ss=st.ss||{}; st.sm=st.sm||{}; st.sc=st.sc||{};
+st.dead=st.dead||[]; st.mdead=st.mdead||[]; st.known=!!st.known; st.wipeAck=st.wipeAck||0;
+return st;
+}
+function _fitSaveSyncState(st){ try{localStorage.setItem('kmfit_sync_state',JSON.stringify(st));}catch(e){} }
+function _fitJSON(k,dflt){ try{var v=JSON.parse(localStorage.getItem(k)||'null'); return v==null?dflt:v;}catch(e){return dflt;} }
+// The screens keep these in memory; fill any that are still empty from
+// this device's saved copy (e.g. a sync that runs before the app loaded).
+function _fitLoadLocalLists(){
+if(!sessions||!sessions.length) sessions=_fitJSON('kmfit_sessions',[]);
+if(!measurements||!measurements.length) measurements=_fitJSON('kmfit_measurements',[]);
+if(!routines||!routines.length) routines=_fitJSON('kmfit_routines',[]);
+if(!notes||typeof notes!=='object'||!Object.keys(notes).length) notes=_fitJSON('kmfit_notes',{});
+if(!assignedWorkouts||Array.isArray(assignedWorkouts)||!Object.keys(assignedWorkouts).length) assignedWorkouts=_fitJSON('kmfit_assigned_workouts',{});
+deletedSessionIds=Array.from(new Set([...(deletedSessionIds||[]),..._fitJSON('kmfit_deleted_ids',[])].map(String)));
+if(!deletedSessionsArchive||!deletedSessionsArchive.length) deletedSessionsArchive=_fitJSON('kmfit_deleted_archive',[]);
+deletedRoutineIds=Array.from(new Set([...(deletedRoutineIds||[]),..._fitJSON('kmfit_deleted_routine_ids',[])]));
+deletedAssignedWorkoutDates=Array.from(new Set([...(deletedAssignedWorkoutDates||[]),..._fitJSON('kmfit_deleted_assigned_dates',[])]));
+}
+function _fitPersistLocal(){
+try{
+localStorage.setItem('kmfit_sessions',JSON.stringify(sessions));
+localStorage.setItem('kmfit_measurements',JSON.stringify(measurements));
+localStorage.setItem('kmfit_routines',JSON.stringify(routines));
+localStorage.setItem('kmfit_notes',JSON.stringify(notes));
+localStorage.setItem('kmfit_assigned_workouts',JSON.stringify(assignedWorkouts||{}));
+localStorage.setItem('kmfit_deleted_ids',JSON.stringify(deletedSessionIds));
+localStorage.setItem('kmfit_deleted_routine_ids',JSON.stringify(deletedRoutineIds));
+localStorage.setItem('kmfit_deleted_assigned_dates',JSON.stringify(deletedAssignedWorkoutDates));
+deletedSessionsArchive=(deletedSessionsArchive||[]).slice(0,80);
+localStorage.setItem('kmfit_deleted_archive',JSON.stringify(deletedSessionsArchive));
+}catch(e){console.warn('Could not save fitness data on this device:',e);}
+}
+// Clears this device's fitness copy. keepAfterMs: anything logged after
+// that moment (e.g. after a coach wipe) is kept -- it's new, not old data.
+function _fitResetLocal(keepAfterMs){
+var keepS=(sessions||[]).filter(function(s){return KFitStore.msOf(s&&s.updatedAt)>keepAfterMs;});
+var keepM=(measurements||[]).filter(function(m){return KFitStore.msOf(m&&m.updatedAt)>keepAfterMs;});
+['kmfit_sessions','kmfit_sessions_backup','kmfit_measurements','kmfit_routines','kmfit_assigned_workouts','kmfit_deleted_ids','kmfit_deleted_archive','kmfit_deleted_routine_ids','kmfit_deleted_assigned_dates','kmfit_notes','kmfit_sync_state'].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
+sessions=keepS; measurements=keepM; routines=[]; assignedWorkouts={}; notes={};
+deletedSessionIds=[]; deletedSessionsArchive=[]; deletedRoutineIds=[]; deletedAssignedWorkoutDates=[];
+_fitPersistLocal();
+}
+function _fitLocalClientCols(){
+return KFitStore.clientColsFromBlob({
+name:localStorage.getItem('kmfit_name'),mobile:localStorage.getItem('kmfit_mobile'),email:localStorage.getItem('kmfit_email'),
+target:localStorage.getItem('kmfit_target'),age:localStorage.getItem('kmfit_age'),gender:localStorage.getItem('kmfit_gender'),unit:localStorage.getItem('kmfit_unit'),
+notes:notes,routines:routines,assignedWorkouts:assignedWorkouts,deletedRoutineIds:deletedRoutineIds,deletedAssignedWorkoutDates:deletedAssignedWorkoutDates
+});
+}
+function _fitIsEmpty(v){ return v==null||v===''||(Array.isArray(v)&&!v.length)||(typeof v==='object'&&!Array.isArray(v)&&!Object.keys(v).length); }
+// Client-level fields (profile, notes, routines, assigned workouts, and
+// the coach's tag). Each field on its own: a field this device changed
+// since its last sync keeps the device's version; any other field takes
+// the server's. Deletion lists are always combined.
+function _fitApplyServerClient(c,st){
+if(!c) return;
+_isActiveTaggedClient=!!c.is_active_client;
+refreshSaveBtnLabel();
+try{localStorage.setItem('kmfit_is_tagged',_isActiveTaggedClient?'1':'0');}catch(e){}
+_activeTaggedSinceDate=c.active_since_date||null;
+var srv=KFitStore.clientColsFromBlob(KFitStore.blobFieldsFromClientRow(c));
+var srvSig=KFitStore.clientColSigs(srv);
+var locSig=KFitStore.clientColSigs(_fitLocalClientCols());
+function dirty(k){ return st.sc[k]!==undefined?locSig[k]!==st.sc[k]:_fitIsEmpty(srv[k]); }
+deletedRoutineIds=Array.from(new Set([...(deletedRoutineIds||[]),...(srv.deleted_routine_ids||[])]));
+deletedAssignedWorkoutDates=Array.from(new Set([...(deletedAssignedWorkoutDates||[]),...(srv.deleted_assigned_dates||[])]));
+var rMap={};
+(srv.routines||[]).forEach(function(r){if(r&&r.id)rMap[r.id]=r;});
+(routines||[]).forEach(function(r){if(r&&r.id&&(!rMap[r.id]||(r.updatedAt||0)>(rMap[r.id].updatedAt||0)))rMap[r.id]=r;});
+deletedRoutineIds.forEach(function(id){delete rMap[id];});
+routines=Object.values(rMap).sort(function(a,b){return (b.updatedAt||0)-(a.updatedAt||0);});
+var aw=dirty('assigned_workouts')?Object.assign({},srv.assigned_workouts,assignedWorkouts||{}):Object.assign({},srv.assigned_workouts);
+deletedAssignedWorkoutDates.forEach(function(dt){delete aw[dt];});
+assignedWorkouts=aw;
+if(!dirty('notes')) notes=srv.notes||{};
+if(!dirty('profile')){
+var p=srv.profile||{};
+['target','age','gender','unit'].forEach(function(k){ if(p[k]!=null&&p[k]!=='') localStorage.setItem('kmfit_'+k,String(p[k])); });
+}
+if(!dirty('name')&&srv.name) localStorage.setItem('kmfit_name',srv.name);
+if(!dirty('email')&&srv.email) localStorage.setItem('kmfit_email',srv.email);
+var after=KFitStore.clientColSigs(_fitLocalClientCols());
+_FIT_DEVICE_COLS.forEach(function(k){ if(after[k]===srvSig[k]) st.sc[k]=srvSig[k]; });
+if(typeof checkForNewCoachRoutines==='function') checkForNewCoachRoutines();
+}
+function _fitApplyServerSessions(p,st){
+var dead=new Set(st.dead.map(String)), del=new Set((deletedSessionIds||[]).map(String));
+var byId={}, changed=false;
+(sessions||[]).forEach(function(s){ if(s&&s.id!=null) byId[String(s.id)]=s; });
+p.dead.forEach(function(r){
+var id=String(r.session_id);
+dead.add(id); del.add(id); delete st.ss[id];
+if(byId[id]){ delete byId[id]; changed=true; }
+});
+p.live.forEach(function(r){
+var id=String(r.session_id), body=r.body||{};
+if(del.has(id)){
+// Deleted on the server before and live now = the coach restored it.
+// Deleted only on this device (not yet sent) = this device's delete wins.
+if(dead.has(id)){ del.delete(id); dead.delete(id); } else return;
+}
+var sg=KFitStore.sig(KFitStore.compactSession(body)), loc=byId[id];
+if(loc){
+var lg=KFitStore.sig(KFitStore.compactSession(loc));
+if(lg===sg){ st.ss[id]=sg; return; }
+if(lg!==st.ss[id]&&KFitStore.msOf(loc.updatedAt)>KFitStore.msOf(r.updated_ms)) return; // newer unsent edit here
+}
+byId[id]=body; st.ss[id]=sg; changed=true;
+});
+sessions=Object.values(byId).sort(function(a,b){var dd=new Date(b.date)-new Date(a.date);return dd!==0?dd:(b.updatedAt||0)-(a.updatedAt||0);});
+deletedSessionIds=Array.from(del); st.dead=Array.from(dead);
+return changed;
+}
+function _fitApplyServerMeas(p,st){
+var mdead=new Set(st.mdead.map(String)), byK={}, changed=false;
+(measurements||[]).forEach(function(m){ var k=KFitStore.measKey(m); if(k) byK[k]=m; });
+p.measDead.forEach(function(r){ var k=String(r.meas_id); mdead.add(k); delete st.sm[k]; if(byK[k]){ delete byK[k]; changed=true; } });
+p.measLive.forEach(function(r){
+var k=String(r.meas_id), body=r.body||{};
+mdead.delete(k);
+var sg=KFitStore.sig(KFitStore.compactMeas(body)), loc=byK[k];
+if(loc){
+var lg=KFitStore.sig(KFitStore.compactMeas(loc));
+if(lg===sg){ st.sm[k]=sg; return; }
+if(lg!==st.sm[k]&&KFitStore.msOf(loc.updatedAt)>KFitStore.msOf(r.updated_ms)) return;
+}
+byK[k]=body; st.sm[k]=sg; changed=true;
+});
+measurements=Object.values(byK).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+st.mdead=Array.from(mdead);
+if(changed&&typeof estimateSessionCalories==='function') estimateSessionCalories();
+return changed;
+}
+// Everything on this device that differs from what the server last
+// confirmed -- and nothing else.
+function _fitBuildPush(uid,st){
+var key=st.key, plan={clientRow:null,sessionRows:[],measRows:[],sigS:{},sigM:{},dead:[],sc:{}};
+var dead=new Set(st.dead.map(String)), del=new Set((deletedSessionIds||[]).map(String));
+var keep=[];
+(sessions||[]).forEach(function(s){
+if(!s||s.id==null){ keep.push(s); return; }
+var id=String(s.id);
+if(del.has(id)) return;
+if(!isOwnSession(s)){ quarantineSession(s); return; }
+keep.push(s);
+var c=KFitStore.compactSession(s), g=KFitStore.sig(c);
+if(st.ss[id]===g) return;
+var r=KFitStore.sessionRow(key,c); if(uid) r.user_id=uid;
+plan.sessionRows.push(r); plan.sigS[id]=g;
+});
+sessions=keep;
+var arch={}; (deletedSessionsArchive||[]).forEach(function(x){ if(x&&x.id!=null) arch[String(x.id)]=x; });
+del.forEach(function(id){
+if(dead.has(id)) return;
+var a=arch[id];
+var r=KFitStore.tombstoneRow(key,id,a||null,a&&a.deletedAt); if(uid) r.user_id=uid;
+plan.sessionRows.push(r); plan.dead.push(id);
+});
+(measurements||[]).forEach(function(m){
+var k=KFitStore.measKey(m); if(!k) return;
+var c=KFitStore.compactMeas(m), g=KFitStore.sig(c);
+if(st.sm[k]===g) return;
+if(!KFitStore.msOf(c.updatedAt)){ c.updatedAt=Date.now(); m.updatedAt=c.updatedAt; g=KFitStore.sig(c); }
+var r=KFitStore.measRow(key,c); if(uid) r.user_id=uid;
+plan.measRows.push(r); plan.sigM[k]=g;
+});
+var cols=_fitLocalClientCols(), sigs=KFitStore.clientColSigs(cols);
+_FIT_DEVICE_COLS.forEach(function(k){
+if(st.known&&st.sc[k]===sigs[k]) return;
+if(!st.known&&_fitIsEmpty(cols[k])&&k!=='mobile') return;
+plan.clientRow=plan.clientRow||{client_id:key};
+plan.clientRow[k]=cols[k]; plan.sc[k]=sigs[k];
+});
+if(!plan.clientRow&&!st.known) plan.clientRow={client_id:key};
+if(plan.clientRow&&uid) plan.clientRow.user_id=uid;
+return plan;
+}
+function _fitCommitPush(plan,st){
+Object.keys(plan.sigS).forEach(function(id){ st.ss[id]=plan.sigS[id]; });
+Object.keys(plan.sigM).forEach(function(k){ st.sm[k]=plan.sigM[k]; });
+Object.keys(plan.sc).forEach(function(k){ st.sc[k]=plan.sc[k]; });
+var dead=new Set(st.dead.map(String));
+plan.dead.forEach(function(id){ dead.add(id); delete st.ss[id]; });
+st.dead=Array.from(dead);
+st.known=true;
+}
+// The database refused some rows (it enforces coach-only actions and, for
+// a coach-tagged client, approval). That only happens if this phone didn't
+// know yet -- e.g. the coach tagged the client while an edit was waiting to
+// sync. Nothing is lost: the refused change becomes a request to the coach
+// (just as if the app had known), or the server's copy is taken back.
+var _fitRefusalRounds=0;
+// A phone the database doesn't know yet (a new sign-up, or a phone that
+// wasn't the one in use at the switch-over) asks the coach to approve it.
+// Until then everything logged stays safely on this phone and syncs the
+// moment the coach approves.
+function _fitRequestAccess(){
+return KFitStore.requestAccess(getSB(),{
+mobile:(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,''),
+name:localStorage.getItem('kmfit_name'),
+coachId:getClientCoachId(),
+email:localStorage.getItem('kmfit_email')
+});
+}
+var _fitAccessShown=null;
+function _fitShowAccessStatus(status){
+if(window.__KFIT_COACH_PREVIEW__) return;
+var bar=document.getElementById('kfitAccessBar');
+if(status==='linked'){ if(bar) bar.remove(); _fitAccessShown=null; return; }
+if(_fitAccessShown===status) return;
+_fitAccessShown=status;
+if(!bar){
+bar=document.createElement('div');
+bar.id='kfitAccessBar';
+bar.style.cssText='position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:9999;background:var(--surf2,#222);border:1px solid var(--gold,#d4a73a);border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.4;color:var(--text,#fff);box-shadow:0 6px 20px rgba(0,0,0,.35);';
+document.body.appendChild(bar);
+}
+bar.textContent=status==='rejected'
+?'Your coach didn\'t confirm this phone. Please contact them. Everything you log is kept on this phone.'
+:'⏳ Waiting for your coach to confirm this phone. Everything you log is saved here and will sync once they confirm.';
+}
+function _fitHandleRefused(key,st,plan,res){
+var ids=res.refusedSessions||[], mids=res.refusedMeas||[];
+var deadSent={}; plan.dead.forEach(function(id){deadSent[id]=1;});
+var q1=ids.length?getSBScoped().from('fitness_sessions').select('session_id,body,deleted').eq('client_id',key).in('session_id',ids):Promise.resolve({data:[]});
+var q2=mids.length?getSBScoped().from('fitness_measurements').select('meas_id,body,deleted').eq('client_id',key).in('meas_id',mids):Promise.resolve({data:[]});
+return Promise.all([q1,q2]).then(function(r){
+if(r[0].error||r[1].error){ ids.forEach(function(id){delete st.ss[id];}); mids.forEach(function(k){delete st.sm[k];}); _fitSaveSyncState(st); return false; }
+var srv={}; (r[0].data||[]).forEach(function(x){srv[x.session_id]=x;});
+var now=Date.now(), requests=0;
+var del=new Set((deletedSessionIds||[]).map(String)), dead=new Set(st.dead.map(String));
+function findLocal(id){ return (sessions||[]).findIndex(function(x){return x&&String(x.id)===id;}); }
+ids.forEach(function(id){
+var S=srv[id], li=findLocal(id), L=li>-1?sessions[li]:null;
+if(deadSent[id]){
+// A delete was refused: the session is official -> ask the coach instead.
+if(S&&!S.deleted){
+var b=Object.assign({},S.body);
+if(_isActiveTaggedClient&&!b.pendingDelete){ b.pendingDelete={requestedAt:now}; delete b.pendingEdit; b.updatedAt=now; requests++; }
+del.delete(id); dead.delete(id);
+if(li>-1) sessions[li]=b; else sessions.push(b);
+st.ss[id]=KFitStore.sig(KFitStore.compactSession(S.body));
+} else { dead.add(id); delete st.ss[id]; }
+return;
+}
+if(S&&S.deleted){ if(li>-1) sessions.splice(li,1); del.add(id); dead.add(id); delete st.ss[id]; return; }
+if(S){
+var srvSig=KFitStore.sig(KFitStore.compactSession(S.body));
+if(_isActiveTaggedClient&&L&&!(S.body.approval)&&KFitStore.sig(KFitStore.official(L))!==KFitStore.sig(KFitStore.official(S.body))){
+var edit=KFitStore.compactSession(L); delete edit.pendingEdit; delete edit.pendingDelete; delete edit.approval; delete edit.lastDecision;
+var nb=Object.assign({},S.body,{pendingEdit:{session:edit,requestedAt:now},updatedAt:now}); delete nb.pendingDelete;
+sessions[li]=nb; requests++;
+} else if(li>-1){ sessions[li]=S.body; } else { sessions.push(S.body); }
+st.ss[id]=srvSig;
+return;
+}
+// A brand-new log was refused: for a tagged client it becomes a request.
+if(L&&_isActiveTaggedClient&&!L.approval){ L.approval={status:'pending',type:'new',requestedAt:now}; L.updatedAt=now; requests++; }
+delete st.ss[id];
+});
+(r[1].data||[]).forEach(function(x){
+var mi=(measurements||[]).findIndex(function(m){return KFitStore.measKey(m)===x.meas_id;});
+if(x.deleted){ if(mi>-1) measurements.splice(mi,1); delete st.sm[x.meas_id]; }
+else { if(mi>-1) measurements[mi]=x.body; st.sm[x.meas_id]=KFitStore.sig(KFitStore.compactMeas(x.body)); }
+});
+deletedSessionIds=Array.from(del); st.dead=Array.from(dead);
+_fitPersistLocal(); _fitSaveSyncState(st);
+if(requests){
+showBlockingAlert('Your coach now approves changes to your official log, so '+(requests===1?'this change was':'these '+requests+' changes were')+' sent to your coach for approval. You\'ll see a ⏳ tag until they decide.');
+}
+_fitRefusalRounds++;
+return requests>0&&_fitRefusalRounds<=3;
+});
+}
+function syncFitnessToSupabase(cb){
+var key=getFitClientKey();
+if(key==='unknown'){ if(typeof cb==='function') cb(false,false); return; }
+if(_fitSyncInFlight){ if(typeof cb==='function') _fitNextWaiters.push(cb); _fitSyncQueued=true; return; }
+var waiters=_fitNextWaiters.concat(typeof cb==='function'?[cb]:[]); _fitNextWaiters=[];
 _fitSyncInFlight=true;
+var finished=false;
 // Hard stop so a hung request can never leave the lock stuck forever.
-var _lockTimer=setTimeout(_fitSyncDone,30000);
-var finish=function(){clearTimeout(_lockTimer);_fitSyncDone();};
+var _lockTimer=setTimeout(function(){ _flagPendingTrackerSync(); finish(false,false); },45000);
+function finish(ok,found){
+if(finished) return; finished=true; clearTimeout(_lockTimer);
+_fitSyncDone();
+waiters.forEach(function(w){ try{w(ok,found);}catch(e){console.error('sync callback failed:',e);} });
+}
+_fitLoadLocalLists();
 ensureAnonAuth(function(uid){
-if(!uid){_flagPendingTrackerSync();finish();return;}
-
-var fetchQuery=getSBScoped().from('tracker_data').select('client_id,data').eq('client_id',key).eq('tracker','fitness');
-
-fetchQuery.then(function(fres){
-// If reading the server copy failed, STOP. Previously this carried on with
-// an empty server copy and then wrote this device's data over the whole
-// row -- silently wiping anything that only existed server-side (sessions
-// added or edited in Merge, coach-assigned workouts, the active-client
-// tag). Nothing is lost by stopping: the data is safe on this device and
-// the pending flag makes it retry.
-if(fres.error){
-console.error('Supabase read error (sync aborted, will retry):', JSON.stringify(fres.error));
+if(finished) return;
+if(!uid){_flagPendingTrackerSync();finish(false,false);return;}
+var pushUid=window.__KFIT_COACH_PREVIEW__?null:uid; // a coach previewing never becomes the owner
+var st=_fitSyncState();
+// The database only lets this phone reach its own client's rows: make
+// sure this phone is linked to it (once per account per phone).
+var linked=(st.linked&&st.linkedUid===uid)?Promise.resolve({status:'linked'}):_fitRequestAccess();
+linked.then(function(lr){
+if(finished) return;
+if(lr.status==='pending'||lr.status==='rejected'){ _flagPendingTrackerSync(); _fitShowAccessStatus(lr.status); finish(false,false); return; }
+if(lr.status!=='linked'&&lr.status!=='coach') return {error:{message:lr.message||'Could not check access'}};
+st.linked=true; st.linkedUid=uid; _fitShowAccessStatus('linked');
+return KFitStore.pull(getSBScoped(),key,st.cur);
+}).then(function(p){
+if(finished||!p) return;
+if(finished) return;
+// If reading the server failed, STOP: this device's data is safe, the
+// pending flag makes it retry, and nothing is written blind.
+if(p.error){
+console.error('Supabase read error (sync aborted, will retry):', JSON.stringify(p.error));
 _flagPendingTrackerSync();
 _trackerSyncFailCount++;
 if(_trackerSyncFailCount>=3){
-showBlockingAlert('Your workout is saved on this device, but it can\'t reach your coach\'s dashboard right now ('+(fres.error.message||fres.error.code||'')+'). It will keep retrying automatically.');
+showBlockingAlert('Your workout is saved on this device, but it can\'t reach your coach\'s dashboard right now ('+(p.error.message||p.error.code||'')+'). It will keep retrying automatically.');
 _trackerSyncFailCount=0;
 } else {
 setTimeout(retryPendingTrackerSync, 3000*_trackerSyncFailCount);
 }
-finish();
+finish(false,false);
 return;
 }
-var serverAssigned={};
-var serverSessions=[];
-var serverMeasurements=[];
-var serverRoutines=[];
-var serverArchive=[];
-// isActiveClient/activeSinceDate are set by the coach (via Merge tagging),
-// never by this device -- carried forward as-is on every sync so this
-// device's own write doesn't silently drop them, the same way a coach's
-// assignment delete could get undone if its tombstone wasn't respected.
-var serverIsActiveClient=null, serverActiveSinceDate=null;
-try{
-var serverDeletedAssignedDates=[];
-var serverDeletedSessionIds=[];
-var serverDeletedMeasIds=[];
-if(!fres.error&&fres.data&&fres.data.length){
-fres.data.forEach(function(row){
-if(!row.data) return;
-var fd=typeof row.data==='string'?JSON.parse(row.data):row.data;
-serverAssigned=Object.assign({},serverAssigned,fd.assignedWorkouts||{});
-serverSessions=serverSessions.concat(fd.sessions||[]);
-serverMeasurements=serverMeasurements.concat(fd.measurements||[]);
-serverDeletedMeasIds=serverDeletedMeasIds.concat(fd.deletedMeasurementIds||[]);
-serverRoutines=serverRoutines.concat(fd.routines||[]);
-serverArchive=serverArchive.concat(fd.deletedSessionsArchive||[]);
-serverDeletedAssignedDates=serverDeletedAssignedDates.concat(fd.deletedAssignedWorkoutDates||[]);
-serverDeletedSessionIds=serverDeletedSessionIds.concat(fd.deletedSessionIds||[]);
-if(fd.isActiveClient!==undefined) serverIsActiveClient=fd.isActiveClient;
-if(fd.activeSinceDate!==undefined) serverActiveSinceDate=fd.activeSinceDate;
-});
+var found=!!p.client||st.known;
+// A coach used "delete all fitness data": clear this device's copy too
+// (keeping only anything logged after the wipe), so it can't come back.
+if(p.client&&p.client.wiped_ms&&Number(p.client.wiped_ms)>(st.wipeAck||0)){
+var ack=Number(p.client.wiped_ms);
+_fitResetLocal(ack);
+st=_fitSyncState(); st.wipeAck=ack;
+if(!window.__KFIT_COACH_PREVIEW__) toast('Your coach has reset your fitness history on this account.');
 }
-}catch(e){}
-var mergedAssigned=Object.assign({},serverAssigned,assignedWorkouts);
-// A coach deleting an assignment (via Merge) only removes it from the server
-// copy -- this device's own local assignedWorkouts, if it still has that
-// date cached, would otherwise just get overlaid right back on top above,
-// silently undoing the deletion on this very sync. Applying the tombstone
-// list here is what actually makes a coach's deletion stick.
-// Union WITHOUT duplicates. This used to be a plain concat of this
-// phone's list + the server's list on every sync -- and the result was
-// uploaded back, so the list doubled every single sync. It reached 38.8 MB
-// on Karan's record: that's what broke his uploads ("Load failed") and made
-// Merge time out opening his history.
-deletedAssignedWorkoutDates=Array.from(new Set([...(deletedAssignedWorkoutDates||[]),...serverDeletedAssignedDates]));
-try{localStorage.setItem('kmfit_deleted_assigned_dates',JSON.stringify(deletedAssignedWorkoutDates));}catch(e){}
-deletedAssignedWorkoutDates.forEach(function(dt){ delete mergedAssigned[dt]; });
-assignedWorkouts=mergedAssigned;
-
-var measById={};
-serverMeasurements.forEach(function(m){ if(m.id) measById[m.id]=m; });
-(measurements||[]).forEach(function(m){
-if(!m.id) return;
-var srv=measById[m.id];
-if(!srv||(m.updatedAt||0)>=(srv.updatedAt||0)) measById[m.id]=m;
-});
-// A measurement your coach deleted in Merge stays deleted: it used to come
-// straight back from this phone's local copy on the next sync.
-serverDeletedMeasIds.forEach(function(id){ delete measById[id]; });
-var mergedMeasurements=Object.values(measById).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
-measurements=mergedMeasurements;
-try{localStorage.setItem('kmfit_measurements',JSON.stringify(measurements));}catch(e){}
-
-var routById={};
-serverRoutines.forEach(function(r){ if(r.id) routById[r.id]=r; });
-(routines||[]).forEach(function(r){
-if(!r.id) return;
-var srv=routById[r.id];
-if(!srv||(r.updatedAt||0)>=(srv.updatedAt||0)) routById[r.id]=r;
-});
-(deletedRoutineIds||[]).forEach(function(id){ delete routById[id]; });
-var mergedRoutines=Object.values(routById).sort(function(a,b){return (b.updatedAt||0)-(a.updatedAt||0);});
-routines=mergedRoutines;
-try{localStorage.setItem('kmfit_routines',JSON.stringify(routines));}catch(e){}
-
-var localById={};
-sessions.forEach(function(s){ localById[s.id]=s; });
-var mergedById={};
-serverSessions.forEach(function(s){ mergedById[s.id]=s; });
-// Guards against exactly what happened tonight: a device's own local
-// cache holding onto session content that was never actually theirs (from
-// an old contamination incident), silently re-uploading it forever on
-// every sync even after the server side gets cleaned up. A local session
-// only gets merged back in if its embedded client name is missing (older
-// sessions predate this field) or actually matches this device's own
-// current name -- anything else is almost certainly stale cross-client
-// content and gets dropped rather than re-synced.
-sessions.forEach(function(s){
-if(!isOwnSession(s)){
-quarantineSession(s);
+_fitApplyServerClient(p.client,st);
+var ch1=_fitApplyServerSessions(p,st);
+var ch2=_fitApplyServerMeas(p,st);
+st.cur=p.cursors;
+var plan=_fitBuildPush(pushUid,st);
+_fitPersistLocal();
+_fitSaveSyncState(st);
+if(!plan.clientRow&&!plan.sessionRows.length&&!plan.measRows.length){
+_clearPendingTrackerSync();
+finish(true,found);
+if(ch1||ch2) refreshHistoryWhenIdle();
 return;
 }
-var srv=mergedById[s.id];
-if(!srv||(s.updatedAt||0)>=(srv.updatedAt||0)) mergedById[s.id]=s;
-});
-
-// Deletions made on the server (by the coach in Merge, or a delete request
-// the coach approved) must stick here too. Only this device's own list was
-// applied before, so a session the coach deleted came straight back from
-// this phone's local copy on its next sync.
-deletedSessionIds=Array.from(new Set([...(deletedSessionIds||[]),...serverDeletedSessionIds]));
-try{localStorage.setItem('kmfit_deleted_ids',JSON.stringify(deletedSessionIds));}catch(e){}
-(deletedSessionIds||[]).forEach(function(id){ delete mergedById[id]; });
-var mergedSessions=Object.values(mergedById).sort(function(a,b){
-var dateDiff=new Date(b.date)-new Date(a.date);
-if(dateDiff!==0) return dateDiff;
-return (b.updatedAt||0)-(a.updatedAt||0);
-});
-sessions=mergedSessions;
-try{localStorage.setItem('kmfit_sessions',JSON.stringify(sessions));}catch(e){}
-
-// Merge the deleted-session archive same as everything else -- union by id,
-// most recent first, capped so this can't grow unbounded over years of use.
-var archiveById={};
-serverArchive.forEach(function(s){ if(s&&s.id) archiveById[s.id]=s; });
-(deletedSessionsArchive||[]).forEach(function(s){ if(s&&s.id) archiveById[s.id]=s; });
-deletedSessionsArchive=Object.values(archiveById).sort(function(a,b){return (b.updatedAt||0)-(a.updatedAt||0);}).slice(0,80);
-try{localStorage.setItem('kmfit_deleted_archive',JSON.stringify(deletedSessionsArchive));}catch(e){}
-
-var payload={
-user_id:uid,
-client_id:key,
-tracker:'fitness',
-data:{
-sessions:sessions,
-notes:notes,
-assignedWorkouts:mergedAssigned,
-deletedSessionIds:deletedSessionIds,
-deletedSessionsArchive:deletedSessionsArchive,
-deletedRoutineIds:deletedRoutineIds,
-deletedMeasurementIds:Array.from(new Set(serverDeletedMeasIds)),
-deletedAssignedWorkoutDates:deletedAssignedWorkoutDates,
-measurements:measurements,
-routines:routines,
-isActiveClient:serverIsActiveClient,
-activeSinceDate:serverActiveSinceDate,
-// Tiny top-level count so Merge can find clients with requests without
-// downloading everyone's full history.
-pendingRequests:(sessions||[]).filter(function(x){return (x.approval&&x.approval.status==='pending')||x.pendingEdit||x.pendingDelete;}).length,
-name:localStorage.getItem('kmfit_name'),
-mobile:localStorage.getItem('kmfit_mobile'),
-email:localStorage.getItem('kmfit_email'),
-target:localStorage.getItem('kmfit_target'),
-age:localStorage.getItem('kmfit_age'),
-gender:localStorage.getItem('kmfit_gender'),
-unit:localStorage.getItem('kmfit_unit')
-},
-updated_at:new Date().toISOString()
-};
-compactFitnessData(payload.data);
-// Keep this device's copy as lean as what's uploaded.
-deletedSessionsArchive=payload.data.deletedSessionsArchive;
-try{localStorage.setItem('kmfit_deleted_archive',JSON.stringify(deletedSessionsArchive));}catch(e){}
-var _sizeReport=fitnessPayloadReport(payload.data);
-try{localStorage.setItem('kmfit_last_upload_size',_sizeReport);}catch(e){}
-getSBScoped().from('tracker_data').upsert(payload,{onConflict:'client_id,tracker'}).then(function(res){
+var sizeNote=plan.sessionRows.length+' session row(s), '+plan.measRows.length+' measurement row(s)';
+try{localStorage.setItem('kmfit_last_upload_size',sizeNote);}catch(e){}
+KFitStore.push(getSBScoped(),plan).then(function(res){
+if(finished) return;
 if(res.error){
-console.error('Supabase write error:', JSON.stringify(res.error), _sizeReport);
-var errMsg=(res.error.message||res.error.code||'')+(_sizeReport?' · '+_sizeReport:'');
-// The ownership trigger's rejection is not a network problem -- it means
-// a session in this device's own local data doesn't actually belong to
-// whoever's logged in. Retrying sends the exact same rejected payload
-// again and again forever, which never succeeds and just repeats the
-// same alert. This needs a human to look at it, not another attempt.
-var isOwnershipRejection=/cannot contain session client/i.test(errMsg);
-if(isOwnershipRejection){
+console.error('Supabase write error:', JSON.stringify(res.error), sizeNote);
+var errMsg=(res.error.message||res.error.code||'');
+// A session that belongs to a different mobile number is refused by the
+// database. Retrying sends the same thing again forever -- a person
+// needs to look at it instead.
+if(/cannot contain session client/i.test(errMsg)){
 _clearPendingTrackerSync();
 showBlockingAlert('A session stored on this device doesn\'t match your account and was blocked from syncing ('+errMsg+'). This needs your coach to look at it directly -- retrying automatically won\'t fix this one.');
-finish();
+finish(false,found);
 return;
 }
 _flagPendingTrackerSync();
@@ -5207,24 +5415,30 @@ if(_trackerSyncFailCount>=3){
 showBlockingAlert('Your workout is saved on this device, but hasn\'t reached your coach\'s dashboard after several tries ('+errMsg+'). It will keep retrying automatically -- but if this keeps happening, tell your coach directly so this specific session doesn\'t get missed.');
 _trackerSyncFailCount=0;
 } else {
-// "Load failed" is the phone dropping the request -- most often because the
-// app was switched away mid-save (iPhone pauses it). It's already queued and
-// retries by itself, so it doesn't deserve an alarming toast on the first
-// tries; the alert above still fires if it keeps failing.
 if(!/load failed|failed to fetch|network/i.test(errMsg)) toast('Sync error: '+errMsg+' -- will retry automatically');
 setTimeout(retryPendingTrackerSync, 3000*_trackerSyncFailCount);
 }
-finish();
-} else {
-_clearPendingTrackerSync();
-finish();
-refreshHistoryWhenIdle();
+finish(false,found);
+return;
 }
+_fitCommitPush(plan,st);
+_fitSaveSyncState(st);
+_clearPendingTrackerSync();
+var afterRefusals=(res.refusedSessions.length||res.refusedMeas.length)?_fitHandleRefused(key,st,plan,res):Promise.resolve(false);
+afterRefusals.then(function(resend){
+finish(true,true);
+refreshHistoryWhenIdle();
+if(resend) setTimeout(syncFitnessToSupabase,1500);
+});
+}).catch(function(err){
+console.error('Sync write crashed (will retry):',err);
+_flagPendingTrackerSync();
+finish(false,found);
 });
 }).catch(function(err){
 console.error('Sync crashed (will retry):',err);
 _flagPendingTrackerSync();
-finish();
+finish(false,false);
 });
 });
 }
@@ -5251,155 +5465,10 @@ renderStats();
 window.scrollTo(0,y);
 }
 
+// Opening / returning to the app: one incremental sync. callback(true)
+// when this client exists on the server (false = never registered yet).
 function loadFitnessFromSupabase(callback){
-ensureAnonAuth(function(uid){
-if(!uid){callback(false);return;}
-
-getSBScoped().from('tracker_data').select('data').eq('user_id',uid).eq('tracker','fitness').then(function(res){
-if(!res.error&&res.data&&res.data.length){
-_applyFitnessData(res.data[0].data);
-callback(true);
-return;
-}
-
-var key=getFitClientKey();
-getSBScoped().from('tracker_data').select('data').eq('client_id',key).eq('tracker','fitness').then(function(res2){
-if(res2.error||!res2.data||!res2.data.length){
-
-var name=(localStorage.getItem('kmfit_name')||'').toLowerCase().replace(/\s+/g,'_');
-if(!name){callback(false);return;}
-getSBScoped().from('tracker_data').select('data').eq('client_id',name).eq('tracker','fitness').then(function(res3){
-if(res3.error||!res3.data||!res3.data.length){callback(false);return;}
-_applyFitnessData(res3.data[0].data);
-syncFitnessToSupabase();
-callback(true);
-});
-return;
-}
-_applyFitnessData(res2.data[0].data);
-syncFitnessToSupabase();
-callback(true);
-});
-});
-});
-}
-
-function _applyFitnessData(d){
-if(d&&d.wiped){
-// A coach used Danger Zone to intentionally delete this account's data.
-// The alternative here -- treating an empty/missing server row as "never
-// synced yet" -- is exactly what silently resurrected deleted data before:
-// this device would just re-upload its own local copy on the next save.
-// A wipe marker instead of an actually-missing row lets this be told apart
-// from that case, so the coach's delete can actually stick.
-try{
-['kmfit_sessions','kmfit_sessions_backup','kmfit_measurements','kmfit_routines','kmfit_assignedWorkouts','kmfit_deleted_ids','kmfit_deleted_archive','kmfit_deleted_routine_ids','kmfit_deleted_assigned_dates','kmfit_weekly_notes','kmfit_monthly_notes'].forEach(function(k){localStorage.removeItem(k);});
-}catch(e){}
-sessions=[];measurements=[];routines=[];assignedWorkouts=[];deletedSessionIds=[];
-if(typeof deletedRoutineIds!=='undefined')deletedRoutineIds=[];
-if(typeof deletedAssignedWorkoutDates!=='undefined')deletedAssignedWorkoutDates=[];
-// Write back a fresh, non-wiped (empty) row so normal syncing resumes for
-// whatever this client logs from here on -- otherwise every future save
-// would be checked against, and rejected by, the wipe marker forever.
-try{
-var key=getFitClientKey();
-getSBScoped().from('tracker_data').update({data:{sessions:[],measurements:[],routines:[],assignedWorkouts:[]}}).eq('client_id',key).eq('tracker','fitness').then(function(){});
-}catch(e){}
-if(!window.__KFIT_COACH_PREVIEW__){
-toast('Your coach has reset your fitness history on this account.');
-}
-return;
-}
-// Read directly from data this device already fetches normally -- see the
-// comment on checkActiveClientTagStatus below for why a separate query
-// against client_tags turned out unreliable.
-_isActiveTaggedClient=!!d.isActiveClient;
-refreshSaveBtnLabel();
-try{localStorage.setItem('kmfit_is_tagged',_isActiveTaggedClient?'1':'0');}catch(e){}
-_activeTaggedSinceDate=d.activeSinceDate||null;
-var localRaw=localStorage.getItem('kmfit_sessions');
-var localSessions=[];
-try{localSessions=JSON.parse(localRaw)||[];}catch(e){}
-var localDeletedRaw=localStorage.getItem('kmfit_deleted_ids');
-var localDeleted=[];
-try{localDeleted=JSON.parse(localDeletedRaw)||[];}catch(e){}
-var remoteDeleted=d.deletedSessionIds||[];
-
-deletedSessionIds=Array.from(new Set([...localDeleted,...remoteDeleted]));
-var deletedSet=new Set(deletedSessionIds.map(String));
-
-var localArchiveRaw=localStorage.getItem('kmfit_deleted_archive');
-var localArchive=[];
-try{localArchive=JSON.parse(localArchiveRaw)||[];}catch(e){}
-var remoteArchive=d.deletedSessionsArchive||[];
-var archiveByIdInit={};
-remoteArchive.forEach(function(s){ if(s&&s.id) archiveByIdInit[s.id]=s; });
-localArchive.forEach(function(s){ if(s&&s.id) archiveByIdInit[s.id]=s; });
-deletedSessionsArchive=Object.values(archiveByIdInit).sort(function(a,b){return (b.updatedAt||0)-(a.updatedAt||0);}).slice(0,80);
-try{localStorage.setItem('kmfit_deleted_archive',JSON.stringify(deletedSessionsArchive));}catch(e){}
-
-var localDeletedRoutinesRaw=localStorage.getItem('kmfit_deleted_routine_ids');
-var localDeletedRoutines=[];
-try{localDeletedRoutines=JSON.parse(localDeletedRoutinesRaw)||[];}catch(e){}
-var remoteDeletedRoutines=d.deletedRoutineIds||[];
-deletedRoutineIds=Array.from(new Set([...localDeletedRoutines,...remoteDeletedRoutines]));
-var deletedRoutineSet=new Set(deletedRoutineIds.map(String));
-
-var localDeletedAssignedRaw=localStorage.getItem('kmfit_deleted_assigned_dates');
-var localDeletedAssigned=[];
-try{localDeletedAssigned=JSON.parse(localDeletedAssignedRaw)||[];}catch(e){}
-var remoteDeletedAssigned=d.deletedAssignedWorkoutDates||[];
-deletedAssignedWorkoutDates=Array.from(new Set([...localDeletedAssigned,...remoteDeletedAssigned]));
-
-var remoteSessions=(d.sessions||[]).filter(function(s){return !deletedSet.has(String(s.id));});
-localSessions=localSessions.filter(function(s){return !deletedSet.has(String(s.id));});
-var sessionMap={};
-remoteSessions.forEach(function(s){if(s.id)sessionMap[s.id]=s;});
-localSessions.forEach(function(s){if(s.id&&!sessionMap[s.id])sessionMap[s.id]=s;});
-var merged=Object.values(sessionMap).sort(function(a,b){
-var dateDiff=new Date(b.date)-new Date(a.date);
-if(dateDiff!==0) return dateDiff;
-
-return (b.updatedAt||0)-(a.updatedAt||0);
-});
-sessions=merged.length>0?merged:remoteSessions;
-if(d.notes)notes=d.notes;
-if(d.assignedWorkouts){
-var loadedAssigned=Object.assign({},d.assignedWorkouts);
-deletedAssignedWorkoutDates.forEach(function(dt){ delete loadedAssigned[dt]; });
-assignedWorkouts=loadedAssigned;
-try{localStorage.setItem('kmfit_deleted_assigned_dates',JSON.stringify(deletedAssignedWorkoutDates));}catch(e){}
-}
-if(d.measurements){
-var localM=measurements||[];
-var mMap={};
-(d.measurements||[]).forEach(function(m){if(m.id)mMap[m.id]=m;});
-localM.forEach(function(m){if(m.id&&(!mMap[m.id]||(m.updatedAt||0)>(mMap[m.id].updatedAt||0)))mMap[m.id]=m;});
-(d.deletedMeasurementIds||[]).forEach(function(id){ delete mMap[id]; });
-measurements=Object.values(mMap).sort(function(a,b){return new Date(b.date)-new Date(a.date);});
-if(typeof estimateSessionCalories==='function') estimateSessionCalories();
-}
-if(d.routines){
-var localR=routines||[];
-var rMap={};
-(d.routines||[]).forEach(function(r){if(r.id)rMap[r.id]=r;});
-localR.forEach(function(r){if(r.id&&(!rMap[r.id]||(r.updatedAt||0)>(rMap[r.id].updatedAt||0)))rMap[r.id]=r;});
-deletedRoutineIds.forEach(function(id){ delete rMap[id]; });
-routines=Object.values(rMap).sort(function(a,b){return (b.updatedAt||0)-(a.updatedAt||0);});
-try{localStorage.setItem('kmfit_deleted_routine_ids',JSON.stringify(deletedRoutineIds));}catch(e){}
-if(typeof checkForNewCoachRoutines==='function') checkForNewCoachRoutines();
-}
-if(d.name)localStorage.setItem('kmfit_name',d.name);
-if(d.target)localStorage.setItem('kmfit_target',d.target);
-if(d.age)localStorage.setItem('kmfit_age',d.age);
-if(d.gender)localStorage.setItem('kmfit_gender',d.gender);
-if(d.unit)localStorage.setItem('kmfit_unit',d.unit);
-localStorage.setItem('kmfit_sessions',JSON.stringify(sessions));
-localStorage.setItem('kmfit_notes',JSON.stringify(notes));
-localStorage.setItem('kmfit_deleted_ids',JSON.stringify(deletedSessionIds));
-localStorage.setItem('kmfit_measurements',JSON.stringify(measurements));
-localStorage.setItem('kmfit_routines',JSON.stringify(routines));
-syncFitnessToSupabase();
+syncFitnessToSupabase(function(ok,found){ if(callback) callback(!!found); });
 }
 
 function loadData(){
