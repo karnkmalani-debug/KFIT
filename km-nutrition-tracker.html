@@ -183,6 +183,7 @@ window.addEventListener('online',function(){flush();});
 
 // ---------- lessons & program logic ----------
 function tpl(){return S.program&&TEMPLATES[S.program.template_id];}
+function hasPlan(){return !!tpl();}
 function stepId(i){var t=tpl();return t&&t.path[i==null?S.program.step_index:i];}
 function habitOf(id){return HABITS[id]||null;}
 // the lesson days of a habit at this template's pace
@@ -256,7 +257,8 @@ function render(){
   if(S.view) return S.view();
   if(S.tab==='log') return renderLog();
   if(S.tab==='chat') return renderChat();
-  if(!S.program) return S.tab==='journey'?renderChooser(true):renderWelcome();
+  if(S.loaded&&!profileComplete()) return renderProfile(true);
+  if(!hasPlan()) return S.tab==='journey'?renderChooser(true):renderWelcome();
   if(S.tab==='journey') return renderJourney();
   return renderToday();
 }
@@ -353,7 +355,7 @@ async function enter(){
   S.view=null; loadCache(); render();
   try{ await flush(); await loadAll(); }catch(e){}
   try{ await syncLegacy(); }catch(e){ console.warn(e); }
-  S.view=null; render(); checkUnread();
+  S.loaded=true; S.view=null; render(); checkUnread();
 }
 
 // ---------- choose a plan ----------
@@ -369,7 +371,7 @@ function renderWelcome(){
     +'<div style="font-size:16px;line-height:1.45">'+S.legacyDays.length+' logged day'+(S.legacyDays.length===1?'':'s')+' saved. Everything you logged before is still here.</div></button>';
   if(dueWeekly()) html+='<button class="card" id="tdWeekly" style="border:none;text-align:left"><div class="cap g">Weekly check-in · 1 min</div>'
     +'<div style="font-size:16px;line-height:1.45">Waist and weight, once a week. Just a bookmark, never a grade.</div></button>';
-  html+='<button class="btn" id="tdMeal">Log a meal</button></div>';
+  html+='<button class="btn" id="tdMeal">Log a meal</button>'+kcalLine(today())+'</div>';
   show(html,{tabs:true});
   $('#wlPlan').onclick=function(){renderChooser(true);};
   var e=$('#wlEarlier'); if(e) e.onclick=function(){S.tab='log';renderEarlier();};
@@ -398,7 +400,7 @@ function startTemplate(id,history){
     history:(history||[]).concat([{type:'start',template:id,on:today()}]),settings:(S.program&&S.program.settings)||{},updated_ms:now()};
   write('nutrition_program',programRow()); S.tab='today'; S.view=null; render();
 }
-function programRow(){var p=S.program;return {client_id:S.clientId,template_id:p.template_id,step_index:p.step_index,step_started_on:p.step_started_on,started_on:p.started_on,history:p.history||[],settings:p.settings||{},updated_ms:p.updated_ms};}
+function programRow(){var p=S.program;return {client_id:S.clientId,template_id:p.template_id||null,step_index:p.step_index||0,step_started_on:p.step_started_on,started_on:p.started_on,history:p.history||[],settings:p.settings||{},updated_ms:p.updated_ms};}
 
 // ---------- Today ----------
 function renderToday(){
@@ -429,7 +431,7 @@ function renderToday(){
   }
   if(dueWeekly()) html+='<button class="card" id="tdWeekly" style="border:none;text-align:left"><div class="cap g">Weekly check-in · 1 min</div>'
     +'<div style="font-size:16px;line-height:1.45">Waist and weight, once a week. Just a bookmark, never a grade.</div></button>';
-  html+='<button class="btn out" id="tdMeal">Log a meal</button>';
+  html+='<button class="btn out" id="tdMeal">Log a meal</button>'+kcalLine(today());
   if(S.program.settings&&S.program.settings.coachHold) html+='<div class="meta">Your coach has asked you to stay with this habit a little longer.</div>';
   html+='</div>';
   show(html,{tabs:true});
@@ -616,7 +618,7 @@ function renderJourney(){
   };});
   $('#jnChange').onclick=function(){
     if(!confirm('Choose a different plan? Habits you\'ve finished stay finished.')) return;
-    var h=S.program.history; S.program=null; S._tpl=null; S._hist=h; renderChooserKeep();
+    var h=S.program.history; S.program=Object.assign({},S.program,{template_id:null}); S._tpl=null; S._hist=h; renderChooserKeep();
   };
 }
 function renderChooserKeep(){
@@ -641,7 +643,7 @@ function renderLog(){
   var d=S._logDay||today();
   var list=Object.keys(S.meals).map(function(k){return S.meals[k];}).filter(function(m){return m.day===d&&!m.deleted;})
     .sort(function(a,b){return (a.body.at||0)-(b.body.at||0);});
-  var html='<div class="screen"><h1>Your log</h1>'+logSwitch('meals')
+  var html='<div class="screen"><h1>Your log</h1>'+logSwitch('meals')+kcalLine(d,true)
     +'<div class="row" style="align-items:center;justify-content:space-between"><button class="round" id="lgPrev" aria-label="Previous day"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>'
     +'<div style="font-weight:700">'+(d===today()?'Today':parseD(d).toDateString().slice(0,10))+'</div>'
     +'<button class="round" id="lgNext" aria-label="Next day"'+(d>=today()?' disabled style="opacity:.3"':'')+'><svg class="icon" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>';
@@ -651,8 +653,9 @@ function renderLog(){
     html+='<div class="meal">'+(b.photo?'<img data-path="'+esc(b.photo)+'" alt="Meal photo">':'')
       +'<div style="flex:1;display:flex;flex-direction:column;gap:6px"><div class="cap">'+esc(b.slot||'Meal')+'</div>'
       +(b.text?'<div style="font-size:16px;line-height:1.4">'+esc(b.text)+'</div>':'')
-      +(f?'<div class="hands"><span><b>'+esc(f.protein)+'</b> palm protein</span><span><b>'+esc(f.veg)+'</b> fist veg</span><span><b>'+esc(f.carbs)+'</b> cupped carbs</span><span><b>'+esc(f.fats)+'</b> thumb fats</span></div>'
+      +(f&&f.protein!=null?'<div class="hands"><span><b>'+esc(f.protein)+'</b> palm protein</span><span><b>'+esc(f.veg)+'</b> fist veg</span><span><b>'+esc(f.carbs)+'</b> cupped carbs</span><span><b>'+esc(f.fats)+'</b> thumb fats</span></div>'
          +(f.tip?'<div style="font-size:15px;line-height:1.45;color:var(--soft)">'+esc(f.tip)+'</div>':''):'')
+      +(f&&f.kcal?'<div class="meta" style="font-weight:400">About '+esc(f.kcal)+' kcal (estimate)</div>':'')
       +'</div><button class="btn link" data-del="'+esc(m.meal_id)+'" style="font-size:14px;color:var(--muted)">Remove</button></div>';
   });
   html+='<button class="btn" id="lgAdd">Log a meal</button></div>';
@@ -701,6 +704,8 @@ function openMealForm(d){
       var up=await sb.storage.from('kfit-meals').upload(path,photo,{contentType:'image/jpeg',upsert:false});
       if(!up.error) m.body.photo=path; else toast('Photo not saved (connection). Your note is saved.');
       try{ m.body.feedback=await handFeedback(photo,text); }catch(e){ console.warn(e); }
+    } else {
+      try{ m.body.feedback=await textFeedback(text); }catch(e){ console.warn(e); }
     }
     S.meals[m.meal_id]=m; await write('nutrition_meals',mealRow(m));
     S.view=null; S._logDay=d; render();
@@ -722,13 +727,58 @@ async function handFeedback(blob,note){
     +(note?' (the person says: "'+note.replace(/"/g,"'").slice(0,300)+'")':'')+'. Estimate portions using hands only, never calories or grams: '
     +'protein in palms, vegetables in fists, carbs in cupped hands, fats in thumbs (use halves like 0.5, 1, 1.5). '
     +'Then give ONE short, kind, practical tip in plain English (max 25 words) based on: protein first, a fist of vegetables, eat protein then vegetables then fats and carbs last. Never shame. '
-    +'Reply ONLY with JSON: {"protein":number,"veg":number,"carbs":number,"fats":number,"tip":"..."}';
+    +'Also estimate the meal\'s total calories as a single rounded number (kcal), for reference only. '
+    +'Reply ONLY with JSON: {"protein":number,"veg":number,"carbs":number,"fats":number,"kcal":number,"tip":"..."}';
   var data=await b64(blob);
   var r=await fetch(GEMINI_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:data}}]}],generationConfig:{temperature:0.2,maxOutputTokens:512}})});
   var j=await r.json(); var t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts[0].text;
   var o=JSON.parse(String(t||'').replace(/```json|```/g,'').trim());
   function n(x){x=Number(x);return isFinite(x)&&x>=0&&x<10?Math.round(x*2)/2:0;}
-  return {protein:n(o.protein),veg:n(o.veg),carbs:n(o.carbs),fats:n(o.fats),tip:String(o.tip||'').slice(0,200)};
+  return {protein:n(o.protein),veg:n(o.veg),carbs:n(o.carbs),fats:n(o.fats),kcal:kc(o.kcal),tip:String(o.tip||'').slice(0,200)};
+}
+function kc(x){x=Math.round(Number(x)/10)*10;return isFinite(x)&&x>0&&x<5000?x:null;}
+// A typed meal (no photo) gets the same gentle feedback, from the words alone.
+async function textFeedback(text){
+  if(!text) return null;
+  var prompt='You are a warm, encouraging nutrition coach for Indian home food. A person ate: "'+text.replace(/"/g,"'").slice(0,400)+'". '
+    +'Estimate portions using hands: protein in palms, vegetables in fists, carbs in cupped hands, fats in thumbs (halves like 0.5, 1, 1.5), '
+    +'and the total calories as one rounded number (kcal), for reference only. Assume typical Indian home portions if amounts are not given. '
+    +'Give ONE short, kind, practical tip (max 25 words) based on: protein first, a fist of vegetables, carbs last. Never shame. '
+    +'Reply ONLY with JSON: {"protein":number,"veg":number,"carbs":number,"fats":number,"kcal":number,"tip":"..."}';
+  var r=await fetch(GEMINI_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.2,maxOutputTokens:400}})});
+  var j=await r.json(); var t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts[0].text;
+  var o=JSON.parse(String(t||'').replace(/```json|```/g,'').trim());
+  function n(x){x=Number(x);return isFinite(x)&&x>=0&&x<10?Math.round(x*2)/2:0;}
+  return {protein:n(o.protein),veg:n(o.veg),carbs:n(o.carbs),fats:n(o.fats),kcal:kc(o.kcal),tip:String(o.tip||'').slice(0,200)};
+}
+
+// ---------- Calories: for reference only, like calories burnt in fitness ----------
+var ACTIVITY=[['sitting','Mostly sitting',1.2,'Desk job, little exercise'],['light','Lightly active',1.375,'Exercise 1–3 days a week'],
+  ['active','Active',1.55,'Exercise 3–5 days a week'],['very','Very active',1.725,'Hard exercise most days, or a physical job']];
+function profile(){return (S.program&&S.program.settings&&S.program.settings.profile)||null;}
+function profileComplete(){var p=profile();return !!(p&&p.age&&p.sex&&p.height&&p.weight&&p.activity);}
+function latestWeight(){var p=profile();var m=measures().filter(function(x){return x.m.weight;})[0];return m&&(!p||!p.updated||m.day>=p.updated)?m.m.weight:(p&&p.weight);}
+// Mifflin-St Jeor resting energy x activity; fat loss ~18% below, never under a safe floor.
+function targets(){
+  var p=profile(); if(!profileComplete()) return null;
+  if(p.age<18||p.pregnant) return {none:true};
+  var w=latestWeight()||p.weight, base=10*w+6.25*p.height-5*p.age+(p.sex==='male'?5:p.sex==='female'?-161:-78);
+  var act=ACTIVITY.filter(function(a){return a[0]===p.activity;})[0]; var mult=act?act[2]:1.2;
+  var maint=Math.round(base*mult/50)*50, floor=p.sex==='male'?1500:p.sex==='female'?1200:1350;
+  var loss=Math.max(floor,Math.round(maint*0.82/50)*50);
+  return {maint:maint,loss:Math.min(loss,maint),floor:floor};
+}
+function dayKcal(d){
+  var sum=0,n=0; Object.keys(S.meals).forEach(function(k){var m=S.meals[k];if(m.day===d&&!m.deleted&&m.body&&m.body.feedback&&m.body.feedback.kcal){sum+=m.body.feedback.kcal;n++;}});
+  return {sum:sum,n:n};
+}
+function fmt(n){return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+function kcalLine(d,big){
+  var k=dayKcal(d), t=targets();
+  if(!k.n&&!(t&&t.maint)) return '';
+  var tgt=t&&t.maint?(S.program&&S.program.settings&&S.program.settings.goal==='maintain'?t.maint:t.loss):null;
+  var txt=(d===today()?'Today so far: ':'This day: ')+'about '+fmt(k.sum)+' kcal'+(tgt?' of ~'+fmt(tgt):'');
+  return '<div class="meta" style="font-weight:'+(big?'700':'400')+';text-align:center">'+txt+' <span style="font-weight:400">· estimate, for reference</span></div>';
 }
 
 // ---------- Weekly check-in (waist + weight), stored on that day's check-in ----------
@@ -747,11 +797,59 @@ function renderProgress(){
   }).join('');
   show('<div class="screen"><h1>Your log</h1>'+logSwitch('progress')
     +'<div class="body" style="font-size:15px"><p style="margin:0">Look at the direction over a few weeks, not any single number. Bodies go up and down day to day.</p></div>'
+    +calorieCard()
     +'<button class="btn" id="pgAdd">Add this week\'s check-in</button>'
     +(rows||'<div class="card"><div class="body" style="font-size:15px">No check-ins yet. Your first one is your starting point.</div></div>')
     +'</div>',{tabs:true});
   bindLogSwitch();
   $('#pgAdd').onclick=function(){openWeekly();};
+  var ed=$('#pgProfile'); if(ed) ed.onclick=function(){renderProfile(false);};
+  document.querySelectorAll('[data-goal]').forEach(function(b){b.onclick=function(){
+    S.program.settings=Object.assign({},S.program.settings,{goal:b.dataset.goal}); S.program.updated_ms=now();
+    write('nutrition_program',programRow()); renderProgress();
+  };});
+}
+function calorieCard(){
+  var t=targets(), p=profile(); if(!p) return '';
+  var goal=(S.program.settings&&S.program.settings.goal)||'loss';
+  if(t&&t.none) return '<div class="card"><div class="cap">Calories</div><div class="body" style="font-size:15px">Calorie targets aren\'t shown for you'+(p.pregnant?' during pregnancy or breastfeeding':' under 18')+'. Your habits are what matter.</div><button class="btn link" id="pgProfile">Edit your details</button></div>';
+  if(!t) return '';
+  return '<div class="card"><div class="cap">Calories · estimate, for reference</div>'
+    +'<div style="display:flex;gap:10px"><div style="flex:1"><div class="meta" style="font-weight:400">Maintenance</div><div style="font-size:22px;font-weight:700">~'+fmt(t.maint)+'</div></div>'
+    +'<div style="flex:1"><div class="meta" style="font-weight:400">Fat loss</div><div style="font-size:22px;font-weight:700">~'+fmt(t.loss)+'</div></div></div>'
+    +'<div class="grid3" style="grid-template-columns:1fr 1fr;margin-top:6px"><button class="pill'+(goal==='loss'?' on':'')+'" data-goal="loss">Aim: fat loss</button><button class="pill'+(goal==='maintain'?' on':'')+'" data-goal="maintain">Aim: maintain</button></div>'
+    +'<div class="meta" style="font-weight:400">Based on your details and latest weight. Your habits come first; this number is just a guide.</div>'
+    +'<button class="btn link" id="pgProfile">Edit your details</button></div>';
+}
+// About you: needed once so calorie estimates always exist. Editable in Progress.
+function renderProfile(required){
+  var p=profile()||{};
+  S.view=required?null:function(){renderProfile(false);};
+  var act=ACTIVITY.map(function(a){return '<option value="'+a[0]+'"'+(p.activity===a[0]?' selected':'')+'>'+a[1]+' — '+a[3]+'</option>';}).join('');
+  show('<div class="screen full">'+(required?'<div style="height:12px"></div>':'<div class="top"><button class="round" id="pfBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><span></span></div>')
+    +'<h1>A little about you</h1>'
+    +'<div class="body" style="font-size:16px"><p style="margin:0">So the app can estimate your daily calories. They\'re a guide in the background. Your habits come first.</p></div>'
+    +'<div class="field"><label for="pfAge">Age</label><input id="pfAge" inputmode="numeric" value="'+esc(p.age||'')+'"></div>'
+    +'<div class="field"><label for="pfSex">Sex</label><select id="pfSex"><option value="">Choose</option><option value="female"'+(p.sex==='female'?' selected':'')+'>Female</option><option value="male"'+(p.sex==='male'?' selected':'')+'>Male</option><option value="other"'+(p.sex==='other'?' selected':'')+'>Other / prefer not to say</option></select></div>'
+    +'<div class="field"><label for="pfHeight">Height (cm)</label><input id="pfHeight" inputmode="decimal" value="'+esc(p.height||'')+'"></div>'
+    +'<div class="field"><label for="pfWeight">Weight (kg)</label><input id="pfWeight" inputmode="decimal" value="'+esc(p.weight||latestWeight()||'')+'"></div>'
+    +'<div class="field"><label for="pfAct">How active are you?</label><select id="pfAct"><option value="">Choose</option>'+act+'</select></div>'
+    +'<label id="pfPregWrap" style="display:'+(p.sex==='female'?'flex':'none')+';gap:10px;align-items:center;font-size:15px"><input type="checkbox" id="pfPreg" style="width:22px;height:22px"'+(p.pregnant?' checked':'')+'> I\'m pregnant or breastfeeding</label>'
+    +'<button class="btn" id="pfSave">Save</button></div>',{tabs:false});
+  $('#pfSex').onchange=function(){$('#pfPregWrap').style.display=this.value==='female'?'flex':'none';};
+  var bk=$('#pfBack'); if(bk) bk.onclick=function(){S.view=null;renderProgress();};
+  $('#pfSave').onclick=function(){
+    function num(id,lo,hi){var v=parseFloat(String($(id).value).replace(',','.'));return isFinite(v)&&v>=lo&&v<=hi?Math.round(v*10)/10:null;}
+    var np={age:num('#pfAge',10,110),sex:$('#pfSex').value,height:num('#pfHeight',100,250),weight:num('#pfWeight',25,350),activity:$('#pfAct').value,
+      pregnant:$('#pfSex').value==='female'&&$('#pfPreg').checked,updated:today()};
+    if(!np.age){toast('Please enter your age');return;} if(!np.sex){toast('Please choose one');return;}
+    if(!np.height){toast('Please enter your height in cm');return;} if(!np.weight){toast('Please enter your weight in kg');return;}
+    if(!np.activity){toast('Please choose how active you are');return;}
+    if(!S.program) S.program={client_id:S.clientId,template_id:null,step_index:0,step_started_on:null,started_on:null,history:[],settings:{}};
+    S.program.settings=Object.assign({},S.program.settings,{profile:np}); S.program.updated_ms=now();
+    write('nutrition_program',programRow()); S.view=null;
+    if(required){ S.tab='today'; render(); toast('Thank you. All set.'); } else renderProgress();
+  };
 }
 function logSwitch(on){
   var tabs=[['meals','Meals'],['progress','Progress']];
@@ -829,6 +927,30 @@ function legacyDayList(setup,data){
   });});});
   return out.sort(function(a,b){return a.date<b.date?1:-1;});
 }
+// The earlier app also had a separate calorie log: {log:{'YYYY-MM-DD':[{label,amount}]}}.
+function addCalorieLog(days,cal){
+  var log=cal&&cal.log; if(!log||typeof log!=='object') return days;
+  Object.keys(log).forEach(function(d){
+    var items=(log[d]||[]).filter(function(e){return e&&(e.label||e.amount);}); if(!items.length) return;
+    var day=days.filter(function(x){return x.date===d;})[0];
+    if(!day){ day={date:d,label:parseD(d).toDateString().slice(0,10),meals:[],note:''}; days.push(day); }
+    if(day.meals.some(function(m){return m.name==='Calorie log';})) return;
+    day.meals.push({name:'Calorie log',score:null,text:items.map(function(e){return (e.label||'Entry')+(e.amount?' ('+e.amount+' kcal)':'');}).join(', ')});
+  });
+  return days.sort(function(a,b){return a.date<b.date?1:-1;});
+}
+// Everything the earlier app kept on this phone, copied as-is to the
+// person's record (data.phoneBackup) so nothing can be lost in any format.
+function phoneSnapshot(){
+  var out={}, n=0;
+  try{ Object.keys(localStorage).forEach(function(k){
+    if(!/^(km_|kmnut_)/.test(k)||/sync_base|_uid$/.test(k)) return;
+    var v=localStorage.getItem(k); if(!v||v==='[]'||v==='{}'||v.length>600000) return;
+    out[k]=v; n++;
+  }); }catch(e){}
+  return n?out:null;
+}
+function sig(str){var h=0;for(var i=0;i<str.length;i++){h=(h*31+str.charCodeAt(i))|0;}return String(h)+':'+str.length;}
 async function syncLegacy(){
   var localSetup=lsJSON('km_nut_setup',null), localData=lsJSON('km_nut_data',[]), localMeas=lsJSON('km_nut_measurements',[]);
   var srv=null;
@@ -848,17 +970,24 @@ async function syncLegacy(){
     return;
   }
   var merged=mergeLegacyDays(srv&&srv.data||[],hasLocal?localData:[]);
-  S.legacyDays=legacyDayList(setup,merged);
-  // Save the combined copy back if the phone had anything the server didn't.
-  if(hasLocal&&setup&&JSON.stringify(merged)!==JSON.stringify(srv&&srv.data||[])){
+  var calAll={log:Object.assign({},(srv&&srv.calories&&srv.calories.log)||{},(lsJSON('kmnut_calories',{})||{}).log||{})};
+  S.legacyDays=addCalorieLog(legacyDayList(setup,merged),calAll);
+  var snap=phoneSnapshot(), snapSig=snap?sig(JSON.stringify(snap)):null;
+  var needSnap=!!(snap&&(srv||setup)&&localStorage.getItem('kfnc_phone_backup')!==snapSig);
+  var needDays=!!(hasLocal&&setup&&JSON.stringify(merged)!==JSON.stringify(srv&&srv.data||[]));
+  // Save back if the phone had anything the server didn't (days, or its raw copy).
+  if(needDays||needSnap){
     var meas=(srv&&srv.bodyMeasurements)||[], ids={};
     meas.forEach(function(x){if(x&&x.id)ids[x.id]=1;});
     (Array.isArray(localMeas)?localMeas:[]).forEach(function(x){if(x&&x.id&&!ids[x.id])meas.push(x);});
-    var body=Object.assign({},srv||{},{setup:setup,data:merged,bodyMeasurements:meas,mobile:S.mobile});
+    var body=Object.assign({},srv||{},{setup:setup||(srv&&srv.setup)||null,data:needDays?merged:(srv&&srv.data||[]),bodyMeasurements:meas,mobile:S.mobile});
+    if(snap) body.phoneBackup={savedAt:new Date().toISOString(),keys:snap};
+    var lc=lsJSON('kmnut_calories',null); if(lc&&lc.log&&!(srv&&srv.calories)) body.calories=lc;
     if(!body.weekNotes){var wn=lsJSON('km_nut_notes',null); if(wn) body.weekNotes=wn;}
     try{
       var up=await sb.from('tracker_data').upsert({client_id:S.clientId,tracker:'nutrition',data:body,updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
       if(up.error) console.warn('KFit: earlier log not saved yet, will retry',up.error.message);
+      else if(snapSig) localStorage.setItem('kfnc_phone_backup',snapSig);
     }catch(e){ console.warn('KFit: earlier log not saved yet, will retry'); }
   }
 }
@@ -879,7 +1008,7 @@ function openWeekly(){
     if(w==null&&kg==null){toast('Add your waist, your weight, or both');return;}
     var d=today(), p=S.checkins[d]||{}, r=Object.assign({},p.reflection||{});
     r.measure={}; if(w!=null) r.measure.waist=w; if(kg!=null) r.measure.weight=kg;
-    var row={client_id:S.clientId,day:d,step_id:p.step_id||(S.program?stepId():null),lesson_day:p.lesson_day||(S.program?dayIndex()+1:null),answer:p.answer||null,lesson_read:!!p.lesson_read,reflection:r,updated_ms:now()};
+    var row={client_id:S.clientId,day:d,step_id:p.step_id||(hasPlan()?stepId():null),lesson_day:p.lesson_day||(hasPlan()?dayIndex()+1:null),answer:p.answer||null,lesson_read:!!p.lesson_read,reflection:r,updated_ms:now()};
     S.checkins[d]=row; write('nutrition_checkins',row); toast('Saved. See you next week.'); renderProgress();
   };
 }
@@ -929,7 +1058,7 @@ function boot(){
   var m=(localStorage.getItem(LS.mobile)||'').replace(/\D/g,'');
   if(m.length<8) return renderSignIn();
   setMobile(m); loadCache();
-  try{ S.legacyDays=legacyDayList(lsJSON('km_nut_setup',null),lsJSON('km_nut_data',[])); }catch(e){}
+  try{ S.legacyDays=addCalorieLog(legacyDayList(lsJSON('km_nut_setup',null),lsJSON('km_nut_data',[])),lsJSON('kmnut_calories',null)); }catch(e){}
   if(S.program){ S.view=null; render(); }
   ensureAuth().then(checkLinked).then(function(ok){
     if(ok) return enter();
