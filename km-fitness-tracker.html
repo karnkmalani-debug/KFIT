@@ -1076,6 +1076,7 @@ btn.textContent='Could not copy -- select the address bar manually';
   <div style="width:48px;height:2px;background:var(--gold);opacity:0.4;margin-bottom:28px;"></div>
   <div id="prFlashEx" style="font-family:'DM Sans',sans-serif;font-size:15px;font-weight:800;letter-spacing:3px;text-transform:uppercase;color:var(--sage);margin-bottom:8px;"></div>
   <div id="prFlashVal" style="font-family:'DM Mono',monospace;font-size:28px;font-weight:700;color:var(--text);"></div>
+  <button onclick="hidePRFlash()" style="margin-top:34px;padding:12px 28px;border-radius:24px;border:1px solid var(--gold);background:none;color:var(--gold);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:800;letter-spacing:1px;cursor:pointer;">NICE, KEEP GOING</button>
 </div>
 
 <div id="snapModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;z-index:500;background:rgba(0,0,0,.8);align-items:flex-end;justify-content:center;">
@@ -2845,7 +2846,7 @@ toast('Date set to '+new Date(val+'T12:00:00').toLocaleDateString('en-IN',{day:'
 function showSessionPicker(dateVal,existingSessions){
 var dstr=new Date(dateVal+'T12:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
 var listHtml=existingSessions.map(function(s){
-var label=(s.bodyParts&&s.bodyParts.length)?s.bodyParts.join(', '):((s.exercises&&s.exercises.length)?s.exercises.length+' exercise(s)':'Session');
+var label=(shownBodyParts(s).length)?shownBodyParts(s).join(', '):((s.exercises&&s.exercises.length)?s.exercises.length+' exercise(s)':'Session');
 var timeLabel=s.timeOfDay?(' &middot; '+s.timeOfDay):'';
 return '<button onclick="pickExistingSession('+s.id+')" style="width:100%;text-align:left;padding:13px 14px;background:var(--surf2);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;font-family:\'DM Sans\',sans-serif;cursor:pointer;">'+
 '<div style="font-size:15px;font-weight:700;color:var(--text);">'+label+'</div>'+
@@ -4659,7 +4660,7 @@ client:document.getElementById('clientName').value.trim()||(localStorage.getItem
 // Ownership by mobile, not just by name -- names change, the number doesn't.
 mobile:(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,''),
 date, timeOfDay:_timeStr,
-bodyParts:[...selectedBP], exercises,
+bodyParts:sessionBodyParts(selectedBP, exercises, collectSupersets(_exOrder)), exercises,
 supersets:collectSupersets(_exOrder),
 cardio:[...cardioBlocks],
 functional:[...functionalBlocks],
@@ -4720,7 +4721,7 @@ mobile: localStorage.getItem('kmfit_mobile')||'',
 date, time: _timeStr,
 duration: finalDur||null,
 workoutType: detectWorkoutType(exercises, collectSupersets(_exOrder), cardioBlocks),
-bodyParts: [...selectedBP],
+bodyParts: _newSess.bodyParts,
 activity: cardioBlocks.length?cardioBlocks.map(c=>c.ex).filter(Boolean).join(', '):''
 };
 if(_approvalMode!=='live'){
@@ -5548,6 +5549,31 @@ try{sessions=JSON.parse(localStorage.getItem('kmfit_sessions')||'[]');}catch(e){
 try{notes=JSON.parse(localStorage.getItem('kmfit_notes')||'{}');}catch(e){notes={};}
 try{measurements=JSON.parse(localStorage.getItem('kmfit_measurements')||'[]');}catch(e){measurements=[];}
 try{routines=JSON.parse(localStorage.getItem('kmfit_routines')||'[]');}catch(e){routines=[];}
+}
+// Body parts of a session: the ones chosen up top, plus the body parts of
+// every exercise actually logged (so a session built only from supersets,
+// or where a top button was deselected, still shows e.g. "Back, Chest"
+// instead of just "Superset").
+function exerciseBodyPart(name){
+if(!name||isCardio(name)) return null;
+const cats=(typeof BODY_PARTS!=='undefined'?BODY_PARTS:Object.keys(EX_LIB)).filter(function(c){return c!=='Cardio';});
+for(let i=0;i<cats.length;i++){ if((EX_LIB[cats[i]]||[]).indexOf(name)>=0) return cats[i]; }
+let custom={}; try{ custom=getCustomEx()||{}; }catch(e){}
+for(const k in custom){ if(k!=='Cardio'&&(custom[k]||[]).some(function(e){return (e&&e.name||e)===name;})) return k; }
+return null;
+}
+function sessionBodyParts(chosen, exercises, supersets){
+const out=[...(chosen||[])];
+const names=(exercises||[]).map(function(e){return e.ex;});
+(supersets||[]).forEach(function(ss){(ss.exercises||[]).forEach(function(e){names.push(e.ex);});});
+names.forEach(function(n){const bp=exerciseBodyPart(n); if(bp&&out.indexOf(bp)<0) out.push(bp);});
+const order=(typeof BODY_PARTS!=='undefined'?BODY_PARTS:Object.keys(EX_LIB));
+return out.sort(function(a,b){return order.indexOf(a)-order.indexOf(b);});
+}
+// For showing older sessions saved before this fix (their stored list is empty).
+function shownBodyParts(s){
+if(s&&s.bodyParts&&s.bodyParts.length) return s.bodyParts;
+return s?sessionBodyParts([],s.exercises,s.supersets):[];
 }
 function detectWorkoutType(exercises, supersets, cardio){
 const hasWeights=exercises&&exercises.length>0;
@@ -6551,7 +6577,14 @@ function buildLabel(r){
 if(r.activity&&r.activity.trim()) return r.activity;
 
 if(r.body_parts&&r.body_parts.trim()) return r.body_parts;
-
+// Older superset-only sessions were stored without body parts: work them out
+// from that day's logged exercises instead of showing just "Superset".
+try{
+const m=(sessions||[]).filter(function(x){return x.date===r.session_date;});
+const s=m.find(function(x){return (x.timeOfDay||'')===(r.session_time||'');})||(m.length===1?m[0]:null);
+const bps=s?shownBodyParts(s):[];
+if(bps.length) return bps.join(', ');
+}catch(e){}
 return r.workout_type||'Session';
 }
 
@@ -6720,12 +6753,22 @@ document.getElementById('prFlashEx').textContent=exName;
 document.getElementById('prFlashVal').textContent=weight+' '+(weightUnit||'kg')+(reps?' × '+reps:'');
 overlay.style.display='flex';
 overlay.style.opacity='1';
+_prFlashTellParent(true);
 if(_prFlashTimer) clearTimeout(_prFlashTimer);
-_prFlashTimer=setTimeout(function(){
-overlay.style.transition='opacity 0.5s';
+_prFlashTimer=setTimeout(hidePRFlash,4500);
+}
+function hidePRFlash(){
+const overlay=document.getElementById('prFlashOverlay');
+if(_prFlashTimer){ clearTimeout(_prFlashTimer); _prFlashTimer=null; }
+if(!overlay||overlay.style.display==='none'){ _prFlashTellParent(false); return; }
+overlay.style.transition='opacity 0.4s';
 overlay.style.opacity='0';
-setTimeout(function(){overlay.style.display='none';overlay.style.transition='';overlay.style.opacity='1';},500);
-},4500);
+setTimeout(function(){overlay.style.display='none';overlay.style.transition='';overlay.style.opacity='1';_prFlashTellParent(false);},400);
+}
+// When opened inside Merge, Merge's own "close" button sits on top of this
+// screen and looked like the PR message's close. Merge hides it meanwhile.
+function _prFlashTellParent(showing){
+try{ if(window.parent&&window.parent!==window) window.parent.postMessage({kfit:'prFlash',showing:!!showing},location.origin); }catch(e){}
 }
 
 function moveExBlock(btn,direction){
@@ -6950,7 +6993,7 @@ const cardioIntensities=cardioCount?s.cardio.filter(c=>c.intensity).map(c=>c.int
 
 const cardioPills=cardioCount?s.cardio.map(c=>`<span class="sess-tag">${c.ex.toUpperCase()}</span>`).join(''):'';
 const _histPrInfo=getSessionPRInfo(s,_histPrMap);
-const bpPills=(s.bodyParts||[]).map(b=>`<span class="sess-tag${_histPrInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')+(!cardioCount&&_histPrInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_histPrInfo.count} P.R.</span>`:'');
+const bpPills=shownBodyParts(s).map(b=>`<span class="sess-tag${_histPrInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')+(!cardioCount&&_histPrInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_histPrInfo.count} P.R.</span>`:'');
 return`<div class="sess-card">
 <div onclick="openDetail(${s.id})" style="flex:1;cursor:pointer;">
 <div class="sess-date">${D[d.getDay()]} . ${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}${s.timeOfDay?' - '+s.timeOfDay:''}</div>
@@ -7795,7 +7838,7 @@ ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-s
 </div>`;
 }).join('');
 }
-const _effectiveTags=[...(s.bodyParts||[])];
+const _effectiveTags=[...shownBodyParts(s)];
 if((s.cardio&&s.cardio.length)&&_effectiveTags.indexOf('Cardio')===-1) _effectiveTags.push('Cardio');
 if((s.functional&&s.functional.length)&&_effectiveTags.indexOf('Functional')===-1) _effectiveTags.push('Functional');
 const _prInfo=getSessionPRInfo(s,prMap8);

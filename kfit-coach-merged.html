@@ -535,7 +535,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
 <div id="liveTrackerModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:#000;z-index:700;">
-  <button onclick="closeLiveTracker()" style="position:absolute;top:10px;right:10px;z-index:701;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:18px;cursor:pointer;">✕</button>
+  <button id="liveTrackerClose" onclick="closeLiveTracker()" style="position:absolute;top:10px;right:10px;z-index:701;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:18px;cursor:pointer;">✕</button>
   <iframe id="liveTrackerFrame" src="" style="width:100%;height:100%;border:none;"></iframe>
 </div>
 
@@ -4305,12 +4305,13 @@ function renderRecentSessionsPage(listElId,clientKey){
   const rows=sessions.slice(0,visible).map(function(s){
     const d=new Date(s.date+'T12:00:00');
     const dateStr=d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear();
-    const exCount=s.exercises&&s.exercises.length?s.exercises.length:0;
+    const exCount=(s.exercises&&s.exercises.length?s.exercises.length:0)
+      +(s.supersets||[]).reduce(function(a,ss){return a+((ss.exercises||[]).length);},0);
     const cardioCount=s.cardio&&s.cardio.length?s.cardio.length:0;
     const metaStr=exCount?(exCount+' ex'):(cardioCount?(cardioCount+' cardio'):'');
     const prInfo=getSessionPRInfoCoach(s,prMap,sessions);
     const prBadge=prInfo.count?(' <span style="color:var(--gold);font-weight:800;">🏆'+prInfo.count+'</span>'):'';
-    const bp=(s.bodyParts||[]).join(', ')||(cardioCount?(s.cardio.map(function(c){return c.ex;}).filter(Boolean).join(', ')):'');
+    const bp=(s.bodyParts||[]).join(', ')||mergeDerivedBodyParts(s).join(', ')||(cardioCount?(s.cardio.map(function(c){return c.ex;}).filter(Boolean).join(', ')):'');
     const paidBtn=s._paid!==undefined?('<button onclick="event.stopPropagation();togglePaid(\''+clientKey.replace(/'/g,"\\'")+'\',\''+s.date+'\',\''+(s.timeOfDay||'').replace(/'/g,"\\'")+'\','+(!!s._paid)+')" style="padding:3px 8px;border-radius:10px;border:1px solid '+(s._paid?'var(--sage)':'var(--terra)')+';background:'+(s._paid?'var(--sage)':'transparent')+';color:'+(s._paid?'#fff':'var(--terra)')+';font-family:\'DM Sans\',sans-serif;font-size:9px;font-weight:800;letter-spacing:0.4px;cursor:pointer;white-space:nowrap;flex-shrink:0;">'+(s._paid?'PAID':'UNPAID')+'</button>'):'';
     return '<div onclick="openCoachSession(\''+clientKey.replace(/'/g,"\\'")+'\',\''+s.date+'\',\''+(s.timeOfDay||'').replace(/'/g,"\\'")+'\')" '
       +'style="padding:8px 4px;border-top:1px solid rgba(255,255,255,.08);font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;">'
@@ -6762,6 +6763,27 @@ async function openNutCoachList(){
   ov.innerHTML='<div style="max-width:560px;margin:0 auto;background:var(--bg,#fff);border-radius:14px;padding:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:18px;font-weight:800">🌱 Nutrition Coach app</div><button class="btn-sm" onclick="document.getElementById(\'ncListOverlay\').remove()">Close</button></div><div id="ncListBody">'+html+'</div></div>';
 }
 async function ncOpenOne(cid){var box=document.getElementById('ncOne_'+cid);if(!box||box.innerHTML)return;var p=await ncLoad(cid);if(p){box.onclick=function(e){e.stopPropagation();};nutCoachPanel(cid,box,p);}}
+</script>
+<script>
+// Body parts for sessions stored without them (e.g. superset-only sessions
+// saved before the tracker fix): worked out from the logged exercises.
+function mergeDerivedBodyParts(s){
+  if(typeof EX_LIB==='undefined'||!s) return [];
+  var names=(s.exercises||[]).map(function(e){return e.ex;});
+  (s.supersets||[]).forEach(function(ss){(ss.exercises||[]).forEach(function(e){names.push(e.ex);});});
+  var cats=Object.keys(EX_LIB).filter(function(c){return c!=='Cardio';}), out=[];
+  names.forEach(function(n){ for(var i=0;i<cats.length;i++){ if((EX_LIB[cats[i]]||[]).indexOf(n)>=0){ if(out.indexOf(cats[i])<0) out.push(cats[i]); return; } } });
+  return out.sort(function(a,b){return cats.indexOf(a)-cats.indexOf(b);});
+}
+// While the tracker shows a PR celebration, hide the ✕ that closes the whole
+// log, so it can't be mistaken for closing the PR message.
+window.addEventListener('message',function(e){
+  if(e.origin!==location.origin||!e.data||e.data.kfit!=='prFlash') return;
+  var b=document.getElementById('liveTrackerClose'); if(!b) return;
+  b.style.display=e.data.showing?'none':'';
+  clearTimeout(window._prCloseRestore);
+  if(e.data.showing) window._prCloseRestore=setTimeout(function(){b.style.display='';},15000);
+});
 </script>
 </body>
 </html>
