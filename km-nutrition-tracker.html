@@ -254,10 +254,10 @@ function show(html,opts){
 }
 function render(){
   if(S.view) return S.view();
-  if(!S.program) return renderChooser();
   if(S.tab==='log') return renderLog();
-  if(S.tab==='journey') return renderJourney();
   if(S.tab==='chat') return renderChat();
+  if(!S.program) return S.tab==='journey'?renderChooser(true):renderWelcome();
+  if(S.tab==='journey') return renderJourney();
   return renderToday();
 }
 function go(tab){S.tab=tab;S.view=null;stopSpeech();render();if(tab==='chat')loadMessages();}
@@ -352,11 +352,31 @@ function renderCode(email){
 async function enter(){
   S.view=null; loadCache(); render();
   try{ await flush(); await loadAll(); }catch(e){}
+  try{ await syncLegacy(); }catch(e){ console.warn(e); }
   S.view=null; render(); checkUnread();
 }
 
 // ---------- choose a plan ----------
-function renderChooser(){
+// Home when no plan is chosen yet: logging works straight away; the habit
+// plan is an invitation, never a gate.
+function renderWelcome(){
+  var name=(legacyName()||localStorage.getItem(LS.name)||'').split(' ')[0];
+  var html='<div class="screen"><h1>'+(name?'Hello, '+esc(name)+'.':greet())+'</h1>'
+    +'<button class="card" id="wlPlan" style="border:none;text-align:left"><div class="cap g">When you\'re ready</div><h2>Start a habit plan</h2>'
+    +'<div class="body" style="font-size:15px">One small habit at a time, with a 2-minute lesson each day. Your log works either way.</div>'
+    +'<div style="font-weight:700;color:var(--green)">See the plans →</div></button>';
+  if(S.legacyDays&&S.legacyDays.length) html+='<button class="card" id="wlEarlier" style="border:none;text-align:left"><div class="cap">Your earlier log</div>'
+    +'<div style="font-size:16px;line-height:1.45">'+S.legacyDays.length+' logged day'+(S.legacyDays.length===1?'':'s')+' saved. Everything you logged before is still here.</div></button>';
+  if(dueWeekly()) html+='<button class="card" id="tdWeekly" style="border:none;text-align:left"><div class="cap g">Weekly check-in · 1 min</div>'
+    +'<div style="font-size:16px;line-height:1.45">Waist and weight, once a week. Just a bookmark, never a grade.</div></button>';
+  html+='<button class="btn" id="tdMeal">Log a meal</button></div>';
+  show(html,{tabs:true});
+  $('#wlPlan').onclick=function(){renderChooser(true);};
+  var e=$('#wlEarlier'); if(e) e.onclick=function(){S.tab='log';renderEarlier();};
+  var wk=$('#tdWeekly'); if(wk) wk.onclick=function(){openWeekly();};
+  $('#tdMeal').onclick=function(){S.tab='log';openMealForm(today());};
+}
+function renderChooser(canSkip){
   var sel=S._tpl||'reset-7d';
   var cards=G_T.map(function(t){
     return '<button class="tpl'+(t.id===sel?' on':'')+'" data-t="'+t.id+'"><div class="cap g">'+(t.weeks===1?'1 week':t.weeks+' weeks')+'</div>'
@@ -364,8 +384,10 @@ function renderChooser(){
   }).join('');
   show('<div class="screen full"><div style="height:12px"></div><h1>Choose your path</h1>'
     +'<div class="body"><p style="margin:0">You can always go further later. Nothing you do is lost.</p></div>'+cards
-    +'<button class="btn" id="chGo">Start</button></div>');
-  document.querySelectorAll('.tpl').forEach(function(b){b.onclick=function(){S._tpl=b.dataset.t;renderChooser();};});
+    +'<button class="btn" id="chGo">Start</button>'
+    +(canSkip?'<button class="btn link" id="chLater" style="align-self:center">Not now</button>':'')+'</div>');
+  document.querySelectorAll('.tpl').forEach(function(b){b.onclick=function(){S._tpl=b.dataset.t;renderChooser(canSkip);};});
+  var lt=$('#chLater'); if(lt) lt.onclick=function(){S.view=null;S.tab='today';render();};
   $('#chGo').onclick=function(){startTemplate(sel,[]);};
 }
 function startTemplate(id,history){
@@ -619,8 +641,7 @@ function renderLog(){
   var d=S._logDay||today();
   var list=Object.keys(S.meals).map(function(k){return S.meals[k];}).filter(function(m){return m.day===d&&!m.deleted;})
     .sort(function(a,b){return (a.body.at||0)-(b.body.at||0);});
-  var html='<div class="screen"><h1>Your log</h1>'
-    +'<div class="grid3" style="grid-template-columns:1fr 1fr"><button class="pill on">Meals</button><button class="pill" id="lgProg">Progress</button></div>'
+  var html='<div class="screen"><h1>Your log</h1>'+logSwitch('meals')
     +'<div class="row" style="align-items:center;justify-content:space-between"><button class="round" id="lgPrev" aria-label="Previous day"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>'
     +'<div style="font-weight:700">'+(d===today()?'Today':parseD(d).toDateString().slice(0,10))+'</div>'
     +'<button class="round" id="lgNext" aria-label="Next day"'+(d>=today()?' disabled style="opacity:.3"':'')+'><svg class="icon" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>';
@@ -639,7 +660,7 @@ function renderLog(){
   $('#lgPrev').onclick=function(){S._logDay=addDays(d,-1);renderLog();};
   $('#lgNext').onclick=function(){if(d<today()){S._logDay=addDays(d,1);renderLog();}};
   $('#lgAdd').onclick=function(){openMealForm(d);};
-  $('#lgProg').onclick=function(){renderProgress();};
+  bindLogSwitch();
   document.querySelectorAll('[data-del]').forEach(function(b){b.onclick=function(){
     var m=S.meals[b.dataset.del]; if(!m||!confirm('Remove this meal?')) return;
     m.deleted=true; m.updated_ms=now(); write('nutrition_meals',mealRow(m)); renderLog();
@@ -724,15 +745,124 @@ function renderProgress(){
       +'<div class="meta" style="font-weight:400">'+(x.m.waist?'Waist '+esc(x.m.waist)+' cm':'')+(x.m.waist&&x.m.weight?' · ':'')+(x.m.weight?'Weight '+esc(x.m.weight)+' kg':'')+'</div></div>'
       +(dw!=null?'<div class="meta">'+(dw>0?'+':'')+dw+' cm</div>':'')+'</div>';
   }).join('');
-  show('<div class="screen"><h1>Your log</h1>'
-    +'<div class="grid3" style="grid-template-columns:1fr 1fr"><button class="pill" id="pgMeals">Meals</button><button class="pill on">Progress</button></div>'
+  show('<div class="screen"><h1>Your log</h1>'+logSwitch('progress')
     +'<div class="body" style="font-size:15px"><p style="margin:0">Look at the direction over a few weeks, not any single number. Bodies go up and down day to day.</p></div>'
     +'<button class="btn" id="pgAdd">Add this week\'s check-in</button>'
     +(rows||'<div class="card"><div class="body" style="font-size:15px">No check-ins yet. Your first one is your starting point.</div></div>')
     +'</div>',{tabs:true});
-  $('#pgMeals').onclick=function(){S.view=null;renderLog();};
+  bindLogSwitch();
   $('#pgAdd').onclick=function(){openWeekly();};
 }
+function logSwitch(on){
+  var tabs=[['meals','Meals'],['progress','Progress']];
+  if(S.legacyDays&&S.legacyDays.length) tabs.push(['earlier','Earlier']);
+  return '<div class="grid3" style="grid-template-columns:repeat('+tabs.length+',1fr)">'+tabs.map(function(t){
+    return '<button class="pill'+(t[0]===on?' on':'')+'" data-log="'+t[0]+'">'+t[1]+'</button>';}).join('')+'</div>';
+}
+function bindLogSwitch(){
+  document.querySelectorAll('[data-log]').forEach(function(b){b.onclick=function(){
+    S.view=null; var k=b.dataset.log; if(k==='meals')renderLog(); else if(k==='progress')renderProgress(); else renderEarlier();
+  };});
+}
+function renderEarlier(){
+  S.tab='log'; S.view=null;
+  var days=S.legacyDays||[];
+  var html='<div class="screen"><h1>Your log</h1>'+logSwitch('earlier')
+    +'<div class="body" style="font-size:15px"><p style="margin:0">Everything you logged in the earlier version of the app. It\'s saved, and your coach can see it too.</p></div>';
+  days.slice(0,S._earlierN||14).forEach(function(d){
+    html+='<div class="card"><div style="font-weight:700">'+esc(d.label)+'</div>'
+      +d.meals.map(function(m){return '<div style="font-size:15px;line-height:1.45"><b>'+esc(m.name)+'</b>'+(m.score!=null?' <span class="meta">· '+esc(LEGACY_SCORE[m.score]||'')+'</span>':'')
+        +(m.text?'<br><span style="color:var(--soft)">'+esc(m.text)+'</span>':'')+'</div>';}).join('')
+      +(d.note?'<div class="meta" style="font-weight:400">Note: '+esc(d.note)+'</div>':'')+'</div>';
+  });
+  if(days.length>(S._earlierN||14)) html+='<button class="btn out" id="elMore">Show more</button>';
+  html+='</div>';
+  show(html,{tabs:true}); bindLogSwitch();
+  var mo=$('#elMore'); if(mo) mo.onclick=function(){S._earlierN=(S._earlierN||14)+14;renderEarlier();};
+}
+
+// ---------- The earlier app's log: kept, shown, and backed up to the coach ----------
+// The earlier nutrition tracker saved each day on the phone (km_nut_*) and to
+// the person's tracker_data record. Nothing here ever deletes it. On open,
+// the phone's copy and the saved copy are combined (no day is lost from
+// either side), saved back, and shown under Log > Earlier.
+var LEGACY_SCORE={0:'Skipped',1:'Poor',2:'OK',3:'Good'};
+var LEGACY_MEALS=[['breakfast','Breakfast'],['msnack','Morning snack'],['lunch','Lunch'],['esnack','Evening snack'],['dinner','Dinner']];
+function lsJSON(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
+function legacyName(){var st=lsJSON('km_nut_setup',null);return st&&st.clientName||'';}
+function dayHasContent(x){
+  if(!x||typeof x!=='object') return false;
+  var any=function(o){return o&&typeof o==='object'&&Object.keys(o).some(function(k){var v=o[k];return v!==''&&v!=null&&v!==false&&!(Array.isArray(v)&&!v.length);});};
+  return any(x.meals)||any(x.mealNotes)||any(x.foodLog)||!!(x.note&&String(x.note).trim())||any(x.habits);
+}
+function dayWeight(x){try{return dayHasContent(x)?JSON.stringify(x).length:0;}catch(e){return 0;}}
+function mergeLegacyDays(a,b){
+  // nested [month][week][day]; keep every day that has content on either side
+  if(!Array.isArray(a)) return Array.isArray(b)?b:[];
+  if(!Array.isArray(b)) return a;
+  var out=[], n=Math.max(a.length,b.length);
+  for(var i=0;i<n;i++){
+    var x=a[i], y=b[i];
+    if(Array.isArray(x)||Array.isArray(y)) out[i]=mergeLegacyDays(x,y);
+    else out[i]=dayWeight(y)>dayWeight(x)?y:(x!=null?x:y);
+  }
+  return out;
+}
+function legacyCalendarDate(setup,m,w,di){
+  var p=String(setup.startDate||'').split('-'); if(p.length<3) return null;
+  var ms=new Date(+p[0],+p[1]-1,+p[2]); ms.setMonth(ms.getMonth()+m);
+  var ws=new Date(ms); ws.setDate(ws.getDate()-ws.getDay()); ws.setDate(ws.getDate()+w*7+di);
+  return ws;
+}
+function legacyDayList(setup,data){
+  var out=[]; if(!setup||!Array.isArray(data)) return out;
+  data.forEach(function(month,m){(month||[]).forEach(function(week,w){(week||[]).forEach(function(day,di){
+    if(!dayHasContent(day)) return;
+    var dt=legacyCalendarDate(setup,m,w,di); if(!dt) return;
+    var meals=[];
+    LEGACY_MEALS.forEach(function(mm){
+      var sc=day.meals&&day.meals[mm[0]], nt=day.mealNotes&&day.mealNotes[mm[0]], fl=day.foodLog&&day.foodLog[mm[0]];
+      var text=[].concat(Array.isArray(fl)?fl:[]).concat(nt?[nt]:[]).join(', ');
+      if(sc!=null||text) meals.push({name:mm[1],score:(sc!=null&&LEGACY_SCORE[sc]!=null)?sc:null,text:text});
+    });
+    out.push({date:dstr(dt),label:dt.toDateString().slice(0,10),meals:meals,note:day.note||''});
+  });});});
+  return out.sort(function(a,b){return a.date<b.date?1:-1;});
+}
+async function syncLegacy(){
+  var localSetup=lsJSON('km_nut_setup',null), localData=lsJSON('km_nut_data',[]), localMeas=lsJSON('km_nut_measurements',[]);
+  var srv=null;
+  try{
+    var r=await sb.from('tracker_data').select('data').eq('client_id',S.clientId).eq('tracker','nutrition');
+    if(!r.error&&r.data&&r.data[0]){ srv=r.data[0].data; if(typeof srv==='string'){try{srv=JSON.parse(srv);}catch(e){srv=null;}} }
+  }catch(e){}
+  if(srv&&srv.wiped) srv=null;
+  var hasLocal=Array.isArray(localData)&&localData.length&&JSON.stringify(localData).length>20;
+  var setup=(srv&&srv.setup&&srv.setup.startDate)?srv.setup:localSetup;
+  // Days are stored by position from the start date, so two copies can only
+  // be combined if they share a start date. Otherwise show both, save neither.
+  if(hasLocal&&srv&&srv.setup&&localSetup&&srv.setup.startDate&&localSetup.startDate&&srv.setup.startDate!==localSetup.startDate){
+    var a1=legacyDayList(srv.setup,srv.data||[]), b1=legacyDayList(localSetup,localData), byDate={};
+    a1.concat(b1).forEach(function(d){var o=byDate[d.date];if(!o||JSON.stringify(d).length>JSON.stringify(o).length)byDate[d.date]=d;});
+    S.legacyDays=Object.keys(byDate).map(function(k){return byDate[k];}).sort(function(x,y){return x.date<y.date?1:-1;});
+    return;
+  }
+  var merged=mergeLegacyDays(srv&&srv.data||[],hasLocal?localData:[]);
+  S.legacyDays=legacyDayList(setup,merged);
+  // Save the combined copy back if the phone had anything the server didn't.
+  if(hasLocal&&setup&&JSON.stringify(merged)!==JSON.stringify(srv&&srv.data||[])){
+    var meas=(srv&&srv.bodyMeasurements)||[], ids={};
+    meas.forEach(function(x){if(x&&x.id)ids[x.id]=1;});
+    (Array.isArray(localMeas)?localMeas:[]).forEach(function(x){if(x&&x.id&&!ids[x.id])meas.push(x);});
+    var body=Object.assign({},srv||{},{setup:setup,data:merged,bodyMeasurements:meas,mobile:S.mobile});
+    if(!body.weekNotes){var wn=lsJSON('km_nut_notes',null); if(wn) body.weekNotes=wn;}
+    try{
+      var up=await sb.from('tracker_data').upsert({client_id:S.clientId,tracker:'nutrition',data:body,updated_at:new Date().toISOString()},{onConflict:'client_id,tracker'});
+      if(up.error) console.warn('KFit: earlier log not saved yet, will retry',up.error.message);
+    }catch(e){ console.warn('KFit: earlier log not saved yet, will retry'); }
+  }
+}
+
 function openWeekly(){
   var cur=((S.checkins[today()]||{}).reflection||{}).measure||{};
   S.view=openWeekly;
@@ -749,7 +879,7 @@ function openWeekly(){
     if(w==null&&kg==null){toast('Add your waist, your weight, or both');return;}
     var d=today(), p=S.checkins[d]||{}, r=Object.assign({},p.reflection||{});
     r.measure={}; if(w!=null) r.measure.waist=w; if(kg!=null) r.measure.weight=kg;
-    var row={client_id:S.clientId,day:d,step_id:p.step_id||stepId(),lesson_day:p.lesson_day||(dayIndex()+1),answer:p.answer||null,lesson_read:!!p.lesson_read,reflection:r,updated_ms:now()};
+    var row={client_id:S.clientId,day:d,step_id:p.step_id||(S.program?stepId():null),lesson_day:p.lesson_day||(S.program?dayIndex()+1:null),answer:p.answer||null,lesson_read:!!p.lesson_read,reflection:r,updated_ms:now()};
     S.checkins[d]=row; write('nutrition_checkins',row); toast('Saved. See you next week.'); renderProgress();
   };
 }
@@ -799,6 +929,7 @@ function boot(){
   var m=(localStorage.getItem(LS.mobile)||'').replace(/\D/g,'');
   if(m.length<8) return renderSignIn();
   setMobile(m); loadCache();
+  try{ S.legacyDays=legacyDayList(lsJSON('km_nut_setup',null),lsJSON('km_nut_data',[])); }catch(e){}
   if(S.program){ S.view=null; render(); }
   ensureAuth().then(checkLinked).then(function(ok){
     if(ok) return enter();

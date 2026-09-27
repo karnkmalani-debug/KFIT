@@ -6696,15 +6696,20 @@ async function nutCoachAttach(c){
   var m=String(c.mobile||'').replace(/\D/g,''); if(m.length<8) return;
   var cid='knut__'+m;
   var r=await getSB().from('nutrition_program').select('*').eq('client_id',cid);
-  if(r.error||!r.data||!r.data.length) return;
+  var hasProg=!r.error&&r.data&&r.data.length;
+  if(!hasProg){
+    // No habit plan yet, but they may already be logging meals in the app.
+    var ml=await getSB().from('nutrition_meals').select('meal_id').eq('client_id',cid).limit(1);
+    if(ml.error||!ml.data||!ml.data.length) return;
+  }
   document.getElementById('uniSubTabNut').style.display='block';
   if(!c.nut){ document.getElementById('uniNutDetail').innerHTML=''; if(!c.fit) setUniSubTab('nutrition'); }
-  await nutCoachPanel(cid,box,r.data[0]);
+  await nutCoachPanel(cid,box,hasProg?r.data[0]:null);
 }
 async function nutCoachPanel(cid,box,p){
   var since=ncAddDays(ncToday(),-27);
   var ck=await getSB().from('nutrition_checkins').select('*').eq('client_id',cid).gte('day',since);
-  var ml=await getSB().from('nutrition_meals').select('day,deleted').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-6));
+  var ml=await getSB().from('nutrition_meals').select('day,deleted,body').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-6));
   var byDay={}; (ck.data||[]).forEach(function(x){byDay[x.day]=x;});
   var cells='', refl='';
   for(var i=27;i>=0;i--){var d=ncAddDays(ncToday(),-i), x=byDay[d]||{};
@@ -6718,13 +6723,21 @@ async function nutCoachPanel(cid,box,p){
     +(ms[0].reflection.measure.waist?'waist '+ncEsc(ms[0].reflection.measure.waist)+' cm ':'')+(ms[0].reflection.measure.weight?'weight '+ncEsc(ms[0].reflection.measure.weight)+' kg':'')
     +(ms[1]&&ms[0].reflection.measure.waist&&ms[1].reflection.measure.waist?' · waist change '+(Math.round((ms[0].reflection.measure.waist-ms[1].reflection.measure.waist)*10)/10)+' cm':'')+'</div>':'';
   var meals=(ml.data||[]).filter(function(x){return !x.deleted;}).length;
+  var recent=(ml.data||[]).filter(function(x){return !x.deleted;}).sort(function(a,b){return ((b.body||{}).at||0)-((a.body||{}).at||0);}).slice(0,8)
+    .map(function(x){var b=x.body||{},f=b.feedback;return '<div style="font-size:13px;line-height:1.5;margin-top:6px"><b>'+ncEsc(x.day)+' · '+ncEsc(b.slot||'Meal')+'</b>'+(b.text?' — '+ncEsc(b.text):'')
+      +(f?'<br><span style="color:var(--muted)">protein '+ncEsc(f.protein)+' palm · veg '+ncEsc(f.veg)+' fist · carbs '+ncEsc(f.carbs)+' · fats '+ncEsc(f.fats)+'</span>':'')+'</div>';}).join('');
+  if(!p){
+    box.innerHTML='<div class="card" style="margin-bottom:12px"><div style="font-size:16px;font-weight:800;margin-bottom:6px">🌱 Nutrition app</div>'
+      +'<div style="font-size:14px">Logging meals, no habit plan chosen yet.</div>'+(recent||'')+'</div>';
+    return;
+  }
   var t=NC_T[p.template_id], hold=!!(p.settings&&p.settings.coachHold);
   var opts=Object.keys(NC_T).map(function(k){return '<option value="'+k+'"'+(k===p.template_id?' selected':'')+'>'+ncEsc(NC_T[k].name)+'</option>';}).join('');
   box.innerHTML='<div class="card" style="margin-bottom:12px"><div style="font-size:16px;font-weight:800;margin-bottom:6px">🌱 Nutrition Coach app</div>'
     +'<div style="font-size:14px;line-height:1.6">'+ncEsc(t?t.name:p.template_id)+' · <b>'+ncEsc(ncStepName(p))+'</b> · day '+ncDay(p)+(hold?' · <span style="color:var(--terra)">on hold</span>':'')+'</div>'
     +'<div style="font-size:12px;color:var(--muted);margin:8px 0 4px">Last 4 weeks (dark = done, light = partly, beige = not today, empty = no check-in)</div>'
     +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">'+cells+'</div>'
-    +'<div style="font-size:13px;color:var(--muted);margin-top:8px">Meals logged in the last 7 days: '+meals+'</div>'+meas+refl
+    +'<div style="font-size:13px;color:var(--muted);margin-top:8px">Meals logged in the last 7 days: '+meals+'</div>'+recent+meas+refl
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'
     +'<button class="btn-sm" onclick="ncHold(\''+cid+'\','+(!hold)+')">'+(hold?'Release hold':'Hold on this habit')+'</button>'
     +'<button class="btn-sm" onclick="ncAdvance(\''+cid+'\')">Move to next habit</button>'
