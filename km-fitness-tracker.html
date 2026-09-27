@@ -129,6 +129,14 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 /* RIR, H, MM, LP: four equal, finger-sized buttons */
 .set-row .mm-toggle,.set-row .assist-toggle,.set-row .lp-toggle,.set-row .rir-toggle{width:32px;height:36px;font-size:10px;border-radius:8px;}
 .set-row .rir-toggle.active{font-size:12px;}
+/* ⓘ above RIR / H / RP / LP */
+.set-header .set-info-cell{grid-column:4 / span 4;display:flex;justify-content:center;align-items:center;}
+.set-info-btn{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--muted);background:transparent;color:var(--text);font-family:Georgia,serif;font-style:italic;font-weight:800;font-size:12px;line-height:1;padding:0;cursor:pointer;}
+.set-info-btn.open{background:var(--text);color:var(--bg);border-color:var(--text);}
+.set-info-box{margin:2px 0 8px;border:1px solid var(--border);border-radius:10px;background:var(--surf2);padding:6px 10px;}
+.set-info-box .si{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;line-height:1.35;color:var(--text);}
+.set-info-box .si:last-of-type{border-bottom:none;}
+.set-info-box .sc{flex-shrink:0;width:34px;height:22px;border-radius:6px;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;}
 /* numbers always fit: centred, no side padding eating the box */
 .set-row .reps-input,.set-row .weight-input{padding-left:2px !important;padding-right:2px !important;text-align:center;min-width:0;}
 .set-row .reps-input::-webkit-inner-spin-button,.set-row .reps-input::-webkit-outer-spin-button,.set-row .weight-input::-webkit-inner-spin-button,.set-row .weight-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
@@ -3054,7 +3062,7 @@ existingDrops.forEach(d=>{
 const am=Math.min(parseInt(d.dataset.afterMain)||0,count-1);
 (dropsByMain[am]=dropsByMain[am]||[]).push(d);
 });
-container.innerHTML=`<div class="set-header"><span></span><span>Reps</span><span class="wt-label">${weightUnit}</span><span></span><span></span><span></span><span></span><span></span></div>`;
+container.innerHTML=`<div class="set-header"><span></span><span>Reps</span><span class="wt-label">${weightUnit}</span><span class="set-info-cell"><button type="button" class="set-info-btn" onclick="toggleSetInfo(this)" aria-label="What do these buttons mean?">i</button></span><span></span></div><div class="set-info-box" style="display:none;"></div>`;
 for(let i=0;i<count;i++){
 const row=document.createElement('div');
 row.className='set-row';
@@ -3067,7 +3075,7 @@ row.innerHTML=`<span class="set-num">S${i+1}</span>
 <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" value="${vals[i]?.weight||''}" onblur="autoFixNum(this)">
 <button type="button" class="rir-toggle${startRIR!==''?' active':''}" data-v="${startRIR}" title="Reps in reserve (tap to change)" onclick="cycleRIR(this)">${startRIR!==''?'R'+startRIR:'RIR'}</button>
 <button type="button" class="assist-toggle${startCount>0?' active':''}" data-count="${startCount}" title="Tap: +1 rep needed help. Hold: -1">${startCount>0?startCount:'H'}</button>
-<button type="button" class="mm-toggle${startMM?' active':''}" title="Myo-rep match / rest-pause set" onclick="this.classList.toggle('active')">MM</button>
+<button type="button" class="mm-toggle${startMM?' active':''}" title="Rest-pause: short breaks within the set" onclick="this.classList.toggle('active')">RP</button>
 <button type="button" class="lp-toggle${startLPCount>0?' active':''}" data-count="${startLPCount}" title="Tap: +1 lengthened partial rep. Hold: -1">${startLPCount>0?startLPCount:'LP'}</button>
 <span class="pr-badge-slot" style="font-size:14px;text-align:center;"></span>`;
 wireAssistButton(row.querySelector('.assist-toggle'));
@@ -3160,6 +3168,22 @@ if(row) checkSetForPR(row);
 draftSave();
 }
 
+// ⓘ: one-line, beginner-friendly meaning of the four set buttons.
+function toggleSetInfo(btn){
+var box=btn.closest('.set-header').nextElementSibling;
+if(!box||!box.classList.contains('set-info-box')) return;
+var open=box.style.display==='none';
+if(open&&!box.innerHTML){
+box.innerHTML=
+'<div class="si"><span class="sc" style="background:#4aa3c7;color:#06222e;">RIR</span><span>How many more reps you <b>COULD</b> have done. Tap to pick.</span></div>'+
+'<div class="si"><span class="sc" style="background:var(--red);color:#fff;">H</span><span>Reps someone <b>HELPED</b> you finish. Tap to add, hold to remove.</span></div>'+
+'<div class="si"><span class="sc" style="background:#9a6ad4;color:#1a0e2a;">RP</span><span>You <b>PAUSED BRIEFLY</b> mid-set to get more reps. Tap to mark.</span></div>'+
+'<div class="si"><span class="sc" style="background:var(--gold);color:#1a1408;">LP</span><span><b>HALF-REPS</b> at the end when full reps got too hard. Tap to add, hold to remove.</span></div>'+
+'<div style="font-size:11px;color:var(--muted);padding-top:4px;">All optional -- skip them if they don\'t apply.</div>';
+}
+box.style.display=open?'block':'none';
+btn.classList.toggle('open',open);
+}
 // Reps in reserve (RIR) per set: optional; saved as rir ('0'..'3' or '4+').
 var RIR_STEPS=['','0','1','2','3','4+'];
 function _setRIR(btn,v){ if(!btn) return; v=(v==null)?'':String(v); btn.dataset.v=v; btn.textContent=v===''?'RIR':'R'+v; btn.classList.toggle('active',v!==''); }
@@ -3174,7 +3198,7 @@ row.innerHTML=`<span class="set-num dropset">D</span>
 <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" onblur="autoFixNum(this)">
 <button type="button" class="rir-toggle" data-v="" title="Reps in reserve (tap to change)" onclick="cycleRIR(this)">RIR</button>
 <button type="button" class="assist-toggle" data-count="0" title="Tap: +1 rep needed help. Hold: -1">H</button>
-<button type="button" class="mm-toggle" title="Myo-rep match / rest-pause set" onclick="this.classList.toggle('active')">MM</button>
+<button type="button" class="mm-toggle" title="Rest-pause: short breaks within the set" onclick="this.classList.toggle('active')">RP</button>
 <button type="button" class="lp-toggle" title="Lengthened partial rep">LP</button>
 <button type="button" class="drop-del-btn" title="Remove this drop set">&#10005;</button>`;
 wireAssistButton(row.querySelector('.assist-toggle'));
@@ -4179,7 +4203,7 @@ innerHtml=setData.map(function(r){
 const label=r.dropset?(++dsN>1?'D'+dsN:'D'):(dsN=0,mainN++,'Set '+mainN);
 return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;'+(r.dropset?'margin-left:16px;border-left:2px solid var(--red);':'')+'">'
 +'<span style="font-family:\'DM Mono\',monospace;font-size:17px;color:'+(r.dropset?'var(--red)':'var(--muted2)')+';width:42px;flex-shrink:0;text-transform:uppercase;">'+label+'</span>'
-+(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.myoRepMatch?' <span style="color:#9a6ad4;font-size:14px;font-weight:700;">(MM)</span>':'')+((r.rir!=null&&r.rir!=='')?' <span style="color:#4aa3c7;font-size:14px;font-weight:700;">(RIR '+r.rir+')</span>':'')+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:14px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
++(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.myoRepMatch?' <span style="color:#9a6ad4;font-size:14px;font-weight:700;">(RP)</span>':'')+((r.rir!=null&&r.rir!=='')?' <span style="color:#4aa3c7;font-size:14px;font-weight:700;">(RIR '+r.rir+')</span>':'')+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:14px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
 +(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:17px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
 +'</div>';
 }).join('');
@@ -4207,7 +4231,7 @@ generateSetRows(block.querySelector('.set-rows'),+sel.value,exName);
 }
 }
 
-function doneSuperset(ssId){
+function doneSuperset(ssId,quiet){
 const block=document.querySelector(`.superset-block[data-ssid="${ssId}"]`);
 if(!block)return;
 block.dataset.done='1';
@@ -4237,7 +4261,8 @@ nextWrap.className='ss-next-btn-wrap';
 nextWrap.innerHTML=`<div class="add-row" style="color:var(--sage);border-color:var(--sage);margin-top:6px;" onclick="this.closest('.ss-next-btn-wrap').remove();addSupersetBlock()">+ Superset ${nextNum}</div>`;
 block.insertAdjacentElement('afterend',nextWrap);
 }
-toast(`Superset ${ssNum} done`);
+// only when the person taps Done -- not when a saved session is reopened
+if(!quiet) toast(`Superset ${ssNum} done`);
 }
 
 function editSuperset(ssId){
@@ -4415,7 +4440,7 @@ innerHtml=setData.map(function(r){
 const label=r.dropset?(++dsN>1?'D'+dsN:'D'):(dsN=0,mainN++,'Set '+mainN);
 return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;'+(r.dropset?'margin-left:16px;border-left:2px solid var(--red);':'')+'">'
 +'<span style="font-family:\'DM Mono\',monospace;font-size:17px;color:'+(r.dropset?'var(--red)':'var(--muted2)')+';width:42px;flex-shrink:0;text-transform:uppercase;">'+label+'</span>'
-+(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.myoRepMatch?' <span style="color:#9a6ad4;font-size:14px;font-weight:700;">(MM)</span>':'')+((r.rir!=null&&r.rir!=='')?' <span style="color:#4aa3c7;font-size:14px;font-weight:700;">(RIR '+r.rir+')</span>':'')+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:14px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
++(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.myoRepMatch?' <span style="color:#9a6ad4;font-size:14px;font-weight:700;">(RP)</span>':'')+((r.rir!=null&&r.rir!=='')?' <span style="color:#4aa3c7;font-size:14px;font-weight:700;">(RIR '+r.rir+')</span>':'')+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:14px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
 +(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:17px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
 +'</div>';
 }).join('');
@@ -6988,7 +7013,7 @@ if(!realSets.length) return '';
 var hasWeight=realSets.some(function(r){return r.weight;});
 var rows=realSets.map(function(r){
 return '<tr><td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">S'+r.set+(r.dropset?' (drop)':'')+'</td>'+
-'<td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">'+(r.reps||'--')+(r.myoRepMatch?' (MM)':'')+(r.assistedReps>0?' (H '+r.assistedReps+')':'')+(r.lengthenedPartialReps>0?' (LP '+r.lengthenedPartialReps+')':'')+'</td>'+
+'<td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">'+(r.reps||'--')+(r.myoRepMatch?' (RP)':'')+(r.assistedReps>0?' (H '+r.assistedReps+')':'')+(r.lengthenedPartialReps>0?' (LP '+r.lengthenedPartialReps+')':'')+'</td>'+
 (hasWeight?'<td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">'+(r.weight||'--')+' '+uLabel+'</td>':'')+'</tr>';
 }).join('');
 return '<div style="margin-bottom:10px;"><div style="font-size:14px;font-weight:700;margin-bottom:4px;">'+e.ex+'</div>'+
@@ -7605,7 +7630,7 @@ restoreSetData(exBlock.querySelector('.set-rows'),e.setData);
 }
 });
 
-doneSuperset(ssId);
+doneSuperset(ssId,true);
 });
 }
 }catch(err){
@@ -7729,7 +7754,7 @@ const showTrophy=isSessionPR&&!(r.assistedReps>0)&&!r.dropset&&!(r.lengthenedPar
 const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
 return`<tr>
 <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${dropLabel}</td>
-<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.myoRepMatch?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Myo-rep match / rest-pause set">MM</span>':''}${(r.rir!=null&&r.rir!=='')?'<span style="display:inline-flex;align-items:center;background:#4aa3c7;color:#06222e;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Reps in reserve">RIR '+r.rir+'</span>':''}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">H '+r.assistedReps+'</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.lengthenedPartialReps+' lengthened partial rep(s)">LP '+r.lengthenedPartialReps+'</span>':''}</td>
+<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.myoRepMatch?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Rest-pause set">RP</span>':''}${(r.rir!=null&&r.rir!=='')?'<span style="display:inline-flex;align-items:center;background:#4aa3c7;color:#06222e;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Reps in reserve">RIR '+r.rir+'</span>':''}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">H '+r.assistedReps+'</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.lengthenedPartialReps+' lengthened partial rep(s)">LP '+r.lengthenedPartialReps+'</span>':''}</td>
 ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
 </tr>`;}).join('')})()}</tbody>
 </table>
@@ -7798,7 +7823,7 @@ const showTrophy=ssIsSessionPR&&!(r.assistedReps>0)&&!r.dropset&&!(r.lengthenedP
 const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
 return`<tr>
 <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${dropLabel}</td>
-<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.myoRepMatch?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Myo-rep match / rest-pause set">MM</span>':''}${(r.rir!=null&&r.rir!=='')?'<span style="display:inline-flex;align-items:center;background:#4aa3c7;color:#06222e;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Reps in reserve">RIR '+r.rir+'</span>':''}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">H '+r.assistedReps+'</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.lengthenedPartialReps+' lengthened partial rep(s)">LP '+r.lengthenedPartialReps+'</span>':''}</td>
+<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.myoRepMatch?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Rest-pause set">RP</span>':''}${(r.rir!=null&&r.rir!=='')?'<span style="display:inline-flex;align-items:center;background:#4aa3c7;color:#06222e;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Reps in reserve">RIR '+r.rir+'</span>':''}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">H '+r.assistedReps+'</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.lengthenedPartialReps+' lengthened partial rep(s)">LP '+r.lengthenedPartialReps+'</span>':''}</td>
 ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
 </tr>`;}).join('')})()}</tbody>
 </table>
@@ -8066,7 +8091,9 @@ const HELP_TEXT=[
 '<b>2. For each exercise, fill in your sets</b><br>Every exercise shows boxes for Reps and Weight, one row per set. Just type the numbers in as you finish each set. Did an extra set that isn\'t shown? Tap "+ Add Set" to add another row.<br><br>'+
 '<b>3. The H button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "H" (for Help). Tap it once for every rep in that set where someone helped you finish (a spot) -- it\'ll show a number like "H 2". Tapped it by mistake, or want to lower the count? Press and hold the button to subtract one. Didn\'t need help at all? Just leave it alone.<br><br>'+
 '<b>3b. The LP button (lengthened partials)</b><br>Works exactly the same way as H, right next to it. Tap "LP" once for every rep in that set done as a lengthened partial -- a shorter rep performed in the stretched position of the movement (e.g. the bottom half of a leg extension or bicep curl), a technique some research suggests builds muscle as well as full-range reps for certain exercises. Same as H: tap to add one, press and hold to subtract one. Like H and drop sets, LP reps are excluded from your Personal Records, since a partial-range rep isn\'t really the same lift as a full-range one.<br><br>'+
-'<b>3c. The MM button (myo-rep match / rest-pause)</b><br>Tap MM to mark a set done as a myo-rep match or rest-pause set -- a few seconds\' pause mid-set instead of stopping between sets. Same as H and LP, MM sets are excluded from Personal Records.<br><br>'+
+'<b>3c. The RP button (rest-pause)</b><br>Tap RP if you took short breaks within the set to squeeze out more reps. Like H and LP, rest-pause sets don\'t count towards personal records.<br><br>'+
+'<b>3d. The RIR button (reps in reserve)</b><br>How many more reps you could have done at the end of the set. Tap it to cycle 0, 1, 2, 3, 4+ (tap again to clear). It helps your coach judge how hard each set was.<br><br>'+
+'<b>Not sure what a button means?</b> Tap the small <b>i</b> above the four buttons on any exercise for a one-line reminder.<br><br>'+
 '<b>4. Drop sets</b><br>Right after a set, you\'ll see a small "+ Drop set" link. Tap it if you dropped the weight and kept going with no rest (a classic drop set) -- it adds a new row marked "D" underneath that set.<br><br>'+
 '<b>5. How to actually do each rep</b><br>This matters as much as the numbers you log: lower the weight slowly (2-4 seconds), pause for a second at the bottom, then lift back up fast and with intent. Always use the full range of motion -- never half-reps. If you can\'t do this with control, the weight is too heavy; use less weight, not less range.<br><br>'+
 '<b>6. Doing two exercises back-to-back with no rest? Use Superset</b><br>Tap "+ Add Superset" instead of logging them as two separate exercises. This links them together properly in your history.<br><br>'+

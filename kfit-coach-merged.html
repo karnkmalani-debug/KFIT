@@ -229,7 +229,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       </div>
       <div id="uniActionAlerts"></div>
       <button id="uniDietTemplatesBtn" onclick="openDietTemplateModal()" style="display:none;width:100%;padding:11px;margin-bottom:12px;background:none;border:1px solid var(--sage);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;color:var(--sage);cursor:pointer;">📋 Diet Templates</button>
-      <button id="uniNutCoachBtn" onclick="openNutCoachList()" style="display:none;width:100%;padding:11px;margin-bottom:12px;background:none;border:1px solid var(--sage);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;color:var(--sage);cursor:pointer;">🌱 Nutrition app clients</button>
       <div class="stat-grid" id="uniOverallStats"></div>
       <input id="uniClientSearch" type="text" placeholder="🔍 Search by name..." oninput="renderUniDash()" style="width:100%;padding:9px 12px;margin-bottom:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
       <div id="uniShowHiddenRow" style="display:none;margin-bottom:10px;">
@@ -249,7 +248,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <button id="uniSubTabNut" class="mode-btn" style="flex:1;" onclick="setUniSubTab('nutrition')">🥗 Nutrition</button>
       </div>
       <div id="uniFitDetail" style="display:block;"></div>
-      <div id="uniNutCoach" style="display:none;"></div>
       <div id="uniNutDetail" style="display:none;"></div>
     </div>
   </div>
@@ -535,7 +533,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   </div>
 
 <div id="liveTrackerModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:#000;z-index:700;">
-  <button id="liveTrackerClose" onclick="closeLiveTracker()" style="position:absolute;top:10px;right:10px;z-index:701;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:18px;cursor:pointer;">✕</button>
+  <button onclick="closeLiveTracker()" style="position:absolute;top:10px;right:10px;z-index:701;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:18px;cursor:pointer;">✕</button>
   <iframe id="liveTrackerFrame" src="" style="width:100%;height:100%;border:none;"></iframe>
 </div>
 
@@ -651,7 +649,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 <script src="./kfit-exercise-library.js"></script>
 <script src="./kfit-fitness-store.js"></script>
 <script src="./kfit-coach-chat.js"></script>
-<script src="./kfit-nutrition-lessons.js"></script>
 <script>
 
 
@@ -2172,16 +2169,8 @@ function loadNewSignups(){
   // mobile and the first session's id (null = no sessions), at most every 2 min.
   if(Date.now()-_newSignupsLast<120000) return;
   _newSignupsLast=Date.now();
-  // Nutrition-only sign-ups (approved from the nutrition apps) are nutrition
-  // clients: keep them out of the fitness "Not Set Up" list.
-  Promise.all([
-    KFitStore.listClientSummaries(getSBScoped()),
-    getSB().from('fitness_link_requests').select('client_id').eq('status','approved').eq('app','nutrition')
-      .then(function(r){return r;},function(){return {data:[]};})
-  ]).then(function(both){
-    var res=both[0], nutOnly=new Set(((both[1]&&both[1].data)||[]).map(function(x){return x.client_id;}));
+  KFitStore.listClientSummaries(getSBScoped()).then(function(res){
     if(res.error||!res.data)return;
-    res.data=res.data.filter(function(r){ return !(nutOnly.has(r.client_id)&&!(Number(r.live_sessions)>0)); });
     res.data=res.data.map(function(r){ return {client_id:r.client_id,nm:r.name,mb:r.mobile,first:Number(r.live_sessions)>0?'1':null}; });
     const attendedKeys=new Set(allRecords.map(function(r){return (r.client_mobile||r.client_name||'').toLowerCase().trim();}));
     const noSession=[];
@@ -2480,7 +2469,6 @@ function chooseUniDiscipline(discipline){
   // the old standalone Nutrition tab got hidden during the nav restructure.
   // Restoring the entry point here, not rebuilding the feature.
   document.getElementById('uniDietTemplatesBtn').style.display=(discipline==='nutrition')?'block':'none';
-  var _ncb=document.getElementById('uniNutCoachBtn'); if(_ncb) _ncb.style.display=(discipline==='nutrition')?'block':'none';
   renderUniDash();
 }
 function chooseAllUsers(){
@@ -2506,7 +2494,6 @@ function setUniSubTab(which){
   document.getElementById('uniSubTabNut').classList.toggle('active',which==='nutrition');
   document.getElementById('uniFitDetail').style.display=which==='fitness'?'block':'none';
   document.getElementById('uniNutDetail').style.display=which==='nutrition'?'block':'none';
-  var _nc=document.getElementById('uniNutCoach'); if(_nc) _nc.style.display=which==='nutrition'?'block':'none';
 }
 
 async function openUniClient(key){
@@ -2557,8 +2544,6 @@ async function openUniClient(key){
     document.getElementById('uniNutDetail').innerHTML='<div class="empty">No nutrition data for this person yet.</div>';
   }
   setUniSubTab(c.fit?'fitness':'nutrition');
-  // Nutrition Coach app: show the person's program if they have one.
-  try{ nutCoachAttach(c); }catch(e){ console.warn('Nutrition Coach panel:',e); }
 }
 
 function showClient(key,targetContainer){
@@ -3335,7 +3320,7 @@ function reqSessLines(s){
   lines.push('📅 '+(s.date||'?')+(s.timeOfDay?' · '+s.timeOfDay:''));
   if(s.duration) lines.push('⏱ '+Math.round(s.duration/60)+' min');
   const setStr=function(sd){return (sd||[]).filter(function(r){return r.reps||r.weight;}).map(function(r){
-    return (r.dropset?'D ':'')+(r.reps||'-')+'×'+(r.weight||'-')+(r.myoRepMatch?' MM':'')+(r.assistedReps>0?' H'+r.assistedReps:'')+(r.lengthenedPartialReps>0?' LP'+r.lengthenedPartialReps:'');
+    return (r.dropset?'D ':'')+(r.reps||'-')+'×'+(r.weight||'-')+(r.myoRepMatch?' RP':'')+((r.rir!=null&&r.rir!=='')?' RIR '+r.rir:'')+(r.assistedReps>0?' H'+r.assistedReps:'')+(r.lengthenedPartialReps>0?' LP'+r.lengthenedPartialReps:'');
   }).join(', ');};
   (s.exercises||[]).forEach(function(e){
     if(e.type==='cardio') lines.push(e.ex+': '+(e.duration||'-')+' min'+(e.intensity?' '+e.intensity:''));
@@ -3521,7 +3506,6 @@ function renderRequests(){
     if(it.kind==='link'){
       const r=it.request;
       detail='<div style="margin-top:8px;font-size:12px;line-height:1.5;color:var(--muted);">'
-        +(r.app==='nutrition'?'🥗 From the nutrition app. ':'')
         +(r.kind==='new_client'?'New sign-up -- approving adds them as your client.':'A new phone for an existing client -- approving lets it see and sync their history.')
         +'<br>📞 '+reqEsc(r.mobile||'')+(r.name?' · '+reqEsc(r.name):'')+(r.email?' · '+reqEsc(r.email):'')
         +'<br>Only approve if you know this is really them.</div>';
@@ -3875,7 +3859,7 @@ function ssBodyHtmlCoach(ss,uLabel,prMap8,s,allSessions){
           const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
           return`<tr>
           <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${r.dropset?'var(--terra)':'inherit'};border-bottom:1px solid var(--border);padding:6px 0;">${dropLabel}</td>
-          <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">H '+r.assistedReps+'</span>':''}${r.myoRepMatch?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">MM</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">LP '+r.lengthenedPartialReps+'</span>':''}</td>
+          <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">H '+r.assistedReps+'</span>':''}${r.myoRepMatch?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">RP</span>':''}${(r.rir!=null&&r.rir!=='')?'<span style="display:inline-flex;align-items:center;background:#4aa3c7;color:#06222e;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">RIR '+r.rir+'</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">LP '+r.lengthenedPartialReps+'</span>':''}</td>
           ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
         </tr>`;}).join('')})()}</tbody>
       </table>
@@ -3973,7 +3957,7 @@ function renderCoachSession(s,allSessions,full){
             const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
             return`<tr>
             <td style="text-align:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:${r.dropset?'var(--terra)':'inherit'};border-bottom:1px solid var(--border);padding:6px 0;">${dropLabel}</td>
-            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">H '+r.assistedReps+'</span>':''}${r.myoRepMatch?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">MM</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">LP '+r.lengthenedPartialReps+'</span>':''}</td>
+            <td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;border-bottom:1px solid var(--border);padding:6px 0;">${r.reps||'--'}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--terra);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">H '+r.assistedReps+'</span>':''}${r.myoRepMatch?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">RP</span>':''}${(r.rir!=null&&r.rir!=='')?'<span style="display:inline-flex;align-items:center;background:#4aa3c7;color:#06222e;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">RIR '+r.rir+'</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:9px;font-weight:800;padding:2px 5px;border-radius:8px;margin-left:4px;">LP '+r.lengthenedPartialReps+'</span>':''}</td>
             ${hasW?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:6px 0;">${r.weight||'--'}</td><td style="text-align:center;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px;">${showTrophy?'🏆':''}</td>`:''}
           </tr>`;}).join('')})()}</tbody>
         </table>
@@ -4133,7 +4117,7 @@ function lastPerfHtml(exName){
     const label=r.dropset?(++dsN>1?'D'+dsN:'D'):(dsN=0,mainN++,'Set '+mainN);
     return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;'+(r.dropset?'margin-left:16px;border-left:2px solid var(--terra);':'')+'">'
     +'<span style="font-family:\'DM Mono\',monospace;font-size:13px;color:'+(r.dropset?'var(--terra)':'var(--muted)')+';width:36px;flex-shrink:0;text-transform:uppercase;">'+label+'</span>'
-    +(r.reps?'<span style="font-size:13px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.assistedReps>0?' <span style="color:var(--terra);font-size:11px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.myoRepMatch?' <span style="color:#9a6ad4;font-size:11px;font-weight:700;">(MM)</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:11px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
+    +(r.reps?'<span style="font-size:13px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.assistedReps>0?' <span style="color:var(--terra);font-size:11px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.myoRepMatch?' <span style="color:#9a6ad4;font-size:11px;font-weight:700;">(RP)</span>':'')+((r.rir!=null&&r.rir!=='')?' <span style="color:#4aa3c7;font-size:11px;font-weight:700;">(RIR '+r.rir+')</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:11px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
     +(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:13px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
     +'</div>';
   }).join('');
@@ -4305,13 +4289,12 @@ function renderRecentSessionsPage(listElId,clientKey){
   const rows=sessions.slice(0,visible).map(function(s){
     const d=new Date(s.date+'T12:00:00');
     const dateStr=d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear();
-    const exCount=(s.exercises&&s.exercises.length?s.exercises.length:0)
-      +(s.supersets||[]).reduce(function(a,ss){return a+((ss.exercises||[]).length);},0);
+    const exCount=s.exercises&&s.exercises.length?s.exercises.length:0;
     const cardioCount=s.cardio&&s.cardio.length?s.cardio.length:0;
     const metaStr=exCount?(exCount+' ex'):(cardioCount?(cardioCount+' cardio'):'');
     const prInfo=getSessionPRInfoCoach(s,prMap,sessions);
     const prBadge=prInfo.count?(' <span style="color:var(--gold);font-weight:800;">🏆'+prInfo.count+'</span>'):'';
-    const bp=(s.bodyParts||[]).join(', ')||mergeDerivedBodyParts(s).join(', ')||(cardioCount?(s.cardio.map(function(c){return c.ex;}).filter(Boolean).join(', ')):'');
+    const bp=(s.bodyParts||[]).join(', ')||(cardioCount?(s.cardio.map(function(c){return c.ex;}).filter(Boolean).join(', ')):'');
     const paidBtn=s._paid!==undefined?('<button onclick="event.stopPropagation();togglePaid(\''+clientKey.replace(/'/g,"\\'")+'\',\''+s.date+'\',\''+(s.timeOfDay||'').replace(/'/g,"\\'")+'\','+(!!s._paid)+')" style="padding:3px 8px;border-radius:10px;border:1px solid '+(s._paid?'var(--sage)':'var(--terra)')+';background:'+(s._paid?'var(--sage)':'transparent')+';color:'+(s._paid?'#fff':'var(--terra)')+';font-family:\'DM Sans\',sans-serif;font-size:9px;font-weight:800;letter-spacing:0.4px;cursor:pointer;white-space:nowrap;flex-shrink:0;">'+(s._paid?'PAID':'UNPAID')+'</button>'):'';
     return '<div onclick="openCoachSession(\''+clientKey.replace(/'/g,"\\'")+'\',\''+s.date+'\',\''+(s.timeOfDay||'').replace(/'/g,"\\'")+'\')" '
       +'style="padding:8px 4px;border-top:1px solid rgba(255,255,255,.08);font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;">'
@@ -5087,7 +5070,7 @@ function bumpAsSupersetLP(ssId,exId,idx,delta){
 // like the tracker, tapping the pill itself increments and a small "-"
 // appears once the count is above 0 to step back down.
 function asMMHtml(on,fn){
-  return '<button type="button" onclick="'+fn+'" title="Myo-rep match / rest-pause set" style="min-width:30px;height:22px;padding:0 4px;background:'+(on?'#9a6ad4':'var(--surf2)')+';border:1px solid '+(on?'transparent':'var(--border)')+';border-radius:5px;color:'+(on?'#1a0e2a':'var(--muted)')+';font-size:10px;font-weight:800;cursor:pointer;">MM</button>';
+  return '<button type="button" onclick="'+fn+'" title="Rest-pause: short breaks within the set" style="min-width:30px;height:22px;padding:0 4px;background:'+(on?'#9a6ad4':'var(--surf2)')+';border:1px solid '+(on?'transparent':'var(--border)')+';border-radius:5px;color:'+(on?'#1a0e2a':'var(--muted)')+';font-size:10px;font-weight:800;cursor:pointer;">RP</button>';
 }
 function toggleAsMM(id,idx){
   const b=asExercises.find(b=>b.id==id);
@@ -6673,130 +6656,6 @@ function closeDayPanel(){
   document.getElementById('nutDayPanel').style.display='none';
 }
 
-</script>
-<style>.btn-sm{padding:9px 12px;border-radius:8px;border:1px solid var(--sage);background:none;color:var(--sage);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit}</style>
-<script>
-// ═══════════════════════════════════════════════════════════════════
-// Nutrition app (km-nutrition-tracker.html -- the habit coach): the coach's view.
-// Reads nutrition_program / nutrition_checkins / nutrition_meals (the
-// database only shows a coach their own clients). Coach can hold a
-// client on a habit, move them on, or change their plan.
-// ═══════════════════════════════════════════════════════════════════
-var NC_T={}, NC_H={};
-(typeof KFIT_TEMPLATES!=='undefined'?KFIT_TEMPLATES:[]).forEach(function(t){NC_T[t.id]=t;});
-(typeof KFIT_HABITS!=='undefined'?KFIT_HABITS:[]).forEach(function(h){NC_H[h.id]=h;});
-if(typeof KFIT_RESET!=='undefined') NC_H.reset=KFIT_RESET;
-function ncEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function ncToday(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function ncAddDays(s,n){var p=s.split('-');var d=new Date(+p[0],+p[1]-1,+p[2]);d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function ncStepName(p){var t=NC_T[p.template_id];var id=t&&t.path[p.step_index];var h=NC_H[id];return id==='reset'?'7-day Reset':h?((h.n?'Habit '+h.n+': ':'')+h.title):(id||'?');}
-function ncDay(p){var a=(p.step_started_on||ncToday()).split('-'),b=ncToday().split('-');return Math.round((new Date(+b[0],+b[1]-1,+b[2])-new Date(+a[0],+a[1]-1,+a[2]))/86400000)+1;}
-async function nutCoachAttach(c){
-  var box=document.getElementById('uniNutCoach'); if(!box) return; box.innerHTML='';
-  var m=String(c.mobile||'').replace(/\D/g,''); if(m.length<8) return;
-  var cid='knut__'+m;
-  var r=await getSB().from('nutrition_program').select('*').eq('client_id',cid);
-  var hasProg=!r.error&&r.data&&r.data.length;
-  if(!hasProg){
-    // No habit plan yet, but they may already be logging meals in the app.
-    var ml=await getSB().from('nutrition_meals').select('meal_id').eq('client_id',cid).limit(1);
-    if(ml.error||!ml.data||!ml.data.length) return;
-  }
-  document.getElementById('uniSubTabNut').style.display='block';
-  if(!c.nut){ document.getElementById('uniNutDetail').innerHTML=''; if(!c.fit) setUniSubTab('nutrition'); }
-  await nutCoachPanel(cid,box,hasProg?r.data[0]:null);
-}
-async function nutCoachPanel(cid,box,p){
-  var since=ncAddDays(ncToday(),-27);
-  var ck=await getSB().from('nutrition_checkins').select('*').eq('client_id',cid).gte('day',since);
-  var ml=await getSB().from('nutrition_meals').select('day,deleted,body').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-6));
-  var byDay={}; (ck.data||[]).forEach(function(x){byDay[x.day]=x;});
-  var cells='', refl='';
-  for(var i=27;i>=0;i--){var d=ncAddDays(ncToday(),-i), x=byDay[d]||{};
-    var col=x.answer==='done'?'var(--sage)':x.answer==='partly'?'#9DBDAF':x.answer==='not'?'#E6DFD3':'transparent';
-    cells+='<div title="'+d+'" style="height:18px;border-radius:5px;border:1px solid #E6DFD3;background:'+col+'"></div>';}
-  function qs(x){return Object.keys(x.reflection||{}).filter(function(k){return /^q\d+$/.test(k);});}
-  (ck.data||[]).filter(function(x){return qs(x).length;}).sort(function(a,b){return a.day<b.day?1:-1;}).slice(0,4).forEach(function(x){
-    refl+='<div style="margin-top:8px;font-size:13px;line-height:1.5"><b>'+ncEsc(x.day)+'</b> · '+qs(x).map(function(k){return ncEsc(x.reflection[k]);}).join(' / ')+'</div>';});
-  var ms=(ck.data||[]).filter(function(x){return x.reflection&&x.reflection.measure;}).sort(function(a,b){return a.day<b.day?1:-1;});
-  var meas=ms.length?'<div style="font-size:13px;margin-top:8px">Latest check-in ('+ncEsc(ms[0].day)+'): '
-    +(ms[0].reflection.measure.waist?'waist '+ncEsc(ms[0].reflection.measure.waist)+' cm ':'')+(ms[0].reflection.measure.weight?'weight '+ncEsc(ms[0].reflection.measure.weight)+' kg':'')
-    +(ms[1]&&ms[0].reflection.measure.waist&&ms[1].reflection.measure.waist?' · waist change '+(Math.round((ms[0].reflection.measure.waist-ms[1].reflection.measure.waist)*10)/10)+' cm':'')+'</div>':'';
-  var meals=(ml.data||[]).filter(function(x){return !x.deleted;}).length;
-  var recent=(ml.data||[]).filter(function(x){return !x.deleted;}).sort(function(a,b){return ((b.body||{}).at||0)-((a.body||{}).at||0);}).slice(0,8)
-    .map(function(x){var b=x.body||{},f=b.feedback;return '<div style="font-size:13px;line-height:1.5;margin-top:6px"><b>'+ncEsc(x.day)+' · '+ncEsc(b.slot||'Meal')+'</b>'+(b.text?' — '+ncEsc(b.text):'')
-      +(f?'<br><span style="color:var(--muted)">protein '+ncEsc(f.protein)+' palm · veg '+ncEsc(f.veg)+' fist · carbs '+ncEsc(f.carbs)+' · fats '+ncEsc(f.fats)+'</span>':'')+'</div>';}).join('');
-  if(!p){
-    box.innerHTML='<div class="card" style="margin-bottom:12px"><div style="font-size:16px;font-weight:800;margin-bottom:6px">🌱 Nutrition app</div>'
-      +'<div style="font-size:14px">Logging meals, no habit plan chosen yet.</div>'+(recent||'')+'</div>';
-    return;
-  }
-  var t=NC_T[p.template_id], hold=!!(p.settings&&p.settings.coachHold);
-  var opts=Object.keys(NC_T).map(function(k){return '<option value="'+k+'"'+(k===p.template_id?' selected':'')+'>'+ncEsc(NC_T[k].name)+'</option>';}).join('');
-  box.innerHTML='<div class="card" style="margin-bottom:12px"><div style="font-size:16px;font-weight:800;margin-bottom:6px">🌱 Nutrition Coach app</div>'
-    +'<div style="font-size:14px;line-height:1.6">'+ncEsc(t?t.name:p.template_id)+' · <b>'+ncEsc(ncStepName(p))+'</b> · day '+ncDay(p)+(hold?' · <span style="color:var(--terra)">on hold</span>':'')+'</div>'
-    +'<div style="font-size:12px;color:var(--muted);margin:8px 0 4px">Last 4 weeks (dark = done, light = partly, beige = not today, empty = no check-in)</div>'
-    +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">'+cells+'</div>'
-    +'<div style="font-size:13px;color:var(--muted);margin-top:8px">Meals logged in the last 7 days: '+meals+'</div>'+recent+meas+refl
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'
-    +'<button class="btn-sm" onclick="ncHold(\''+cid+'\','+(!hold)+')">'+(hold?'Release hold':'Hold on this habit')+'</button>'
-    +'<button class="btn-sm" onclick="ncAdvance(\''+cid+'\')">Move to next habit</button>'
-    +'<select id="ncTpl_'+cid+'" style="padding:6px;border-radius:8px">'+opts+'</select>'
-    +'<button class="btn-sm" onclick="ncChangePlan(\''+cid+'\')">Change plan</button></div></div>';
-}
-async function ncLoad(cid){var r=await getSB().from('nutrition_program').select('*').eq('client_id',cid);if(r.error||!r.data||!r.data[0]){alert('Could not load this program.');return null;}return r.data[0];}
-async function ncSave(cid,p,note){
-  p.updated_ms=Date.now(); p.history=(p.history||[]).concat([{type:note,on:ncToday(),by:'coach'}]);
-  var r=await getSB().from('nutrition_program').update({template_id:p.template_id,step_index:p.step_index,step_started_on:p.step_started_on,started_on:p.started_on,history:p.history,settings:p.settings||{},updated_ms:p.updated_ms}).eq('client_id',cid);
-  if(r.error){alert('Not saved -- nothing changed. '+r.error.message);return;}
-  var box=document.getElementById('uniNutCoach'); if(box&&box.innerHTML) nutCoachPanel(cid,box,p);
-  var lb=document.getElementById('ncListBody'); if(lb) openNutCoachList();
-}
-async function ncHold(cid,on){var p=await ncLoad(cid);if(!p)return;p.settings=Object.assign({},p.settings);if(on)p.settings.coachHold=true;else delete p.settings.coachHold;ncSave(cid,p,on?'coachHold':'coachRelease');}
-async function ncAdvance(cid){var p=await ncLoad(cid);if(!p)return;var t=NC_T[p.template_id];
-  if(!t||p.step_index>=t.path.length-1){alert('This is the last habit on their plan. Use "Change plan" to move them on.');return;}
-  if(!confirm('Move them on to the next habit now?'))return;p.step_index++;p.step_started_on=ncToday();ncSave(cid,p,'coachAdvance');}
-async function ncChangePlan(cid){var sel=document.getElementById('ncTpl_'+cid);if(!sel)return;var p=await ncLoad(cid);if(!p)return;
-  if(sel.value===p.template_id){alert('They are already on this plan.');return;}
-  if(!confirm('Switch them to '+NC_T[sel.value].name+'? They start at its first habit they haven\'t finished.'))return;
-  var done={};(p.history||[]).forEach(function(h){if(h.type==='moveOn'||h.type==='coachAdvance')done[h.step]=1;});
-  var t=NC_T[sel.value],i=0;while(i<t.path.length-1&&done[t.path[i]])i++;
-  p.template_id=sel.value;p.step_index=i;p.step_started_on=ncToday();p.started_on=ncToday();ncSave(cid,p,'coachChangePlan');}
-async function openNutCoachList(){
-  var r=await getSB().from('nutrition_program').select('*').order('updated_at',{ascending:false});
-  if(r.error){alert('Could not load: '+r.error.message);return;}
-  var rows=r.data||[], ids=rows.map(function(x){return 'kfit__'+x.client_id.slice(6);});
-  var names={}; if(ids.length){var f=await getSB().from('fitness_clients').select('client_id,name').in('client_id',ids);(f.data||[]).forEach(function(x){names[x.client_id.slice(6)]=x.name;});}
-  var html=rows.length?rows.map(function(p){var m=p.client_id.slice(6);
-    return '<div class="card" style="margin-bottom:8px;cursor:pointer" onclick="ncOpenOne(\''+p.client_id+'\')"><div style="font-weight:800">'+ncEsc(names[m]||('+'+m))+'</div>'
-      +'<div style="font-size:13px;color:var(--muted)">'+ncEsc(ncStepName(p))+' · day '+ncDay(p)+(p.settings&&p.settings.coachHold?' · on hold':'')+'</div><div id="ncOne_'+p.client_id+'"></div></div>';}).join('')
-    :'<div class="empty">No one is using the Nutrition Coach app yet.</div>';
-  var ov=document.getElementById('ncListOverlay');
-  if(!ov){ov=document.createElement('div');ov.id='ncListOverlay';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;overflow:auto;padding:20px';document.body.appendChild(ov);}
-  ov.innerHTML='<div style="max-width:560px;margin:0 auto;background:var(--bg,#fff);border-radius:14px;padding:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:18px;font-weight:800">🌱 Nutrition Coach app</div><button class="btn-sm" onclick="document.getElementById(\'ncListOverlay\').remove()">Close</button></div><div id="ncListBody">'+html+'</div></div>';
-}
-async function ncOpenOne(cid){var box=document.getElementById('ncOne_'+cid);if(!box||box.innerHTML)return;var p=await ncLoad(cid);if(p){box.onclick=function(e){e.stopPropagation();};nutCoachPanel(cid,box,p);}}
-</script>
-<script>
-// Body parts for sessions stored without them (e.g. superset-only sessions
-// saved before the tracker fix): worked out from the logged exercises.
-function mergeDerivedBodyParts(s){
-  if(typeof EX_LIB==='undefined'||!s) return [];
-  var names=(s.exercises||[]).map(function(e){return e.ex;});
-  (s.supersets||[]).forEach(function(ss){(ss.exercises||[]).forEach(function(e){names.push(e.ex);});});
-  var cats=Object.keys(EX_LIB).filter(function(c){return c!=='Cardio';}), out=[];
-  names.forEach(function(n){ for(var i=0;i<cats.length;i++){ if((EX_LIB[cats[i]]||[]).indexOf(n)>=0){ if(out.indexOf(cats[i])<0) out.push(cats[i]); return; } } });
-  return out.sort(function(a,b){return cats.indexOf(a)-cats.indexOf(b);});
-}
-// While the tracker shows a PR celebration, hide the ✕ that closes the whole
-// log, so it can't be mistaken for closing the PR message.
-window.addEventListener('message',function(e){
-  if(e.origin!==location.origin||!e.data||e.data.kfit!=='prFlash') return;
-  var b=document.getElementById('liveTrackerClose'); if(!b) return;
-  b.style.display=e.data.showing?'none':'';
-  clearTimeout(window._prCloseRestore);
-  if(e.data.showing) window._prCloseRestore=setTimeout(function(){b.style.display='';},15000);
-});
 </script>
 </body>
 </html>
