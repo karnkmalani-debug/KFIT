@@ -3872,37 +3872,7 @@ return '<div style="display:flex;justify-content:space-between;align-items:cente
 function loadKfitStandardRoutine(idx){
 var r=KFIT_STANDARD_ROUTINES[idx];
 if(!r) return;
-var hasExistingWork=document.querySelectorAll('#exBody .ex-block, #exBody .superset-block').length>0 || (cardioBlocks&&cardioBlocks.length>0) || (functionalBlocks&&functionalBlocks.length>0);
-if(hasExistingWork && !confirm('Load "'+r.name+'"? This starts a fresh set of exercises. Anything you\'ve started here but haven\'t saved yet will be cleared. Your saved sessions and routines are never affected.')) return;
-document.getElementById('exBody').innerHTML='';
-cardioBlocks=[];
-functionalBlocks=[];
-if(typeof renderCardioBlocks==='function') renderCardioBlocks();
-if(typeof renderFunctionalBlocks==='function') renderFunctionalBlocks();
-document.querySelectorAll('.bp-btn').forEach(function(b){ b.classList.remove('active'); });
-selectedBP=[];
-r.bodyParts.forEach(function(bp){
-var btn=[...document.querySelectorAll('.bp-btn')].find(function(b){ return b.textContent.trim()===bp; });
-if(btn) btn.classList.add('active');
-if(!selectedBP.includes(bp)) selectedBP.push(bp);
-});
-renderExChips();
-r.exercises.forEach(function(e){
-addExRow();
-var blocks=document.querySelectorAll('#exBody .ex-block');
-var newBlock=blocks[blocks.length-1];
-var sel=newBlock.querySelector('.ex-select');
-if(![...sel.options].some(function(o){ return o.value===e.ex; })){
-var opt=document.createElement('option');
-opt.value=e.ex; opt.textContent=e.ex;
-sel.appendChild(opt);
-}
-sel.value=e.ex;
-onExChange(sel);
-var setsEl=newBlock.querySelector('.sets-select');
-if(setsEl){ setsEl.value=e.sets; updateSetRows(setsEl); }
-});
-toast('Loaded "'+r.name+'" -- adjust weights/reps as you like');
+addRoutineToSession({name:r.name,bodyParts:r.bodyParts||[],exercises:r.exercises||[],supersets:[]});
 }
 
 function renderSuggestedRoutines(){
@@ -3923,22 +3893,12 @@ return '<div style="display:flex;justify-content:space-between;align-items:cente
 function loadSuggestedRoutine(idx){
 var r=SUGGESTED_ROUTINES[idx];
 if(!r) return;
-var hasExistingWork=document.querySelectorAll('#exBody .ex-block, #exBody .superset-block').length>0 || (cardioBlocks&&cardioBlocks.length>0) || (functionalBlocks&&functionalBlocks.length>0);
-if(hasExistingWork && !confirm('Load "'+r.name+'"? This starts a fresh set of exercises. Anything you\'ve started here but haven\'t saved yet will be cleared. Your saved sessions and routines are never affected.')) return;
-document.getElementById('exBody').innerHTML='';
-cardioBlocks=[];
-functionalBlocks=[];
-if(typeof renderCardioBlocks==='function') renderCardioBlocks();
-if(typeof renderFunctionalBlocks==='function') renderFunctionalBlocks();
-document.querySelectorAll('.bp-btn').forEach(function(b){ b.classList.remove('active'); });
-selectedBP=[];
-r.circuits.forEach(function(c){
-loadRoutineSuperset({exercises:c.exercises.map(function(ex){return {ex:ex};})});
-});
-toast('Loaded "'+r.name+'" -- '+r.durationMin+' min, adjust rounds/weights as you like');
+addRoutineToSession({name:r.name,bodyParts:[],exercises:[],supersets:(r.circuits||[]).map(function(c){return {exercises:c.exercises.map(function(ex){return {ex:ex};})};})});
 }
 
 function loadRoutineSuperset(ssData){
+const _names=(ssData.exercises||[]).map(function(e){return e.ex;}).filter(Boolean);
+if(_names.length&&supersetAlreadyInForm(_names)) return;
 addSupersetBlock();
 const ssBlocks=document.querySelectorAll('#exBody .superset-block');
 const block=ssBlocks[ssBlocks.length-1];
@@ -3977,6 +3937,12 @@ if(eff.isDeleted){
 toast('Your coach removed this routine -- nothing to load. You can delete it from your list.');
 return;
 }
+addRoutineToSession(eff);
+}
+// Adding any routine (your own, a coach's, a KFit standard or a suggested
+// circuit) always ADDS to what's already in the session -- including when
+// editing a saved workout. Nothing already there is removed.
+function addRoutineToSession(eff){
 const hasExistingWork=document.querySelectorAll('#exBody .ex-block, #exBody .superset-block').length>0 || (cardioBlocks&&cardioBlocks.length>0) || (functionalBlocks&&functionalBlocks.length>0);
 if(hasExistingWork && !confirm('Add "'+eff.name+'" to your current session? Anything you\'ve already logged stays exactly as is -- matching exercises just get topped up to the routine\'s set count, and new ones get added alongside.')) return;
 
@@ -3984,6 +3950,7 @@ document.querySelectorAll('.bp-btn').forEach(function(b){
 const bp=b.textContent.trim();
 if(eff.bodyParts.includes(bp)){ b.classList.add('active'); if(!selectedBP.includes(bp)) selectedBP.push(bp); }
 });
+(eff.bodyParts||[]).forEach(function(bp){ if(EX_LIB[bp]&&!selectedBP.includes(bp)) selectedBP.push(bp); });
 renderExChips();
 
 eff.exercises.forEach(function(e){
@@ -4059,7 +4026,7 @@ function addSupersetBlock(){
 // superset used to leave the next one called "Superset 2", "3", ...
 const ssNum=document.querySelectorAll('#exBody .superset-block').length+1;
 supersetCounter=ssNum;
-const ssId='ss_'+Date.now();
+const ssId='ss_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
 const block=document.createElement('div');
 block.className='superset-block';
 block.dataset.ssid=ssId;
