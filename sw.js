@@ -1,8 +1,8 @@
-const V = "kfit-v6";
+const V = "kfit-v8";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => e.waitUntil(
-  // v5: new per-row fitness storage (kfit-fitness-store.js). Bumping the
-  // version wipes every old cache so no phone keeps an old app copy.
+  // v8: the habit-coach app replaces the old nutrition tracker. Bumping
+  // the version wipes every old cache so no phone keeps an old app copy.
   caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())
 ));
 self.addEventListener("fetch", e => {
