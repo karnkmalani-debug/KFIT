@@ -5865,6 +5865,22 @@ syncFitnessToSupabase();
 toast('Notes saved v');
 }
 
+
+// Height in feet + inches as well as cm, everywhere a height is entered or
+// shown. Stored as cm (unchanged); the feet/inches boxes just fill it in.
+function kfitHeightText(cm){var v=parseFloat(cm);if(!isFinite(v)||v<=0)return String(cm==null?'':cm);var t=Math.round(v/2.54);return v+' cm ('+Math.floor(t/12)+'\u2032'+(t%12)+'\u2033)';}
+function kfitAddFtIn(cmInput){
+  if(!cmInput||cmInput.dataset.ftin) return; cmInput.dataset.ftin='1';
+  var box=document.createElement('div'); box.style.cssText='display:flex;gap:6px;align-items:center;margin-top:6px;';
+  var st='width:64px;padding:8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:14px;';
+  box.innerHTML='<span style="font-size:12px;color:var(--muted);">or</span><input type="number" inputmode="numeric" min="3" max="8" placeholder="ft" aria-label="Height feet" style="'+st+'"><input type="number" inputmode="numeric" min="0" max="11" placeholder="in" aria-label="Height inches" style="'+st+'">';
+  cmInput.parentNode.insertBefore(box,cmInput.nextSibling);
+  var ft=box.children[1], inch=box.children[2];
+  function fromCm(){var v=parseFloat(cmInput.value);if(isFinite(v)&&v>0){var t=Math.round(v/2.54);ft.value=Math.floor(t/12);inch.value=t%12;}else{ft.value='';inch.value='';}}
+  function toCm(){var f=parseInt(ft.value,10),i=parseInt(inch.value||'0',10);if(!isFinite(f))return;if(!isFinite(i)||i<0)i=0;if(i>11)i=11;cmInput.value=Math.round((f*12+i)*2.54);}
+  ft.addEventListener('input',toCm); inch.addEventListener('input',toCm); cmInput.addEventListener('input',fromCm);
+  cmInput._ftinSync=fromCm; fromCm();
+}
 function renderMeasInputs(){
 var grid=document.getElementById('measInputGrid');
 if(!grid) return;
@@ -5881,6 +5897,7 @@ inputHtml='<input type="number" step="0.1" inputmode="decimal" id="meas_'+f.key+
 }
 return '<div><label style="font-size:14px;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">'+f.label+'</label>'+inputHtml+'</div>';
 }).join('');
+kfitAddFtIn(document.getElementById('meas_height'));
 }
 function saveMeasurements(){
 localStorage.setItem('kmfit_measurements',JSON.stringify(measurements));
@@ -5919,6 +5936,7 @@ measurements.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
 saveMeasurements();
 renderMeasHistory();
 MEAS_FIELDS.forEach(function(f){var el=document.getElementById('meas_'+f.key);if(el)el.value='';});
+var _mh=document.getElementById('meas_height');if(_mh&&_mh._ftinSync)_mh._ftinSync();
 toast('Measurements saved ✓');
 }
 function renderMeasHistory(){
@@ -5937,7 +5955,7 @@ if(f.type!=='select'&&prev&&prev[f.key]!=null){
 var d=(m[f.key]-prev[f.key]);
 if(Math.abs(d)>0.01) delta=' <span style="color:var(--muted);font-size:14px;font-weight:600;">('+(d>0?'+':'')+d.toFixed(1)+')</span>';
 }
-return '<div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0;"><span style="color:var(--muted);">'+f.label+'</span><span style="color:var(--text);font-weight:600;">'+m[f.key]+delta+'</span></div>';
+return '<div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0;"><span style="color:var(--muted);">'+(f.key==='height'?'Height':f.label)+'</span><span style="color:var(--text);font-weight:600;">'+(f.key==='height'?kfitHeightText(m[f.key]):m[f.key])+delta+'</span></div>';
 }).join('');
 var scansHtml='';
 if(m.scans&&m.scans.length){
