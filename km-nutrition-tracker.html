@@ -92,6 +92,16 @@ h2{margin:0;font-family:var(--serif);font-weight:600;font-size:22px;line-height:
 .hide{display:none!important}
 .q{display:flex;flex-direction:column;gap:6px}
 .q span{font-weight:700;font-size:15px}
+.hint{background:var(--tint);border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.hint p{margin:0;font-size:15px;line-height:1.5;color:var(--ink2)}
+.hint .row{gap:14px}
+.hint button{background:none;border:none;padding:6px 0;font-weight:700;font-size:14px;color:var(--green);min-height:36px}
+.helpbtn{width:40px;height:40px;border-radius:20px;border:1.5px solid var(--line2);background:var(--card);font-weight:800;font-size:17px;color:var(--green);flex-shrink:0}
+.hrow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.unit{display:inline-flex;border:1.5px solid var(--line2);border-radius:12px;overflow:hidden}
+.unit button{border:none;background:var(--card);padding:6px 12px;font-weight:700;font-size:13px;min-height:34px}
+.unit button.on{background:var(--green);color:#fff}
+.fhelp{font-size:13px;color:var(--muted);line-height:1.4}
 </style>
 </head>
 <body>
@@ -252,6 +262,7 @@ function show(html,opts){
   $('#tabs').classList.toggle('hide',!opts.tabs);
   document.querySelectorAll('#tabs button').forEach(function(b){b.classList.toggle('on',b.dataset.tab===S.tab);});
   window.scrollTo(0,0);
+  bindHelp();
 }
 function render(){
   if(S.view) return S.view();
@@ -269,13 +280,16 @@ function renderSignIn(msg){
   S.view=function(){renderSignIn(msg);};
   show('<div class="screen full">'
     +'<div style="height:24px"></div>'
-    +'<h1>Welcome.</h1>'
-    +'<div class="body"><p>One small habit at a time. Let\'s find you.</p></div>'
+    +'<h1>Welcome to KFit Nutrition.</h1>'
+    +'<div class="body"><p>A calm, simple coach for everyday Indian eating. One small habit at a time, a two-minute lesson a day, and meals logged with a photo. No strict diets.</p>'
+    +'<p style="margin:0">New here or coming back, just enter your name and mobile number.</p></div>'
     +'<div class="field"><label for="siName">Your name</label><input id="siName" autocomplete="name" value="'+esc(localStorage.getItem(LS.name)||'')+'"></div>'
-    +'<div class="field"><label for="siMobile">Mobile number</label><input id="siMobile" inputmode="tel" autocomplete="tel" value="'+esc(localStorage.getItem(LS.mobile)||'')+'"></div>'
+    +'<div class="field"><label for="siMobile">Mobile number</label><input id="siMobile" inputmode="tel" autocomplete="tel" value="'+esc(localStorage.getItem(LS.mobile)||'')+'"><div class="fhelp">Your mobile number is how the app finds your account. It\'s never shown to anyone else.</div></div>'
+    +'<button class="btn link" id="siHow" style="align-self:flex-start">How does it work? (1 minute)</button>'
     +(msg?'<div class="tint body" style="font-size:16px">'+msg+'</div>':'')
     +'<button class="btn" id="siGo">Continue</button>'
     +'</div>');
+  $('#siHow').onclick=function(){openGuide(false);};
   $('#siGo').onclick=async function(){
     var name=$('#siName').value.trim(), m=$('#siMobile').value.replace(/\D/g,'');
     if(m.length<8||m.length>15){toast('Please enter your mobile number');return;}
@@ -363,7 +377,7 @@ async function enter(){
 // plan is an invitation, never a gate.
 function renderWelcome(){
   var name=(legacyName()||localStorage.getItem(LS.name)||'').split(' ')[0];
-  var html='<div class="screen"><h1>'+(name?'Hello, '+esc(name)+'.':greet())+'</h1>'
+  var html='<div class="screen">'+head(name?'Hello, '+esc(name)+'.':greet())+hint('welcome')
     +'<button class="card" id="wlPlan" style="border:none;text-align:left"><div class="cap g">When you\'re ready</div><h2>Start a habit plan</h2>'
     +'<div class="body" style="font-size:15px">One small habit at a time, with a 2-minute lesson each day. Your log works either way.</div>'
     +'<div style="font-weight:700;color:var(--green)">See the plans →</div></button>';
@@ -410,8 +424,7 @@ function renderToday(){
   var bar=stepCheckins().map(function(x,i){return '<i class="'+(x==='done'?'d':x==='partly'?'p':'')+'"></i>';}).join('');
   var title=id==='reset'?'7-day Reset':(h.n?'Habit '+h.n+' · ':'')+h.title;
   var html='<div class="screen">'
-    +'<div style="display:flex;flex-direction:column;gap:8px"><div class="meta">'+esc(title)+' · Day '+(di+1)+' of '+len+'</div>'
-    +'<h1>'+greet()+'</h1><div class="bar">'+bar+'</div></div>';
+    +'<div style="display:flex;flex-direction:column;gap:8px">'+head(greet(),esc(title)+' · Day '+(di+1)+' of '+len)+'<div class="bar">'+bar+'</div></div>'+hint('today');
   if(l.type==='reflect'){
     html+='<button class="card" style="border:none;text-align:left" id="tdLesson"><div class="cap g">'+(l.decision?'Time to decide':'Look back')+'</div><h2>'+esc(l.title)+'</h2>'
       +'<div class="body" style="font-size:15px">A few gentle questions'+(l.decision?', then you choose what\'s next.':'.')+'</div>'
@@ -461,7 +474,7 @@ function openLesson(){
   show('<div class="screen full" style="background:var(--paper);min-height:100vh">'
     +'<div class="top"><button class="round" id="lsBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>'
     +('speechSynthesis' in window?'<button class="btn out" id="lsListen" style="width:auto;min-height:44px;border-radius:22px;font-size:14px">Listen</button>':'')+'</div>'
-    +'<div class="meta">Day '+(dayIndex()+1)+' · 2 min read</div><h1>'+esc(l.title)+'</h1>'
+    +hint('lesson')+'<div class="meta">Day '+(dayIndex()+1)+' · 2 min read</div><h1>'+esc(l.title)+'</h1>'
     +'<div class="body">'+(l.read||[]).map(function(p){return '<p>'+esc(p)+'</p>';}).join('')+'</div>'
     +'<div class="tint" style="font-size:16px;line-height:1.45"><b style="color:var(--green)">Your action:</b> '+esc(l.action)+'</div>'
     +'<button class="btn" id="lsDone">Got it</button></div>');
@@ -481,7 +494,7 @@ function openReflect(){
   var grid=stepCheckins().map(function(x){return '<i class="'+(x==='done'?'done':x==='partly'?'partly':'')+'"></i>';}).join('');
   var mostly=mostlyDone();
   var html='<div class="screen full"><div class="top"><button class="round" id="rfBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><span></span></div>'
-    +'<div class="meta">'+esc(id==='reset'?'7-day Reset':(h.n?'Habit '+h.n:'')+'')+' · Day '+(dayIndex()+1)+'</div><h1>'+esc(l.title)+'</h1>'
+    +hint('reflect')+'<div class="meta">'+esc(id==='reset'?'7-day Reset':(h.n?'Habit '+h.n:'')+'')+' · Day '+(dayIndex()+1)+'</div><h1>'+esc(l.title)+'</h1>'
     +(l.read||[]).map(function(p){return '<div class="body"><p style="margin:0">'+esc(p)+'</p></div>';}).join('')
     +(h.checkin?'<div class="card"><div class="meta">Your check-ins</div><div class="checks">'+grid+'</div><div class="meta" style="font-weight:400">Dark: done · Light: partly · Blank: not today</div></div>':'')
     +(l.questions||[]).map(function(q,i){return '<div class="field q"><span>'+esc(q)+'</span><textarea data-q="'+i+'" placeholder="Optional">'+esc(prev['q'+i]||'')+'</textarea></div>';}).join('');
@@ -611,7 +624,7 @@ function renderJourney(){
       +'<div class="jnum '+st+'">'+num+'</div><div><div style="font-weight:700;font-size:16px;color:'+(st?'var(--ink)':'var(--muted)')+'">'+esc(label)+'</div>'
       +(sub?'<div class="meta" style="font-weight:400">'+sub+'</div>':'')+'</div></button>';
   }).join('');
-  show('<div class="screen"><h1>Your journey</h1><div class="meta">'+esc(t.name)+'</div><div style="display:flex;flex-direction:column;gap:2px">'+rows+'</div>'
+  show('<div class="screen">'+head('Your journey')+hint('journey')+'<div class="meta">'+esc(t.name)+'</div><div style="display:flex;flex-direction:column;gap:2px">'+rows+'</div>'
     +'<button class="btn link" id="jnChange">Change plan</button></div>',{tabs:true});
   document.querySelectorAll('.jrow').forEach(function(b){b.onclick=function(){
     var k=+b.dataset.k; if(k<=S.program.step_index||done[t.path[k]]) openPast(t.path[k]);
@@ -643,7 +656,7 @@ function renderLog(){
   var d=S._logDay||today();
   var list=Object.keys(S.meals).map(function(k){return S.meals[k];}).filter(function(m){return m.day===d&&!m.deleted;})
     .sort(function(a,b){return (a.body.at||0)-(b.body.at||0);});
-  var html='<div class="screen"><h1>Your log</h1>'+logSwitch('meals')+kcalLine(d,true)
+  var html='<div class="screen">'+head('Your log')+logSwitch('meals')+hint('log')+kcalLine(d,true)
     +'<div class="row" style="align-items:center;justify-content:space-between"><button class="round" id="lgPrev" aria-label="Previous day"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>'
     +'<div style="font-weight:700">'+(d===today()?'Today':parseD(d).toDateString().slice(0,10))+'</div>'
     +'<button class="round" id="lgNext" aria-label="Next day"'+(d>=today()?' disabled style="opacity:.3"':'')+'><svg class="icon" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>';
@@ -752,6 +765,79 @@ async function textFeedback(text){
   return {protein:n(o.protein),veg:n(o.veg),carbs:n(o.carbs),fats:n(o.fats),kcal:kc(o.kcal),tip:String(o.tip||'').slice(0,200)};
 }
 
+// ---------- Help: a picture guide with voice, and a short hint on each screen ----------
+// Built so someone who downloads the app alone can understand it without a coach.
+var GUIDE=[
+  {t:'Your nutrition coach, in your pocket',l:'KFit Nutrition helps you eat better one small habit at a time. No strict diet, no foods banned. Real Indian meals.',
+   svg:'<rect x="70" y="30" width="100" height="180" rx="18" stroke="#2E5E4E" stroke-width="4"/><path d="M95 80h50M95 100h50M95 120h30" stroke="#9DBDAF" stroke-width="5" stroke-linecap="round"/><circle cx="120" cy="175" r="10" stroke="#B86A3C" stroke-width="4"/>'},
+  {t:'Every day takes about 3 minutes',l:'Each day you get a two-minute lesson and one small thing to try. At night, tap how it went: Done, Partly, or Not today. Missing a day is fine.',
+   svg:'<rect x="40" y="50" width="160" height="40" rx="12" stroke="#2E5E4E" stroke-width="4"/><rect x="40" y="105" width="160" height="40" rx="12" stroke="#9DBDAF" stroke-width="4"/><rect x="40" y="160" width="46" height="34" rx="10" fill="#2E5E4E"/><rect x="97" y="160" width="46" height="34" rx="10" stroke="#9DBDAF" stroke-width="4"/><rect x="154" y="160" width="46" height="34" rx="10" stroke="#CFC6B8" stroke-width="4"/>'},
+  {t:'Your hands are your measuring cups',l:'A palm of protein, a fist of vegetables, a cupped hand of carbs, a thumb of fats. No weighing, no counting. Your hands go everywhere with you.',
+   svg:'<circle cx="75" cy="85" r="30" stroke="#2E5E4E" stroke-width="4"/><rect x="140" y="58" width="52" height="56" rx="16" stroke="#9DBDAF" stroke-width="4"/><path d="M48 170a27 20 0 0 0 54 0z" stroke="#B86A3C" stroke-width="4"/><rect x="152" y="140" width="24" height="46" rx="12" stroke="#CFC6B8" stroke-width="4"/>'},
+  {t:'Log a meal in seconds',l:'Take a photo of your plate, or type a few words like two roti, dal, sabzi. You get gentle feedback in hand portions, and a rough calorie estimate, just for reference.',
+   svg:'<rect x="45" y="70" width="150" height="110" rx="20" stroke="#2E5E4E" stroke-width="4"/><circle cx="120" cy="125" r="32" stroke="#9DBDAF" stroke-width="4"/><rect x="95" y="55" width="50" height="18" rx="6" stroke="#2E5E4E" stroke-width="4"/>'},
+  {t:'Once a week, a quick check-in',l:'Add your waist and weight once a week. Look at the direction over a few weeks, not any single day. Bodies go up and down.',
+   svg:'<path d="M40 170c30-10 40-60 70-55s40 40 90 20" stroke="#2E5E4E" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M40 190h160" stroke="#CFC6B8" stroke-width="3"/>'},
+  {t:'Choose a plan when you\'re ready',l:'Plans go from a 7-day reset to 6 months. One habit at a time, about two weeks each. After each habit, you choose: move on, or stay a week longer.',
+   svg:'<path d="M60 190c0-40 120-30 120-80S90 60 90 40" stroke="#2E5E4E" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="90" cy="40" r="10" fill="#2E5E4E"/><circle cx="60" cy="190" r="10" stroke="#B86A3C" stroke-width="4"/>'},
+  {t:'Help is always one tap away',l:'Tap the question mark at the top of any screen to see this guide again. If you have a coach, you can message them in Chat. That\'s it. Let\'s begin.',
+   svg:'<circle cx="120" cy="115" r="60" stroke="#2E5E4E" stroke-width="4"/><path d="M102 98a18 18 0 1 1 26 16c-6 3-8 7-8 13" stroke="#2E5E4E" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="120" cy="146" r="4" fill="#2E5E4E"/>'}
+];
+function openGuide(first){
+  var i=0, playing=true, token=0, timer=null;
+  S.view=function(){draw();};
+  function draw(){
+    var g=GUIDE[i], last=i===GUIDE.length-1;
+    show('<div class="player"><div class="bar">'+GUIDE.map(function(_,k){return '<i class="'+(k<i?'d':k===i?'p':'')+'"></i>';}).join('')+'</div>'
+      +'<div class="top" style="font-size:14px;font-weight:600;color:#CFC6B8"><span>How KFit works</span><button class="btn link" id="gdSkip" style="color:#CFC6B8;min-height:36px">'+(first?'Skip':'Close')+'</button></div>'
+      +'<div class="still"><svg width="62%" viewBox="0 0 240 240" fill="none">'+g.svg+'</svg></div>'
+      +'<h2 style="color:var(--bg)">'+esc(g.t)+'</h2><p class="pline" style="font-size:19px;font-family:var(--sans);min-height:0">'+esc(g.l)+'</p>'
+      +'<div class="pctl"><button id="gdPrev" aria-label="Previous"'+(i===0?' style="opacity:.3"':'')+'><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>'
+      +'<button class="big" id="gdPlay" aria-label="'+(playing?'Pause voice':'Play voice')+'"><svg class="icon" viewBox="0 0 24 24" style="stroke-width:2.4">'+(playing?'<path d="M9 5v14M15 5v14"/>':'<path d="M8 5l11 7-11 7z"/>')+'</svg></button>'
+      +'<button id="gdNext" aria-label="Next"><svg class="icon" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>'
+      +(last?'<button class="btn" id="gdDone" style="background:var(--bg);color:var(--ink)">Let\'s begin</button>':'')+'</div>');
+    $('#gdPrev').onclick=function(){if(i>0){i--;restart();}};
+    $('#gdNext').onclick=function(){if(i<GUIDE.length-1){i++;restart();}else done();};
+    $('#gdPlay').onclick=function(){playing=!playing;token++;clearTimeout(timer);if(playing)say();else stopSpeech();draw();};
+    $('#gdSkip').onclick=done; var d=$('#gdDone'); if(d) d.onclick=done;
+  }
+  function restart(){token++;clearTimeout(timer);stopSpeech();draw();if(playing)say();}
+  function say(){
+    var my=++token, g=GUIDE[i], t0=Date.now();
+    speak([g.t+'. '+g.l],function(){
+      if(my!==token||!playing) return;
+      var need=Math.max(4500,g.l.split(/\s+/).length*380), spent=Date.now()-t0;
+      timer=setTimeout(function(){ if(my===token&&playing&&i<GUIDE.length-1){i++;draw();say();} else if(my===token){playing=false;draw();} }, spent<need*0.5?need-spent:900);
+    });
+  }
+  function done(){token++;clearTimeout(timer);stopSpeech();localStorage.setItem('kfnc_guide_seen','1');S.view=null;render();}
+  draw(); say();
+}
+var HINTS={
+  welcome:'Start however you like: log a meal, or look at the habit plans. Nothing here is a test.',
+  today:'This is your day. Read the short lesson, try the small action, and tonight tap how it went. That\'s all it takes.',
+  log:'Log what you eat with a photo or a few words. You\'ll see it in hand portions, plus a rough calorie estimate. No scores, no judgement.',
+  progress:'Once a week, add your waist and weight. Watch the direction over a few weeks, not single days.',
+  journey:'Your plan, one habit at a time. Tap any habit you\'ve finished to reread its lessons.',
+  chat:'Message your coach here. Replies show up in this same place.',
+  lesson:'Tap Listen to hear this read aloud. Tap Got it when you\'re done.',
+  reflect:'These questions are just for you, and all optional. Then choose what feels right: move on, or stay a little longer.'
+};
+function hint(key){
+  if(!HINTS[key]||localStorage.getItem('kfnc_hint_'+key)) return '';
+  return '<div class="hint" data-hint="'+key+'"><p>'+esc(HINTS[key])+'</p><div class="row">'
+    +('speechSynthesis' in window?'<button data-hint-say="'+key+'">Listen</button>':'')+'<button data-hint-ok="'+key+'">Got it</button></div></div>';
+}
+function bindHelp(){
+  document.querySelectorAll('[data-hint-ok]').forEach(function(b){b.onclick=function(){stopSpeech();localStorage.setItem('kfnc_hint_'+b.dataset.hintOk,'1');var c=b.closest('.hint');if(c)c.remove();};});
+  document.querySelectorAll('[data-hint-say]').forEach(function(b){b.onclick=function(){speak([HINTS[b.dataset.hintSay]]);};});
+  document.querySelectorAll('.helpbtn').forEach(function(b){b.onclick=function(){openGuide(false);};});
+}
+function head(title,sub){
+  return '<div class="hrow"><div style="display:flex;flex-direction:column;gap:6px">'+(sub?'<div class="meta">'+sub+'</div>':'')+'<h1>'+title+'</h1></div>'
+    +'<button class="helpbtn" aria-label="How KFit works">?</button></div>';
+}
+
 // ---------- Calories: for reference only, like calories burnt in fitness ----------
 var ACTIVITY=[['sitting','Mostly sitting',1.2,'Desk job, little exercise'],['light','Lightly active',1.375,'Exercise 1–3 days a week'],
   ['active','Active',1.55,'Exercise 3–5 days a week'],['very','Very active',1.725,'Hard exercise most days, or a physical job']];
@@ -795,7 +881,7 @@ function renderProgress(){
       +'<div class="meta" style="font-weight:400">'+(x.m.waist?'Waist '+esc(x.m.waist)+' cm':'')+(x.m.waist&&x.m.weight?' · ':'')+(x.m.weight?'Weight '+esc(x.m.weight)+' kg':'')+'</div></div>'
       +(dw!=null?'<div class="meta">'+(dw>0?'+':'')+dw+' cm</div>':'')+'</div>';
   }).join('');
-  show('<div class="screen"><h1>Your log</h1>'+logSwitch('progress')
+  show('<div class="screen">'+head('Your log')+logSwitch('progress')+hint('progress')
     +'<div class="body" style="font-size:15px"><p style="margin:0">Look at the direction over a few weeks, not any single number. Bodies go up and down day to day.</p></div>'
     +calorieCard()
     +'<button class="btn" id="pgAdd">Add this week\'s check-in</button>'
@@ -818,37 +904,61 @@ function calorieCard(){
     +'<div style="display:flex;gap:10px"><div style="flex:1"><div class="meta" style="font-weight:400">Maintenance</div><div style="font-size:22px;font-weight:700">~'+fmt(t.maint)+'</div></div>'
     +'<div style="flex:1"><div class="meta" style="font-weight:400">Fat loss</div><div style="font-size:22px;font-weight:700">~'+fmt(t.loss)+'</div></div></div>'
     +'<div class="grid3" style="grid-template-columns:1fr 1fr;margin-top:6px"><button class="pill'+(goal==='loss'?' on':'')+'" data-goal="loss">Aim: fat loss</button><button class="pill'+(goal==='maintain'?' on':'')+'" data-goal="maintain">Aim: maintain</button></div>'
-    +'<div class="meta" style="font-weight:400">Based on your details and latest weight. Your habits come first; this number is just a guide.</div>'
+    +'<div class="meta" style="font-weight:400">Based on your details ('+esc(heightText(p.height))+', '+esc(latestWeight()||p.weight)+' kg) and latest weight. Your habits come first; this number is just a guide.</div>'
     +'<button class="btn link" id="pgProfile">Edit your details</button></div>';
 }
 // About you: needed once so calorie estimates always exist. Editable in Progress.
+function cmToFtIn(cm){var t=Math.round(cm/2.54);return {ft:Math.floor(t/12),inch:t%12};}
+function heightText(cm){if(!cm)return '';var f=cmToFtIn(cm);return cm+' cm ('+f.ft+'′'+f.inch+'″)';}
 function renderProfile(required){
-  var p=profile()||{};
+  var p=profile()||{}, unit=localStorage.getItem('kfnc_height_unit')||'ftin', fi=p.height?cmToFtIn(p.height):{ft:'',inch:''};
   S.view=required?null:function(){renderProfile(false);};
   var act=ACTIVITY.map(function(a){return '<option value="'+a[0]+'"'+(p.activity===a[0]?' selected':'')+'>'+a[1]+' — '+a[3]+'</option>';}).join('');
   show('<div class="screen full">'+(required?'<div style="height:12px"></div>':'<div class="top"><button class="round" id="pfBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><span></span></div>')
     +'<h1>A little about you</h1>'
-    +'<div class="body" style="font-size:16px"><p style="margin:0">So the app can estimate your daily calories. They\'re a guide in the background. Your habits come first.</p></div>'
-    +'<div class="field"><label for="pfAge">Age</label><input id="pfAge" inputmode="numeric" value="'+esc(p.age||'')+'"></div>'
-    +'<div class="field"><label for="pfSex">Sex</label><select id="pfSex"><option value="">Choose</option><option value="female"'+(p.sex==='female'?' selected':'')+'>Female</option><option value="male"'+(p.sex==='male'?' selected':'')+'>Male</option><option value="other"'+(p.sex==='other'?' selected':'')+'>Other / prefer not to say</option></select></div>'
-    +'<div class="field"><label for="pfHeight">Height (cm)</label><input id="pfHeight" inputmode="decimal" value="'+esc(p.height||'')+'"></div>'
-    +'<div class="field"><label for="pfWeight">Weight (kg)</label><input id="pfWeight" inputmode="decimal" value="'+esc(p.weight||latestWeight()||'')+'"></div>'
-    +'<div class="field"><label for="pfAct">How active are you?</label><select id="pfAct"><option value="">Choose</option>'+act+'</select></div>'
+    +'<div class="body" style="font-size:16px"><p>Five quick questions, asked once. They let the app estimate how much energy your body uses in a day, so you can see your meals in context.</p>'
+    +'<p style="margin:0">Calories stay in the background, as a guide. Your habits come first. Only you and your coach can see these details, and you can change them any time under Log, then Progress.</p></div>'
+    +'<div class="field"><label for="pfAge">Age</label><input id="pfAge" inputmode="numeric" value="'+esc(p.age||'')+'"><div class="fhelp">Our energy needs change with age.</div></div>'
+    +'<div class="field"><label for="pfSex">Sex</label><select id="pfSex"><option value="">Choose</option><option value="female"'+(p.sex==='female'?' selected':'')+'>Female</option><option value="male"'+(p.sex==='male'?' selected':'')+'>Male</option><option value="other"'+(p.sex==='other'?' selected':'')+'>Other / prefer not to say</option></select><div class="fhelp">Bodies use energy a little differently.</div></div>'
+    +'<div class="field"><div style="display:flex;justify-content:space-between;align-items:center"><label>Height</label><div class="unit"><button id="pfUnitFt" class="'+(unit==='ftin'?'on':'')+'">feet + inches</button><button id="pfUnitCm" class="'+(unit==='cm'?'on':'')+'">cm</button></div></div>'
+    +'<div id="pfFtWrap" class="row" style="display:'+(unit==='ftin'?'flex':'none')+'"><input id="pfFt" inputmode="numeric" placeholder="feet" aria-label="Feet" value="'+esc(fi.ft)+'"><input id="pfIn" inputmode="numeric" placeholder="inches" aria-label="Inches" value="'+esc(fi.inch)+'"></div>'
+    +'<input id="pfHeight" inputmode="decimal" placeholder="cm" aria-label="Height in cm" value="'+esc(p.height||'')+'" style="display:'+(unit==='cm'?'block':'none')+'"><div class="fhelp" id="pfHeightSay"></div></div>'
+    +'<div class="field"><label for="pfWeight">Weight (kg)</label><input id="pfWeight" inputmode="decimal" value="'+esc(p.weight||latestWeight()||'')+'"><div class="fhelp">Your best guess is fine. You\'ll update it in your weekly check-in.</div></div>'
+    +'<div class="field"><label for="pfAct">How active are you?</label><select id="pfAct"><option value="">Choose</option>'+act+'</select><div class="fhelp">Pick the closest. Walking counts. You can change it later.</div></div>'
     +'<label id="pfPregWrap" style="display:'+(p.sex==='female'?'flex':'none')+';gap:10px;align-items:center;font-size:15px"><input type="checkbox" id="pfPreg" style="width:22px;height:22px"'+(p.pregnant?' checked':'')+'> I\'m pregnant or breastfeeding</label>'
+    +('speechSynthesis' in window?'<button class="btn link" id="pfListen" style="align-self:flex-start">Listen to this page</button>':'')
     +'<button class="btn" id="pfSave">Save</button></div>',{tabs:false});
+  function heightCm(){
+    if(localStorage.getItem('kfnc_height_unit')==='cm'||unit==='cm'){var v=parseFloat(String($('#pfHeight').value).replace(',','.'));return isFinite(v)?v:null;}
+    var f=parseInt($('#pfFt').value,10), i=parseInt($('#pfIn').value||'0',10);
+    if(!isFinite(f)) return null; if(!isFinite(i)) i=0; if(i>11) return null;
+    return Math.round((f*12+i)*2.54);
+  }
+  function showSay(){var c=heightCm();$('#pfHeightSay').textContent=c&&c>=100&&c<=250?'That\'s '+heightText(c)+'.':'';}
+  function setUnit(u){unit=u;localStorage.setItem('kfnc_height_unit',u);var c=null;
+    if(u==='cm'){var f=parseInt($('#pfFt').value,10),i=parseInt($('#pfIn').value||'0',10);if(isFinite(f))$('#pfHeight').value=Math.round((f*12+(isFinite(i)?i:0))*2.54);}
+    else {var v=parseFloat($('#pfHeight').value);if(isFinite(v)){c=cmToFtIn(v);$('#pfFt').value=c.ft;$('#pfIn').value=c.inch;}}
+    $('#pfFtWrap').style.display=u==='ftin'?'flex':'none';$('#pfHeight').style.display=u==='cm'?'block':'none';
+    $('#pfUnitFt').classList.toggle('on',u==='ftin');$('#pfUnitCm').classList.toggle('on',u==='cm');showSay();}
+  $('#pfUnitFt').onclick=function(){setUnit('ftin');}; $('#pfUnitCm').onclick=function(){setUnit('cm');};
+  ['#pfFt','#pfIn','#pfHeight'].forEach(function(id){$(id).oninput=showSay;}); showSay();
+  var ls=$('#pfListen'); if(ls) ls.onclick=function(){speak(['A little about you. Five quick questions, asked once, so the app can estimate how much energy your body uses in a day. Calories stay in the background, as a guide. Your habits come first. Only you and your coach can see these details.']);};
   $('#pfSex').onchange=function(){$('#pfPregWrap').style.display=this.value==='female'?'flex':'none';};
   var bk=$('#pfBack'); if(bk) bk.onclick=function(){S.view=null;renderProgress();};
   $('#pfSave').onclick=function(){
+    stopSpeech();
     function num(id,lo,hi){var v=parseFloat(String($(id).value).replace(',','.'));return isFinite(v)&&v>=lo&&v<=hi?Math.round(v*10)/10:null;}
-    var np={age:num('#pfAge',10,110),sex:$('#pfSex').value,height:num('#pfHeight',100,250),weight:num('#pfWeight',25,350),activity:$('#pfAct').value,
+    var hc=heightCm(); hc=hc&&hc>=100&&hc<=250?Math.round(hc*10)/10:null;
+    var np={age:num('#pfAge',10,110),sex:$('#pfSex').value,height:hc,weight:num('#pfWeight',25,350),activity:$('#pfAct').value,
       pregnant:$('#pfSex').value==='female'&&$('#pfPreg').checked,updated:today()};
     if(!np.age){toast('Please enter your age');return;} if(!np.sex){toast('Please choose one');return;}
-    if(!np.height){toast('Please enter your height in cm');return;} if(!np.weight){toast('Please enter your weight in kg');return;}
+    if(!np.height){toast(unit==='cm'?'Please enter your height in cm':'Please enter your height in feet and inches');return;}
+    if(!np.weight){toast('Please enter your weight in kg');return;}
     if(!np.activity){toast('Please choose how active you are');return;}
     if(!S.program) S.program={client_id:S.clientId,template_id:null,step_index:0,step_started_on:null,started_on:null,history:[],settings:{}};
     S.program.settings=Object.assign({},S.program.settings,{profile:np}); S.program.updated_ms=now();
     write('nutrition_program',programRow()); S.view=null;
-    if(required){ S.tab='today'; render(); toast('Thank you. All set.'); } else renderProgress();
+    if(required){ S.tab='today'; if(!localStorage.getItem('kfnc_guide_seen')) return openGuide(true); render(); toast('Thank you. All set.'); } else renderProgress();
   };
 }
 function logSwitch(on){
@@ -865,7 +975,7 @@ function bindLogSwitch(){
 function renderEarlier(){
   S.tab='log'; S.view=null;
   var days=S.legacyDays||[];
-  var html='<div class="screen"><h1>Your log</h1>'+logSwitch('earlier')
+  var html='<div class="screen">'+head('Your log')+logSwitch('earlier')
     +'<div class="body" style="font-size:15px"><p style="margin:0">Everything you logged in the earlier version of the app. It\'s saved, and your coach can see it too.</p></div>';
   days.slice(0,S._earlierN||14).forEach(function(d){
     html+='<div class="card"><div style="font-weight:700">'+esc(d.label)+'</div>'
@@ -1038,7 +1148,7 @@ function renderChat(){
     var me=m.sender==='client';
     return '<div class="msg '+(me?'me':'them')+'">'+esc(m.body||'')+'<small>'+new Date(m.created_at).toLocaleString([], {day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})+'</small></div>';
   }).join('');
-  show('<div class="screen"><h1>Chat</h1><div style="display:flex;flex-direction:column;gap:8px">'+(msgs||'<div class="meta">Say hello to your coach.</div>')+'</div>'
+  show('<div class="screen">'+head('Chat')+hint('chat')+'<div style="display:flex;flex-direction:column;gap:8px">'+(msgs||'<div class="meta">Say hello to your coach.</div>')+'</div>'
     +'<div class="field"><label for="ctText" class="hide">Message</label><textarea id="ctText" placeholder="Write a message"></textarea></div><button class="btn" id="ctSend">Send</button></div>',{tabs:true});
   window.scrollTo(0,document.body.scrollHeight);
   $('#ctSend').onclick=async function(){
