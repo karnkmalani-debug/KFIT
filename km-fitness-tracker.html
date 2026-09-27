@@ -456,6 +456,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
   </div>
 </div>
 <script src="./kfit-exercise-library.js"></script>
+<script src="./kfit-exercise-library-extra.js"></script>
 <script src="./kfit-fitness-store.js"></script>
 <script src="./kfit-coach-chat.js"></script>
 <script>
@@ -701,9 +702,9 @@ btn.textContent='Could not copy -- select the address bar manually';
     <div class="card" style="padding:0;overflow:hidden;">
       <div onclick="togglePhilosophyCardFit()" style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:var(--sage);">
         <div style="font-size:12px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#fff;">Train Smart. Age Well.</div>
-        <span id="philoChevronFit" style="color:#fff;font-size:15px;"></span>
+        <span id="philoChevronFit" style="color:#fff;font-size:15px;">\u25BC</span>
       </div>
-      <div id="philoBodyFit" style="padding:18px 16px;">
+      <div id="philoBodyFit" style="padding:18px 16px;display:none;">
         <div style="font-size:16px;font-weight:800;color:var(--text);font-style:italic;line-height:1.6;margin-bottom:18px;">"The goal is not just to look good -- it is to stay vertical and upright at every age."</div>
         <div style="font-size:13px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;">How to Train Every Rep</div>
         <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px;">
@@ -775,8 +776,8 @@ btn.textContent='Could not copy -- select the address bar manually';
         </div>
       </div>
       <div id="skipAssignedBanner" style="display:none;margin-bottom:10px;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;justify-content:space-between;align-items:center;gap:10px;">
-        <span style="font-size:15px;font-weight:600;color:var(--muted);">Not doing this workout today?</span>
-        <button onclick="cancelAssignedWorkout()" style="padding:6px 12px;background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Cancel</button>
+        <span style="font-size:14px;font-weight:600;color:var(--text);line-height:1.4;">📋 Today's workout from your coach is loaded.<br><span style="font-size:12px;font-weight:500;color:var(--muted);">Your own history won't auto-fill while it's here.</span></span>
+        <button onclick="cancelAssignedWorkout()" style="padding:6px 12px;background:none;border:1px solid var(--terra);border-radius:7px;color:var(--terra);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Do my own workout</button>
       </div>
       <div id="exBody"></div>
       <div style="margin-bottom:10px;position:relative;">
@@ -2719,7 +2720,7 @@ showBpNotif(bp,'💪','Loaded <b style="color:var(--gold);">'+bp+'</b> \u2014 '+
 let currentAssignedDate=null;
 function cancelAssignedWorkout(){
 if(!currentAssignedDate)return;
-showConfirm('Cancel this workout?','This removes it from your log for today. Your coach can always assign another one.').then(function(ok){
+showConfirm('Do your own workout today?','This clears your coach\'s workout from today\'s log so you can pick body parts and use your own history. Your coach can always assign another one.').then(function(ok){
 if(!ok)return;
 clearLog();
 if(assignedWorkouts&&assignedWorkouts[currentAssignedDate]){
@@ -2729,7 +2730,7 @@ syncFitnessToSupabase();
 var banner=document.getElementById('skipAssignedBanner');
 if(banner) banner.style.display='none';
 currentAssignedDate=null;
-toast('Workout cancelled');
+toast('Cleared -- pick your body parts');
 });
 }
 
@@ -2918,6 +2919,10 @@ renderExChips();
 if(isNowActive&&bp!=='Cardio'){
 var bpCard=document.getElementById('bpCard');
 if(bpCard) bpCard.classList.remove('bp-card-highlight');
+}
+if(isNowActive&&currentAssignedDate&&!skipAutofill&&window._assignedHintShown!==currentAssignedDate){
+window._assignedHintShown=currentAssignedDate;
+microToast("Your coach's workout is loaded, so history won't auto-fill. Tap 'Do my own workout' above to use yours.");
 }
 if(isNowActive){
 if(skipAutofill){
