@@ -1,7 +1,7 @@
-const V = "kfit-v9";
+const V = "kfit-v10";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => e.waitUntil(
-  // v9: nutrition batch 1 (new look, simpler flow, coach notes, chat). Bumping
+  // v10: nutrition batch 2 (help guide pictures, voice, general-eating lessons). Bumping
   // the version wipes every old cache so no phone keeps an old app copy.
   caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())
 ));

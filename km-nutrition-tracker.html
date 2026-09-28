@@ -81,8 +81,8 @@ h2{margin:0;font-family:var(--serif);font-weight:500;font-size:22px;line-height:
 .still{background:#F6F1E9;border-radius:24px;aspect-ratio:1/1;max-height:46vh;display:flex;align-items:center;justify-content:center}
 .pline{margin:0;font-family:var(--serif);font-size:23px;line-height:1.38;min-height:4.2em}
 .pctl{margin-top:auto;display:flex;justify-content:center;align-items:center;gap:28px}
-.pctl button{width:52px;height:52px;border-radius:26px;border:1.5px solid #5A534A;background:transparent;color:var(--bg);display:flex;align-items:center;justify-content:center}
-.pctl button.big{width:68px;height:68px;border-radius:34px;border:none;background:var(--bg);color:var(--ink)}
+.pctl button{width:52px;height:52px;border-radius:26px;border:1.5px solid #6A675C;background:transparent;color:#F3EEE3;display:flex;align-items:center;justify-content:center}
+.pctl button.big{width:68px;height:68px;border-radius:34px;border:none;background:#F3EEE3;color:#12130F}
 .meal{background:var(--card);border-radius:18px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start}
 .meal img{width:64px;height:64px;border-radius:12px;object-fit:cover;flex-shrink:0;background:var(--sand)}
 .hands{display:flex;gap:10px;flex-wrap:wrap;font-size:14px;color:var(--soft)}
@@ -304,7 +304,7 @@ function renderSignIn(msg){
   show('<div class="screen full">'
     +'<div style="height:24px"></div>'
     +'<h1>Welcome to KFit Nutrition.</h1>'
-    +'<div class="body"><p>A calm, simple coach for everyday Indian eating. One small habit at a time, a two-minute lesson a day, and meals logged with a photo. No strict diets.</p>'
+    +'<div class="body"><p>A calm, simple coach for everyday eating. One small habit at a time, a two-minute lesson a day, and meals logged with a photo. No strict diets.</p>'
     +'<p style="margin:0">New here or coming back, just enter your name and mobile number.</p></div>'
     +'<div class="field"><label for="siName">Your name</label><input id="siName" autocomplete="name" value="'+esc(localStorage.getItem(LS.name)||'')+'"></div>'
     +'<div class="field"><label for="siMobile">Mobile number</label><input id="siMobile" inputmode="tel" autocomplete="tel" value="'+esc(localStorage.getItem(LS.mobile)||'')+'"><div class="fhelp">Your mobile number is how the app finds your account. It\'s never shown to anyone else.</div></div>'
@@ -622,18 +622,33 @@ function renderFinished(){
 
 // ---------- explainer player (stills + phone voice) ----------
 var speaking=false, speakCb=null;
+// A warm female voice from the phone (never the male Indian-English one);
+// read in short phrases with natural pauses, like a person talking.
+var VOICE_PREF=['samantha','ava','karen','serena','tessa','google us english','google uk english female','moira','aria','jenny','zira','victoria','allison','susan','fiona'];
+var VOICE_AVOID=/rishi|daniel|alex|fred|aaron|arthur|google uk english male|male/i;
 function voice(){
-  var vs=window.speechSynthesis?speechSynthesis.getVoices():[];
-  return vs.filter(function(v){return /en-IN/i.test(v.lang);})[0]||vs.filter(function(v){return /^en/i.test(v.lang);})[0]||null;
+  var vs=(window.speechSynthesis?speechSynthesis.getVoices():[]).filter(function(v){return /^en/i.test(v.lang)&&!VOICE_AVOID.test(v.name);});
+  for(var i=0;i<VOICE_PREF.length;i++){var f=vs.filter(function(v){return v.name.toLowerCase().indexOf(VOICE_PREF[i])>=0;})[0];if(f)return f;}
+  return vs.filter(function(v){return /en-(US|GB|AU)/i.test(v.lang);})[0]||vs[0]||null;
+}
+if(window.speechSynthesis){ try{ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged=function(){}; }catch(e){} }
+function phrases(text){
+  return String(text||'').match(/[^.!?:;,]+[.!?:;,]?/g).map(function(x){return x.trim();}).filter(Boolean);
 }
 function speak(parts,done){
   stopSpeech(); if(!window.speechSynthesis){if(done)done();return;}
-  speaking=true; speakCb=done; var i=0;
+  speaking=true; speakCb=done; var i=0, bits=[];
+  parts.forEach(function(p){ bits=bits.concat(phrases(p)); bits.push(''); });
   (function next(){
     if(!speaking) return;
-    if(i>=parts.length){speaking=false;if(speakCb)speakCb();return;}
-    var u=new SpeechSynthesisUtterance(parts[i++]); var v=voice(); if(v) u.voice=v; u.rate=0.95;
-    u.onend=next; u.onerror=next; speechSynthesis.speak(u);
+    if(i>=bits.length){speaking=false;if(speakCb)speakCb();return;}
+    var t=bits[i++];
+    if(!t){ return setTimeout(next,500); }                       // pause between paragraphs
+    var u=new SpeechSynthesisUtterance(t); var v=voice(); if(v){u.voice=v;u.lang=v.lang;}
+    u.rate=0.96; u.pitch=1.12;
+    var gap=/[.!?]$/.test(t)?380:/[:;]$/.test(t)?260:160;       // natural pauses
+    var goOn=function(){ if(speaking) setTimeout(next,gap); };
+    u.onend=goOn; u.onerror=goOn; speechSynthesis.speak(u);
   })();
 }
 function stopSpeech(){speaking=false;speakCb=null;if(window.speechSynthesis)speechSynthesis.cancel();}
@@ -814,7 +829,7 @@ function shrink(file,max,q){
 }
 function b64(blob){return new Promise(function(ok){var r=new FileReader();r.onload=function(){ok(String(r.result).split(',')[1]);};r.readAsDataURL(blob);});}
 async function handFeedback(blob,note){
-  var prompt='You are a warm, encouraging nutrition coach for Indian home food. Look at this meal photo'
+  var prompt='You are a warm, encouraging nutrition coach. The food may be from any cuisine (for example Indian, Western, Asian or Mediterranean). Look at this meal photo'
     +(note?' (the person says: "'+note.replace(/"/g,"'").slice(0,300)+'")':'')+'. Estimate portions using hands only, never calories or grams: '
     +'protein in palms, vegetables in fists, carbs in cupped hands, fats in thumbs (use halves like 0.5, 1, 1.5). '
     +'Then give ONE short, kind, practical tip in plain English (max 25 words) based on: protein first, a fist of vegetables, eat protein then vegetables then fats and carbs last. Never shame. '
@@ -831,9 +846,9 @@ function kc(x){x=Math.round(Number(x)/10)*10;return isFinite(x)&&x>0&&x<5000?x:n
 // A typed meal (no photo) gets the same gentle feedback, from the words alone.
 async function textFeedback(text){
   if(!text) return null;
-  var prompt='You are a warm, encouraging nutrition coach for Indian home food. A person ate: "'+text.replace(/"/g,"'").slice(0,400)+'". '
+  var prompt='You are a warm, encouraging nutrition coach. The food may be from any cuisine. A person ate: "'+text.replace(/"/g,"'").slice(0,400)+'". '
     +'Estimate portions using hands: protein in palms, vegetables in fists, carbs in cupped hands, fats in thumbs (halves like 0.5, 1, 1.5), '
-    +'and the total calories as one rounded number (kcal), for reference only. Assume typical Indian home portions if amounts are not given. '
+    +'and the total calories as one rounded number (kcal), for reference only. Assume typical home portions for that cuisine if amounts are not given. '
     +'Give ONE short, kind, practical tip (max 25 words) based on: protein first, a fist of vegetables, carbs last. Never shame. '
     +'Reply ONLY with JSON: {"protein":number,"veg":number,"carbs":number,"fats":number,"kcal":number,"tip":"..."}';
   var r=await fetch(GEMINI_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.2,maxOutputTokens:400}})});
@@ -846,20 +861,13 @@ async function textFeedback(text){
 // ---------- Help: a picture guide with voice, and a short hint on each screen ----------
 // Built so someone who downloads the app alone can understand it without a coach.
 var GUIDE=[
-  {t:'Your nutrition coach, in your pocket',l:'KFit Nutrition helps you eat better one small habit at a time. No strict diet, no foods banned. Real Indian meals.',
-   svg:'<rect x="70" y="30" width="100" height="180" rx="18" stroke="#2E5E4E" stroke-width="4"/><path d="M95 80h50M95 100h50M95 120h30" stroke="#9DBDAF" stroke-width="5" stroke-linecap="round"/><circle cx="120" cy="175" r="10" stroke="#B86A3C" stroke-width="4"/>'},
-  {t:'Every day takes about 3 minutes',l:'Each day you get a two-minute lesson and one small thing to try. At night, tap how it went: Done, Partly, or Not today. Missing a day is fine.',
-   svg:'<rect x="40" y="50" width="160" height="40" rx="12" stroke="#2E5E4E" stroke-width="4"/><rect x="40" y="105" width="160" height="40" rx="12" stroke="#9DBDAF" stroke-width="4"/><rect x="40" y="160" width="46" height="34" rx="10" fill="#2E5E4E"/><rect x="97" y="160" width="46" height="34" rx="10" stroke="#9DBDAF" stroke-width="4"/><rect x="154" y="160" width="46" height="34" rx="10" stroke="#CFC6B8" stroke-width="4"/>'},
-  {t:'Your hands are your measuring cups',l:'A palm of protein, a fist of vegetables, a cupped hand of carbs, a thumb of fats. No weighing, no counting. Your hands go everywhere with you.',
-   svg:'<circle cx="75" cy="85" r="30" stroke="#2E5E4E" stroke-width="4"/><rect x="140" y="58" width="52" height="56" rx="16" stroke="#9DBDAF" stroke-width="4"/><path d="M48 170a27 20 0 0 0 54 0z" stroke="#B86A3C" stroke-width="4"/><rect x="152" y="140" width="24" height="46" rx="12" stroke="#CFC6B8" stroke-width="4"/>'},
-  {t:'Log a meal in seconds',l:'Take a photo of your plate, or type a few words like two roti, dal, sabzi. You get gentle feedback in hand portions, and a rough calorie estimate, just for reference.',
-   svg:'<rect x="45" y="70" width="150" height="110" rx="20" stroke="#2E5E4E" stroke-width="4"/><circle cx="120" cy="125" r="32" stroke="#9DBDAF" stroke-width="4"/><rect x="95" y="55" width="50" height="18" rx="6" stroke="#2E5E4E" stroke-width="4"/>'},
-  {t:'Once a week, a quick check-in',l:'Add your waist and weight once a week. Look at the direction over a few weeks, not any single day. Bodies go up and down.',
-   svg:'<path d="M40 170c30-10 40-60 70-55s40 40 90 20" stroke="#2E5E4E" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M40 190h160" stroke="#CFC6B8" stroke-width="3"/>'},
-  {t:'Choose a plan when you\'re ready',l:'Plans go from a 7-day reset to 6 months. One habit at a time, about two weeks each. After each habit, you choose: move on, or stay a week longer.',
-   svg:'<path d="M60 190c0-40 120-30 120-80S90 60 90 40" stroke="#2E5E4E" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="90" cy="40" r="10" fill="#2E5E4E"/><circle cx="60" cy="190" r="10" stroke="#B86A3C" stroke-width="4"/>'},
-  {t:'Help is always one tap away',l:'Tap the question mark at the top of any screen to see this guide again. If you have a coach, you can message them in Chat. That\'s it. Let\'s begin.',
-   svg:'<circle cx="120" cy="115" r="60" stroke="#2E5E4E" stroke-width="4"/><path d="M102 98a18 18 0 1 1 26 16c-6 3-8 7-8 13" stroke="#2E5E4E" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="120" cy="146" r="4" fill="#2E5E4E"/>'}
+  {img:'help-1.jpeg',t:'Your nutrition coach, in your pocket',l:'KFit helps you eat better, one small habit at a time. No strict diet. No foods banned. Just real meals, and a little help every day.'},
+  {img:'help-2.jpeg',t:'Every day takes about three minutes',l:'Read a two-minute lesson. Try one small thing. Then tonight, tap how it went: Done, Partly, or Not today. Missing a day is completely fine.'},
+  {img:'help-3.jpeg',t:'Your hands are your measuring cups',l:'A palm of protein. A fist of vegetables. A cupped hand of carbs. A thumb of fats. No weighing, no counting. Your hands go everywhere with you.'},
+  {img:'help-4.jpeg',t:'Log a meal in seconds',l:'Snap a photo of your plate, or type a few words. You will see it in hand portions, with a rough calorie estimate, just for reference. The time is saved for you.'},
+  {img:'help-5.jpeg',t:'Once a week, a quick check-in',l:'Add your waist and weight once a week. Look at the direction over a few weeks, not at any single day. Bodies go up and down.'},
+  {img:'help-6.jpeg',t:'Choose a plan when you are ready',l:'Plans go from seven days to six months. One habit at a time, about two weeks each. After each habit, you choose: move on, or stay a little longer.'},
+  {img:'help-7.jpeg',t:'Help is always one tap away',l:'Tap the question mark on any screen to see this again. Message your coach in Chat, and send photos too. That is it. Let us begin.'}
 ];
 function openGuide(first){
   var i=0, playing=true, token=0, timer=null;
@@ -868,8 +876,9 @@ function openGuide(first){
     var g=GUIDE[i], last=i===GUIDE.length-1;
     show('<div class="player"><div class="bar">'+GUIDE.map(function(_,k){return '<i class="'+(k<i?'d':k===i?'p':'')+'"></i>';}).join('')+'</div>'
       +'<div class="top" style="font-size:14px;font-weight:600;color:#CFC6B8"><span>How KFit works</span><button class="btn link" id="gdSkip" style="color:#CFC6B8;min-height:36px">'+(first?'Skip':'Close')+'</button></div>'
-      +'<div class="still"><svg width="62%" viewBox="0 0 240 240" fill="none">'+g.svg+'</svg></div>'
-      +'<h2 style="color:var(--bg)">'+esc(g.t)+'</h2><p class="pline" style="font-size:19px;font-family:var(--sans);min-height:0">'+esc(g.l)+'</p>'
+      +'<div class="still" style="padding:0;overflow:hidden;position:relative;aspect-ratio:1/1"><img src="'+g.img+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block" onerror="if(!this.dataset.png){this.dataset.png=1;this.src=this.src.replace(/\\.jpe?g$/,\'.png\');}else{this.style.display=\'none\';}">'
+      +(g.labels?'<div style="position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr">'+g.labels.map(function(x){return '<div style="display:flex;align-items:flex-end;justify-content:center;padding:6px"><span style="background:rgba(18,19,15,.82);color:#F3EEE3;border-radius:10px;padding:4px 8px;font-size:12px;font-weight:700">'+esc(x)+'</span></div>';}).join('')+'</div>':'')+'</div>'
+      +'<h2 style="color:#F3EEE3">'+esc(g.t)+'</h2><p class="pline" style="font-size:19px;font-family:var(--sans);min-height:0">'+esc(g.l)+'</p>'
       +'<div class="pctl"><button id="gdPrev" aria-label="Previous"'+(i===0?' style="opacity:.3"':'')+'><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>'
       +'<button class="big" id="gdPlay" aria-label="'+(playing?'Pause voice':'Play voice')+'"><svg class="icon" viewBox="0 0 24 24" style="stroke-width:2.4">'+(playing?'<path d="M9 5v14M15 5v14"/>':'<path d="M8 5l11 7-11 7z"/>')+'</svg></button>'
       +'<button id="gdNext" aria-label="Next"><svg class="icon" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>'
