@@ -182,6 +182,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="page-title" id="pageTitle">Coach</div>
     <button onclick="showCoachHelp()" title="Help" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;">?</button>
     <button onclick="coachLogout()" title="Log out" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;">&#128274;</button>
+    <button onclick="kfitBellOpen()" title="What's new from your clients" style="position:relative;width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;">🔔<span id="bellBadge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:var(--terra);color:#fff;font-size:10px;font-weight:800;align-items:center;justify-content:center;">0</span></button>
     <button onclick="openRequests()" title="Client requests" style="position:relative;width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;">📥<span id="reqBadge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:var(--terra);color:#fff;font-size:10px;font-weight:800;align-items:center;justify-content:center;">0</span></button>
     <button onclick="openTrash()" title="Trash" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;">🗑</button>
     <button onclick="window.print()" title="Print this screen" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">&#128424;</button>
@@ -229,7 +230,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       </div>
       <div id="uniActionAlerts"></div>
       <button id="uniDietTemplatesBtn" onclick="openDietTemplateModal()" style="display:none;width:100%;padding:11px;margin-bottom:12px;background:none;border:1px solid var(--sage);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;color:var(--sage);cursor:pointer;">📋 Diet Templates</button>
-      <button id="uniNutCoachBtn" onclick="openNutCoachList()" style="display:none;width:100%;padding:11px;margin-bottom:12px;background:none;border:1px solid var(--sage);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;color:var(--sage);cursor:pointer;">🌱 Nutrition app clients</button>
+      <button id="uniNutCoachBtn" onclick="openNutCoachList()" style="display:none;width:100%;padding:11px;margin-bottom:12px;background:none;border:1px solid var(--sage);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;color:var(--sage);cursor:pointer;">🌱 Nutrition clients</button>
       <div class="stat-grid" id="uniOverallStats"></div>
       <input id="uniClientSearch" type="text" placeholder="🔍 Search by name..." oninput="renderUniDash()" style="width:100%;padding:9px 12px;margin-bottom:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
       <div id="uniShowHiddenRow" style="display:none;margin-bottom:10px;">
@@ -6707,6 +6708,16 @@ if(typeof KFIT_RESET!=='undefined') NC_H.reset=KFIT_RESET;
 function ncEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function ncToday(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function ncAddDays(s,n){var p=s.split('-');var d=new Date(+p[0],+p[1]-1,+p[2]);d.setDate(d.getDate()+n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function ncLadderHtml(p){
+  var t=NC_T[p.template_id]; if(!t) return '';
+  var path=t.path.filter(function(x){return x!=='start';}), cur=t.path[p.step_index], ci=path.indexOf(cur);
+  var chips=path.map(function(id,i){var h=NC_H[id],on=id===cur,dn=i<ci;
+    return '<span style="border:1px solid '+(on?'#C9A24A':dn?'var(--sage)':'var(--border)')+';background:'+(on?'#C9A24A':'transparent')+';color:'+(on?'#12130F':dn?'var(--sage)':'var(--muted)')+';border-radius:12px;padding:3px 8px;font-size:12px;white-space:nowrap;font-weight:'+(on?'800':'500')+'">'+(dn?'✓ ':'')+(id==='reset'?'7-day Reset':(i+1)+' '+ncEsc(h?h.title:id))+(on?' · day '+ncDay(p):'')+'</span>';}).join(' ');
+  var sw=(p.history||[]).filter(function(h){return h.type==='coachChangePlan'||h.type==='start';}).slice(-1)[0];
+  return '<div style="font-size:12px;color:var(--muted);margin:8px 0 6px;line-height:1.5">A <b>habit</b> is one eating skill she practises for about '+(t.pace===7?'a week':'two weeks')+', with a 2-minute lesson a day. When it feels automatic, she moves to the next.</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:5px">'+chips+'</div>'
+    +(sw&&sw.type==='coachChangePlan'?'<div style="font-size:12px;color:var(--muted);margin-top:6px">Switched to '+ncEsc((NC_T[sw.to]||{}).name||'')+(sw.from?' from '+ncEsc((NC_T[sw.from]||{}).name||''):'')+' on '+ncEsc(sw.on)+' · progress kept</div>':'');
+}
 function ncStepName(p){if(!p.template_id||!NC_T[p.template_id]) return 'No habit plan yet';var t=NC_T[p.template_id];var id=t&&t.path[p.step_index];var h=NC_H[id];return id==='reset'?'7-day Reset':h?((h.n?'Habit '+h.n+': ':'')+h.title):(id||'?');}
 function ncDayTxt(p){return p.template_id&&NC_T[p.template_id]?' · day '+ncDay(p):'';}
 function ncDay(p){var a=(p.step_started_on||ncToday()).split('-'),b=ncToday().split('-');return Math.round((new Date(+b[0],+b[1]-1,+b[2])-new Date(+a[0],+a[1]-1,+a[2]))/86400000)+1;}
@@ -6720,9 +6731,15 @@ function ncTargets(prof,weight){
   var maint=Math.round(base*m/50)*50, floor=prof.sex==='male'?1500:prof.sex==='female'?1200:1350;
   return {maint:maint,loss:Math.min(maint,Math.max(floor,Math.round(maint*0.82/50)*50))};
 }
+// "New" = logged after you last opened this client in Merge (kept on this device).
+function ncSeenAll(){try{return JSON.parse(localStorage.getItem('kfit_seen_v1')||'{}');}catch(e){return {};}}
+function ncSeenGet(m){return ncSeenAll()[m]||0;}
+function ncSeenSet(m){var a=ncSeenAll();a[m]=Date.now();try{localStorage.setItem('kfit_seen_v1',JSON.stringify(a));}catch(e){} if(window.kfitBellRefresh) setTimeout(kfitBellRefresh,300);}
+var ncPrevSeen={};
 async function nutCoachAttach(c){
   var box=document.getElementById('uniNutCoach'); if(!box) return; box.innerHTML='';
   var m=String(c.mobile||'').replace(/\D/g,''); if(m.length<8) return;
+  ncPrevSeen[m]=ncSeenGet(m); ncSeenSet(m);
   var cid='knut__'+m;
   var r=await getSB().from('nutrition_program').select('*').eq('client_id',cid);
   var hasProg=!r.error&&r.data&&r.data.length;
@@ -6776,8 +6793,9 @@ async function nutCoachPanel(cid,box,p){
   }
   var t=NC_T[p.template_id], hold=!!(p.settings&&p.settings.coachHold);
   var opts=Object.keys(NC_T).map(function(k){return '<option value="'+k+'"'+(k===p.template_id?' selected':'')+'>'+ncEsc(NC_T[k].name)+'</option>';}).join('');
-  box.innerHTML='<div class="card" style="margin-bottom:12px"><div style="font-size:16px;font-weight:800;margin-bottom:6px">🌱 Nutrition Coach app</div>'
+  box.innerHTML='<div class="card" style="margin-bottom:12px"><div style="font-size:16px;font-weight:800;margin-bottom:6px">🌱 Nutrition</div>'
     +'<div style="font-size:14px;line-height:1.6">'+ncEsc(t?t.name:p.template_id)+' · <b>'+ncEsc(ncStepName(p))+'</b>'+ncDayTxt(p)+(hold?' · <span style="color:var(--terra)">on hold</span>':'')+'</div>'
+    +ncLadderHtml(p)
     +'<div style="font-size:12px;color:var(--muted);margin:8px 0 4px">Last 4 weeks (dark = done, light = partly, beige = not today, empty = no check-in)</div>'
     +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">'+cells+'</div>'
     +'<div style="font-size:13px;color:var(--muted);margin-top:8px">Meals logged in the last 7 days: '+meals+'</div>'+calHtml+recent+meas+refl
@@ -6788,8 +6806,8 @@ async function nutCoachPanel(cid,box,p){
     +'<button class="btn-sm" onclick="ncChangePlan(\''+cid+'\')">Change plan</button></div></div>';
 }
 async function ncLoad(cid){var r=await getSB().from('nutrition_program').select('*').eq('client_id',cid);if(r.error||!r.data||!r.data[0]){alert('Could not load this program.');return null;}return r.data[0];}
-async function ncSave(cid,p,note){
-  p.updated_ms=Date.now(); p.history=(p.history||[]).concat([{type:note,on:ncToday(),by:'coach'}]);
+async function ncSave(cid,p,note,extra){
+  p.updated_ms=Date.now(); p.history=(p.history||[]).concat([Object.assign({type:note,on:ncToday(),by:'coach'},extra||{})]);
   var r=await getSB().from('nutrition_program').update({template_id:p.template_id,step_index:p.step_index,step_started_on:p.step_started_on,started_on:p.started_on,history:p.history,settings:p.settings||{},updated_ms:p.updated_ms}).eq('client_id',cid);
   if(r.error){alert('Not saved -- nothing changed. '+r.error.message);return;}
   var box=document.getElementById('uniNutCoach'); if(box&&box.innerHTML) nutCoachPanel(cid,box,p);
@@ -6798,13 +6816,16 @@ async function ncSave(cid,p,note){
 async function ncHold(cid,on){var p=await ncLoad(cid);if(!p)return;p.settings=Object.assign({},p.settings);if(on)p.settings.coachHold=true;else delete p.settings.coachHold;ncSave(cid,p,on?'coachHold':'coachRelease');}
 async function ncAdvance(cid){var p=await ncLoad(cid);if(!p)return;var t=NC_T[p.template_id];
   if(!t||p.step_index>=t.path.length-1){alert('This is the last habit on their plan. Use "Change plan" to move them on.');return;}
-  if(!confirm('Move them on to the next habit now?'))return;p.step_index++;p.step_started_on=ncToday();ncSave(cid,p,'coachAdvance');}
+  if(!confirm('Move them on to the next habit now?'))return;var was=t.path[p.step_index];p.step_index++;p.step_started_on=ncToday();ncSave(cid,p,'coachAdvance',{step:was});}
 async function ncChangePlan(cid){var sel=document.getElementById('ncTpl_'+cid);if(!sel)return;var p=await ncLoad(cid);if(!p)return;
   if(sel.value===p.template_id){alert('They are already on this plan.');return;}
-  if(!confirm('Switch them to '+NC_T[sel.value].name+'? They start at its first habit they haven\'t finished.'))return;
-  var done={};(p.history||[]).forEach(function(h){if(h.type==='moveOn'||h.type==='coachAdvance')done[h.step]=1;});
-  var t=NC_T[sel.value],i=0;while(i<t.path.length-1&&done[t.path[i]])i++;
-  p.template_id=sel.value;p.step_index=i;p.step_started_on=ncToday();p.started_on=ncToday();ncSave(cid,p,'coachChangePlan');}
+  if(!confirm('Switch them to '+NC_T[sel.value].name+'? Their progress comes with them: finished habits stay finished, and if their current habit is in the new plan they carry on from the same day.'))return;
+  var from=p.template_id, oldT=NC_T[from], cur=oldT&&oldT.path[p.step_index];
+  var done={};(p.history||[]).forEach(function(h){if((h.type==='moveOn'||h.type==='coachAdvance')&&h.step)done[h.step]=1;});
+  if(oldT) oldT.path.slice(0,p.step_index).forEach(function(id){done[id]=1;});
+  var t=NC_T[sel.value], ci=t.path.indexOf(cur), i;
+  if(ci>=0&&!done[cur]){ i=ci; } else { i=0; while(i<t.path.length-1&&done[t.path[i]])i++; p.step_started_on=ncToday(); }
+  p.template_id=sel.value; p.step_index=i; ncSave(cid,p,'coachChangePlan',{from:from,to:sel.value});}
 async function openNutCoachList(){
   var r=await getSB().from('nutrition_program').select('*').order('updated_at',{ascending:false});
   if(r.error){alert('Could not load: '+r.error.message);return;}
@@ -6851,10 +6872,10 @@ var ncState={};
 function ncDayLabel(d){var p=d.split('-');return new Date(+p[0],+p[1]-1,+p[2]).toDateString().slice(0,10);}
 function ncSlotFor(h){return h<10?'Breakfast':h<12?'Morning snack':h<15?'Lunch':h<18?'Evening snack':h<22?'Dinner':'Late snack';}
 async function ncLoadWeek(cid){
-  var since=ncAddDays(ncToday(),-13), rows=[];
-  var ml=await getSB().from('nutrition_meals').select('meal_id,day,deleted,body').eq('client_id',cid).gte('day',since);
+  var since=ncAddDays(ncToday(),-90), rows=[];
+  var ml=await getSB().from('nutrition_meals').select('meal_id,day,deleted,body,created_at').eq('client_id',cid).gte('day',since);
   (ml.data||[]).filter(function(x){return !x.deleted;}).forEach(function(x){var b=x.body||{};
-    rows.push({day:x.day,time:b.time||(b.eatenAt?new Date(b.eatenAt).toTimeString().slice(0,5):''),slot:b.slot||'',text:b.text||'',note:'',src:'app'});});
+    rows.push({day:x.day,time:b.time||(b.eatenAt?new Date(b.eatenAt).toTimeString().slice(0,5):''),slot:b.slot||'',text:b.text||'',note:'',src:'app',ts:x.created_at?new Date(x.created_at).getTime():(b.at||0),kcal:b.feedback&&b.feedback.kcal});});
   // earlier-app log (days only, no times were recorded then)
   var td=await getSB().from('tracker_data').select('data').eq('client_id',cid).eq('tracker','nutrition');
   var d=td.data&&td.data[0]&&td.data[0].data; if(typeof d==='string'){try{d=JSON.parse(d);}catch(e){d=null;}}
@@ -6874,6 +6895,12 @@ async function ncLoadWeek(cid){
   rows.sort(function(a,b){return a.day===b.day?(a.time||'99').localeCompare(b.time||'99'):(a.day<b.day?1:-1);});
   return rows;
 }
+function ncWeekStart(d){var p=d.split('-'),x=new Date(+p[0],+p[1]-1,+p[2]);var wd=(x.getDay()+6)%7;x.setDate(x.getDate()-wd);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');}
+function ncWeekLabel(ws){var thisW=ncWeekStart(ncToday()),lastW=ncAddDays(thisW,-7),e=ncAddDays(ws,6);
+  var f=function(d){var p=d.split('-');return new Date(+p[0],+p[1]-1,+p[2]).toDateString().slice(4,10);};
+  return (ws===thisW?'This week · ':ws===lastW?'Last week · ':'')+f(ws)+' – '+f(e);}
+function ncMonthLabel(d){var p=d.split('-');return new Date(+p[0],+p[1]-1,1).toLocaleDateString([], {month:'long',year:'numeric'});}
+var NC_F='<style>.nc-time{font-family:"DM Mono",ui-monospace,Menlo,monospace;color:#C9A24A;font-size:13px}.nc-meal{font-family:"Playfair Display",Georgia,serif;font-size:15px}.nc-food{font-size:13px;color:var(--text)}.nc-day{font-size:12px;letter-spacing:.08em;color:#C9A24A;font-weight:800;margin:10px 0 4px;padding-top:8px;border-top:1px solid var(--border)}.nc-wk{border:1px solid var(--border);border-radius:10px;margin-top:8px;overflow:hidden}.nc-wk>summary{cursor:pointer;padding:10px 12px;background:var(--surf2);font-weight:800;font-size:14px;display:flex;justify-content:space-between;list-style:none}.nc-wk>summary::-webkit-details-marker{display:none}.nc-wkb{padding:0 12px 10px}.nc-new{background:#2A2618;border:1px solid #6B5A2A;color:#E7CF8C;border-radius:5px;padding:0 5px;font-size:11px;font-weight:800;margin-left:6px}.nc-note{background:#2A2618;border:1px solid #6B5A2A;color:#E7CF8C;border-radius:6px;padding:1px 6px;font-size:12px}</style>';
 async function ncToolsRender(cid,tab){
   var el=document.getElementById('ncTools_'+cid); if(!el) return;
   var st=ncState[cid]=ncState[cid]||{rows:null,plan:null,tab:'week'};
@@ -6885,18 +6912,34 @@ async function ncToolsRender(cid,tab){
   var body=document.getElementById('ncBody_'+cid);
   if(st.tab==='week'){
     if(!st.rows) st.rows=await ncLoadWeek(cid);
-    var lastDay='', list='';
+    var mob=cid.slice(6), seen=ncPrevSeen[mob]||0, thisW=ncWeekStart(ncToday()), monthCut=ncAddDays(thisW,-21);
+    var groups=[], gi={};
     st.rows.forEach(function(r,i){
-      if(r.day!==lastDay){ list+='<div style="font-weight:800;font-size:13px;margin:10px 0 4px">'+ncEsc(ncDayLabel(r.day))+'</div>'; lastDay=r.day; }
-      list+='<div style="display:flex;flex-direction:column;gap:4px;padding:6px 0;border-bottom:1px solid var(--border)"><div style="font-size:13px">'+(r.time?'<b>'+ncEsc(r.time)+'</b> ':'')+ncEsc(r.slot)+(r.text?' · '+ncEsc(r.text):'')+(r.src==='screenshot'?' <span style="color:var(--muted)">(from screenshot)</span>':'')+'</div>'
-        +'<input data-ncnote="'+i+'" value="'+ncEsc(r.note)+'" placeholder="Add a note (optional)" style="padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:13px"></div>';
+      var key=r.day>=monthCut?'w'+ncWeekStart(r.day):'m'+r.day.slice(0,7);
+      if(!gi[key]){gi[key]={key:key,label:key[0]==='w'?ncWeekLabel(key.slice(1)):ncMonthLabel(r.day),rows:[],days:{},kcal:0};groups.push(gi[key]);}
+      var g=gi[key]; g.rows.push(i); g.days[r.day]=1; if(r.kcal) g.kcal+=r.kcal;
     });
-    body.innerHTML=(list||'<div style="font-size:13px;color:var(--muted)">No meals logged in the last two weeks.</div>')
+    var list='';
+    groups.forEach(function(g,gix){
+      var inner='', lastDay='';
+      g.rows.forEach(function(i){var r=st.rows[i];
+        if(r.day!==lastDay){ inner+='<div class="nc-day">'+ncEsc(ncDayLabel(r.day).toUpperCase())+'</div>'; lastDay=r.day; }
+        var isNew=r.src==='app'&&r.ts&&r.ts>seen;
+        inner+='<div style="display:flex;flex-direction:column;gap:3px;padding:6px 0;'+(isNew?'background:rgba(201,162,74,.08);border-radius:6px;padding:6px;':'')+'">'
+          +'<div>'+(r.time?'<span class="nc-time">'+ncEsc(r.time)+'</span> ':'')+'<span class="nc-meal">'+ncEsc(r.slot||'Meal')+'</span>'+(isNew?'<span class="nc-new">NEW</span>':'')+(r.src==='screenshot'?' <span style="color:var(--muted);font-size:11px">(screenshot)</span>':'')+(r.src==='earlier'?' <span style="color:var(--muted);font-size:11px">(earlier app)</span>':'')+'</div>'
+          +(r.text?'<div class="nc-food">'+ncEsc(r.text)+(r.kcal?' <span style="color:var(--muted)">· ~'+r.kcal+' kcal</span>':'')+'</div>':'')
+          +'<input data-ncnote="'+i+'" value="'+ncEsc(r.note)+'" placeholder="Add a note (optional)" style="padding:7px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:13px"></div>';
+      });
+      var nd=Object.keys(g.days).length;
+      var openIt=gix===0||g.rows.some(function(i){var r=st.rows[i];return r.src==='screenshot'||(r.src==='app'&&r.ts&&r.ts>seen);});
+      list+='<details class="nc-wk"'+(openIt?' open':'')+'><summary><span>'+ncEsc(g.label)+'</span><span style="font-weight:500;color:var(--muted);font-size:12px">'+g.rows.length+' meal'+(g.rows.length===1?'':'s')+' · '+nd+' day'+(nd===1?'':'s')+(g.kcal?' · ~'+Math.round(g.kcal/Math.max(1,nd)/10)*10+' kcal/day':'')+' ▾</span></summary><div class="nc-wkb">'+inner+'</div></details>';
+    });
+    body.innerHTML=NC_F+(list||'<div style="font-size:13px;color:var(--muted)">No meals logged yet.</div>')
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><label class="btn-sm" style="display:inline-flex;align-items:center">📷 Import screenshots<input type="file" accept="image/*" multiple id="ncShots_'+cid+'" style="display:none"></label></div>'
       +'<div id="ncShotMsg_'+cid+'" style="font-size:12px;color:var(--muted);margin-top:6px"></div>'
       +'<textarea id="ncMsg_'+cid+'" placeholder="A message with your advice (optional)" style="width:100%;margin-top:10px;min-height:60px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit"></textarea>'
       +'<button class="btn-sm" id="ncSendAdvice_'+cid+'" style="margin-top:8px">📨 Send as advice</button>'
-      +'<div style="font-size:12px;color:var(--muted);margin-top:6px">Only meals with a note are sent. They appear in her app under "Suggestions from your coach".</div>';
+      +'<div style="font-size:12px;color:var(--muted);margin-top:6px">Only meals with a note are sent. They appear in her app under "From your coach".</div>';
     body.querySelectorAll('[data-ncnote]').forEach(function(inp){inp.oninput=function(){st.rows[+inp.dataset.ncnote].note=inp.value;};});
     document.getElementById('ncShots_'+cid).onchange=function(){ncImportShots(cid,this.files);};
     document.getElementById('ncSendAdvice_'+cid).onclick=function(){ncSendAdvice(cid);};
@@ -6921,10 +6964,25 @@ async function ncToolsRender(cid,tab){
     document.getElementById('ncAddRow_'+cid).onclick=function(){sync();P.rows.push({time:'',text:'',note:''});ncToolsRender(cid,'plan');};
     document.getElementById('ncSendPlan_'+cid).onclick=function(){sync();ncSendPlan(cid);};
   } else {
-    var r=await getSB().from('nutrition_coach_notes').select('*').eq('client_id',cid).order('created_at',{ascending:false}).limit(12);
-    body.innerHTML=(r.data||[]).map(function(n){return '<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--border)"><b>'+(n.kind==='plan'?'Meal plan for '+ncEsc(ncDayLabel(n.for_day||'')):'Advice')+'</b> · sent '+ncEsc(new Date(n.created_at).toDateString().slice(4,10))
-      +' · '+(n.read_at?'<span style="color:var(--sage)">seen ✓</span>':'<span style="color:var(--muted)">not seen yet</span>')+'<br><span style="color:var(--muted)">'+(n.items||[]).length+' item'+((n.items||[]).length===1?'':'s')+(n.message?' · '+ncEsc(n.message.slice(0,80)):'')+'</span></div>';}).join('')
-      ||'<div style="font-size:13px;color:var(--muted)">Nothing sent yet.</div>';
+    st.sentFilter=st.sentFilter||'all';
+    var r=await getSB().from('nutrition_coach_notes').select('*').eq('client_id',cid).order('created_at',{ascending:false}).limit(200);
+    var notes=(r.data||[]).filter(function(n){return st.sentFilter==='all'||n.kind===st.sentFilter;});
+    var fl=[['all','All'],['advice','Advice'],['plan','Meal plans']].map(function(f){return '<button class="btn-sm" data-ncf="'+f[0]+'" style="'+(st.sentFilter===f[0]?'background:var(--sage);color:#fff':'')+'">'+f[1]+'</button>';}).join(' ');
+    var groups=[],gi={};
+    notes.forEach(function(n){var d=new Date(n.created_at),ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');var k=ncWeekStart(ds);
+      if(!gi[k]){gi[k]={label:ncWeekLabel(k),items:[]};groups.push(gi[k]);} gi[k].items.push(n);});
+    var html=NC_F+'<div style="display:flex;gap:6px;margin-bottom:6px">'+fl+'</div>';
+    groups.forEach(function(g,gix){
+      html+='<details class="nc-wk"'+(gix===0?' open':'')+'><summary><span>'+ncEsc(g.label)+'</span><span style="font-weight:500;color:var(--muted);font-size:12px">'+g.items.length+' sent ▾</span></summary><div class="nc-wkb">'
+        +g.items.map(function(n){var d=new Date(n.created_at), when=d.toDateString().slice(0,10)+', '+d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase();
+          var head=n.kind==='plan'?'Meal plan for '+ncEsc(ncDayLabel(n.for_day||'')):'Advice';
+          var items=(n.items||[]).map(function(it){return '<div style="padding:2px 0">'+(it.time?'<span class="nc-time">'+ncEsc(it.time)+'</span> ':'')+(it.dayLabel&&n.kind!=='plan'?'<b>'+ncEsc(it.dayLabel)+'</b> ':'')+'<span class="nc-meal">'+ncEsc(it.slot||'')+'</span> <span class="nc-food">'+ncEsc(it.text||'')+'</span>'+(it.note?' <span class="nc-note">'+ncEsc(it.note)+'</span>':'')+'</div>';}).join('');
+          return '<div style="padding:8px 0;border-top:1px solid var(--border)"><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><b>'+head+'</b><span style="color:'+(n.read_at?'var(--sage)':'var(--muted)')+'">'+(n.read_at?'seen ✓':'not seen yet')+'</span></div>'
+            +'<div style="font-size:12px;color:var(--muted);margin-bottom:4px">Sent '+ncEsc(when)+'</div>'+items+(n.message?'<div style="font-size:13px;color:var(--text);margin-top:4px">"'+ncEsc(n.message)+'"</div>':'')+'</div>';}).join('')
+        +'</div></details>';
+    });
+    body.innerHTML=html+(groups.length?'':'<div style="font-size:13px;color:var(--muted)">Nothing sent yet.</div>');
+    body.querySelectorAll('[data-ncf]').forEach(function(b){b.onclick=function(){st.sentFilter=b.dataset.ncf;ncToolsRender(cid,'sent');};});
   }
 }
 async function ncSendAdvice(cid){
@@ -6976,6 +7034,71 @@ async function ncImportShots(cid,files){
   ncToolsRender(cid,'week');
   var m2=document.getElementById('ncShotMsg_'+cid); if(m2) m2.textContent='Added '+added+' meal'+(added===1?'':'s')+' from screenshots'+(failed?' ('+failed+' could not be read)':'')+'. Please check them before sending.';
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// 🔔 What's new: meals, check-ins and sessions from your tagged clients
+// (fitness and nutrition), last 7 days. An item is NEW until you open that
+// client in Merge (remembered on this device).
+// ═══════════════════════════════════════════════════════════════════
+var kfitBellItems=[];
+async function kfitBellLoad(){
+  if(typeof getSB!=='function') return [];
+  var sinceIso=new Date(Date.now()-7*864e5).toISOString();
+  var tagged={}, hidden={}, names={};
+  try{
+    var tg=await getSB().from('client_tags').select('client_key,name,mobile,tracker');
+    (tg.data||[]).forEach(function(t){var m=String(t.mobile||t.client_key||'').replace(/\D/g,''); if(m.length<8) return;
+      if(t.tracker==='hidden'){hidden[m]=1;return;} tagged[m]=1; if(t.name) names[m]=t.name;});
+  }catch(e){}
+  var items=[];
+  function nm(m){return names[m]||('+'+m);}
+  try{
+    var ml=await getSB().from('nutrition_meals').select('client_id,day,body,created_at,deleted').gte('created_at',sinceIso).limit(300);
+    (ml.data||[]).forEach(function(x){var m=String(x.client_id).slice(6); if(x.deleted||!tagged[m]||hidden[m]) return; var b=x.body||{};
+      items.push({m:m,ts:new Date(x.created_at).getTime(),icon:'🥗',text:'<b>'+ncEsc(nm(m))+'</b> logged '+ncEsc(String(b.slot||'a meal').toLowerCase())+(b.text?' · '+ncEsc(String(b.text).slice(0,60)):'')+(b.time?' <span style="color:var(--muted)">('+ncEsc(b.time)+')</span>':'')});});
+  }catch(e){}
+  try{
+    var ck=await getSB().from('nutrition_checkins').select('client_id,day,answer,reflection,updated_at').gte('updated_at',sinceIso).limit(300);
+    (ck.data||[]).forEach(function(x){var m=String(x.client_id).slice(6); if(!tagged[m]||hidden[m]) return;
+      var ms=x.reflection&&x.reflection.measure;
+      if(x.answer) items.push({m:m,ts:new Date(x.updated_at).getTime(),icon:'✅',text:'<b>'+ncEsc(nm(m))+'</b> checked in · '+({done:'Done',partly:'Partly',not:'Not today'}[x.answer]||x.answer)});
+      if(ms) items.push({m:m,ts:new Date(x.updated_at).getTime()-1,icon:'📏',text:'<b>'+ncEsc(nm(m))+'</b> weekly check-in'+(ms.waist?' · waist '+ms.waist+' cm':'')+(ms.weight?' · '+ms.weight+' kg':'')});});
+  }catch(e){}
+  try{
+    var fs=await getSB().from('fitness_sessions').select('client_id,session_date,created_at,deleted').gte('created_at',sinceIso).limit(300);
+    (fs.data||[]).forEach(function(x){var m=String(x.client_id).slice(6); if(x.deleted||!tagged[m]||hidden[m]) return;
+      items.push({m:m,ts:new Date(x.created_at).getTime(),icon:'🏋️',text:'<b>'+ncEsc(nm(m))+'</b> logged a workout'+(x.session_date?' · '+ncEsc(ncDayLabel(x.session_date)):'')});});
+  }catch(e){}
+  var seen=ncSeenAll();
+  items.forEach(function(it){it.isNew=it.ts>(seen[it.m]||0);});
+  items.sort(function(a,b){return b.ts-a.ts;});
+  kfitBellItems=items; return items;
+}
+async function kfitBellRefresh(){
+  var items=await kfitBellLoad(), n=items.filter(function(i){return i.isNew;}).length, b=document.getElementById('bellBadge');
+  if(b){ b.textContent=n>99?'99+':n; b.style.display=n?'flex':'none'; }
+}
+async function kfitBellOpen(){
+  var ov=document.getElementById('bellOverlay');
+  if(!ov){ov=document.createElement('div');ov.id='bellOverlay';ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;overflow:auto;padding:20px';document.body.appendChild(ov);}
+  ov.innerHTML='<div style="max-width:560px;margin:0 auto;background:var(--surf,#1b1b1b);border-radius:14px;padding:16px;color:var(--text)">Loading…</div>';
+  var items=await kfitBellLoad(); kfitBellRefresh();
+  var rows=items.length?items.map(function(it,i){var d=new Date(it.ts);
+    return '<div data-bell="'+i+'" style="cursor:pointer;display:flex;justify-content:space-between;gap:8px;align-items:flex-start;padding:10px 8px;border-top:1px solid var(--border);'+(it.isNew?'background:rgba(201,162,74,.08);border-radius:8px;':'')+'">'
+      +'<div style="font-size:14px;line-height:1.45">'+it.icon+' '+it.text+'<div style="font-size:12px;color:var(--muted)">'+d.toDateString().slice(0,10)+', '+d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase()+'</div></div>'
+      +(it.isNew?'<span style="background:#2A2618;border:1px solid #6B5A2A;color:#E7CF8C;border-radius:6px;padding:1px 6px;font-size:11px;font-weight:800">NEW</span>':'')+'</div>';}).join('')
+    :'<div style="font-size:14px;color:var(--muted);padding:10px 0">Nothing new from your tagged clients in the last 7 days.</div>';
+  ov.innerHTML='<div style="max-width:560px;margin:0 auto;background:var(--surf,#1b1b1b);border-radius:14px;padding:16px;color:var(--text)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:18px;font-weight:800">🔔 What\'s new</div><button class="btn-sm" id="bellClose">Close</button></div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Your tagged clients, last 7 days. Tap one to open them; it stops being new once you have.</div>'+rows+'</div>';
+  document.getElementById('bellClose').onclick=function(){ov.remove();};
+  ov.onclick=function(e){if(e.target===ov)ov.remove();};
+  ov.querySelectorAll('[data-bell]').forEach(function(el){el.onclick=function(){
+    var it=items[+el.dataset.bell]; ov.remove();
+    try{ var c=buildUnifiedRoster().find(function(r){return String(r.mobile||'').replace(/\D/g,'')===it.m;});
+      if(c) openUniClient(c.key); else alert('Open this client from your client list.'); }catch(e){}
+  };});
+}
+setTimeout(function(){kfitBellRefresh();setInterval(kfitBellRefresh,60000);},2500);
 </script>
 </body>
 </html>

@@ -11,7 +11,7 @@
 <link rel="manifest" href="/manifest-nutrition.json">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./kfit-exercise-library.js"></script>
 <script src="./kfit-nutrition-lessons.js"></script>
@@ -112,6 +112,9 @@ h2{margin:0;font-family:var(--serif);font-weight:500;font-size:22px;line-height:
 .links{display:flex;flex-wrap:wrap;gap:10px}
 .links button{background:none;border:1px solid var(--line2);border-radius:20px;color:var(--soft);padding:8px 14px;font-weight:700;font-size:14px;min-height:40px}
 .tm{color:var(--muted);font-variant-numeric:tabular-nums;min-width:62px;display:inline-block}
+.f-time{font-family:"DM Mono",ui-monospace,Menlo,monospace;color:var(--gold);font-size:13px;letter-spacing:.02em}
+.f-meal{font-family:var(--serif);font-size:18px;font-weight:500;color:var(--ink)}
+.f-food{font-family:var(--sans);font-size:15px;color:var(--soft);line-height:1.45}
 .hint{background:var(--tint);border:1px solid #2C4234;border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
 .hint p{margin:0;font-size:15px;line-height:1.5;color:var(--ink2)}
 .hint .row{gap:14px}
@@ -251,7 +254,25 @@ function completedHabits(){
 }
 
 // ---------- supabase ----------
-function initSB(){ sb=window.supabase.createClient(G_URL,G_KEY); }
+
+// Client apps keep their OWN sign-in, separate from Merge (the coach app) on
+// the same phone. Before, a coach testing a client app on their own phone was
+// seen as the coach ("Coach accounts can't sign up as clients", email code
+// errors). A client's existing anonymous sign-in is carried over once, so
+// nobody is logged out; a coach's sign-in is never copied.
+var KFIT_CLIENT_AUTH='kfit-client-auth';
+function kfitClientAuthMigrate(url){
+  try{
+    if(localStorage.getItem(KFIT_CLIENT_AUTH)) return;
+    var ref=(String(url).match(/https:\/\/([^.]+)\./)||[])[1]; if(!ref) return;
+    var old=localStorage.getItem('sb-'+ref+'-auth-token'); if(!old) return;
+    var o=JSON.parse(old), tok=o&&(o.access_token||(o.currentSession&&o.currentSession.access_token)); if(!tok) return;
+    var b=tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'); while(b.length%4) b+='=';
+    var claims=JSON.parse(atob(b));
+    if(claims&&claims.is_anonymous===true) localStorage.setItem(KFIT_CLIENT_AUTH,old);
+  }catch(e){}
+}
+function initSB(){ kfitClientAuthMigrate(G_URL); sb=window.supabase.createClient(G_URL,G_KEY,{auth:{storageKey:KFIT_CLIENT_AUTH,persistSession:true,autoRefreshToken:true}}); }
 async function ensureAuth(){
   var r=await sb.auth.getSession(); var s=r.data&&r.data.session;
   if(!s){ var a=await sb.auth.signInAnonymously(); if(a.error) throw a.error; s=a.data.session; }
@@ -294,6 +315,7 @@ function render(){
   if(S.tab==='chat') return renderChat();
   if(S.tab==='journey') return hasPlan()?renderJourney():renderChooser(true);
   if(S.tab==='plan') return hasPlan()?renderToday():renderChooser(true);
+  if(S.tab==='coach') return renderCoachNotes();
   return renderHome();
 }
 function go(tab){ if(chatUI&&tab!=='chat'){try{chatUI.destroy();}catch(e){} chatUI=null;} S.tab=tab;S.view=null;stopSpeech();render(); }
@@ -401,28 +423,50 @@ async function enter(){
 function renderHome(){
   S.tab='home';
   var name=(legacyName()||localStorage.getItem(LS.name)||'').split(' ')[0];
-  var part=partOfDay();
-  var k=dayKcal(today()), t=targets(), tgt=t&&t.maint?((S.program&&S.program.settings&&S.program.settings.goal)==='maintain'?t.maint:t.loss):null;
   var todays=mealsOn(today());
-  var planSub=hasPlan()?(function(){var hb=habitOf(stepId());return (stepId()==='reset'?'7-day Reset':hb?hb.title:'Your plan')+' · Day '+(dayIndex()+1)+' of '+stepLen(stepId());})():'Choose a plan when you\'re ready';
+  var planSub=hasPlan()?(function(){var t=tpl(),hb=habitOf(stepId());return (stepId()==='reset'?'7-day Reset':'Habit '+(S.program.step_index+1)+' of '+t.path.filter(function(x){return x!=='start';}).length+' · '+(hb?hb.title:''))+' · day '+(dayIndex()+1);})():'Optional · choose a plan to start';
+  var unread=(S.notes||[]).filter(function(n){return !n.read_at;}).length, anyNotes=(S.notes||[]).length;
   var html='<div class="screen">'
-    +'<div class="hrow" style="align-items:center"><div class="brand"><span class="k">K</span><span class="f">F</span><span class="i">it</span><small>NUTRITION</small></div><button class="helpbtn" aria-label="How KFit works">?</button></div>'
-    +'<h1 style="font-size:34px">'+part+(name?',<br><i style="color:var(--gold)">'+esc(name)+'</i>':'.')+'</h1><div class="goldline"></div>'
+    +'<div class="hrow" style="align-items:center"><div class="brand"><span class="k">K</span><span class="f">F</span><span class="i">it</span><small>NUTRITION</small></div>'
+    +'<div class="row" style="gap:8px"><button id="hmOut" style="background:none;border:1px solid var(--line2);border-radius:20px;padding:8px 14px;font-weight:700;font-size:14px;color:var(--soft);min-height:40px">Log out</button><button class="helpbtn" aria-label="How KFit works">?</button></div></div>'
+    +'<h1 style="font-size:34px">'+partOfDay()+(name?',<br><i style="color:var(--gold)">'+esc(name)+'</i>':'.')+'</h1><div class="goldline"></div>'
     +hint('home')
-    +'<button class="tile main" id="hmLog"><div class="ic" style="background:#23382B;color:var(--leaf)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div><div><h2>Log a meal</h2><div class="meta" style="font-weight:400">Photo or a few words · time saved</div></div></button>'
-    +'<button class="tile" id="hmPlan"><div class="ic" style="background:#3A2A1E;color:var(--terra)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M6 20c0-5 12-3 12-9S9 6 9 3"/><circle cx="9" cy="3" r="1"/><circle cx="6" cy="20" r="1"/></svg></div><div><h2>My plan</h2><div class="meta" style="font-weight:400">'+esc(planSub)+'</div></div></button>'
-    +'<div class="grid3" style="grid-template-columns:1fr 1fr">'
-    +'<div class="stat"><div class="l">TODAY</div><div class="v" style="color:var(--gold)">'+(k.n?fmt(k.sum):todays.length)+'</div><div class="meta" style="font-weight:400">'+(k.n?(tgt?'of ~'+fmt(tgt)+' kcal':'kcal, estimate'):'meals logged')+'</div></div>'
-    +'<div class="stat"><div class="l">THIS WEEK</div><div class="v" style="color:var(--leaf)">'+weekMealDays()+(weekMealDays()===1?' day':' days')+'</div><div class="meta" style="font-weight:400">with meals logged</div></div></div>'+coachBox();
-  if(todays.length) html+='<div class="card" style="gap:6px"><div class="cap">Today</div>'+todays.map(function(m){return '<div style="font-size:15px"><span class="tm">'+esc(mealTime(m))+'</span> '+esc(m.body.slot||'Meal')+(m.body.text?' · <span style="color:var(--soft)">'+esc(m.body.text)+'</span>':'')+'</div>';}).join('')+'</div>';
-  if(dueWeekly()) html+='<button class="tile" id="tdWeekly"><div class="ic" style="background:#2E2A1A;color:var(--gold)"><svg class="icon" viewBox="0 0 24 24"><path d="M4 18c4-1 5-8 9-7s4 5 7 3"/></svg></div><div><h2 style="font-size:18px">Weekly check-in</h2><div class="meta" style="font-weight:400">Waist and weight · 1 minute</div></div></button>';
-  html+='<div class="links"><button data-go="log">All meals</button><button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')+'<button data-go="chat">Chat</button></div></div>';
+    +'<button class="tile main" id="hmLog"><div class="ic" style="background:#23382B;color:var(--leaf)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div><div style="flex:1"><h2>Log a meal</h2><div class="meta" style="font-weight:400">'+(todays.length?todays.length+' logged today':'Your day, meal by meal')+'</div>'+kcalBar(today())+'</div></button>'
+    +'<button class="tile" id="hmPlan"><div class="ic" style="background:#3A2A1E;color:var(--terra)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M6 20c0-5 12-3 12-9S9 6 9 3"/><circle cx="9" cy="3" r="1"/><circle cx="6" cy="20" r="1"/></svg></div><div><h2>My plan</h2><div class="meta" style="font-weight:400">'+esc(planSub)+'</div></div></button>';
+  if(anyNotes) html+='<button class="tile" id="hmCoach" style="border-color:#6B5A2A;padding:13px 16px"><div style="font-size:15px">'+(unread?'<b style="color:var(--gold)">'+unread+' new note'+(unread===1?'':'s')+' from your coach</b>':'<b style="color:var(--gold)">From your coach</b>')+' <span style="color:var(--muted)">· tap to read</span></div></button>';
+  html+='<div class="links">'+(dueWeekly()?'<button data-go="weekly" style="border-color:#6B5A2A;color:var(--gold)">Weekly check-in</button>':'')
+    +'<button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')
+    +'<button data-go="chat">'+(S.unread?'Chat ('+S.unread+' new)':'Chat')+'</button></div></div>';
   show(html);
-  $('#hmLog').onclick=function(){S.tab='log';openMealForm(today());};
+  $('#hmLog').onclick=function(){go('log');};
   $('#hmPlan').onclick=function(){go('plan');};
-  var wk=$('#tdWeekly'); if(wk) wk.onclick=function(){openWeekly();};
-  document.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){go(b.dataset.go);};});
+  var hc=$('#hmCoach'); if(hc) hc.onclick=function(){go('coach');};
+  $('#hmOut').onclick=logOut;
+  document.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){ if(b.dataset.go==='weekly') return openWeekly(); go(b.dataset.go);};});
+}
+// The habit ladder: what a habit is, and where she is on the plan.
+function ladder(){
+  var t=tpl(); if(!t) return '';
+  var path=t.path.filter(function(x){return x!=='start';}), cur=stepId(), done=completedHabits();
+  return '<details class="card" style="border:1px solid var(--line);gap:8px"><summary style="cursor:pointer;font-weight:700;font-size:15px">What is a habit? <span class="meta" style="font-weight:400">· your '+esc(t.name)+'</span></summary>'
+    +'<div class="body" style="font-size:15px;margin-top:6px"><p style="margin:0 0 8px">A habit is one eating skill you practise for about '+(t.pace===7?'a week':'two weeks')+', with a 2-minute lesson a day. When it feels easy, you move on to the next. What you learned stays with you.</p></div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px">'+path.map(function(id,i){var h=habitOf(id),on=id===cur,dn=done[id]||path.indexOf(cur)>i;
+      return '<span style="border:1px solid '+(on?'var(--gold)':dn?'#3D6B4F':'var(--line2)')+';background:'+(on?'var(--gold)':'transparent')+';color:'+(on?'#12130F':dn?'var(--leaf)':'var(--muted)')+';border-radius:14px;padding:4px 10px;font-size:13px;font-weight:'+(on?'700':'500')+'">'+(dn&&!on?'✓ ':'')+(id==='reset'?'7-day Reset':(i+1)+' '+esc(h?h.title:id))+'</span>';}).join('')+'</div></details>';
+}
+function renderCoachNotes(){
+  S.tab='coach';
+  show('<div class="screen">'+head('From your coach')+(coachBox().replace('<h2 style="font-size:20px">From your coach</h2>','')||'<div class="card"><div class="body">No notes yet.</div></div>')+'</div>');
   markNotesRead();
+}
+async function logOut(){
+  if(!confirm('Log out of KFit on this phone?\n\nYour meals and progress stay saved. To come back, you\'ll confirm your number again (with an email code or your coach).')) return;
+  try{ await flush(); }catch(e){}
+  if(queue().length&&!confirm('Some of today\'s entries haven\'t reached the server yet (no internet?). Log out anyway? They\'ll be lost.')) return;
+  try{ if(chatUI){chatUI.destroy();chatUI=null;} }catch(e){}
+  try{ await sb.auth.signOut(); }catch(e){}
+  [LS.mobile,LS.name,LS.cache,LS.queue,'kfnc_phone_backup'].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
+  S.mobile='';S.clientId='';S.fitId='';S.program=null;S.checkins={};S.meals={};S.notes=[];S.legacyDays=[];S.loaded=false;S.tab='home';S.view=null;
+  renderSignIn();
 }
 function renderWelcome(){ return renderHome(); }
 function mealsOn(d){return Object.keys(S.meals).map(function(k){return S.meals[k];}).filter(function(m){return m.day===d&&!m.deleted;}).sort(function(a,b){return mealAt(a)-mealAt(b);});}
@@ -466,24 +510,34 @@ function markNotesRead(){
 function renderChooser(canSkip){
   var sel=S._tpl||'reset-7d';
   var cards=G_T.map(function(t){
-    return '<button class="tpl'+(t.id===sel?' on':'')+'" data-t="'+t.id+'"><div class="cap g">'+(t.weeks===1?'1 week':t.weeks+' weeks')+'</div>'
+    return '<button class="tpl'+(t.id===sel?' on':'')+'" data-t="'+t.id+'"><div class="cap g">'+(t.weeks===1?'1 week':t.weeks+' weeks')+(t.id==='reset-7d'?' · <span style="color:var(--gold)">RECOMMENDED TO START</span>':'')+'</div>'
       +'<h2>'+esc(t.name)+'</h2><div class="body" style="font-size:15px">'+esc(TPL_BLURB[t.id]||'')+'</div></button>';
   }).join('');
-  show('<div class="screen full"><div style="height:12px"></div><h1>Choose your path</h1>'
-    +'<div class="body"><p style="margin:0">You can always go further later. Nothing you do is lost.</p></div>'+cards
+  show('<div class="screen full">'+(canSkip?'<button class="btn link" data-home style="align-self:flex-start;color:var(--soft)">‹ Home</button>':'<div style="height:12px"></div>')+'<h1>Choose a plan</h1>'
+    +'<div class="body"><p>A plan teaches one small eating <b>habit</b> at a time, like "a palm of protein at every meal". Each day: a 2-minute lesson, one small thing to try, and a tap to say how it went.</p>'
+    +'<p style="margin:0">Not sure? <b style="color:var(--gold)">Start with the 7-day Reset.</b> It\'s short, and you can carry on afterwards. Your progress always comes with you.</p></div>'+cards
     +'<button class="btn" id="chGo">Start</button>'
     +(canSkip?'<button class="btn link" id="chLater" style="align-self:center">Not now</button>':'')+'</div>');
   document.querySelectorAll('.tpl').forEach(function(b){b.onclick=function(){S._tpl=b.dataset.t;renderChooser(canSkip);};});
   var lt=$('#chLater'); if(lt) lt.onclick=function(){S.view=null;S.tab='home';render();};
   $('#chGo').onclick=function(){startTemplate(sel,[]);};
 }
-function startTemplate(id,history){
+function startTemplate(id,history,quiet){
   var t=TEMPLATES[id]; if(!t) return;
-  var done={}; (history||[]).forEach(function(h){if(h.type==='moveOn')done[h.step]=1;});
+  var done={}; (history||[]).forEach(function(h){if(h.type==='moveOn'||h.type==='coachAdvance')done[h.step]=1;});
   var idx=0; while(idx<t.path.length-1&&done[t.path[idx]]) idx++;   // pick up where they left off
   S.program={client_id:S.clientId,template_id:id,step_index:idx,step_started_on:today(),started_on:today(),
     history:(history||[]).concat([{type:'start',template:id,on:today()}]),settings:(S.program&&S.program.settings)||{},updated_ms:now()};
-  write('nutrition_program',programRow()); S.tab='plan'; S.view=null; render();
+  write('nutrition_program',programRow());
+  if(quiet) return;
+  S.tab='plan'; S.view=null; render();
+}
+// Clients never choose a plan: everyone starts on one journey (7-day Reset,
+// which carries on into Foundations, Core and Complete). The coach can set a
+// different length in Merge; progress always carries over.
+function ensureJourney(){
+  if(hasPlan()||!profileComplete()) return;
+  startTemplate('reset-7d',(S.program&&S.program.history)||[],true);
 }
 function programRow(){var p=S.program;return {client_id:S.clientId,template_id:p.template_id||null,step_index:p.step_index||0,step_started_on:p.step_started_on,started_on:p.started_on,history:p.history||[],settings:p.settings||{},updated_ms:p.updated_ms};}
 
@@ -495,7 +549,7 @@ function renderToday(){
   var bar=stepCheckins().map(function(x,i){return '<i class="'+(x==='done'?'d':x==='partly'?'p':'')+'"></i>';}).join('');
   var title=id==='reset'?'7-day Reset':(h.n?'Habit '+h.n+' · ':'')+h.title;
   var html='<div class="screen">'
-    +'<div style="display:flex;flex-direction:column;gap:8px">'+head('Your day',esc(title)+' · Day '+(di+1)+' of '+len)+'<div class="bar">'+bar+'</div></div>'+hint('today');
+    +'<div style="display:flex;flex-direction:column;gap:8px">'+head('Your day',esc(title)+' · Day '+(di+1)+' of '+len)+'<div class="bar">'+bar+'</div></div>'+hint('today')+ladder();
   if(l.type==='reflect'){
     html+='<button class="card" style="border:1px solid var(--line);text-align:left" id="tdLesson"><div class="steplbl">1 · '+(l.decision?'TIME TO DECIDE':'LOOK BACK')+'</div><h2>'+esc(l.title)+'</h2>'
       +'<div class="body" style="font-size:15px">A few gentle questions'+(l.decision?', then you choose what\'s next.':'.')+'</div>'
@@ -510,7 +564,7 @@ function renderToday(){
   var nm=mealsOn(today()).length;
   html+='<button class="card" id="tdMeal" style="border:1px solid var(--line);text-align:left"><div class="steplbl">3 · LOG YOUR MEALS</div><div style="font-size:16px">'+(nm?nm+' logged today':'Nothing logged yet today')+' · <b style="color:var(--leaf)">Log a meal</b></div>'+kcalLine(today())+'</button>';
   if(q){
-    html+='<div class="card" style="border:1px solid var(--line)"><div class="steplbl">4 · TONIGHT, HOW DID IT GO?</div><div style="font-size:17px;line-height:1.4;font-weight:600">'+esc(q)+'</div><div class="grid3">'
+    html+='<div class="card" style="border:1px solid var(--line)"><div class="steplbl">4 · TONIGHT, HOW DID IT GO?</div>'+kcalLine(today())+'<div style="font-size:17px;line-height:1.4;font-weight:600">'+esc(q)+'</div><div class="grid3">'
       +[['done','Done'],['partly','Partly'],['not','Not today']].map(function(o){return '<button class="pill'+(c.answer===o[0]?' on':'')+'" data-a="'+o[0]+'">'+o[1]+'</button>';}).join('')
       +'</div>'+(c.answer?'<div class="meta">'+(c.answer==='done'?'Lovely. See you tomorrow.':c.answer==='partly'?'Partly counts. Every bit adds up.':'That\'s okay. Tomorrow is a fresh start.')+'</div>':'')+'</div>';
   }
@@ -518,7 +572,7 @@ function renderToday(){
   if(S.program.settings&&S.program.settings.coachHold) html+='<div class="meta">Your coach has asked you to stay with this habit a little longer.</div>';
   html+='</div>';
   show(html,{tabs:true});
-  $('#tdMeal').onclick=function(){S.tab='log';openMealForm(today());};
+  $('#tdMeal').onclick=function(){S._logDay=today();go('log');};
   $('#tdJourney').onclick=function(){go('journey');};
   $('#tdLesson').onclick=function(e){ if(e.target&&e.target.id==='tdVideo') return; openLesson(); };
   var v=$('#tdVideo'); if(v) v.onclick=function(e){e.stopPropagation();openExplainer(h);};
@@ -670,7 +724,7 @@ function openExplainer(h){
       +'<div class="still"><svg width="60%" viewBox="0 0 240 240" fill="none" stroke-linecap="round" stroke-linejoin="round">'+STILLS[i%STILLS.length]+'</svg></div>'
       +'<p class="pline">'+esc(sc.line)+'</p>'
       +'<div class="pctl"><button id="pxPrev" aria-label="Previous"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>'
-      +'<button class="big" id="pxPlay" aria-label="'+(playing?'Pause':'Play')+'"><svg class="icon" viewBox="0 0 24 24" style="stroke-width:2.4">'+(playing?'<path d="M9 5v14M15 5v14"/>':'<path d="M8 5l11 7-11 7z"/>')+'</svg></button>'
+      +'<button class="big" id="pxPlay" aria-label="'+(playing?'Stop voice':'Listen')+'" style="font-size:24px">'+(playing?'<svg class="icon" viewBox="0 0 24 24" style="stroke-width:2.4"><path d="M9 5v14M15 5v14"/></svg>':'🔊')+'</button>'
       +'<button id="pxNext" aria-label="Next"><svg class="icon" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>'
       +'<button class="btn link" id="pxClose" style="color:#CFC6B8;align-self:center">Close</button></div>');
     $('#pxPrev').onclick=function(){if(i>0){i--;restart();}};
@@ -694,7 +748,7 @@ function openExplainer(h){
     });
   }
   function close(){playing=false;token++;clearTimeout(timer);stopSpeech();S.view=null;render();}
-  playing=true; draw(); say();
+  playing=false; draw();
 }
 
 // ---------- Journey ----------
@@ -710,14 +764,11 @@ function renderJourney(){
       +(sub?'<div class="meta" style="font-weight:400">'+sub+'</div>':'')+'</div></button>';
   }).join('');
   show('<div class="screen">'+head('Your journey')+hint('journey')+'<div class="meta">'+esc(t.name)+'</div><div style="display:flex;flex-direction:column;gap:2px">'+rows+'</div>'
-    +'<button class="btn link" id="jnChange">Change plan</button></div>',{tabs:true});
+    +'</div>',{tabs:true});
   document.querySelectorAll('.jrow').forEach(function(b){b.onclick=function(){
     var k=+b.dataset.k; if(k<=S.program.step_index||done[t.path[k]]) openPast(t.path[k]);
   };});
-  $('#jnChange').onclick=function(){
-    if(!confirm('Choose a different plan? Habits you\'ve finished stay finished.')) return;
-    var h=S.program.history; S.program=Object.assign({},S.program,{template_id:null}); S._tpl=null; S._hist=h; renderChooserKeep();
-  };
+
 }
 function renderChooserKeep(){
   renderChooser();
@@ -737,30 +788,41 @@ function openPast(id){
 }
 
 // ---------- Log (meals + photo feedback in hands, never calories) ----------
+var DAY_SLOTS=[['Breakfast','08:00'],['Morning snack','11:00'],['Lunch','13:30'],['Evening snack','17:00'],['Dinner','20:00']];
 function renderLog(){
-  var d=S._logDay||today();
-  var list=mealsOn(d);
-  var html='<div class="screen">'+head('Your log')+logSwitch('meals')+hint('log')+kcalLine(d,true)
+  S.tab='log';
+  var d=S._logDay||today(), list=mealsOn(d);
+  var html='<div class="screen">'+head(d===today()?'Today\'s meals':parseD(d).toDateString().slice(0,10))+hint('log')
     +'<div class="row" style="align-items:center;justify-content:space-between"><button class="round" id="lgPrev" aria-label="Previous day"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>'
     +'<div style="font-weight:700">'+(d===today()?'Today':parseD(d).toDateString().slice(0,10))+'</div>'
-    +'<button class="round" id="lgNext" aria-label="Next day"'+(d>=today()?' disabled style="opacity:.3"':'')+'><svg class="icon" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>';
-  if(!list.length) html+='<div class="card"><div class="body" style="font-size:15px">Nothing logged yet. A quick note or a photo is plenty. There\'s no scoring here.</div></div>';
-  list.forEach(function(m){
-    var b=m.body||{}, f=b.feedback;
-    html+='<div class="meal">'+(b.photo?'<img data-path="'+esc(b.photo)+'" alt="Meal photo">':'')
-      +'<div style="flex:1;display:flex;flex-direction:column;gap:6px"><div class="cap"><span style="color:var(--gold)">'+esc(mealTime(m))+'</span> · '+esc(b.slot||'Meal')+'</div>'
-      +(b.text?'<div style="font-size:16px;line-height:1.4">'+esc(b.text)+'</div>':'')
-      +(f&&f.protein!=null?'<div class="hands"><span><b>'+esc(f.protein)+'</b> palm protein</span><span><b>'+esc(f.veg)+'</b> fist veg</span><span><b>'+esc(f.carbs)+'</b> cupped carbs</span><span><b>'+esc(f.fats)+'</b> thumb fats</span></div>'
-         +(f.tip?'<div style="font-size:15px;line-height:1.45;color:var(--soft)">'+esc(f.tip)+'</div>':''):'')
-      +(f&&f.kcal?'<div class="meta" style="font-weight:400">About '+esc(f.kcal)+' kcal (estimate)</div>':'')
-      +'</div><button class="btn link" data-del="'+esc(m.meal_id)+'" style="font-size:14px;color:var(--muted)">Remove</button></div>';
+    +'<button class="round" id="lgNext" aria-label="Next day"'+(d>=today()?' disabled style="opacity:.3"':'')+'><svg class="icon" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>'
+    +kcalLine(d,true);
+  var used={};
+  function mealHtml(m){
+    used[m.meal_id]=1; var b=m.body||{}, f=b.feedback;
+    return '<div style="display:flex;gap:10px;align-items:flex-start;padding-top:6px">'+(b.photo?'<img data-path="'+esc(b.photo)+'" alt="Meal photo" style="width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0;background:var(--sand)">':'')
+      +'<div style="flex:1;display:flex;flex-direction:column;gap:3px"><div class="f-time">'+esc(mealTime(m))+'</div><div class="f-food">'+esc(b.text||'Photo')+'</div>'
+      +(f&&f.protein!=null?'<div class="meta" style="font-weight:400">Protein '+esc(f.protein)+' palm · Veg '+esc(f.veg)+' fist · Carbs '+esc(f.carbs)+' · Fats '+esc(f.fats)+(f.kcal?' · ~'+esc(f.kcal)+' kcal':'')+'</div>':(f&&f.kcal?'<div class="meta" style="font-weight:400">~'+esc(f.kcal)+' kcal</div>':''))
+      +(f&&f.tip?'<div style="font-size:14px;color:var(--soft)">'+esc(f.tip)+'</div>':'')
+      +'</div><button class="btn link" data-del="'+esc(m.meal_id)+'" style="font-size:13px;color:var(--muted);min-height:32px">Remove</button></div>';
+  }
+  DAY_SLOTS.forEach(function(sl){
+    var ms=list.filter(function(m){return (m.body||{}).slot===sl[0];});
+    html+='<div class="card" style="border:1px '+(ms.length?'solid var(--line)':'dashed var(--line2)')+';gap:4px">'
+      +'<div class="row" style="justify-content:space-between;align-items:center"><div class="f-meal">'+sl[0]+'</div>'
+      +'<button class="btn link" data-add="'+sl[0]+'" style="min-height:36px;font-size:14px">+ Add</button></div>'
+      +(ms.length?ms.map(mealHtml).join(''):'<div class="meta" style="font-weight:400">Type it or snap a photo · the time fills in</div>')+'</div>';
   });
-  html+='<button class="btn" id="lgAdd">Log a meal</button></div>';
-  show(html,{tabs:true});
+  var other=list.filter(function(m){return !used[m.meal_id];});
+  html+='<div class="card" style="border:1px '+(other.length?'solid var(--line)':'dashed var(--line2)')+';gap:4px"><div class="row" style="justify-content:space-between;align-items:center"><div class="f-meal">Something else</div>'
+    +'<button class="btn link" data-add="Late snack" style="min-height:36px;font-size:14px">+ Add</button></div>'
+    +(other.length?other.map(mealHtml).join(''):'<div class="meta" style="font-weight:400">A drink, a late snack, anything extra</div>')+'</div>'
+    +'<div class="links"><button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')+'</div></div>';
+  show(html);
   $('#lgPrev').onclick=function(){S._logDay=addDays(d,-1);renderLog();};
   $('#lgNext').onclick=function(){if(d<today()){S._logDay=addDays(d,1);renderLog();}};
-  $('#lgAdd').onclick=function(){openMealForm(d);};
-  bindLogSwitch();
+  document.querySelectorAll('[data-add]').forEach(function(b){b.onclick=function(){openMealForm(d,b.dataset.add);};});
+  document.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){go(b.dataset.go);};});
   document.querySelectorAll('[data-del]').forEach(function(b){b.onclick=function(){
     var m=S.meals[b.dataset.del]; if(!m||!confirm('Remove this meal?')) return;
     m.deleted=true; m.updated_ms=now(); write('nutrition_meals',mealRow(m)); renderLog();
@@ -774,11 +836,17 @@ async function loadPhoto(img){
   if(r.data&&r.data.signedUrl){photoUrls[p]=r.data.signedUrl;img.src=r.data.signedUrl;}
 }
 function mealRow(m){return {client_id:S.clientId,meal_id:m.meal_id,day:m.day,body:m.body,updated_ms:m.updated_ms,deleted:!!m.deleted};}
-function openMealForm(d){
+function openMealForm(d,forSlot){
   var photo=null;
-  S.view=function(){openMealForm(d);};
+  S.view=function(){openMealForm(d,forSlot);};
   var nowD=new Date(), isToday=(d===today()), hh=isToday?nowD.getHours():13, mm=isToday?nowD.getMinutes():0;
   var slot=slotFor(hh);
+  if(forSlot){
+    slot=forSlot;
+    var usual=(DAY_SLOTS.filter(function(x){return x[0]===forSlot;})[0]||[null,'21:30'])[1].split(':');
+    // now, if now fits this meal; otherwise the meal's usual time (easy to change)
+    if(!(isToday&&slotFor(hh)===forSlot)){ hh=+usual[0]; mm=+usual[1]; if(isToday&&hh*60+mm>nowD.getHours()*60+nowD.getMinutes()){hh=nowD.getHours();mm=nowD.getMinutes();} }
+  }
   var days=[0,1,2,3,4,5,6].map(function(i){var x=addDays(today(),-i);return '<option value="'+x+'"'+(x===d?' selected':'')+'>'+(i===0?'Today':i===1?'Yesterday':parseD(x).toDateString().slice(0,10))+'</option>';}).join('');
   show('<div class="screen full"><div class="top"><button class="round" id="mfBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><span></span></div>'
     +'<h1>Log a meal</h1>'
@@ -789,7 +857,7 @@ function openMealForm(d){
     +'<button class="btn out" id="mfPhoto">Add a photo</button><img id="mfPrev" class="hide" alt="Meal photo preview" style="width:100%;border-radius:16px">'
     +'<div class="meta" id="mfNote">With a photo, you\'ll get gentle feedback in hand portions.</div>'
     +'<button class="btn" id="mfSave">Save</button></div>');
-  $('#mfBack').onclick=function(){S.view=null;render();};
+  $('#mfBack').onclick=function(){S.view=null;S.tab='log';render();};
   $('#mfTime').onchange=function(){var h=parseInt(String(this.value).split(':')[0],10);if(isFinite(h))$('#mfSlot').value=slotFor(h);};
   $('#mfPhoto').onclick=function(){var inp=$('#photoInput');inp.value='';inp.onchange=async function(){
     var f=inp.files&&inp.files[0]; if(!f) return;
@@ -813,7 +881,7 @@ function openMealForm(d){
       try{ m.body.feedback=await textFeedback(text); }catch(e){ console.warn(e); }
     }
     S.meals[m.meal_id]=m; await write('nutrition_meals',mealRow(m));
-    S.view=null; S._logDay=d; render();
+    S.view=null; S._logDay=d; S.tab='log'; render();
   };
 }
 function slotFor(h){return h<10?'Breakfast':h<12?'Morning snack':h<15?'Lunch':h<18?'Evening snack':h<22?'Dinner':'Late snack';}
@@ -870,7 +938,7 @@ var GUIDE=[
   {img:'help-7.jpeg',t:'Help is always one tap away',l:'Tap the question mark on any screen to see this again. Message your coach in Chat, and send photos too. That is it. Let us begin.'}
 ];
 function openGuide(first){
-  var i=0, playing=true, token=0, timer=null;
+  var i=0, playing=false, token=0, timer=null;
   S.view=function(){draw();};
   function draw(){
     var g=GUIDE[i], last=i===GUIDE.length-1;
@@ -880,7 +948,7 @@ function openGuide(first){
       +(g.labels?'<div style="position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr">'+g.labels.map(function(x){return '<div style="display:flex;align-items:flex-end;justify-content:center;padding:6px"><span style="background:rgba(18,19,15,.82);color:#F3EEE3;border-radius:10px;padding:4px 8px;font-size:12px;font-weight:700">'+esc(x)+'</span></div>';}).join('')+'</div>':'')+'</div>'
       +'<h2 style="color:#F3EEE3">'+esc(g.t)+'</h2><p class="pline" style="font-size:19px;font-family:var(--sans);min-height:0">'+esc(g.l)+'</p>'
       +'<div class="pctl"><button id="gdPrev" aria-label="Previous"'+(i===0?' style="opacity:.3"':'')+'><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>'
-      +'<button class="big" id="gdPlay" aria-label="'+(playing?'Pause voice':'Play voice')+'"><svg class="icon" viewBox="0 0 24 24" style="stroke-width:2.4">'+(playing?'<path d="M9 5v14M15 5v14"/>':'<path d="M8 5l11 7-11 7z"/>')+'</svg></button>'
+      +'<button class="big" id="gdPlay" aria-label="'+(playing?'Stop voice':'Listen')+'" style="font-size:24px">'+(playing?'<svg class="icon" viewBox="0 0 24 24" style="stroke-width:2.4"><path d="M9 5v14M15 5v14"/></svg>':'🔊')+'</button>'
       +'<button id="gdNext" aria-label="Next"><svg class="icon" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>'
       +(last?'<button class="btn" id="gdDone" style="background:var(--bg);color:var(--ink)">Let\'s begin</button>':'')+'</div>');
     $('#gdPrev').onclick=function(){if(i>0){i--;restart();}};
@@ -898,13 +966,13 @@ function openGuide(first){
     });
   }
   function done(){token++;clearTimeout(timer);stopSpeech();localStorage.setItem('kfnc_guide_seen','1');S.view=null;render();}
-  draw(); say();
+  draw();
 }
 var HINTS={
   welcome:'Start however you like: log a meal, or look at the habit plans. Nothing here is a test.',
-  home:'Two things live here: Log a meal, any time you eat, and My plan, your daily lesson and habit. Everything else is one tap below.',
+  home:'Just two things: Log a meal whenever you eat, and My plan for your daily two-minute lesson. Your plan moves forward on its own.',
   today:'Your day in four steps: read the short lesson, try the small action, log your meals, and tonight tap how it went.',
-  log:'Log what you eat with a photo or a few words. You\'ll see it in hand portions, plus a rough calorie estimate. No scores, no judgement.',
+  log:'Your whole day, meal by meal. Tap + Add on any meal to type it or snap a photo. The time fills in by itself. No scores, no judgement.',
   progress:'Once a week, add your waist and weight. Watch the direction over a few weeks, not single days.',
   journey:'Your plan, one habit at a time. Tap any habit you\'ve finished to reread its lessons.',
   chat:'Message your coach here. Replies show up in this same place.',
@@ -946,6 +1014,13 @@ function targets(){
 function dayKcal(d){
   var sum=0,n=0; Object.keys(S.meals).forEach(function(k){var m=S.meals[k];if(m.day===d&&!m.deleted&&m.body&&m.body.feedback&&m.body.feedback.kcal){sum+=m.body.feedback.kcal;n++;}});
   return {sum:sum,n:n};
+}
+function kcalBar(d){
+  var k=dayKcal(d), t=targets(); if(!k.n&&!(t&&t.maint)) return '';
+  var tgt=t&&t.maint?((S.program&&S.program.settings&&S.program.settings.goal)==='maintain'?t.maint:t.loss):null;
+  var pct=tgt?Math.min(100,Math.round(k.sum/tgt*100)):0;
+  return '<div style="margin-top:8px;font-size:13px;color:var(--soft)">Today: <b style="color:var(--gold)">'+fmt(k.sum)+'</b>'+(tgt?' of ~'+fmt(tgt):'')+' kcal · estimate</div>'
+    +(tgt?'<div style="height:6px;border-radius:3px;background:var(--line);margin-top:6px"><div style="width:'+pct+'%;height:6px;border-radius:3px;background:var(--gold)"></div></div>':'');
 }
 function fmt(n){return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
 function kcalLine(d,big){
@@ -1245,7 +1320,7 @@ function boot(){
     if(!S.program) renderAccess();
   }).catch(function(){ if(!S.program) renderSignIn('We couldn\'t connect just now. Check your internet and try again.'); });
 }
-window.KFNC={state:S,render:render,_test:{stepDays:stepDays,dayIndex:dayIndex,startTemplate:startTemplate,decide:decide}};
+window.KFNC={state:S,render:render,_test:{stepDays:stepDays,dayIndex:dayIndex,startTemplate:startTemplate,decide:decide,migrate:kfitClientAuthMigrate}};
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){}); }
 })();

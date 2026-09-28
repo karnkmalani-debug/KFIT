@@ -4825,10 +4825,29 @@ d=d||new Date();
 return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 
+
+// Client apps keep their OWN sign-in, separate from Merge (the coach app) on
+// the same phone. Before, a coach testing a client app on their own phone was
+// seen as the coach ("Coach accounts can't sign up as clients", email code
+// errors). A client's existing anonymous sign-in is carried over once, so
+// nobody is logged out; a coach's sign-in is never copied.
+var KFIT_CLIENT_AUTH='kfit-client-auth';
+function kfitClientAuthMigrate(url){
+  try{
+    if(localStorage.getItem(KFIT_CLIENT_AUTH)) return;
+    var ref=(String(url).match(/https:\/\/([^.]+)\./)||[])[1]; if(!ref) return;
+    var old=localStorage.getItem('sb-'+ref+'-auth-token'); if(!old) return;
+    var o=JSON.parse(old), tok=o&&(o.access_token||(o.currentSession&&o.currentSession.access_token)); if(!tok) return;
+    var b=tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'); while(b.length%4) b+='=';
+    var claims=JSON.parse(atob(b));
+    if(claims&&claims.is_anonymous===true) localStorage.setItem(KFIT_CLIENT_AUTH,old);
+  }catch(e){}
+}
+
 function getSB(){
 // Fitness reads/writes go to the per-row tables (kfit-fitness-store.js);
 // everything else is the plain Supabase client.
-if(!sbClient) sbClient=KFitStore.wrapClient(supabase.createClient(SB_URL,SB_KEY),{claim:true,coachId:function(){return getClientCoachId();}});
+if(!sbClient){ kfitClientAuthMigrate(SB_URL); sbClient=KFitStore.wrapClient(supabase.createClient(SB_URL,SB_KEY,{auth:{storageKey:KFIT_CLIENT_AUTH,persistSession:true,autoRefreshToken:true}}),{claim:true,coachId:function(){return getClientCoachId();}}); }
 return sbClient;
 }
 // IMPORTANT: replace this with your actual coach id (from `select id from
