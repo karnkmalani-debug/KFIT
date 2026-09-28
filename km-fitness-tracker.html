@@ -702,7 +702,7 @@ btn.textContent='Could not copy -- select the address bar manually';
     <div class="card" style="padding:0;overflow:hidden;">
       <div onclick="togglePhilosophyCardFit()" style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:var(--sage);">
         <div style="font-size:12px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#fff;">Train Smart. Age Well.</div>
-        <span id="philoChevronFit" style="color:#fff;font-size:15px;">\u25BC</span>
+        <span id="philoChevronFit" style="color:#fff;font-size:15px;">&#9660;</span>
       </div>
       <div id="philoBodyFit" style="padding:18px 16px;display:none;">
         <div style="font-size:16px;font-weight:800;color:var(--text);font-style:italic;line-height:1.6;margin-bottom:18px;">"The goal is not just to look good -- it is to stay vertical and upright at every age."</div>
@@ -762,6 +762,7 @@ btn.textContent='Could not copy -- select the address bar manually';
         </div>
         <div class="quick-add-body" id="kfitStandardRoutinesBody">
           <div style="font-size:13px;color:var(--text);margin-bottom:10px;line-height:1.5;">Karan's own core program -- the actual split he runs himself and gives his clients. Chest+Core, Back, Legs, Arms & Shoulders.</div>
+          <div id="kfitSplitPicker" style="display:flex;gap:6px;margin:0 0 10px;"></div>
           <div id="kfitStandardRoutinesList"></div>
         </div>
       </div>
@@ -2368,19 +2369,15 @@ for(const bp in custom){
 if(!EX_LIB[bp])EX_LIB[bp]=[];
 custom[bp].forEach(e=>{if(!EX_LIB[bp].includes(e.name))EX_LIB[bp].push(e.name);});
 }
-loadApprovedExercises();
-reconcileCustomEx();
-renderExChips();
-loadExerciseVideos();
-loadLiveRoutineTemplates();
-retryPendingAttendance();
-retryPendingTrackerSync();
-renderRoutineList();
-renderSuggestedRoutines();
-renderKfitStandardRoutines();
-renderFaqList();
-renderCardioChips();
-renderFunctionalChips();
+// Each startup step runs on its own: if one fails (e.g. an older shared
+// library file on the server), the rest -- sync, draft restore, routines,
+// history -- still start. Failures are kept (kmfit_startup_errors).
+_kfitStartupErrors.length=0;
+[['loadApprovedExercises',loadApprovedExercises],['reconcileCustomEx',reconcileCustomEx],['renderExChips',renderExChips],
+ ['loadExerciseVideos',loadExerciseVideos],['loadLiveRoutineTemplates',loadLiveRoutineTemplates],['retryPendingAttendance',retryPendingAttendance],
+ ['retryPendingTrackerSync',retryPendingTrackerSync],['renderRoutineList',renderRoutineList],['renderSuggestedRoutines',renderSuggestedRoutines],
+ ['renderKfitStandardRoutines',renderKfitStandardRoutines],['renderFaqList',renderFaqList],['renderCardioChips',renderCardioChips],
+ ['renderFunctionalChips',renderFunctionalChips]].forEach(function(st){ _kfitSafeStep(st[0],st[1]); });
 var copyrightYearEl=document.getElementById('copyrightYear');
 if(copyrightYearEl) copyrightYearEl.textContent=new Date().getFullYear();
 var logImportCard=document.getElementById('logImportCard');
@@ -2391,8 +2388,9 @@ if(philoBodyFit&&philoChevronFit){
 philoBodyFit.style.display='none';
 philoChevronFit.textContent='\u25BC';
 }
-draftLoad();
-startAutoSave();
+_kfitSafeStep('draftLoad',draftLoad);
+_kfitSafeStep('startAutoSave',startAutoSave);
+try{localStorage.setItem('kmfit_startup_errors',JSON.stringify(_kfitStartupErrors));}catch(e){}
 
 try{var _bak=localStorage.getItem('kmfit_sessions');if(_bak&&_bak!=='[]')localStorage.setItem('kmfit_sessions_backup',_bak);}catch(e){}
 loadFitnessFromSupabase(function(loaded){
@@ -3630,6 +3628,11 @@ detail.style.display='block';
 }
 
 let _inlineRoutineExercises=[];
+var _kfitStartupErrors=[];
+function _kfitSafeStep(name,fn){
+try{ fn(); }
+catch(e){ _kfitStartupErrors.push(name+': '+((e&&e.message)||e)); console.error('Startup step failed:',name,e); }
+}
 function togglePhilosophyCardFit(){
 var body=document.getElementById('philoBodyFit');
 var chevron=document.getElementById('philoChevronFit');
@@ -3742,7 +3745,7 @@ const n=[];
 r.circuits.forEach(function(c){ c.exercises.forEach(function(e){n.push(e);}); });
 knownKeys.push(nameSetKey(n));
 });
-KFIT_STANDARD_ROUTINES.forEach(function(r){
+[].concat.apply([],Object.values(_kfitSplits())).forEach(function(r){
 knownKeys.push(nameSetKey(r.exercises.map(function(e){return e.ex;})));
 });
 return knownKeys.includes(key);
@@ -3857,7 +3860,7 @@ const SUGGESTED_ROUTINES=SUGGESTED_ROUTINES_RAW; // loaded from kfit-exercise-li
 function previewRoutine(kind,idx){
 var r,loadFn;
 if(kind==='functional'){ r=SUGGESTED_ROUTINES[idx]; loadFn=function(){loadSuggestedRoutine(idx);}; }
-else if(kind==='standard'){ r=KFIT_STANDARD_ROUTINES[idx]; loadFn=function(){loadKfitStandardRoutine(idx);}; }
+else if(kind==='standard'){ r=_kfitStdList()[idx]; loadFn=function(){loadKfitStandardRoutine(idx);}; }
 else return;
 if(!r) return;
 document.getElementById('routinePreviewTitle').textContent=r.name;
@@ -3883,23 +3886,45 @@ var el=document.getElementById('routinePreviewModal');
 if(el) el.style.display='none';
 }
 
+// KFit Standard Routine in 4, 3 or 2 days a week. Plans come from
+// kfit-exercise-library-extra.js (KFIT_STANDARD_SPLITS); if that's missing,
+// the library's original 4-day list is used.
+function _kfitSplits(){
+var sp=Object.assign({},(typeof KFIT_STANDARD_SPLITS!=='undefined'&&KFIT_STANDARD_SPLITS)||{});
+if(!sp['4']&&typeof KFIT_STANDARD_ROUTINES!=='undefined') sp['4']=KFIT_STANDARD_ROUTINES;
+return sp;
+}
+function _kfitSplitKey(){
+var sp=_kfitSplits(), k=localStorage.getItem('kmfit_std_split')||'4';
+return sp[k]?k:(sp['4']?'4':Object.keys(sp)[0]);
+}
+function _kfitStdList(){ var sp=_kfitSplits(), k=_kfitSplitKey(); return (k&&sp[k])||[]; }
+function pickKfitSplit(k){ try{localStorage.setItem('kmfit_std_split',String(k));}catch(e){} renderKfitStandardRoutines(); }
 function renderKfitStandardRoutines(){
 var el=document.getElementById('kfitStandardRoutinesList');
 if(!el) return;
-el.innerHTML=KFIT_STANDARD_ROUTINES.map(function(r,i){
-var totalSets=r.exercises.reduce(function(a,e){return a+e.sets;},0);
+var sp=_kfitSplits(), cur=_kfitSplitKey(), picker=document.getElementById('kfitSplitPicker');
+if(picker){
+picker.innerHTML=['4','3','2'].filter(function(k){return sp[k];}).map(function(k){
+var on=k===cur;
+return '<button onclick="pickKfitSplit(\''+k+'\')" style="flex:1;padding:8px 0;border-radius:8px;border:1px solid '+(on?'var(--gold)':'var(--border)')+';background:'+(on?'var(--gold)':'transparent')+';color:'+(on?'#1a1408':'var(--text)')+';font-family:\'DM Sans\',sans-serif;font-size:13px;font-weight:800;cursor:pointer;">'+k+' days</button>';
+}).join('');
+}
+var list=_kfitStdList();
+if(!list.length){ el.innerHTML='<div style="font-size:13px;color:var(--muted);padding:8px 0;">Routines couldn\'t load -- close and reopen the app.</div>'; return; }
+el.innerHTML=list.map(function(r,i){
+var totalSets=(r.exercises||[]).reduce(function(a,e){return a+(e.sets||0);},0);
 return '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">'
 +'<div><div style="font-size:14px;font-weight:700;color:var(--text);">'+r.name+'</div>'
-+'<div style="font-size:12px;color:var(--muted);margin-top:2px;">'+r.exercises.length+' exercises, '+totalSets+' total sets</div></div>'
++'<div style="font-size:12px;color:var(--muted);margin-top:2px;">'+(r.exercises||[]).length+' exercises, '+totalSets+' total sets</div></div>'
 +'<div style="display:flex;gap:6px;flex-shrink:0;">'
-+'<button onclick="previewRoutine(\'standard\','+i+')" aria-label="Preview" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;font-weight:800;cursor:pointer;">\u24d8</button>'
-+'<button onclick="loadKfitStandardRoutine('+i+')" style="padding:7px 14px;background:var(--gold);border:none;border-radius:7px;color:#1a1408;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">Load</button>'
-+'</div>'
-+'</div>';
++'<button onclick="previewRoutine(\'standard\','+i+')" aria-label="Preview" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--text);font-size:13px;cursor:pointer;">&#128065;</button>'
++'<button onclick="loadKfitStandardRoutine('+i+')" style="padding:7px 14px;background:var(--gold);border:none;border-radius:7px;color:#1a1408;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:800;cursor:pointer;">Load</button>'
++'</div></div>';
 }).join('');
 }
 function loadKfitStandardRoutine(idx){
-var r=KFIT_STANDARD_ROUTINES[idx];
+var r=_kfitStdList()[idx];
 if(!r) return;
 addRoutineToSession({name:r.name,bodyParts:r.bodyParts||[],exercises:r.exercises||[],supersets:[]});
 }
