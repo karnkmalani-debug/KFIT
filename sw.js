@@ -1,7 +1,7 @@
-const V = "kfit-v8";
+const V = "kfit-v9";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => e.waitUntil(
-  // v8: the habit-coach app replaces the old nutrition tracker. Bumping
+  // v9: nutrition batch 1 (new look, simpler flow, coach notes, chat). Bumping
   // the version wipes every old cache so no phone keeps an old app copy.
   caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())
 ));

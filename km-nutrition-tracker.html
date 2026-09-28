@@ -3,23 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#F6F1E9">
+<meta name="theme-color" content="#12130F">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="KFit Nutrition">
 <title>KFit Nutrition</title>
 <link rel="manifest" href="/manifest-nutrition.json">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./kfit-exercise-library.js"></script>
 <script src="./kfit-nutrition-lessons.js"></script>
+<script src="./kfit-coach-chat.js"></script>
 <style>
 :root{
-  --bg:#F6F1E9; --paper:#FBF8F3; --card:#FFFFFF; --ink:#26221D; --ink2:#36312A; --soft:#4A443C; --muted:#6A6258;
-  --line:#E6DFD3; --line2:#CFC6B8; --green:#2E5E4E; --green-d:#1F4337; --tint:#E3EDE7; --mid:#9DBDAF; --sand:#EDE6DA;
-  --serif:"Fraunces",Georgia,serif; --sans:"Nunito Sans",system-ui,-apple-system,sans-serif;
+  --bg:#12130F; --paper:#15160F; --card:#1C1D18; --ink:#F3EEE3; --ink2:#E4DED0; --soft:#C9C3B4; --muted:#9C978A;
+  --line:#2E2F28; --line2:#3E3F36; --green:#2F6B4A; --green-d:#255A3D; --tint:#1E2B22; --mid:#5E8F6D; --sand:#26261F;
+  --gold:#C9A24A; --leaf:#8FD1A2; --terra:#E39A6E;
+  --surf:#1C1D18; --surf2:#26261F; --border:#2E2F28; --text:#F3EEE3; --sage:#6E9E7A;
+  --serif:"Playfair Display",Georgia,serif; --sans:"DM Sans",system-ui,-apple-system,sans-serif;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -31,11 +34,11 @@ a{color:var(--green)}
 .app{max-width:480px;margin:0 auto;min-height:100%;position:relative;padding-top:env(safe-area-inset-top,0px)}
 .screen{padding:28px 20px calc(96px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:16px}
 .screen.full{padding-bottom:calc(28px + env(safe-area-inset-bottom,0px))}
-h1{margin:0;font-family:var(--serif);font-weight:600;font-size:30px;line-height:1.18}
-h2{margin:0;font-family:var(--serif);font-weight:600;font-size:22px;line-height:1.25}
+h1{margin:0;font-family:var(--serif);font-weight:500;font-size:31px;line-height:1.15}
+h2{margin:0;font-family:var(--serif);font-weight:500;font-size:22px;line-height:1.25}
 .meta{font-size:14px;color:var(--muted);font-weight:600}
 .cap{font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--muted)}
-.cap.g{color:var(--green)}
+.cap.g{color:var(--leaf)}
 .card{background:var(--card);border-radius:20px;padding:20px;display:flex;flex-direction:column;gap:10px}
 .tint{background:var(--tint);border-radius:20px;padding:18px 20px}
 .body{font-size:17px;line-height:1.6;color:var(--ink2)}
@@ -43,7 +46,7 @@ h2{margin:0;font-family:var(--serif);font-weight:600;font-size:22px;line-height:
 .btn{min-height:52px;border-radius:16px;border:none;background:var(--green);color:#fff;font-weight:700;font-size:16px;padding:0 18px;width:100%}
 .btn:active{background:var(--green-d)}
 .btn.out{background:var(--card);color:var(--ink);border:1.5px solid var(--line2)}
-.btn.link{background:none;color:var(--green);min-height:44px;width:auto;padding:0}
+.btn.link{background:none;color:var(--leaf);min-height:44px;width:auto;padding:0}
 .btn[disabled]{opacity:.55}
 .row{display:flex;gap:8px}
 .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
@@ -63,7 +66,7 @@ h2{margin:0;font-family:var(--serif);font-weight:600;font-size:22px;line-height:
 .icon{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .top{display:flex;justify-content:space-between;align-items:center}
 .round{width:44px;height:44px;border-radius:22px;border:none;background:var(--card);display:flex;align-items:center;justify-content:center;color:var(--ink)}
-.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:14px;font-size:15px;z-index:20;max-width:90%;text-align:center}
+.toast{position:fixed;left:50%;bottom:calc(40px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#2A2B24;border:1px solid var(--line2);color:#F3EEE3;padding:12px 18px;border-radius:14px;font-size:15px;z-index:20;max-width:90%;text-align:center}
 .jrow{display:flex;gap:14px;align-items:center;padding:10px 12px;border-radius:16px}
 .jrow.now{background:var(--card)}
 .jnum{width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;background:var(--sand);color:var(--muted)}
@@ -73,9 +76,9 @@ h2{margin:0;font-family:var(--serif);font-weight:600;font-size:22px;line-height:
 .checks{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .checks i{height:28px;border-radius:8px;background:var(--line)}
 .checks i.done{background:var(--green)}.checks i.partly{background:var(--mid)}
-.player{background:var(--ink);color:var(--bg);min-height:100vh;display:flex;flex-direction:column;gap:20px;padding:calc(28px + env(safe-area-inset-top,0px)) 20px calc(32px + env(safe-area-inset-bottom,0px))}
+.player{background:#0B0C09;color:#F3EEE3;min-height:100vh;display:flex;flex-direction:column;gap:20px;padding:calc(28px + env(safe-area-inset-top,0px)) 20px calc(32px + env(safe-area-inset-bottom,0px))}
 .player .bar i{background:#5A534A}.player .bar i.d{background:var(--bg)}.player .bar i.p{background:var(--mid)}
-.still{background:var(--bg);border-radius:24px;aspect-ratio:1/1;max-height:46vh;display:flex;align-items:center;justify-content:center}
+.still{background:#F6F1E9;border-radius:24px;aspect-ratio:1/1;max-height:46vh;display:flex;align-items:center;justify-content:center}
 .pline{margin:0;font-family:var(--serif);font-size:23px;line-height:1.38;min-height:4.2em}
 .pctl{margin-top:auto;display:flex;justify-content:center;align-items:center;gap:28px}
 .pctl button{width:52px;height:52px;border-radius:26px;border:1.5px solid #5A534A;background:transparent;color:var(--bg);display:flex;align-items:center;justify-content:center}
@@ -92,11 +95,28 @@ h2{margin:0;font-family:var(--serif);font-weight:600;font-size:22px;line-height:
 .hide{display:none!important}
 .q{display:flex;flex-direction:column;gap:6px}
 .q span{font-weight:700;font-size:15px}
-.hint{background:var(--tint);border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.screen{padding-bottom:calc(36px + env(safe-area-inset-bottom,0px))!important}
+.brand{font-family:var(--serif);font-size:15px;letter-spacing:.2em}.brand .k{color:#fff}.brand .f{color:#6FA27B}.brand .i{color:#C8734A}
+.brand small{font-family:var(--sans);font-size:11px;letter-spacing:.3em;color:var(--muted);margin-left:6px}
+.goldline{height:1px;background:linear-gradient(90deg,var(--gold),transparent)}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;display:flex;gap:14px;align-items:center;text-align:left;width:100%;color:var(--ink)}
+.tile.main{border-color:#3D6B4F}
+.tile .ic{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tile h2{font-size:21px}
+.stat{border:1px solid var(--line);border-radius:14px;padding:12px}
+.stat .l{font-size:11px;letter-spacing:.15em;color:var(--muted)}
+.stat .v{font-family:var(--serif);font-size:24px}
+.coachbox{background:var(--card);border:1px solid #6B5A2A;border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.cnote{background:#2A2618;border:1px solid #6B5A2A;color:#E7CF8C;border-radius:8px;padding:3px 8px;font-size:13px;display:inline-block;margin-top:3px}
+.steplbl{font-size:12px;letter-spacing:.12em;color:var(--gold);font-weight:700}
+.links{display:flex;flex-wrap:wrap;gap:10px}
+.links button{background:none;border:1px solid var(--line2);border-radius:20px;color:var(--soft);padding:8px 14px;font-weight:700;font-size:14px;min-height:40px}
+.tm{color:var(--muted);font-variant-numeric:tabular-nums;min-width:62px;display:inline-block}
+.hint{background:var(--tint);border:1px solid #2C4234;border-radius:18px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
 .hint p{margin:0;font-size:15px;line-height:1.5;color:var(--ink2)}
 .hint .row{gap:14px}
-.hint button{background:none;border:none;padding:6px 0;font-weight:700;font-size:14px;color:var(--green);min-height:36px}
-.helpbtn{width:40px;height:40px;border-radius:20px;border:1.5px solid var(--line2);background:var(--card);font-weight:800;font-size:17px;color:var(--green);flex-shrink:0}
+.hint button{background:none;border:none;padding:6px 0;font-weight:700;font-size:14px;color:var(--leaf);min-height:36px}
+.helpbtn{width:40px;height:40px;border-radius:20px;border:1px solid var(--line2);background:var(--card);font-weight:700;font-size:17px;color:var(--gold);flex-shrink:0}
 .hrow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 .unit{display:inline-flex;border:1.5px solid var(--line2);border-radius:12px;overflow:hidden}
 .unit button{border:none;background:var(--card);padding:6px 12px;font-weight:700;font-size:13px;min-height:34px}
@@ -136,9 +156,9 @@ var TPL_BLURB={
   'complete-6m':'The whole journey, eleven habits, at your own pace.'
 };
 
-var sb=null, S={
+var sb=null, S={notes:[],
   uid:null, mobile:'', clientId:'', fitId:'', linkedFitness:false,
-  program:null, checkins:{}, meals:{}, messages:[], tab:'today', view:null, busy:false
+  program:null, checkins:{}, meals:{}, messages:[], tab:'home', view:null, busy:false
 };
 
 // ---------- small helpers ----------
@@ -158,7 +178,8 @@ function coachId(){
   if(p){localStorage.setItem(LS.coach,p);return p;}
   return localStorage.getItem(LS.coach)||G_COACH;
 }
-function greet(){var h=new Date().getHours();return h<12?'Good morning.':h<17?'Good afternoon.':'Good evening.';}
+function partOfDay(){var h=new Date().getHours();return h>=5&&h<12?'Good morning':h>=12&&h<17?'Good afternoon':h>=17&&h<22?'Good evening':'Good night';}
+function greet(){return partOfDay()+'.';}
 function saveCache(){try{localStorage.setItem(LS.cache,JSON.stringify({cid:S.clientId,program:S.program,checkins:S.checkins,meals:S.meals}));}catch(e){}}
 function loadCache(){try{var c=JSON.parse(localStorage.getItem(LS.cache)||'null');if(c&&c.cid===S.clientId){S.program=c.program;S.checkins=c.checkins||{};S.meals=c.meals||{};}}catch(e){}}
 
@@ -259,21 +280,23 @@ function pickNewer(local,server){ if(!local) return server; return (server.updat
 var app=null;
 function show(html,opts){
   opts=opts||{}; app.innerHTML=html;
-  $('#tabs').classList.toggle('hide',!opts.tabs);
+  $('#tabs').classList.add('hide');
   document.querySelectorAll('#tabs button').forEach(function(b){b.classList.toggle('on',b.dataset.tab===S.tab);});
   window.scrollTo(0,0);
   bindHelp();
 }
 function render(){
   if(S.view) return S.view();
-  if(S.tab==='log') return renderLog();
-  if(S.tab==='chat') return renderChat();
   if(S.loaded&&!profileComplete()) return renderProfile(true);
-  if(!hasPlan()) return S.tab==='journey'?renderChooser(true):renderWelcome();
-  if(S.tab==='journey') return renderJourney();
-  return renderToday();
+  if(S.tab==='log') return renderLog();
+  if(S.tab==='progress') return renderProgress();
+  if(S.tab==='earlier') return renderEarlier();
+  if(S.tab==='chat') return renderChat();
+  if(S.tab==='journey') return hasPlan()?renderJourney():renderChooser(true);
+  if(S.tab==='plan') return hasPlan()?renderToday():renderChooser(true);
+  return renderHome();
 }
-function go(tab){S.tab=tab;S.view=null;stopSpeech();render();if(tab==='chat')loadMessages();}
+function go(tab){ if(chatUI&&tab!=='chat'){try{chatUI.destroy();}catch(e){} chatUI=null;} S.tab=tab;S.view=null;stopSpeech();render(); }
 
 // ---------- sign in ----------
 function renderSignIn(msg){
@@ -367,7 +390,7 @@ function renderCode(email){
 }
 async function enter(){
   S.view=null; loadCache(); render();
-  try{ await flush(); await loadAll(); }catch(e){}
+  try{ await flush(); await loadAll(); await loadNotes(); }catch(e){}
   try{ await syncLegacy(); }catch(e){ console.warn(e); }
   S.loaded=true; S.view=null; render(); checkUnread();
 }
@@ -375,22 +398,70 @@ async function enter(){
 // ---------- choose a plan ----------
 // Home when no plan is chosen yet: logging works straight away; the habit
 // plan is an invitation, never a gate.
-function renderWelcome(){
+function renderHome(){
+  S.tab='home';
   var name=(legacyName()||localStorage.getItem(LS.name)||'').split(' ')[0];
-  var html='<div class="screen">'+head(name?'Hello, '+esc(name)+'.':greet())+hint('welcome')
-    +'<button class="card" id="wlPlan" style="border:none;text-align:left"><div class="cap g">When you\'re ready</div><h2>Start a habit plan</h2>'
-    +'<div class="body" style="font-size:15px">One small habit at a time, with a 2-minute lesson each day. Your log works either way.</div>'
-    +'<div style="font-weight:700;color:var(--green)">See the plans →</div></button>';
-  if(S.legacyDays&&S.legacyDays.length) html+='<button class="card" id="wlEarlier" style="border:none;text-align:left"><div class="cap">Your earlier log</div>'
-    +'<div style="font-size:16px;line-height:1.45">'+S.legacyDays.length+' logged day'+(S.legacyDays.length===1?'':'s')+' saved. Everything you logged before is still here.</div></button>';
-  if(dueWeekly()) html+='<button class="card" id="tdWeekly" style="border:none;text-align:left"><div class="cap g">Weekly check-in · 1 min</div>'
-    +'<div style="font-size:16px;line-height:1.45">Waist and weight, once a week. Just a bookmark, never a grade.</div></button>';
-  html+='<button class="btn" id="tdMeal">Log a meal</button>'+kcalLine(today())+'</div>';
-  show(html,{tabs:true});
-  $('#wlPlan').onclick=function(){renderChooser(true);};
-  var e=$('#wlEarlier'); if(e) e.onclick=function(){S.tab='log';renderEarlier();};
+  var part=partOfDay();
+  var k=dayKcal(today()), t=targets(), tgt=t&&t.maint?((S.program&&S.program.settings&&S.program.settings.goal)==='maintain'?t.maint:t.loss):null;
+  var todays=mealsOn(today());
+  var planSub=hasPlan()?(function(){var hb=habitOf(stepId());return (stepId()==='reset'?'7-day Reset':hb?hb.title:'Your plan')+' · Day '+(dayIndex()+1)+' of '+stepLen(stepId());})():'Choose a plan when you\'re ready';
+  var html='<div class="screen">'
+    +'<div class="hrow" style="align-items:center"><div class="brand"><span class="k">K</span><span class="f">F</span><span class="i">it</span><small>NUTRITION</small></div><button class="helpbtn" aria-label="How KFit works">?</button></div>'
+    +'<h1 style="font-size:34px">'+part+(name?',<br><i style="color:var(--gold)">'+esc(name)+'</i>':'.')+'</h1><div class="goldline"></div>'
+    +hint('home')
+    +'<button class="tile main" id="hmLog"><div class="ic" style="background:#23382B;color:var(--leaf)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div><div><h2>Log a meal</h2><div class="meta" style="font-weight:400">Photo or a few words · time saved</div></div></button>'
+    +'<button class="tile" id="hmPlan"><div class="ic" style="background:#3A2A1E;color:var(--terra)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M6 20c0-5 12-3 12-9S9 6 9 3"/><circle cx="9" cy="3" r="1"/><circle cx="6" cy="20" r="1"/></svg></div><div><h2>My plan</h2><div class="meta" style="font-weight:400">'+esc(planSub)+'</div></div></button>'
+    +'<div class="grid3" style="grid-template-columns:1fr 1fr">'
+    +'<div class="stat"><div class="l">TODAY</div><div class="v" style="color:var(--gold)">'+(k.n?fmt(k.sum):todays.length)+'</div><div class="meta" style="font-weight:400">'+(k.n?(tgt?'of ~'+fmt(tgt)+' kcal':'kcal, estimate'):'meals logged')+'</div></div>'
+    +'<div class="stat"><div class="l">THIS WEEK</div><div class="v" style="color:var(--leaf)">'+weekMealDays()+(weekMealDays()===1?' day':' days')+'</div><div class="meta" style="font-weight:400">with meals logged</div></div></div>'+coachBox();
+  if(todays.length) html+='<div class="card" style="gap:6px"><div class="cap">Today</div>'+todays.map(function(m){return '<div style="font-size:15px"><span class="tm">'+esc(mealTime(m))+'</span> '+esc(m.body.slot||'Meal')+(m.body.text?' · <span style="color:var(--soft)">'+esc(m.body.text)+'</span>':'')+'</div>';}).join('')+'</div>';
+  if(dueWeekly()) html+='<button class="tile" id="tdWeekly"><div class="ic" style="background:#2E2A1A;color:var(--gold)"><svg class="icon" viewBox="0 0 24 24"><path d="M4 18c4-1 5-8 9-7s4 5 7 3"/></svg></div><div><h2 style="font-size:18px">Weekly check-in</h2><div class="meta" style="font-weight:400">Waist and weight · 1 minute</div></div></button>';
+  html+='<div class="links"><button data-go="log">All meals</button><button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')+'<button data-go="chat">Chat</button></div></div>';
+  show(html);
+  $('#hmLog').onclick=function(){S.tab='log';openMealForm(today());};
+  $('#hmPlan').onclick=function(){go('plan');};
   var wk=$('#tdWeekly'); if(wk) wk.onclick=function(){openWeekly();};
-  $('#tdMeal').onclick=function(){S.tab='log';openMealForm(today());};
+  document.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){go(b.dataset.go);};});
+  markNotesRead();
+}
+function renderWelcome(){ return renderHome(); }
+function mealsOn(d){return Object.keys(S.meals).map(function(k){return S.meals[k];}).filter(function(m){return m.day===d&&!m.deleted;}).sort(function(a,b){return mealAt(a)-mealAt(b);});}
+function mealAt(m){var b=m.body||{};return b.eatenAt?new Date(b.eatenAt).getTime():(b.at||0);}
+function mealTime(m){var t=mealAt(m);if(!t)return '';var d=new Date(t);return d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase();}
+function weekMealDays(){var n=0;for(var i=0;i<7;i++){if(mealsOn(addDays(today(),-i)).length)n++;}return n;}
+// ---------- From your coach: advice on past meals + meal plans ----------
+async function loadNotes(){
+  try{
+    var r=await sb.from('nutrition_coach_notes').select('*').eq('client_id',S.clientId).order('created_at',{ascending:false}).limit(30);
+    if(!r.error){S.notes=r.data||[];}
+  }catch(e){}
+}
+function coachBox(){
+  var advice=(S.notes||[]).filter(function(n){return n.kind==='advice';})[0];
+  var plans=(S.notes||[]).filter(function(n){return n.kind==='plan'&&(n.for_day===today()||n.for_day===addDays(today(),1));});
+  var byDay={}; plans.forEach(function(p){ if(!byDay[p.for_day]) byDay[p.for_day]=p; });
+  if(!advice&&!Object.keys(byDay).length) return '';
+  var html='<div style="display:flex;flex-direction:column;gap:10px"><h2 style="font-size:20px">From your coach</h2>';
+  [today(),addDays(today(),1)].forEach(function(d){
+    var p=byDay[d]; if(!p) return;
+    html+='<div class="coachbox" style="border-color:#2C4234"><div class="steplbl" style="color:var(--leaf)">'+(d===today()?'TODAY\'S':'TOMORROW\'S')+' MEAL PLAN</div>'
+      +(p.items||[]).map(function(it){return '<div style="font-size:15px"><span class="tm">'+esc(it.time||'')+'</span> '+(it.slot?esc(it.slot)+' · ':'')+esc(it.text||'')+(it.note?'<br><span class="cnote">'+esc(it.note)+'</span>':'')+'</div>';}).join('')
+      +(p.message?'<div class="meta" style="font-weight:400">'+esc(p.message)+'</div>':'')+'</div>';
+  });
+  if(advice){
+    var its=(advice.items||[]).filter(function(it){return it.note;});
+    html+='<div class="coachbox"><div class="steplbl">SUGGESTIONS FROM YOUR COACH</div>'
+      +its.map(function(it){return '<div style="font-size:15px"><b>'+esc(it.dayLabel||it.day||'')+(it.slot?' '+esc(it.slot.toLowerCase()):'')+'</b> · '+esc(it.text||'')+'<br><span class="cnote">'+esc(it.note)+'</span></div>';}).join('')
+      +(advice.message?'<div style="font-size:15px;color:var(--soft)">'+esc(advice.message)+'</div>':'')
+      +'<div class="meta" style="font-weight:400">Sent '+esc(new Date(advice.created_at).toDateString().slice(0,10))+'</div></div>';
+  }
+  return html+'</div>';
+}
+function markNotesRead(){
+  var ids=(S.notes||[]).filter(function(n){return !n.read_at;}).map(function(n){return n.id;});
+  if(!ids.length) return;
+  S.notes.forEach(function(n){if(!n.read_at)n.read_at=new Date().toISOString();});
+  sb.from('nutrition_coach_notes').update({read_at:new Date().toISOString()}).in('id',ids).then(function(){},function(){});
 }
 function renderChooser(canSkip){
   var sel=S._tpl||'reset-7d';
@@ -403,7 +474,7 @@ function renderChooser(canSkip){
     +'<button class="btn" id="chGo">Start</button>'
     +(canSkip?'<button class="btn link" id="chLater" style="align-self:center">Not now</button>':'')+'</div>');
   document.querySelectorAll('.tpl').forEach(function(b){b.onclick=function(){S._tpl=b.dataset.t;renderChooser(canSkip);};});
-  var lt=$('#chLater'); if(lt) lt.onclick=function(){S.view=null;S.tab='today';render();};
+  var lt=$('#chLater'); if(lt) lt.onclick=function(){S.view=null;S.tab='home';render();};
   $('#chGo').onclick=function(){startTemplate(sel,[]);};
 }
 function startTemplate(id,history){
@@ -412,7 +483,7 @@ function startTemplate(id,history){
   var idx=0; while(idx<t.path.length-1&&done[t.path[idx]]) idx++;   // pick up where they left off
   S.program={client_id:S.clientId,template_id:id,step_index:idx,step_started_on:today(),started_on:today(),
     history:(history||[]).concat([{type:'start',template:id,on:today()}]),settings:(S.program&&S.program.settings)||{},updated_ms:now()};
-  write('nutrition_program',programRow()); S.tab='today'; S.view=null; render();
+  write('nutrition_program',programRow()); S.tab='plan'; S.view=null; render();
 }
 function programRow(){var p=S.program;return {client_id:S.clientId,template_id:p.template_id||null,step_index:p.step_index||0,step_started_on:p.step_started_on,started_on:p.started_on,history:p.history||[],settings:p.settings||{},updated_ms:p.updated_ms};}
 
@@ -424,32 +495,31 @@ function renderToday(){
   var bar=stepCheckins().map(function(x,i){return '<i class="'+(x==='done'?'d':x==='partly'?'p':'')+'"></i>';}).join('');
   var title=id==='reset'?'7-day Reset':(h.n?'Habit '+h.n+' · ':'')+h.title;
   var html='<div class="screen">'
-    +'<div style="display:flex;flex-direction:column;gap:8px">'+head(greet(),esc(title)+' · Day '+(di+1)+' of '+len)+'<div class="bar">'+bar+'</div></div>'+hint('today');
+    +'<div style="display:flex;flex-direction:column;gap:8px">'+head('Your day',esc(title)+' · Day '+(di+1)+' of '+len)+'<div class="bar">'+bar+'</div></div>'+hint('today');
   if(l.type==='reflect'){
-    html+='<button class="card" style="border:none;text-align:left" id="tdLesson"><div class="cap g">'+(l.decision?'Time to decide':'Look back')+'</div><h2>'+esc(l.title)+'</h2>'
+    html+='<button class="card" style="border:1px solid var(--line);text-align:left" id="tdLesson"><div class="steplbl">1 · '+(l.decision?'TIME TO DECIDE':'LOOK BACK')+'</div><h2>'+esc(l.title)+'</h2>'
       +'<div class="body" style="font-size:15px">A few gentle questions'+(l.decision?', then you choose what\'s next.':'.')+'</div>'
-      +'<div style="font-weight:700;color:var(--green)">Open →</div></button>';
+      +'<div style="font-weight:700;color:var(--leaf)">Open →</div></button>';
   } else {
-    html+='<button class="card" style="border:none;text-align:left" id="tdLesson"><div class="cap g">Today\'s lesson · 2 min</div><h2>'+esc(l.title)+'</h2>'
+    html+='<button class="card" style="border:1px solid var(--line);text-align:left" id="tdLesson"><div class="steplbl">1 · READ · 2 MIN</div><h2>'+esc(l.title)+'</h2>'
       +'<div class="body" style="font-size:15px">'+esc((l.read||[])[0]||'')+'</div>'
-      +'<div class="row" style="gap:18px;font-weight:700;color:var(--green)"><span>Read →</span>'
+      +'<div class="row" style="gap:18px;font-weight:700;color:var(--leaf)"><span>Read →</span>'
       +(di===0&&h.explainer?'<span id="tdVideo" role="button">Watch the explainer</span>':'')+'</div></button>';
   }
-  html+='<div class="tint row" style="gap:14px;align-items:flex-start"><svg class="icon" viewBox="0 0 24 24" style="stroke:var(--green);flex-shrink:0;margin-top:2px"><path d="M5 12l4 4 10-10"/></svg>'
-    +'<div><div class="cap g">Today\'s small action</div><div style="font-size:16px;line-height:1.45;margin-top:4px">'+esc(l.action)+'</div></div></div>';
+  html+='<div class="tint" style="border:1px solid #2C4234"><div class="steplbl" style="color:var(--leaf)">2 · TRY TODAY</div><div style="font-size:16px;line-height:1.45;margin-top:4px">'+esc(l.action)+'</div></div>';
+  var nm=mealsOn(today()).length;
+  html+='<button class="card" id="tdMeal" style="border:1px solid var(--line);text-align:left"><div class="steplbl">3 · LOG YOUR MEALS</div><div style="font-size:16px">'+(nm?nm+' logged today':'Nothing logged yet today')+' · <b style="color:var(--leaf)">Log a meal</b></div>'+kcalLine(today())+'</button>';
   if(q){
-    html+='<div class="card"><div class="cap">Today\'s check-in</div><div style="font-size:17px;line-height:1.4;font-weight:600">'+esc(q)+'</div><div class="grid3">'
+    html+='<div class="card" style="border:1px solid var(--line)"><div class="steplbl">4 · TONIGHT, HOW DID IT GO?</div><div style="font-size:17px;line-height:1.4;font-weight:600">'+esc(q)+'</div><div class="grid3">'
       +[['done','Done'],['partly','Partly'],['not','Not today']].map(function(o){return '<button class="pill'+(c.answer===o[0]?' on':'')+'" data-a="'+o[0]+'">'+o[1]+'</button>';}).join('')
       +'</div>'+(c.answer?'<div class="meta">'+(c.answer==='done'?'Lovely. See you tomorrow.':c.answer==='partly'?'Partly counts. Every bit adds up.':'That\'s okay. Tomorrow is a fresh start.')+'</div>':'')+'</div>';
   }
-  if(dueWeekly()) html+='<button class="card" id="tdWeekly" style="border:none;text-align:left"><div class="cap g">Weekly check-in · 1 min</div>'
-    +'<div style="font-size:16px;line-height:1.45">Waist and weight, once a week. Just a bookmark, never a grade.</div></button>';
-  html+='<button class="btn out" id="tdMeal">Log a meal</button>'+kcalLine(today());
+  html+='<button class="btn link" id="tdJourney" style="align-self:flex-start">See your journey</button>';
   if(S.program.settings&&S.program.settings.coachHold) html+='<div class="meta">Your coach has asked you to stay with this habit a little longer.</div>';
   html+='</div>';
   show(html,{tabs:true});
   $('#tdMeal').onclick=function(){S.tab='log';openMealForm(today());};
-  var wk=$('#tdWeekly'); if(wk) wk.onclick=function(){openWeekly();};
+  $('#tdJourney').onclick=function(){go('journey');};
   $('#tdLesson').onclick=function(e){ if(e.target&&e.target.id==='tdVideo') return; openLesson(); };
   var v=$('#tdVideo'); if(v) v.onclick=function(e){e.stopPropagation();openExplainer(h);};
   document.querySelectorAll('.pill[data-a]').forEach(function(b){b.onclick=function(){setCheckin(b.dataset.a);};});
@@ -537,7 +607,7 @@ function decide(kind){
   }
   if(p.step_index<t.path.length-1){
     p.step_index++; p.step_started_on=today();
-    write('nutrition_program',programRow()); S.view=null; S.tab='today'; render(); toast('On to the next habit.'); return;
+    write('nutrition_program',programRow()); S.view=null; S.tab='plan'; render(); toast('On to the next habit.'); return;
   }
   p.history.push({type:'finish',template:p.template_id,on:today()});
   if(t.next&&TEMPLATES[t.next]){ startTemplate(t.next,p.history); toast('Welcome to '+TEMPLATES[t.next].name+'.'); }
@@ -654,8 +724,7 @@ function openPast(id){
 // ---------- Log (meals + photo feedback in hands, never calories) ----------
 function renderLog(){
   var d=S._logDay||today();
-  var list=Object.keys(S.meals).map(function(k){return S.meals[k];}).filter(function(m){return m.day===d&&!m.deleted;})
-    .sort(function(a,b){return (a.body.at||0)-(b.body.at||0);});
+  var list=mealsOn(d);
   var html='<div class="screen">'+head('Your log')+logSwitch('meals')+hint('log')+kcalLine(d,true)
     +'<div class="row" style="align-items:center;justify-content:space-between"><button class="round" id="lgPrev" aria-label="Previous day"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>'
     +'<div style="font-weight:700">'+(d===today()?'Today':parseD(d).toDateString().slice(0,10))+'</div>'
@@ -664,7 +733,7 @@ function renderLog(){
   list.forEach(function(m){
     var b=m.body||{}, f=b.feedback;
     html+='<div class="meal">'+(b.photo?'<img data-path="'+esc(b.photo)+'" alt="Meal photo">':'')
-      +'<div style="flex:1;display:flex;flex-direction:column;gap:6px"><div class="cap">'+esc(b.slot||'Meal')+'</div>'
+      +'<div style="flex:1;display:flex;flex-direction:column;gap:6px"><div class="cap"><span style="color:var(--gold)">'+esc(mealTime(m))+'</span> · '+esc(b.slot||'Meal')+'</div>'
       +(b.text?'<div style="font-size:16px;line-height:1.4">'+esc(b.text)+'</div>':'')
       +(f&&f.protein!=null?'<div class="hands"><span><b>'+esc(f.protein)+'</b> palm protein</span><span><b>'+esc(f.veg)+'</b> fist veg</span><span><b>'+esc(f.carbs)+'</b> cupped carbs</span><span><b>'+esc(f.fats)+'</b> thumb fats</span></div>'
          +(f.tip?'<div style="font-size:15px;line-height:1.45;color:var(--soft)">'+esc(f.tip)+'</div>':''):'')
@@ -693,15 +762,20 @@ function mealRow(m){return {client_id:S.clientId,meal_id:m.meal_id,day:m.day,bod
 function openMealForm(d){
   var photo=null;
   S.view=function(){openMealForm(d);};
-  var h=new Date().getHours(), slot=h<11?'Breakfast':h<16?'Lunch':h<19?'Snack':'Dinner';
+  var nowD=new Date(), isToday=(d===today()), hh=isToday?nowD.getHours():13, mm=isToday?nowD.getMinutes():0;
+  var slot=slotFor(hh);
+  var days=[0,1,2,3,4,5,6].map(function(i){var x=addDays(today(),-i);return '<option value="'+x+'"'+(x===d?' selected':'')+'>'+(i===0?'Today':i===1?'Yesterday':parseD(x).toDateString().slice(0,10))+'</option>';}).join('');
   show('<div class="screen full"><div class="top"><button class="round" id="mfBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><span></span></div>'
     +'<h1>Log a meal</h1>'
-    +'<div class="field"><label for="mfSlot">Which meal</label><select id="mfSlot">'+['Breakfast','Lunch','Snack','Dinner'].map(function(s){return '<option'+(s===slot?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div>'
-    +'<div class="field"><label for="mfText">What did you have?</label><textarea id="mfText" placeholder="e.g. 2 rotis, paneer bhurji, kachumber"></textarea></div>'
+    +'<div class="card" style="border:1px solid var(--line)"><div class="steplbl">WHEN DID YOU EAT?</div><div class="row"><select id="mfDay" aria-label="Day" style="flex:1;min-height:48px;border-radius:12px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);padding:0 10px">'+days+'</select>'
+    +'<input id="mfTime" type="time" aria-label="Time" value="'+pad(hh)+':'+pad(mm)+'" style="flex:1;min-height:48px;border-radius:12px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);padding:0 10px"></div></div>'
+    +'<div class="field"><label for="mfSlot">Which meal</label><select id="mfSlot">'+['Breakfast','Morning snack','Lunch','Evening snack','Dinner','Late snack'].map(function(s){return '<option'+(s===slot?' selected':'')+'>'+s+'</option>';}).join('')+'</select><div class="fhelp">Fills itself from the time. Change it if you like.</div></div>'
+    +'<div class="field"><label for="mfText">What did you have?</label><textarea id="mfText" placeholder="Grilled chicken, rice, salad"></textarea></div>'
     +'<button class="btn out" id="mfPhoto">Add a photo</button><img id="mfPrev" class="hide" alt="Meal photo preview" style="width:100%;border-radius:16px">'
     +'<div class="meta" id="mfNote">With a photo, you\'ll get gentle feedback in hand portions.</div>'
     +'<button class="btn" id="mfSave">Save</button></div>');
   $('#mfBack').onclick=function(){S.view=null;render();};
+  $('#mfTime').onchange=function(){var h=parseInt(String(this.value).split(':')[0],10);if(isFinite(h))$('#mfSlot').value=slotFor(h);};
   $('#mfPhoto').onclick=function(){var inp=$('#photoInput');inp.value='';inp.onchange=async function(){
     var f=inp.files&&inp.files[0]; if(!f) return;
     if(f.size>G_MAX){toast('That photo is too large');return;}
@@ -710,8 +784,11 @@ function openMealForm(d){
   };inp.click();};
   $('#mfSave').onclick=async function(){
     var text=$('#mfText').value.trim(); if(!text&&!photo){toast('Add a note or a photo');return;}
+    var tv=String($('#mfTime').value||''); if(!/^\d{1,2}:\d{2}$/.test(tv)){toast('Add the time you ate');return;}
+    d=$('#mfDay').value||d; var tp=tv.split(':'), ed=parseD(d); ed.setHours(+tp[0],+tp[1],0,0);
+    if(ed.getTime()>now()+5*60000){toast('That time is still in the future');return;}
     this.disabled=true; this.textContent=photo?'Saving and looking at your plate...':'Saving...';
-    var m={meal_id:uid(),day:d,updated_ms:now(),deleted:false,body:{slot:$('#mfSlot').value,text:text.slice(0,1000),at:now()}};
+    var m={meal_id:uid(),day:d,updated_ms:now(),deleted:false,body:{slot:$('#mfSlot').value,text:text.slice(0,1000),at:now(),eatenAt:ed.toISOString(),time:tv}};
     if(photo){
       var path=S.clientId+'/'+m.meal_id+'.jpg';
       var up=await sb.storage.from('kfit-meals').upload(path,photo,{contentType:'image/jpeg',upsert:false});
@@ -724,6 +801,7 @@ function openMealForm(d){
     S.view=null; S._logDay=d; render();
   };
 }
+function slotFor(h){return h<10?'Breakfast':h<12?'Morning snack':h<15?'Lunch':h<18?'Evening snack':h<22?'Dinner':'Late snack';}
 function shrink(file,max,q){
   return new Promise(function(ok,bad){
     var img=new Image(); img.onload=function(){
@@ -815,7 +893,8 @@ function openGuide(first){
 }
 var HINTS={
   welcome:'Start however you like: log a meal, or look at the habit plans. Nothing here is a test.',
-  today:'This is your day. Read the short lesson, try the small action, and tonight tap how it went. That\'s all it takes.',
+  home:'Two things live here: Log a meal, any time you eat, and My plan, your daily lesson and habit. Everything else is one tap below.',
+  today:'Your day in four steps: read the short lesson, try the small action, log your meals, and tonight tap how it went.',
   log:'Log what you eat with a photo or a few words. You\'ll see it in hand portions, plus a rough calorie estimate. No scores, no judgement.',
   progress:'Once a week, add your waist and weight. Watch the direction over a few weeks, not single days.',
   journey:'Your plan, one habit at a time. Tap any habit you\'ve finished to reread its lessons.',
@@ -832,9 +911,10 @@ function bindHelp(){
   document.querySelectorAll('[data-hint-ok]').forEach(function(b){b.onclick=function(){stopSpeech();localStorage.setItem('kfnc_hint_'+b.dataset.hintOk,'1');var c=b.closest('.hint');if(c)c.remove();};});
   document.querySelectorAll('[data-hint-say]').forEach(function(b){b.onclick=function(){speak([HINTS[b.dataset.hintSay]]);};});
   document.querySelectorAll('.helpbtn').forEach(function(b){b.onclick=function(){openGuide(false);};});
+  document.querySelectorAll('[data-home]').forEach(function(b){b.onclick=function(){go('home');};});
 }
-function head(title,sub){
-  return '<div class="hrow"><div style="display:flex;flex-direction:column;gap:6px">'+(sub?'<div class="meta">'+sub+'</div>':'')+'<h1>'+title+'</h1></div>'
+function head(title,sub,noBack){
+  return (noBack||S.tab==='home'?'':'<button class="btn link" data-home style="align-self:flex-start;color:var(--soft)">‹ Home</button>')+'<div class="hrow"><div style="display:flex;flex-direction:column;gap:6px">'+(sub?'<div class="meta">'+sub+'</div>':'')+'<h1>'+title+'</h1></div>'
     +'<button class="helpbtn" aria-label="How KFit works">?</button></div>';
 }
 
@@ -958,7 +1038,7 @@ function renderProfile(required){
     if(!S.program) S.program={client_id:S.clientId,template_id:null,step_index:0,step_started_on:null,started_on:null,history:[],settings:{}};
     S.program.settings=Object.assign({},S.program.settings,{profile:np}); S.program.updated_ms=now();
     write('nutrition_program',programRow()); S.view=null;
-    if(required){ S.tab='today'; if(!localStorage.getItem('kfnc_guide_seen')) return openGuide(true); render(); toast('Thank you. All set.'); } else renderProgress();
+    if(required){ S.tab='home'; if(!localStorage.getItem('kfnc_guide_seen')) return openGuide(true); render(); toast('Thank you. All set.'); } else renderProgress();
   };
 }
 function logSwitch(on){
@@ -1124,42 +1204,23 @@ function openWeekly(){
 }
 
 // ---------- Chat (same messages your coach sees in Merge) ----------
-async function loadMessages(){
-  if(!S.linkedFitness) return;
-  var r=await sb.from('coach_messages').select('id,sender,kind,body,created_at,read_by_client_at').eq('client_id',S.fitId).order('created_at',{ascending:true}).limit(200);
-  if(!r.error){ S.messages=r.data||[]; if(S.tab==='chat'&&!S.view) renderChat();
-    var unread=S.messages.filter(function(m){return m.sender!=='client'&&!m.read_by_client_at;}).map(function(m){return m.id;});
-    if(unread.length&&S.tab==='chat') await sb.from('coach_messages').update({read_by_client_at:new Date().toISOString()}).in('id',unread);
-    checkUnread();
-  }
-}
+// Chat: the same coach chat as the fitness app (messages, photos, videos,
+// files, saved for 30 days). One thread per person: kfit__<mobile>.
+var chatUI=null;
+async function loadMessages(){}
 async function checkUnread(){
-  if(!S.linkedFitness){$('#chatDot').classList.add('hide');return;}
-  var r=await sb.from('coach_messages').select('id').eq('client_id',S.fitId).neq('sender','client').is('read_by_client_at',null).limit(1);
-  $('#chatDot').classList.toggle('hide',!(r.data&&r.data.length)||S.tab==='chat');
+  if(typeof KFitChat==='undefined'||!S.fitId) return;
+  try{ var r=await KFitChat.unread(sb,'client',S.fitId); S.unread=(r.data||[]).length; }catch(e){ S.unread=0; }
+  var b=document.querySelector('[data-go="chat"]'); if(b) b.textContent=S.unread?'Chat ('+S.unread+' new)':'Chat';
 }
 function renderChat(){
-  if(!S.linkedFitness){
-    return show('<div class="screen"><h1>Chat</h1><div class="card"><div class="body" style="font-size:16px">Chat opens once a KFit coach is connected to your account. You can ask for one anytime.</div>'
-      +'<button class="btn out" id="ctAsk">Ask for a coach</button></div></div>',{tabs:true}),
-      ($('#ctAsk').onclick=function(){renderAccess();});
-  }
-  var msgs=S.messages.filter(function(m){return m.kind==='text'||m.kind==='event';}).map(function(m){
-    var me=m.sender==='client';
-    return '<div class="msg '+(me?'me':'them')+'">'+esc(m.body||'')+'<small>'+new Date(m.created_at).toLocaleString([], {day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})+'</small></div>';
-  }).join('');
-  show('<div class="screen">'+head('Chat')+hint('chat')+'<div style="display:flex;flex-direction:column;gap:8px">'+(msgs||'<div class="meta">Say hello to your coach.</div>')+'</div>'
-    +'<div class="field"><label for="ctText" class="hide">Message</label><textarea id="ctText" placeholder="Write a message"></textarea></div><button class="btn" id="ctSend">Send</button></div>',{tabs:true});
-  window.scrollTo(0,document.body.scrollHeight);
-  $('#ctSend').onclick=async function(){
-    var t=$('#ctText').value.trim(); if(!t) return; this.disabled=true;
-    var r=await sb.from('coach_messages').insert({client_id:S.fitId,sender:'client',kind:'text',body:t.slice(0,4000)});
-    this.disabled=false; if(r.error){toast('Not sent. Check your connection.');return;}
-    $('#ctText').value=''; loadMessages();
-  };
+  S.tab='chat';
+  show('<div class="screen full" style="min-height:100vh">'+head('Chat','Your coach')+hint('chat')+'<div id="chatBox" style="flex:1;min-height:60vh;display:flex;flex-direction:column"></div></div>');
+  if(typeof KFitChat==='undefined'){ $('#chatBox').innerHTML='<div class="card"><div class="body">Chat couldn\'t load. Check your connection and try again.</div></div>'; return; }
+  if(chatUI){ try{chatUI.destroy();}catch(e){} }
+  chatUI=KFitChat.mount($('#chatBox'),{sb:sb,clientId:S.fitId,role:'client',emptyText:'Say hi to your coach! You can send messages, photos, short videos or files.',onRead:function(){S.unread=0;}});
+  try{ var day=today(); if(localStorage.getItem('kfnc_chat_cleanup')!==day){ KFitChat.cleanupExpired(sb,[S.fitId]); localStorage.setItem('kfnc_chat_cleanup',day);} }catch(e){}
 }
-
-// ---------- start ----------
 function boot(){
   app=$('#app');
   document.querySelectorAll('#tabs button').forEach(function(b){b.onclick=function(){go(b.dataset.tab);};});
