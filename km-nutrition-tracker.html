@@ -16,6 +16,7 @@
 <script src="./kfit-exercise-library.js"></script>
 <script src="./kfit-nutrition-lessons.js"></script>
 <script src="./kfit-coach-chat.js"></script>
+<script src="./kfit-join-coach.js"></script>
 <style>
 :root{
   --bg:#12130F; --paper:#15160F; --card:#1C1D18; --ink:#F3EEE3; --ink2:#E4DED0; --soft:#C9C3B4; --muted:#9C978A;
@@ -415,6 +416,8 @@ async function enter(){
   try{ await flush(); await loadAll(); await loadNotes(); }catch(e){}
   try{ await syncLegacy(); }catch(e){ console.warn(e); }
   S.loaded=true; S.view=null; render(); checkUnread();
+  // Opened a different coach's invite link? Offer to join them (their consent).
+  try{ if(window.KFitJoinCoach) KFitJoinCoach.check({sb:sb,mobile:S.mobile,name:localStorage.getItem(LS.name)||legacyName()||'',onToast:toast}); }catch(e){}
 }
 
 // ---------- choose a plan ----------

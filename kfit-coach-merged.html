@@ -3366,7 +3366,8 @@ async function fetchRequestClientIds(){
   const links=await getSB().from('fitness_link_requests').select('id').eq('status','pending');
   let chatIds=[];
   try{ const u=await KFitChat.unread(getSB(),'coach'); chatIds=Array.from(new Set((u.data||[]).map(function(m){return 'chat:'+m.client_id;}))); }catch(e){}
-  return (data||[]).concat(((links&&links.data)||[]).map(function(r){return 'link:'+r.id;})).concat(chatIds);
+  let joins=[]; try{ const j=await getSB().from('coach_transfer_requests').select('id').eq('status','pending').eq('to_coach',window.currentCoachId); joins=((j&&j.data)||[]).map(function(r){return 'join:'+r.id;}); }catch(e){}
+  return (data||[]).concat(((links&&links.data)||[]).map(function(r){return 'link:'+r.id;})).concat(chatIds).concat(joins);
 }
 // Unread client messages, one inbox card per client.
 async function fetchChatItems(){
@@ -3473,7 +3474,13 @@ async function fetchClientRequests(){
   });
   const links=await fetchLinkRequests();
   let chats=[]; try{ chats=await fetchChatItems(); }catch(e){}
-  const all=chats.concat(links,items);
+  // Clients asking to JOIN you from another coach (they tapped "Join" on your link).
+  let joins=[];
+  try{
+    const j=await getSB().from('coach_transfer_requests').select('*').eq('status','pending').eq('to_coach',window.currentCoachId).order('created_at',{ascending:false});
+    joins=((j&&j.data)||[]).map(function(r){return {kind:'join',at:Date.parse(r.created_at)||0,request:r,clientId:'kfit__'+r.mobile,clientName:r.name||('+'+r.mobile)};});
+  }catch(e){}
+  const all=chats.concat(joins,links,items);
   all.sort(function(a,b){return (b.at||0)-(a.at||0);});
   return all;
 }
@@ -3508,7 +3515,7 @@ function refreshRequestsBadgeFromCache(){
 function renderRequests(){
   const body=document.getElementById('requestsBody');
   if(!_reqItems.length){body.innerHTML='<div style="color:var(--muted);text-align:center;padding:30px;">No pending requests. 👍</div>';return;}
-  const label={new:'🆕 New log (past date / changed time)',edit:'✏️ Edit request',delete:'🗑 Delete request',link:'📱 Phone access'};
+  const label={new:'🆕 New log (past date / changed time)',edit:'✏️ Edit request',delete:'🗑 Delete request',link:'📱 Phone access',join:'🤝 Wants to join you'};
   body.innerHTML=_reqItems.map(function(it,i){
     if(it.kind==='chat'){
       return '<div style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;">'
@@ -3520,7 +3527,13 @@ function renderRequests(){
     }
     const s=it.session;
     let detail='';
-    if(it.kind==='link'){
+    if(it.kind==='join'){
+      const r=it.request;
+      detail='<div style="margin-top:8px;font-size:12px;line-height:1.5;color:var(--muted);">'
+        +'They opened your invite link and asked to move to you from another coach. Approving moves their fitness and nutrition to you: logs, progress, plan and chat.'
+        +'<br>Their previous coach keeps only past sessions and payments.'
+        +'<br>📞 '+reqEsc(r.mobile||'')+(r.name?' · '+reqEsc(r.name):'')+'</div>';
+    } else if(it.kind==='link'){
       const r=it.request;
       detail='<div style="margin-top:8px;font-size:12px;line-height:1.5;color:var(--muted);">'
         +(r.app==='nutrition'?'🥗 From the nutrition app. ':'')
@@ -3576,6 +3589,16 @@ async function decideRequest(i,approve){
   _reqBusy=true;
   let _evt=null;
   try{
+    if(it.kind==='join'){
+      const r=await getSB().rpc('kfit_decide_transfer',{p_id:it.request.id,p_approve:!!approve});
+      if(r.error) throw new Error(r.error.message);
+      toast(approve?'Welcome! '+it.clientName+' is now your client ✓':'Rejected');
+      _reqItems.splice(i,1);
+      refreshRequestsBadgeFromCache();
+      renderRequests();
+      loadAll();
+      return;
+    }
     if(it.kind==='link'){
       const r=await getSB().rpc('kfit_decide_link',{p_request_id:it.request.id,p_approve:!!approve});
       if(r.error) throw new Error(r.error.message);

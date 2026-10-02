@@ -1,7 +1,7 @@
-const V = "kfit-v11";
+const V = "kfit-v12";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => e.waitUntil(
-  // v11: batch 3 (full-day log, logger-first, bell, separate client sign-in). Bumping
+  // v12: batch 4 (join a coach) on top of batch 3. Bumping
   // the version wipes every old cache so no phone keeps an old app copy.
   caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())
 ));

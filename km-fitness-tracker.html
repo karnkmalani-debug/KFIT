@@ -459,6 +459,21 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 <script src="./kfit-exercise-library-extra.js"></script>
 <script src="./kfit-fitness-store.js"></script>
 <script src="./kfit-coach-chat.js"></script>
+<script src="./kfit-join-coach.js"></script>
+<script>
+// Opened a different coach's invite link? Offer to join them (their consent).
+// Waits until this phone is signed in to a client, then asks once.
+(function(){
+  var tries=0;
+  function go(){
+    tries++;
+    var m=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
+    if(!window.KFitJoinCoach||typeof getSB!=='function'||m.length<8){ if(tries<20) setTimeout(go,3000); return; }
+    try{ KFitJoinCoach.check({sb:getSB(),mobile:m,name:localStorage.getItem('kmfit_name')||'',onToast:function(t){ if(typeof toast==='function') toast(t); else alert(t); }}); }catch(e){}
+  }
+  if(/[?&]coach=/.test(location.search)) setTimeout(go,4000);
+})();
+</script>
 <script>
 if(/CriOS/i.test(navigator.userAgent)&&/iphone|ipad|ipod/i.test(navigator.userAgent)){
 document.getElementById('criosBanner').style.display='flex';
