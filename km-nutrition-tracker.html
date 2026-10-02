@@ -294,7 +294,67 @@ async function loadAll(){
   if(!c.error)(c.data||[]).forEach(function(r){S.checkins[r.day]=pickNewer(S.checkins[r.day],r);});
   var m=await sb.from('nutrition_meals').select('*').eq('client_id',cid).gte('day',addDays(today(),-30));
   if(!m.error)(m.data||[]).forEach(function(r){S.meals[r.meal_id]=pickNewer(S.meals[r.meal_id],r);});
+  await loadComments();
   saveCache();
+}
+// ---------- Conversations under meals (and on whole days) ----------
+async function loadComments(){
+  try{
+    var r=await sb.from('nutrition_meal_comments').select('*').eq('client_id',S.clientId).gte('day',addDays(today(),-60)).order('created_at',{ascending:true});
+    if(!r.error) S.comments=(r.data||[]).filter(function(c){return !c.deleted;});
+  }catch(e){}
+  updateBadge();
+}
+function commentsFor(day,mealId){return (S.comments||[]).filter(function(c){return c.day===day&&(mealId?c.meal_id===mealId:!c.meal_id);});}
+function unreadCoach(){return (S.comments||[]).filter(function(c){return c.author==='coach'&&!c.read_by_client_at;});}
+function updateBadge(){
+  var n=unreadCoach().length+(S.notes||[]).filter(function(x){return !x.read_at;}).length;
+  try{ if(navigator.setAppBadge){ if(n) navigator.setAppBadge(n); else navigator.clearAppBadge(); } }catch(e){}
+}
+function markThreadRead(list){
+  var ids=list.filter(function(c){return c.author==='coach'&&!c.read_by_client_at;}).map(function(c){return c.id;});
+  if(!ids.length) return;
+  list.forEach(function(c){if(c.author==='coach'&&!c.read_by_client_at)c.read_by_client_at=new Date().toISOString();});
+  sb.from('nutrition_meal_comments').update({read_by_client_at:new Date().toISOString()}).in('id',ids).then(function(){updateBadge();},function(){});
+}
+function whenShort(iso){var d=new Date(iso);return d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase()+(dstr(d)!==today()?' · '+d.toDateString().slice(4,10):'');}
+function threadHtml(day,mealId){
+  var list=commentsFor(day,mealId); if(!list.length&&!mealId) return '';
+  var key=day+'|'+(mealId||'');
+  return '<div class="thread" data-thread="'+esc(key)+'" style="display:flex;flex-direction:column;gap:6px;margin-top:4px">'
+    +list.map(function(c){var me=c.author==='client';
+      return '<div style="align-self:'+(me?'flex-end':'flex-start')+';max-width:88%;background:'+(me?'#23382B':'#2A2618')+';border:1px solid '+(me?'#3D6B4F':'#6B5A2A')+';color:'+(me?'#CFEBD8':'#E7CF8C')+';border-radius:'+(me?'12px 12px 4px 12px':'12px 12px 12px 4px')+';padding:7px 10px;font-size:14px;line-height:1.45">'
+        +(me?'':'<b>Coach:</b> ')+esc(c.body)+'<div style="font-size:11px;opacity:.75;margin-top:2px">'+esc(whenShort(c.created_at))+(c.edited_at?' · edited':'')
+        +(me?' · <a href="#" data-editc="'+c.id+'" style="color:inherit">edit</a>':'')+'</div></div>';}).join('')
+    +'<div class="row" style="gap:6px"><input data-reply="'+esc(key)+'" placeholder="'+(list.length?'Reply…':'Ask your coach about this meal…')+'" style="flex:1;min-height:40px;border-radius:10px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);padding:0 10px;font-size:14px">'
+    +'<button data-send="'+esc(key)+'" style="min-height:40px;border-radius:10px;border:none;background:var(--green);color:#fff;font-weight:700;padding:0 12px">Send</button></div></div>';
+}
+function bindThreads(after){
+  document.querySelectorAll('[data-send]').forEach(function(b){b.onclick=async function(){
+    var key=b.dataset.send, inp=document.querySelector('[data-reply="'+key.replace(/"/g,'\\"')+'"]'), txt=(inp&&inp.value||'').trim(); if(!txt) return;
+    var k=key.split('|'); b.disabled=true;
+    var r=await sb.from('nutrition_meal_comments').insert({client_id:S.clientId,day:k[0],meal_id:k[1]||null,author:'client',body:txt.slice(0,2000)});
+    b.disabled=false; if(r.error){toast('Not sent. Check your connection.');return;}
+    await loadComments(); if(after) after();
+  };});
+  document.querySelectorAll('[data-editc]').forEach(function(a){a.onclick=async function(e){
+    e.preventDefault(); var c=(S.comments||[]).filter(function(x){return String(x.id)===a.dataset.editc;})[0]; if(!c) return;
+    var t=prompt('Edit your message (leave empty to delete it):',c.body); if(t===null) return;
+    var upd=t.trim()?{body:t.trim().slice(0,2000)}:{deleted:true};
+    var r=await sb.from('nutrition_meal_comments').update(upd).eq('id',c.id);
+    if(r.error){toast('Not saved. Check your connection.');return;}
+    await loadComments(); if(after) after();
+  };});
+}
+var liveCh=null;
+function startLive(){
+  try{
+    if(liveCh||!sb.channel) return;
+    liveCh=sb.channel('kfnc-'+S.clientId)
+      .on('postgres_changes',{event:'*',schema:'public',table:'nutrition_meal_comments',filter:'client_id=eq.'+S.clientId},function(){ loadComments().then(function(){ if(!S.view&&(S.tab==='log'||S.tab==='home'||S.tab==='coach')) render(); }); })
+      .on('postgres_changes',{event:'*',schema:'public',table:'nutrition_coach_notes',filter:'client_id=eq.'+S.clientId},function(){ loadNotes().then(function(){ if(!S.view&&(S.tab==='log'||S.tab==='home'||S.tab==='coach')) render(); }); })
+      .subscribe();
+  }catch(e){}
 }
 function pickNewer(local,server){ if(!local) return server; return (server.updated_ms||0)>=(local.updated_ms||0)?server:local; }
 
@@ -414,6 +474,7 @@ function renderCode(email){
 async function enter(){
   S.view=null; loadCache(); render();
   try{ await flush(); await loadAll(); await loadNotes(); }catch(e){}
+  startLive(); updateBadge();
   try{ await syncLegacy(); }catch(e){ console.warn(e); }
   S.loaded=true; S.view=null; render(); checkUnread();
   // Opened a different coach's invite link? Offer to join them (their consent).
@@ -428,7 +489,7 @@ function renderHome(){
   var name=(legacyName()||localStorage.getItem(LS.name)||'').split(' ')[0];
   var todays=mealsOn(today());
   var planSub=hasPlan()?(function(){var t=tpl(),hb=habitOf(stepId());return (stepId()==='reset'?'7-day Reset':'Habit '+(S.program.step_index+1)+' of '+t.path.filter(function(x){return x!=='start';}).length+' · '+(hb?hb.title:''))+' · day '+(dayIndex()+1);})():'Optional · choose a plan to start';
-  var unread=(S.notes||[]).filter(function(n){return !n.read_at;}).length, anyNotes=(S.notes||[]).length;
+  var unread=(S.notes||[]).filter(function(n){return !n.read_at;}).length+unreadCoach().length, anyNotes=(S.notes||[]).length+(S.comments||[]).filter(function(c){return c.author==='coach';}).length;
   var html='<div class="screen">'
     +'<div class="hrow" style="align-items:center"><div class="brand"><span class="k">K</span><span class="f">F</span><span class="i">it</span><small>NUTRITION</small></div>'
     +'<div class="row" style="gap:8px"><button id="hmOut" style="background:none;border:1px solid var(--line2);border-radius:20px;padding:8px 14px;font-weight:700;font-size:14px;color:var(--soft);min-height:40px">Log out</button><button class="helpbtn" aria-label="How KFit works">?</button></div></div>'
@@ -458,8 +519,22 @@ function ladder(){
 }
 function renderCoachNotes(){
   S.tab='coach';
-  show('<div class="screen">'+head('From your coach')+(coachBox().replace('<h2 style="font-size:20px">From your coach</h2>','')||'<div class="card"><div class="body">No notes yet.</div></div>')+'</div>');
-  markNotesRead();
+  var plans=coachBox().replace('<h2 style="font-size:20px">From your coach</h2>','');
+  var byKey={}, order=[];
+  (S.comments||[]).forEach(function(c){var k=c.day+'|'+(c.meal_id||''); if(!byKey[k]){byKey[k]=[];order.push(k);} byKey[k].push(c);});
+  order=order.filter(function(k){return byKey[k].some(function(c){return c.author==='coach';});})
+    .sort(function(a,b){var la=byKey[a][byKey[a].length-1].created_at, lb=byKey[b][byKey[b].length-1].created_at; return la<lb?1:-1;});
+  var html='<div class="screen">'+head('From your coach')+plans;
+  order.forEach(function(k){
+    var p=k.split('|'), m=p[1]&&S.meals[p[1]], b=m&&m.body||{};
+    html+='<div class="card" style="border:1px solid var(--line);gap:6px"><div class="steplbl">'+esc(parseD(p[0]).toDateString().slice(0,10).toUpperCase())+'</div>'
+      +(m?'<div><span class="f-time">'+esc(mealTime(m))+'</span> <span class="f-meal" style="font-size:16px">'+esc(b.slot||'Meal')+'</span><div class="f-food">'+esc(b.text||'')+'</div></div>':'<div class="meta" style="font-weight:400">A note on your day</div>')
+      +threadHtml(p[0],p[1]||null)+'</div>';
+  });
+  if(!order.length&&!plans) html+='<div class="card"><div class="body">No notes yet. When your coach comments on a meal, it shows here and under that meal.</div></div>';
+  show(html+'</div>');
+  bindThreads(renderCoachNotes);
+  markNotesRead(); markThreadRead(S.comments||[]);
 }
 async function logOut(){
   if(!confirm('Log out of KFit on this phone?\n\nYour meals and progress stay saved. To come back, you\'ll confirm your number again (with an email code or your coach).')) return;
@@ -514,16 +589,40 @@ function renderChooser(canSkip){
   var sel=S._tpl||'reset-7d';
   var cards=G_T.map(function(t){
     return '<button class="tpl'+(t.id===sel?' on':'')+'" data-t="'+t.id+'"><div class="cap g">'+(t.weeks===1?'1 week':t.weeks+' weeks')+(t.id==='reset-7d'?' · <span style="color:var(--gold)">RECOMMENDED TO START</span>':'')+'</div>'
-      +'<h2>'+esc(t.name)+'</h2><div class="body" style="font-size:15px">'+esc(TPL_BLURB[t.id]||'')+'</div></button>';
+      +'<h2>'+esc(t.name)+'</h2><div class="body" style="font-size:15px">'+esc(TPL_BLURB[t.id]||'')+'</div><span data-about="'+t.id+'" role="button" style="color:var(--leaf);font-weight:700;font-size:14px">About this plan →</span></button>';
   }).join('');
   show('<div class="screen full">'+(canSkip?'<button class="btn link" data-home style="align-self:flex-start;color:var(--soft)">‹ Home</button>':'<div style="height:12px"></div>')+'<h1>Choose a plan</h1>'
     +'<div class="body"><p>A plan teaches one small eating <b>habit</b> at a time, like "a palm of protein at every meal". Each day: a 2-minute lesson, one small thing to try, and a tap to say how it went.</p>'
     +'<p style="margin:0">Not sure? <b style="color:var(--gold)">Start with the 7-day Reset.</b> It\'s short, and you can carry on afterwards. Your progress always comes with you.</p></div>'+cards
     +'<button class="btn" id="chGo">Start</button>'
     +(canSkip?'<button class="btn link" id="chLater" style="align-self:center">Not now</button>':'')+'</div>');
-  document.querySelectorAll('.tpl').forEach(function(b){b.onclick=function(){S._tpl=b.dataset.t;renderChooser(canSkip);};});
+  document.querySelectorAll('.tpl').forEach(function(b){b.onclick=function(e){ if(e.target&&e.target.dataset&&e.target.dataset.about) return openPlanInfo(e.target.dataset.about,canSkip); S._tpl=b.dataset.t;renderChooser(canSkip);};});
   var lt=$('#chLater'); if(lt) lt.onclick=function(){S.view=null;S.tab='home';render();};
   $('#chGo').onclick=function(){startTemplate(sel,[]);};
+}
+// A page explaining a plan: what it is, its habits, the fundamentals.
+var PLAN_INFO={
+  'reset-7d':'Seven days, one small shift a day. It\'s the easiest way to feel how the KFit fundamentals work: protein first, vegetables next, carbs last, an earlier dinner, smarter drinks and better snacks. Perfect if you\'re new, or restarting after a break.',
+  'foundations-1m':'Four weeks, one habit a week: protein at every meal, vegetables with lunch and dinner, the right eating order, and building your plate with your hands. These four carry most of the results.',
+  'core-3m':'Three months at a gentle two-week pace, so each habit becomes automatic. You build the four foundations, then learn to adjust portions yourself with the more-same-less check, and drink smarter.',
+  'complete-6m':'The whole journey: eleven habits over about six months, from protein first all the way to eating out, weekends and keeping your habits for life. You can stay longer on any habit.'
+};
+function openPlanInfo(id,canSkip){
+  var t=TEMPLATES[id]; if(!t) return;
+  S.view=function(){openPlanInfo(id,canSkip);};
+  var path=t.path.filter(function(x){return x!=='start';});
+  var body=PLAN_INFO[id]||'';
+  show('<div class="screen full"><div class="top"><button class="round" id="piBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>'
+    +('speechSynthesis' in window?'<button class="btn out" id="piListen" style="width:auto;min-height:44px;border-radius:22px;font-size:14px">🔊 Listen</button>':'')+'</div>'
+    +'<div class="cap g">'+(t.weeks===1?'1 week':t.weeks+' weeks')+'</div><h1>'+esc(t.name)+'</h1>'
+    +'<div class="still" style="padding:0;overflow:hidden;border-radius:18px;aspect-ratio:16/10"><img src="plan-'+esc(id)+'.jpeg" data-alts="plan-'+esc(id)+'.jpeg.jpg|plan-'+esc(id)+'.jpg|plan-'+esc(id)+'.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block" onerror="var a=(this.dataset.alts||\'\').split(\'|\').filter(Boolean);if(a.length){this.dataset.alts=a.slice(1).join(\'|\');this.src=a[0];}else{this.parentNode.style.display=\'none\';}"></div>'
+    +'<div class="body"><p>'+esc(body)+'</p><p style="margin:0"><b>How every day works:</b> a 2-minute lesson, one small thing to try, and a tap at night to say how it went. After each habit you choose: move on, or stay a little longer. Your progress always comes with you.</p></div>'
+    +'<div class="card" style="border:1px solid var(--line);gap:6px"><div class="steplbl">THE HABITS ON THIS PLAN</div>'
+    +path.map(function(hid,i){var h=habitOf(hid);return '<div style="font-size:15px"><span class="f-time">'+(i+1)+'</span> <b>'+esc(hid==='reset'?'7-day Reset':(h?h.title:hid))+'</b>'+(h&&h.short?' <span style="color:var(--muted)">· '+esc(h.short)+'</span>':'')+'</div>';}).join('')+'</div>'
+    +'<button class="btn" id="piStart">Start '+esc(t.name)+'</button></div>');
+  $('#piBack').onclick=function(){stopSpeech();S.view=null;renderChooser(canSkip);};
+  var ls=$('#piListen'); if(ls) ls.onclick=function(){ if(speaking){stopSpeech();return;} speak([t.name,body,'How every day works. A two-minute lesson, one small thing to try, and a tap at night to say how it went.']); };
+  $('#piStart').onclick=function(){stopSpeech();S.view=null;startTemplate(id,(S.program&&S.program.history)||[]);};
 }
 function startTemplate(id,history,quiet){
   var t=TEMPLATES[id]; if(!t) return;
@@ -792,45 +891,103 @@ function openPast(id){
 
 // ---------- Log (meals + photo feedback in hands, never calories) ----------
 var DAY_SLOTS=[['Breakfast','08:00'],['Morning snack','11:00'],['Lunch','13:30'],['Evening snack','17:00'],['Dinner','20:00']];
+// Photos: a meal can hold several, added over time (a long meal, drinks...).
+function mealPhotos(b){ b=b||{}; var ps=Array.isArray(b.photos)?b.photos.slice():[]; if(b.photo&&!ps.some(function(x){return x.path===b.photo;})) ps.unshift({path:b.photo,at:b.at,feedback:b.feedback}); return ps; }
+function aggFeedback(b){
+  var ps=mealPhotos(b).filter(function(x){return x.feedback;});
+  if(!ps.length) return b.feedback||null;
+  var f={protein:0,veg:0,carbs:0,fats:0,kcal:0,tip:''};
+  ps.forEach(function(x){var g=x.feedback;['protein','veg','carbs','fats'].forEach(function(k){f[k]+=Number(g[k])||0;});f.kcal+=Number(g.kcal)||0;if(g.tip)f.tip=g.tip;});
+  if(!f.kcal) f.kcal=null; return f;
+}
+function plannedFor(d){
+  var p=(S.notes||[]).filter(function(n){return n.kind==='plan'&&n.for_day===d;})[0]; if(!p) return [];
+  return (p.items||[]).map(function(it,i){return Object.assign({key:p.id+':'+i},it);});
+}
 function renderLog(){
   S.tab='log';
   var d=S._logDay||today(), list=mealsOn(d);
+  // week strip (Mon-Sun) with each day's calories
+  var pd=parseD(d), wd=(pd.getDay()+6)%7, mon=addDays(d,-wd), strip='';
+  for(var i=0;i<7;i++){var x=addDays(mon,i),k=dayKcal(x),on=x===d,fut=x>today();
+    strip+='<button data-day="'+x+'"'+(fut?' disabled':'')+' style="background:none;border:none;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:2px;padding:0;opacity:'+(fut?'.35':'1')+'">'
+      +'<span class="meta" style="font-size:11px">'+'MTWTFSS'[i]+'</span>'
+      +'<span style="width:34px;height:34px;border-radius:17px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;'+(on?'background:var(--ink);color:#12130F':x===today()?'border:2px solid var(--gold)':'border:1px solid var(--line2)')+'">'+parseD(x).getDate()+'</span>'
+      +'<span class="f-time" style="font-size:11px;color:'+(k.n?'var(--gold)':'var(--muted)')+'">'+(k.n?fmt(k.sum):'–')+'</span></button>';}
   var html='<div class="screen">'+head(d===today()?'Today\'s meals':parseD(d).toDateString().slice(0,10))+hint('log')
-    +'<div class="row" style="align-items:center;justify-content:space-between"><button class="round" id="lgPrev" aria-label="Previous day"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>'
-    +'<div style="font-weight:700">'+(d===today()?'Today':parseD(d).toDateString().slice(0,10))+'</div>'
-    +'<button class="round" id="lgNext" aria-label="Next day"'+(d>=today()?' disabled style="opacity:.3"':'')+'><svg class="icon" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button></div>'
-    +kcalLine(d,true);
-  var used={};
+    +'<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px">'+strip+'</div>'
+    +'<div class="row" style="justify-content:space-between;align-items:center"><button class="btn link" id="lgPrev" style="min-height:36px">‹ Last week</button>'+(mon<addDays(today(),-((new Date().getDay()+6)%7))?'<button class="btn link" id="lgNext" style="min-height:36px">Next week ›</button>':'')+'</div>'
+    +'<div class="card" style="border:1px solid var(--line);gap:6px">'+kcalBar(d)+'</div>';
+  var dayNotes=commentsFor(d,null);
+  if(dayNotes.length) html+='<div class="coachbox"><div class="steplbl">NOTE FROM YOUR COACH</div>'+threadHtml(d,null)+'</div>';
+  var used={}, planned=plannedFor(d);
   function mealHtml(m){
-    used[m.meal_id]=1; var b=m.body||{}, f=b.feedback;
-    return '<div style="display:flex;gap:10px;align-items:flex-start;padding-top:6px">'+(b.photo?'<img data-path="'+esc(b.photo)+'" alt="Meal photo" style="width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0;background:var(--sand)">':'')
-      +'<div style="flex:1;display:flex;flex-direction:column;gap:3px"><div class="f-time">'+esc(mealTime(m))+'</div><div class="f-food">'+esc(b.text||'Photo')+'</div>'
-      +(f&&f.protein!=null?'<div class="meta" style="font-weight:400">Protein '+esc(f.protein)+' palm · Veg '+esc(f.veg)+' fist · Carbs '+esc(f.carbs)+' · Fats '+esc(f.fats)+(f.kcal?' · ~'+esc(f.kcal)+' kcal':'')+'</div>':(f&&f.kcal?'<div class="meta" style="font-weight:400">~'+esc(f.kcal)+' kcal</div>':''))
+    used[m.meal_id]=1; var b=m.body||{}, f=aggFeedback(b), ps=mealPhotos(b);
+    return '<div style="display:flex;flex-direction:column;gap:6px;padding-top:8px;border-top:1px solid var(--line)">'
+      +'<div class="row" style="justify-content:space-between;align-items:flex-start"><div><div class="f-time">'+esc(mealTime(m))+'</div><div class="f-food">'+esc(b.text||'Photo')+'</div></div>'
+      +(f&&f.kcal?'<div class="f-time" style="color:var(--muted)">~'+esc(fmt(f.kcal))+' kcal</div>':'')+'</div>'
+      +(ps.length?'<div style="display:flex;gap:6px;flex-wrap:wrap">'+ps.map(function(x){return '<img data-path="'+esc(x.path)+'" alt="Meal photo" style="width:64px;height:64px;border-radius:10px;object-fit:cover;background:var(--sand)">';}).join('')+'</div>':'')
+      +(f&&f.protein!=null?'<div class="meta" style="font-weight:400">Hands: protein '+esc(f.protein)+' · veg '+esc(f.veg)+' · carbs '+esc(f.carbs)+' · fats '+esc(f.fats)+' · estimate</div>':'')
       +(f&&f.tip?'<div style="font-size:14px;color:var(--soft)">'+esc(f.tip)+'</div>':'')
-      +'</div><button class="btn link" data-del="'+esc(m.meal_id)+'" style="font-size:13px;color:var(--muted);min-height:32px">Remove</button></div>';
+      +'<div class="row" style="gap:14px;flex-wrap:wrap"><button class="btn link" data-addphoto="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px">+ Photo</button><button class="btn link" data-edit="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px">Edit</button><button class="btn link" data-del="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px;color:var(--muted)">Remove</button></div>'
+      +threadHtml(d,m.meal_id)+'</div>';
   }
-  DAY_SLOTS.forEach(function(sl){
-    var ms=list.filter(function(m){return (m.body||{}).slot===sl[0];});
-    html+='<div class="card" style="border:1px '+(ms.length?'solid var(--line)':'dashed var(--line2)')+';gap:4px">'
+  function plannedHtml(it){
+    return '<div class="row" style="justify-content:space-between;align-items:center;gap:10px;padding-top:8px;border-top:1px dashed var(--line2)"><div><div class="f-time">'+esc(it.time||'')+' · <span style="color:var(--muted)">from your coach\'s plan</span></div><div class="f-food">'+esc(it.text||'')+'</div>'+(it.note?'<span class="cnote">'+esc(it.note)+'</span>':'')+'</div>'
+      +'<button data-tick="'+esc(it.key)+'" aria-label="I ate this" style="width:30px;height:30px;border-radius:8px;border:1.5px solid var(--line2);background:none;color:var(--leaf);font-weight:700;flex-shrink:0"></button></div>';
+  }
+  var ticked={}; list.forEach(function(m){if(m.body&&m.body.planKey)ticked[m.body.planKey]=1;});
+  DAY_SLOTS.concat([['Something else','21:30']]).forEach(function(sl,si){
+    var isOther=si===DAY_SLOTS.length;
+    var ms=isOther?[]:list.filter(function(m){return (m.body||{}).slot===sl[0];});
+    var pl=isOther?[]:planned.filter(function(it){return it.slot===sl[0]&&!ticked[it.key];});
+    var inner=ms.map(mealHtml).join('')+pl.map(plannedHtml).join('');
+    if(isOther){ var other=list.filter(function(m){return !used[m.meal_id];}); inner=other.map(mealHtml).join(''); }
+    html+='<div class="card" style="border:1px '+(inner?'solid var(--line)':'dashed var(--line2)')+';gap:4px">'
       +'<div class="row" style="justify-content:space-between;align-items:center"><div class="f-meal">'+sl[0]+'</div>'
-      +'<button class="btn link" data-add="'+sl[0]+'" style="min-height:36px;font-size:14px">+ Add</button></div>'
-      +(ms.length?ms.map(mealHtml).join(''):'<div class="meta" style="font-weight:400">Type it or snap a photo · the time fills in</div>')+'</div>';
+      +'<button class="btn link" data-add="'+(isOther?'Late snack':sl[0])+'" style="min-height:36px;font-size:14px">+ Add</button></div>'
+      +(inner||'<div class="meta" style="font-weight:400">'+(isOther?'A drink, a late snack, anything extra':'Type it or snap a photo · the time fills in')+'</div>')+'</div>';
   });
-  var other=list.filter(function(m){return !used[m.meal_id];});
-  html+='<div class="card" style="border:1px '+(other.length?'solid var(--line)':'dashed var(--line2)')+';gap:4px"><div class="row" style="justify-content:space-between;align-items:center"><div class="f-meal">Something else</div>'
-    +'<button class="btn link" data-add="Late snack" style="min-height:36px;font-size:14px">+ Add</button></div>'
-    +(other.length?other.map(mealHtml).join(''):'<div class="meta" style="font-weight:400">A drink, a late snack, anything extra</div>')+'</div>'
-    +'<div class="links"><button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')+'</div></div>';
+  html+='<div class="links"><button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')+'</div></div>';
   show(html);
-  $('#lgPrev').onclick=function(){S._logDay=addDays(d,-1);renderLog();};
-  $('#lgNext').onclick=function(){if(d<today()){S._logDay=addDays(d,1);renderLog();}};
+  $('#lgPrev').onclick=function(){S._logDay=addDays(mon,-1);renderLog();};
+  var nx=$('#lgNext'); if(nx) nx.onclick=function(){var t=addDays(mon,7);S._logDay=t>today()?today():t;renderLog();};
+  document.querySelectorAll('[data-day]').forEach(function(b){b.onclick=function(){S._logDay=b.dataset.day;renderLog();};});
   document.querySelectorAll('[data-add]').forEach(function(b){b.onclick=function(){openMealForm(d,b.dataset.add);};});
+  document.querySelectorAll('[data-edit]').forEach(function(b){b.onclick=function(){openMealForm(d,null,b.dataset.edit);};});
+  document.querySelectorAll('[data-addphoto]').forEach(function(b){b.onclick=function(){addPhotoToMeal(b.dataset.addphoto);};});
   document.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){go(b.dataset.go);};});
+  document.querySelectorAll('[data-tick]').forEach(function(b){b.onclick=function(){
+    var it=planned.filter(function(x){return x.key===b.dataset.tick;})[0]; if(!it) return;
+    var tp=String(it.time||'12:00').split(':'), ed=parseD(d); ed.setHours(+tp[0]||12,+tp[1]||0,0,0);
+    var m={meal_id:uid(),day:d,updated_ms:now(),deleted:false,body:{slot:it.slot||slotFor(+tp[0]||12),text:it.text||'',at:now(),eatenAt:ed.toISOString(),time:pad(+tp[0]||12)+':'+pad(+tp[1]||0),planKey:it.key}};
+    S.meals[m.meal_id]=m; write('nutrition_meals',mealRow(m)); renderLog();
+    textFeedback(m.body.text).then(function(f){ if(f){ m.body.feedback=f; m.updated_ms=now(); write('nutrition_meals',mealRow(m)); if(S.tab==='log'&&!S.view) renderLog(); } },function(){});
+  };});
   document.querySelectorAll('[data-del]').forEach(function(b){b.onclick=function(){
     var m=S.meals[b.dataset.del]; if(!m||!confirm('Remove this meal?')) return;
     m.deleted=true; m.updated_ms=now(); write('nutrition_meals',mealRow(m)); renderLog();
   };});
   document.querySelectorAll('img[data-path]').forEach(loadPhoto);
+  bindThreads(renderLog);
+  markThreadRead(dayNotes.concat((S.comments||[]).filter(function(c){return c.day===d&&c.meal_id;})));
+}
+function addPhotoToMeal(mealId){
+  var m=S.meals[mealId]; if(!m) return;
+  var inp=$('#photoInput'); inp.value=''; inp.onchange=async function(){
+    var file=inp.files&&inp.files[0]; if(!file) return;
+    if(file.size>G_MAX){toast('That photo is too large');return;}
+    toast('Adding your photo…');
+    try{
+      var ph=await shrink(file,1024,0.72), path=S.clientId+'/'+mealId+'-'+uid()+'.jpg';
+      var up=await sb.storage.from('kfit-meals').upload(path,ph,{contentType:'image/jpeg',upsert:false});
+      if(up.error){toast('Photo not saved. Check your connection.');return;}
+      var fb=null; try{ fb=await handFeedback(ph,''); }catch(e){}
+      var b=m.body||{}, ps=mealPhotos(b); ps.push({path:path,at:now(),feedback:fb});
+      b.photos=ps; delete b.photo; m.body=b; m.updated_ms=now();
+      S.meals[mealId]=m; await write('nutrition_meals',mealRow(m)); if(S.tab==='log'&&!S.view) renderLog();
+    }catch(e){ toast('Could not add that photo'); }
+  }; inp.click();
 }
 var photoUrls={};
 async function loadPhoto(img){
@@ -839,9 +996,9 @@ async function loadPhoto(img){
   if(r.data&&r.data.signedUrl){photoUrls[p]=r.data.signedUrl;img.src=r.data.signedUrl;}
 }
 function mealRow(m){return {client_id:S.clientId,meal_id:m.meal_id,day:m.day,body:m.body,updated_ms:m.updated_ms,deleted:!!m.deleted};}
-function openMealForm(d,forSlot){
-  var photo=null;
-  S.view=function(){openMealForm(d,forSlot);};
+function openMealForm(d,forSlot,editId){
+  var photo=null, em=editId&&S.meals[editId];
+  S.view=function(){openMealForm(d,forSlot,editId);};
   var nowD=new Date(), isToday=(d===today()), hh=isToday?nowD.getHours():13, mm=isToday?nowD.getMinutes():0;
   var slot=slotFor(hh);
   if(forSlot){
@@ -850,13 +1007,14 @@ function openMealForm(d,forSlot){
     // now, if now fits this meal; otherwise the meal's usual time (easy to change)
     if(!(isToday&&slotFor(hh)===forSlot)){ hh=+usual[0]; mm=+usual[1]; if(isToday&&hh*60+mm>nowD.getHours()*60+nowD.getMinutes()){hh=nowD.getHours();mm=nowD.getMinutes();} }
   }
+  if(em){ var et=String((em.body||{}).time||'').split(':'); if(et.length===2){hh=+et[0];mm=+et[1];} slot=(em.body||{}).slot||slot; }
   var days=[0,1,2,3,4,5,6].map(function(i){var x=addDays(today(),-i);return '<option value="'+x+'"'+(x===d?' selected':'')+'>'+(i===0?'Today':i===1?'Yesterday':parseD(x).toDateString().slice(0,10))+'</option>';}).join('');
   show('<div class="screen full"><div class="top"><button class="round" id="mfBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><span></span></div>'
-    +'<h1>Log a meal</h1>'
+    +'<h1>'+(em?'Edit meal':'Log a meal')+'</h1>'
     +'<div class="card" style="border:1px solid var(--line)"><div class="steplbl">WHEN DID YOU EAT?</div><div class="row"><select id="mfDay" aria-label="Day" style="flex:1;min-height:48px;border-radius:12px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);padding:0 10px">'+days+'</select>'
     +'<input id="mfTime" type="time" aria-label="Time" value="'+pad(hh)+':'+pad(mm)+'" style="flex:1;min-height:48px;border-radius:12px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);padding:0 10px"></div></div>'
     +'<div class="field"><label for="mfSlot">Which meal</label><select id="mfSlot">'+['Breakfast','Morning snack','Lunch','Evening snack','Dinner','Late snack'].map(function(s){return '<option'+(s===slot?' selected':'')+'>'+s+'</option>';}).join('')+'</select><div class="fhelp">Fills itself from the time. Change it if you like.</div></div>'
-    +'<div class="field"><label for="mfText">What did you have?</label><textarea id="mfText" placeholder="Grilled chicken, rice, salad"></textarea></div>'
+    +'<div class="field"><label for="mfText">What did you have?</label><textarea id="mfText" placeholder="Grilled chicken, rice, salad">'+(em?esc((em.body||{}).text||''):'')+'</textarea></div>'
     +'<button class="btn out" id="mfPhoto">Add a photo</button><img id="mfPrev" class="hide" alt="Meal photo preview" style="width:100%;border-radius:16px">'
     +'<div class="meta" id="mfNote">With a photo, you\'ll get gentle feedback in hand portions.</div>'
     +'<button class="btn" id="mfSave">Save</button></div>');
@@ -869,12 +1027,23 @@ function openMealForm(d,forSlot){
     catch(e){toast('Could not read that photo');}
   };inp.click();};
   $('#mfSave').onclick=async function(){
-    var text=$('#mfText').value.trim(); if(!text&&!photo){toast('Add a note or a photo');return;}
+    var text=$('#mfText').value.trim(); if(!text&&!photo&&!(em&&mealPhotos(em.body).length)){toast('Add a note or a photo');return;}
     var tv=String($('#mfTime').value||''); if(!/^\d{1,2}:\d{2}$/.test(tv)){toast('Add the time you ate');return;}
     d=$('#mfDay').value||d; var tp=tv.split(':'), ed=parseD(d); ed.setHours(+tp[0],+tp[1],0,0);
     if(ed.getTime()>now()+5*60000){toast('That time is still in the future');return;}
     this.disabled=true; this.textContent=photo?'Saving and looking at your plate...':'Saving...';
     var m={meal_id:uid(),day:d,updated_ms:now(),deleted:false,body:{slot:$('#mfSlot').value,text:text.slice(0,1000),at:now(),eatenAt:ed.toISOString(),time:tv}};
+    if(em){
+      var oldText=(em.body||{}).text||'';
+      m={meal_id:em.meal_id,day:d,updated_ms:now(),deleted:false,body:Object.assign({},em.body,{slot:$('#mfSlot').value,text:text.slice(0,1000),eatenAt:ed.toISOString(),time:tv})};
+      if(photo){
+        var pth=S.clientId+'/'+m.meal_id+'-'+uid()+'.jpg', up2=await sb.storage.from('kfit-meals').upload(pth,photo,{contentType:'image/jpeg',upsert:false});
+        if(!up2.error){ var fb2=null; try{fb2=await handFeedback(photo,text);}catch(e){} var ps2=mealPhotos(m.body); ps2.push({path:pth,at:now(),feedback:fb2}); m.body.photos=ps2; delete m.body.photo; }
+      } else if(text!==oldText&&!mealPhotos(m.body).length){ try{ m.body.feedback=await textFeedback(text); }catch(e){} }
+      if(em.day!==d){ em.deleted=true; em.updated_ms=now(); write('nutrition_meals',mealRow(em)); m.meal_id=uid(); }
+      S.meals[m.meal_id]=m; await write('nutrition_meals',mealRow(m));
+      S.view=null; S._logDay=d; S.tab='log'; render(); return;
+    }
     if(photo){
       var path=S.clientId+'/'+m.meal_id+'.jpg';
       var up=await sb.storage.from('kfit-meals').upload(path,photo,{contentType:'image/jpeg',upsert:false});
@@ -1015,7 +1184,7 @@ function targets(){
   return {maint:maint,loss:Math.min(loss,maint),floor:floor};
 }
 function dayKcal(d){
-  var sum=0,n=0; Object.keys(S.meals).forEach(function(k){var m=S.meals[k];if(m.day===d&&!m.deleted&&m.body&&m.body.feedback&&m.body.feedback.kcal){sum+=m.body.feedback.kcal;n++;}});
+  var sum=0,n=0; Object.keys(S.meals).forEach(function(k){var m=S.meals[k];if(m.day!==d||m.deleted||!m.body)return;var f=aggFeedback(m.body);if(f&&f.kcal){sum+=f.kcal;n++;}});
   return {sum:sum,n:n};
 }
 function kcalBar(d){
@@ -1323,7 +1492,7 @@ function boot(){
     if(!S.program) renderAccess();
   }).catch(function(){ if(!S.program) renderSignIn('We couldn\'t connect just now. Check your internet and try again.'); });
 }
-window.KFNC={state:S,render:render,_test:{stepDays:stepDays,dayIndex:dayIndex,startTemplate:startTemplate,decide:decide,migrate:kfitClientAuthMigrate}};
+window.KFNC={state:S,render:render,_test:{stepDays:stepDays,dayIndex:dayIndex,startTemplate:startTemplate,decide:decide,migrate:kfitClientAuthMigrate,reloadComments:loadComments}};
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){}); }
 })();

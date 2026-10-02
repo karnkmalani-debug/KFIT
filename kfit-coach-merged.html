@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="/icon-coach-192.png">
 <link rel="icon" href="/icon-coach-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700;800;900&family=DM+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700;800;900&family=DM+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -24,10 +24,10 @@
 }
 body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;padding-bottom:40px;}
 .topbar{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;}
-.logo{font-size:22px;font-weight:900;letter-spacing:-1px;color:#fff;}
+.logo{font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:900;letter-spacing:-.5px;color:#fff;line-height:1;flex-shrink:0;}
 .logo .g{color:var(--sage);}
 .logo .t{color:var(--terra);}
-.page-title{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+.page-title{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;margin-left:10px;align-self:center;}
 .content{max-width:520px;margin:0 auto;padding:18px;}
 .card{background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
 .card-title{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
@@ -187,8 +187,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <button onclick="openTrash()" title="Trash" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px;">🗑</button>
     <button onclick="window.print()" title="Print this screen" style="width:30px;height:30px;border-radius:50%;background:var(--surf2);border:1px solid var(--border);color:var(--muted);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">&#128424;</button>
   </div>
-  <div id="coachAccountLine" style="padding:2px 16px 8px;font-size:11px;color:var(--muted);"></div>
-  <div style="padding:0 16px 6px;font-size:10px;color:var(--muted);opacity:.5;">build 2026-09-18-inset-fix</div>
+  <div id="coachAccountLine" style="display:none;"></div>
+  <div id="coachBuildLine" style="display:none;">build 2026-09-29-batch5</div>
 
   <div class="mode-toggle">
     <button class="mode-btn active" id="modeBtnClients" onclick="switchMode('clients')">👤 Clients</button>
@@ -6774,10 +6774,16 @@ async function nutCoachAttach(c){
   }
   document.getElementById('uniSubTabNut').style.display='block';
   if(!c.nut){ document.getElementById('uniNutDetail').innerHTML=''; if(!c.fit) setUniSubTab('nutrition'); }
-  await nutCoachPanel(cid,box,hasProg?r.data[0]:null);
-  var tools=document.createElement('div'); tools.id='ncTools_'+cid; box.appendChild(tools);
-  ncToolsRender(cid,'week');
+  // Order: billing → her days (meal conversations) → plan a day → habits & plan
+  box.innerHTML=NC_F+'<div id="ncBill_'+cid+'"></div><div id="ncDays_'+cid+'"></div>'
+    +'<details class="card nc-fold" style="margin-bottom:12px"><summary style="cursor:pointer;font-size:15px;font-weight:800">🗓️ Plan a day for her</summary><div id="ncTools_'+cid+'" style="margin-top:10px"></div></details>'
+    +'<details class="card nc-fold" open style="margin-bottom:12px"><summary style="cursor:pointer;font-size:15px;font-weight:800">🌱 Habits &amp; plan</summary><div id="ncPlanBox_'+cid+'" style="margin-top:10px"></div></details>';
+  ncCurrent=cid;
+  ncBillRender(cid); ncDaysRender(cid);
+  ncToolsRender(cid,'plan',true);
+  await nutCoachPanel(cid,document.getElementById('ncPlanBox_'+cid),hasProg?r.data[0]:null);
 }
+var ncCurrent=null;
 async function nutCoachPanel(cid,box,p){
   var since=ncAddDays(ncToday(),-27);
   var ck=await getSB().from('nutrition_checkins').select('*').eq('client_id',cid).gte('day',since);
@@ -6898,7 +6904,9 @@ async function ncLoadWeek(cid){
   var since=ncAddDays(ncToday(),-90), rows=[];
   var ml=await getSB().from('nutrition_meals').select('meal_id,day,deleted,body,created_at').eq('client_id',cid).gte('day',since);
   (ml.data||[]).filter(function(x){return !x.deleted;}).forEach(function(x){var b=x.body||{};
-    rows.push({day:x.day,time:b.time||(b.eatenAt?new Date(b.eatenAt).toTimeString().slice(0,5):''),slot:b.slot||'',text:b.text||'',note:'',src:'app',ts:x.created_at?new Date(x.created_at).getTime():(b.at||0),kcal:b.feedback&&b.feedback.kcal});});
+    var ps=Array.isArray(b.photos)?b.photos.slice():[]; if(b.photo&&!ps.some(function(q){return q.path===b.photo;})) ps.unshift({path:b.photo,feedback:b.feedback});
+    var kc=ps.reduce(function(a,q){return a+((q.feedback&&Number(q.feedback.kcal))||0);},0)||(b.feedback&&b.feedback.kcal)||null;
+    rows.push({day:x.day,meal_id:x.meal_id,time:b.time||(b.eatenAt?new Date(b.eatenAt).toTimeString().slice(0,5):''),slot:b.slot||'',text:b.text||'',note:'',src:'app',ts:x.created_at?new Date(x.created_at).getTime():(b.at||0),kcal:kc,photos:ps.map(function(q){return q.path;}),fromPlan:!!b.planKey});});
   // earlier-app log (days only, no times were recorded then)
   var td=await getSB().from('tracker_data').select('data').eq('client_id',cid).eq('tracker','nutrition');
   var d=td.data&&td.data[0]&&td.data[0].data; if(typeof d==='string'){try{d=JSON.parse(d);}catch(e){d=null;}}
@@ -6924,12 +6932,12 @@ function ncWeekLabel(ws){var thisW=ncWeekStart(ncToday()),lastW=ncAddDays(thisW,
   return (ws===thisW?'This week · ':ws===lastW?'Last week · ':'')+f(ws)+' – '+f(e);}
 function ncMonthLabel(d){var p=d.split('-');return new Date(+p[0],+p[1]-1,1).toLocaleDateString([], {month:'long',year:'numeric'});}
 var NC_F='<style>.nc-time{font-family:"DM Mono",ui-monospace,Menlo,monospace;color:#C9A24A;font-size:13px}.nc-meal{font-family:"Playfair Display",Georgia,serif;font-size:15px}.nc-food{font-size:13px;color:var(--text)}.nc-day{font-size:12px;letter-spacing:.08em;color:#C9A24A;font-weight:800;margin:10px 0 4px;padding-top:8px;border-top:1px solid var(--border)}.nc-wk{border:1px solid var(--border);border-radius:10px;margin-top:8px;overflow:hidden}.nc-wk>summary{cursor:pointer;padding:10px 12px;background:var(--surf2);font-weight:800;font-size:14px;display:flex;justify-content:space-between;list-style:none}.nc-wk>summary::-webkit-details-marker{display:none}.nc-wkb{padding:0 12px 10px}.nc-new{background:#2A2618;border:1px solid #6B5A2A;color:#E7CF8C;border-radius:5px;padding:0 5px;font-size:11px;font-weight:800;margin-left:6px}.nc-note{background:#2A2618;border:1px solid #6B5A2A;color:#E7CF8C;border-radius:6px;padding:1px 6px;font-size:12px}</style>';
-async function ncToolsRender(cid,tab){
+async function ncToolsRender(cid,tab,noTabs){
   var el=document.getElementById('ncTools_'+cid); if(!el) return;
   var st=ncState[cid]=ncState[cid]||{rows:null,plan:null,tab:'week'};
-  st.tab=tab||st.tab;
+  st.tab=tab||st.tab; if(noTabs!==undefined) st.noTabs=noTabs;
   var tabs=[['week','Her week'],['plan','Meal plan'],['sent','Sent']].map(function(t){return '<button class="btn-sm" data-nctab="'+t[0]+'" style="'+(st.tab===t[0]?'background:var(--sage);color:#fff':'')+'">'+t[1]+'</button>';}).join(' ');
-  var html='<div class="card" style="margin-bottom:12px"><div style="font-size:16px;font-weight:800;margin-bottom:8px">✍️ Coach notes</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+tabs+'</div><div id="ncBody_'+cid+'">Loading…</div></div>';
+  var html=st.noTabs?'<div id="ncBody_'+cid+'">Loading…</div>':'<div class="card" style="margin-bottom:12px"><div style="font-size:16px;font-weight:800;margin-bottom:8px">✍️ Coach notes</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+tabs+'</div><div id="ncBody_'+cid+'">Loading…</div></div>';
   el.innerHTML=html;
   el.querySelectorAll('[data-nctab]').forEach(function(b){b.onclick=function(){ncToolsRender(cid,b.dataset.nctab);};});
   var body=document.getElementById('ncBody_'+cid);
@@ -7030,10 +7038,10 @@ async function ncSendPlan(cid){
   var r=await getSB().from('nutrition_coach_notes').insert(ins);
   b.disabled=false;
   if(r.error){alert('Not sent -- nothing changed. '+r.error.message);return;}
-  alert('Plan sent for '+ins.length+' day'+(ins.length===1?'':'s')+'.'); ncToolsRender(cid,'sent');
+  alert('Plan sent for '+ins.length+' day'+(ins.length===1?'':'s')+'. She sees it in her day as meals to tick off.'); ncToolsRender(cid,'plan'); ncDaysRender(cid);
 }
 function ncB64(file){return new Promise(function(ok,bad){var img=new Image();img.onload=function(){var s=Math.min(1,1600/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',0.8).split(',')[1]);};img.onerror=bad;img.src=URL.createObjectURL(file);});}
-async function ncImportShots(cid,files){
+async function ncImportShots(cid,files,intoDays){
   var st=ncState[cid], msg=document.getElementById('ncShotMsg_'+cid), added=0, failed=0;
   var yr=new Date().getFullYear();
   for(var i=0;i<files.length;i++){
@@ -7054,10 +7062,136 @@ async function ncImportShots(cid,files){
     }catch(e){ failed++; console.warn('screenshot import',e); }
   }
   st.rows.sort(function(a,b){return a.day===b.day?(a.time||'99').localeCompare(b.time||'99'):(a.day<b.day?1:-1);});
-  ncToolsRender(cid,'week');
+  if(intoDays){ st.keepShots=st.rows.filter(function(r){return r.src==='screenshot';}); ncDaysRender(cid); } else ncToolsRender(cid,'week');
   var m2=document.getElementById('ncShotMsg_'+cid); if(m2) m2.textContent='Added '+added+' meal'+(added===1?'':'s')+' from screenshots'+(failed?' ('+failed+' could not be read)':'')+'. Please check them before sending.';
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// Nutrition client page: billing strip + her days as meal conversations.
+// ═══════════════════════════════════════════════════════════════════
+function ncAddMonths(d,k){var p=d.split('-'),y=+p[0],m=+p[1]-1+k,dd=+p[2];y+=Math.floor(m/12);m=((m%12)+12)%12;var last=new Date(y,m+1,0).getDate();var x=new Date(y,m,Math.min(dd,last));return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');}
+function ncNice(d){var p=d.split('-');return new Date(+p[0],+p[1]-1,+p[2]).toDateString().slice(0,10);}
+async function ncBillRender(cid){
+  var el=document.getElementById('ncBill_'+cid); if(!el) return;
+  var b=await getSB().from('nutrition_billing').select('*').eq('client_id',cid);
+  var bill=b.data&&b.data[0];
+  var cs=await getSB().from('nutrition_consults').select('*').eq('client_id',cid).order('consult_day',{ascending:false}).limit(50);
+  var consults=(cs.data||[]);
+  var html='<div class="card" style="margin-bottom:12px;gap:8px">';
+  if(!bill){
+    html+='<div style="font-size:15px;font-weight:800">💳 Billing &amp; consults</div><div style="font-size:13px;color:var(--muted)">Set her start date. She renews on the same date each month, with a consult each week.</div>'
+      +'<div style="display:flex;gap:8px;align-items:center;margin-top:6px"><input type="date" id="ncStart_'+cid+'" value="'+ncToday()+'" style="padding:8px;border-radius:8px"><button class="btn-sm" id="ncSetStart_'+cid+'">Set start date</button></div>';
+  } else {
+    var start=bill.start_date, k=0; while(ncAddMonths(start,k+1)<=ncToday()) k++;
+    var cur=ncAddMonths(start,k), renew=ncAddMonths(start,k+1), paid=(bill.paid_months||[]).indexOf(cur)>=0;
+    var lastC=consults[0], nextC=ncAddDays(lastC?lastC.consult_day:start,7); while(nextC<ncToday()) nextC=ncAddDays(nextC,7);
+    html+='<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:15px;font-weight:800">💳 Month '+(k+1)+'</div><button class="btn-sm" id="ncPaid_'+cid+'" style="'+(paid?'background:var(--sage);color:#fff':'')+'">'+(paid?'Paid ✓':'Mark this month paid')+'</button></div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">'
+      +'<div><div style="font-size:11px;color:var(--muted);letter-spacing:.08em">STARTED</div>'+ncNice(start)+'</div>'
+      +'<div><div style="font-size:11px;color:var(--muted);letter-spacing:.08em">RENEWS</div>'+ncNice(renew)+' · <span style="color:'+(paid?'var(--sage)':'var(--terra)')+'">'+(paid?'paid':'unpaid')+'</span></div>'
+      +'<div><div style="font-size:11px;color:var(--muted);letter-spacing:.08em">NEXT CONSULT</div>'+ncNice(nextC)+'</div>'
+      +'<div><div style="font-size:11px;color:var(--muted);letter-spacing:.08em">LAST CONSULT</div>'+(lastC?ncNice(lastC.consult_day)+(lastC.notes?' · "'+ncEsc(lastC.notes.slice(0,60))+'"':''):'none yet')+'</div></div>'
+      +'<details><summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--sage)">Consult notes ('+consults.length+') · add one</summary>'
+      +'<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px"><div style="display:flex;gap:6px"><input type="date" id="ncCDay_'+cid+'" value="'+ncToday()+'" style="padding:6px;border-radius:8px"><button class="btn-sm" id="ncCAdd_'+cid+'">Save consult</button></div>'
+      +'<textarea id="ncCNote_'+cid+'" placeholder="What you discussed (optional)" style="min-height:56px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit"></textarea>'
+      +consults.map(function(c){return '<div style="font-size:13px;border-top:1px solid var(--border);padding-top:6px"><span class="nc-time">'+ncEsc(ncNice(c.consult_day))+'</span> '+ncEsc(c.notes||'')+'</div>';}).join('')
+      +'<div style="font-size:12px;color:var(--muted)">Change start date: <input type="date" id="ncStart_'+cid+'" value="'+start+'" style="padding:4px;border-radius:6px"> <button class="btn-sm" id="ncSetStart_'+cid+'">Save</button></div></div></details>';
+  }
+  el.innerHTML=html+'</div>';
+  var ss=document.getElementById('ncSetStart_'+cid); if(ss) ss.onclick=async function(){
+    var v=document.getElementById('ncStart_'+cid).value; if(!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+    var r=await getSB().from('nutrition_billing').upsert({client_id:cid,start_date:v,paid_months:bill?bill.paid_months:[]},{onConflict:'client_id'});
+    if(r.error){alert('Not saved -- '+r.error.message);return;} ncBillRender(cid);
+  };
+  var pb=document.getElementById('ncPaid_'+cid); if(pb) pb.onclick=async function(){
+    var start=bill.start_date,k=0; while(ncAddMonths(start,k+1)<=ncToday()) k++; var cur=ncAddMonths(start,k);
+    var pm=(bill.paid_months||[]).slice(), i=pm.indexOf(cur); if(i>=0){ if(!confirm('Mark this month as unpaid?')) return; pm.splice(i,1);} else pm.push(cur);
+    var r=await getSB().from('nutrition_billing').update({paid_months:pm}).eq('client_id',cid);
+    if(r.error){alert('Not saved -- '+r.error.message);return;} ncBillRender(cid);
+  };
+  var ca=document.getElementById('ncCAdd_'+cid); if(ca) ca.onclick=async function(){
+    var d=document.getElementById('ncCDay_'+cid).value, n=(document.getElementById('ncCNote_'+cid).value||'').trim();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+    var r=await getSB().from('nutrition_consults').insert({client_id:cid,consult_day:d,notes:n||null});
+    if(r.error){alert('Not saved -- '+r.error.message);return;} ncBillRender(cid);
+  };
+}
+// Her days: every meal with its photos and a conversation under it.
+async function ncDaysRender(cid){
+  var el=document.getElementById('ncDays_'+cid); if(!el) return;
+  var st=ncState[cid]=ncState[cid]||{rows:null,plan:null,tab:'week'};
+  st.rows=(await ncLoadWeek(cid)).concat(st.keepShots||[]);
+  st.rows.sort(function(a,b){return a.day===b.day?(a.time||'99').localeCompare(b.time||'99'):(a.day<b.day?1:-1);});
+  var cm=await getSB().from('nutrition_meal_comments').select('*').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-90)).order('created_at',{ascending:true});
+  var comments=((cm.data)||[]).filter(function(c){return !c.deleted;});
+  var mob=cid.slice(6), seen=ncPrevSeen[mob]||0, thisW=ncWeekStart(ncToday()), monthCut=ncAddDays(thisW,-21);
+  var byMeal={}, byDay={};
+  comments.forEach(function(c){ if(c.meal_id){(byMeal[c.meal_id]=byMeal[c.meal_id]||[]).push(c);} else {(byDay[c.day]=byDay[c.day]||[]).push(c);} });
+  var days={}; st.rows.forEach(function(r){days[r.day]=1;}); Object.keys(byDay).forEach(function(d){days[d]=1;});
+  var dayList=Object.keys(days).sort().reverse();
+  function bubble(c){var me=c.author==='coach', isNew=c.author==='client'&&new Date(c.created_at).getTime()>seen;
+    return '<div style="align-self:'+(me?'flex-start':'flex-end')+';max-width:88%;background:'+(me?'#2A2618':'#23382B')+';border:1px solid '+(me?'#6B5A2A':'#3D6B4F')+';color:'+(me?'#E7CF8C':'#CFEBD8')+';border-radius:'+(me?'12px 12px 12px 4px':'12px 12px 4px 12px')+';padding:6px 10px;font-size:13px">'
+      +(me?'':'<b>Her:</b> ')+ncEsc(c.body)+(isNew?'<span class="nc-new">NEW</span>':'')
+      +'<div style="font-size:11px;opacity:.75">'+new Date(c.created_at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase()+' · '+new Date(c.created_at).toDateString().slice(4,10)
+      +(c.edited_at?' · edited':'')+(me?(c.read_by_client_at?' · seen ✓':' · not seen yet')+' · <a href="#" data-nce="'+c.id+'" style="color:inherit">edit</a>':'')+'</div></div>';}
+  function thread(list,key,ph){
+    return '<div style="display:flex;flex-direction:column;gap:5px;margin-top:6px">'+(list||[]).map(bubble).join('')
+      +'<div style="display:flex;gap:6px"><input data-ncin="'+key+'" placeholder="'+ph+'" style="flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:13px"><button class="btn-sm" data-ncsend="'+key+'">Send</button></div></div>';}
+  var groups=[], gi={};
+  dayList.forEach(function(d){var key=d>=monthCut?'w'+ncWeekStart(d):'m'+d.slice(0,7);
+    if(!gi[key]){gi[key]={label:key[0]==='w'?ncWeekLabel(key.slice(1)):ncMonthLabel(d),days:[],meals:0,kcal:0};groups.push(gi[key]);}
+    gi[key].days.push(d);});
+  var html='<div class="card" style="margin-bottom:12px;gap:6px"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:16px;font-weight:800">🍽️ Her days</div>'
+    +'<label class="btn-sm" style="display:inline-flex;align-items:center">📷 Import screenshots<input type="file" accept="image/*" multiple id="ncShots_'+cid+'" style="display:none"></label></div>'
+    +'<div style="font-size:12px;color:var(--muted)">Write a note under any meal or day. It\'s sent straight away, she can reply, and you can edit it anytime.</div><div id="ncShotMsg_'+cid+'" style="font-size:12px;color:var(--muted)"></div>';
+  groups.forEach(function(g,gix){
+    var inner='', hasNew=false;
+    g.days.forEach(function(d){
+      var meals=st.rows.map(function(r,i){r._i=i;return r;}).filter(function(r){return r.day===d;});
+      var dk=meals.reduce(function(a,r){return a+(r.kcal||0);},0); g.meals+=meals.length; g.kcal+=dk;
+      inner+='<div class="nc-day">'+ncEsc(ncDayLabel(d).toUpperCase())+(dk?' · ~'+Math.round(dk/10)*10+' KCAL':'')+'</div>';
+      meals.forEach(function(r){
+        var isNew=r.src==='app'&&r.ts&&r.ts>seen; if(isNew||r.src==='screenshot') hasNew=true;
+        var th=r.meal_id?(byMeal[r.meal_id]||[]):[]; if(th.some(function(c){return c.author==='client'&&new Date(c.created_at).getTime()>seen;})) hasNew=true;
+        inner+='<div style="background:var(--surf2);border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin:6px 0;'+(isNew?'box-shadow:inset 3px 0 0 #C9A24A;':'')+'">'
+          +'<div>'+(r.time?'<span class="nc-time">'+ncEsc(r.time)+'</span> ':'')+'<span class="nc-meal">'+ncEsc(r.slot||'Meal')+'</span>'+(isNew?'<span class="nc-new">NEW</span>':'')
+          +(r.fromPlan?' <span style="color:var(--muted);font-size:11px">(from your plan)</span>':'')+(r.src==='screenshot'?' <span style="color:var(--muted);font-size:11px">(screenshot)</span>':'')+(r.src==='earlier'?' <span style="color:var(--muted);font-size:11px">(earlier app)</span>':'')
+          +(r.kcal?' <span style="color:var(--muted);font-size:12px">· ~'+r.kcal+' kcal</span>':'')+'</div>'
+          +(r.text?'<div class="nc-food">'+ncEsc(r.text)+'</div>':'')
+          +((r.photos||[]).length?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+r.photos.map(function(pth){return '<img data-ncph="'+ncEsc(pth)+'" alt="Meal photo" style="width:64px;height:64px;border-radius:8px;object-fit:cover;background:#333;cursor:pointer">';}).join('')+'</div>':'')
+          +(r.meal_id?thread(th,'m|'+r.meal_id+'|'+d,'Note on this meal…'):thread([], 's|'+r._i+'|'+d,'Note on this meal…'))+'</div>';
+      });
+      inner+='<div style="margin:2px 0 8px">'+thread(byDay[d],'d||'+d,'Note on '+ncDayLabel(d)+'…')+'</div>';
+    });
+    var nd=g.days.length;
+    html+='<details class="nc-wk"'+(gix===0||hasNew?' open':'')+'><summary><span>'+ncEsc(g.label)+'</span><span style="font-weight:500;color:var(--muted);font-size:12px">'+g.meals+' meal'+(g.meals===1?'':'s')+' · '+nd+' day'+(nd===1?'':'s')+(g.kcal?' · ~'+Math.round(g.kcal/Math.max(1,nd)/10)*10+' kcal/day':'')+' ▾</span></summary><div class="nc-wkb">'+inner+'</div></details>';
+  });
+  if(!groups.length) html+='<div style="font-size:13px;color:var(--muted)">No meals logged yet.</div>';
+  el.innerHTML=html+'</div>';
+  // photos (signed links from her private folder)
+  el.querySelectorAll('[data-ncph]').forEach(async function(img){
+    try{ var u=await getSB().storage.from('kfit-meals').createSignedUrl(img.dataset.ncph,3600); if(u.data&&u.data.signedUrl){ img.src=u.data.signedUrl; img.onclick=function(){window.open(u.data.signedUrl,'_blank');}; } }catch(e){}
+  });
+  el.querySelectorAll('[data-ncsend]').forEach(function(b){b.onclick=async function(){
+    var key=b.dataset.ncsend, inp=el.querySelector('[data-ncin="'+key+'"]'), txt=(inp&&inp.value||'').trim(); if(!txt) return;
+    var k=key.split('|'), row={client_id:cid,day:k[2],meal_id:null,author:'coach',body:txt.slice(0,2000)};
+    if(k[0]==='m') row.meal_id=k[1];
+    if(k[0]==='s'){ var r0=st.rows[+k[1]]; row.body=((r0.slot?r0.slot+' · ':'')+(r0.text?r0.text+' -- ':'')+txt).slice(0,2000); }
+    b.disabled=true; var res=await getSB().from('nutrition_meal_comments').insert(row); b.disabled=false;
+    if(res.error){alert('Not sent -- '+res.error.message);return;}
+    ncDaysRender(cid);
+  };});
+  el.querySelectorAll('[data-nce]').forEach(function(a){a.onclick=async function(e){
+    e.preventDefault(); var c=comments.filter(function(x){return String(x.id)===a.dataset.nce;})[0]; if(!c) return;
+    var t=prompt('Edit your note (leave empty to delete it):',c.body); if(t===null) return;
+    var res=await getSB().from('nutrition_meal_comments').update(t.trim()?{body:t.trim().slice(0,2000)}:{deleted:true}).eq('id',c.id);
+    if(res.error){alert('Not saved -- '+res.error.message);return;} ncDaysRender(cid);
+  };});
+  var shots=document.getElementById('ncShots_'+cid); if(shots) shots.onchange=async function(){ await ncImportShots(cid,this.files,true); };
+  // her replies are now seen
+  var unread=comments.filter(function(c){return c.author==='client'&&!c.read_by_coach_at;}).map(function(c){return c.id;});
+  if(unread.length) getSB().from('nutrition_meal_comments').update({read_by_coach_at:new Date().toISOString()}).in('id',unread).then(function(){if(window.kfitBellRefresh)kfitBellRefresh();});
+}
 // ═══════════════════════════════════════════════════════════════════
 // 🔔 What's new: meals, check-ins and sessions from your tagged clients
 // (fitness and nutrition), last 7 days. An item is NEW until you open that
@@ -7078,19 +7212,30 @@ async function kfitBellLoad(){
   try{
     var ml=await getSB().from('nutrition_meals').select('client_id,day,body,created_at,deleted').gte('created_at',sinceIso).limit(300);
     (ml.data||[]).forEach(function(x){var m=String(x.client_id).slice(6); if(x.deleted||!tagged[m]||hidden[m]) return; var b=x.body||{};
-      items.push({m:m,ts:new Date(x.created_at).getTime(),icon:'🥗',text:'<b>'+ncEsc(nm(m))+'</b> logged '+ncEsc(String(b.slot||'a meal').toLowerCase())+(b.text?' · '+ncEsc(String(b.text).slice(0,60)):'')+(b.time?' <span style="color:var(--muted)">('+ncEsc(b.time)+')</span>':'')});});
+      items.push({m:m,ts:new Date(x.created_at).getTime(),icon:'🥗',text:'<b>'+ncEsc(nm(m))+'</b> · <span class="nc-meal">'+ncEsc(b.slot||'Meal')+'</span>'+(b.time?' <span class="nc-time">'+ncEsc(b.time)+'</span>':'')+(b.text?'<div class="nc-food">'+ncEsc(String(b.text).slice(0,90))+'</div>':'')});});
   }catch(e){}
   try{
     var ck=await getSB().from('nutrition_checkins').select('client_id,day,answer,reflection,updated_at').gte('updated_at',sinceIso).limit(300);
     (ck.data||[]).forEach(function(x){var m=String(x.client_id).slice(6); if(!tagged[m]||hidden[m]) return;
       var ms=x.reflection&&x.reflection.measure;
-      if(x.answer) items.push({m:m,ts:new Date(x.updated_at).getTime(),icon:'✅',text:'<b>'+ncEsc(nm(m))+'</b> checked in · '+({done:'Done',partly:'Partly',not:'Not today'}[x.answer]||x.answer)});
+      if(x.answer) items.push({m:m,ts:new Date(x.updated_at).getTime(),icon:'✅',text:'<b>'+ncEsc(nm(m))+'</b> · <span class="nc-meal">Habit check-in</span><div class="nc-food">'+({done:'Done',partly:'Partly',not:'Not today'}[x.answer]||x.answer)+'</div>'});
       if(ms) items.push({m:m,ts:new Date(x.updated_at).getTime()-1,icon:'📏',text:'<b>'+ncEsc(nm(m))+'</b> weekly check-in'+(ms.waist?' · waist '+ms.waist+' cm':'')+(ms.weight?' · '+ms.weight+' kg':'')});});
   }catch(e){}
   try{
-    var fs=await getSB().from('fitness_sessions').select('client_id,session_date,created_at,deleted').gte('created_at',sinceIso).limit(300);
+    var sinceDay=ncAddDays(ncToday(),-7);
+    var fs=await getSB().from('fitness_sessions').select('client_id,session_date,time_of_day,created_at,updated_at,deleted,bp:body->bodyParts,cardio:body->cardio,functional:body->functional,exercises:body->exercises,supersets:body->supersets,duration:body->duration').gte('session_date',sinceDay).limit(300);
     (fs.data||[]).forEach(function(x){var m=String(x.client_id).slice(6); if(x.deleted||!tagged[m]||hidden[m]) return;
-      items.push({m:m,ts:new Date(x.created_at).getTime(),icon:'🏋️',text:'<b>'+ncEsc(nm(m))+'</b> logged a workout'+(x.session_date?' · '+ncEsc(ncDayLabel(x.session_date)):'')});});
+      var bp=Array.isArray(x.bp)?x.bp:[]; if(!bp.length&&typeof mergeDerivedBodyParts==='function') bp=mergeDerivedBodyParts({exercises:x.exercises||[],supersets:x.supersets||[]});
+      var kinds=bp.slice(); if(Array.isArray(x.cardio)&&x.cardio.length) kinds.push('Cardio'); if(Array.isArray(x.functional)&&x.functional.length) kinds.push('Functional');
+      var nEx=(Array.isArray(x.exercises)?x.exercises.length:0)+(Array.isArray(x.supersets)?x.supersets.reduce(function(a,q){return a+((q&&q.exercises)||[]).length;},0):0);
+      var when=x.created_at?new Date(x.created_at).getTime():0; if(x.session_date&&ncDayLabel){ var p=x.session_date.split('-'); var dt=new Date(+p[0],+p[1]-1,+p[2],12); if(!when||Math.abs(when-dt.getTime())>3*864e5) when=dt.getTime(); }
+      items.push({m:m,ts:when,icon:'🏋️',text:'<b>'+ncEsc(nm(m))+'</b> · <span class="nc-meal">Workout</span>'+(x.time_of_day?' <span class="nc-time">'+ncEsc(String(x.time_of_day).slice(0,8))+'</span>':'')
+        +'<div class="nc-food">'+ncEsc(kinds.join(', ')||'Workout')+(nEx?' · '+nEx+' exercise'+(nEx===1?'':'s'):'')+(x.duration?' · '+ncEsc(x.duration)+' min':'')+' · '+ncEsc(ncDayLabel(x.session_date))+'</div>'});});
+  }catch(e){}
+  try{
+    var rc=await getSB().from('nutrition_meal_comments').select('client_id,day,body,created_at,author,deleted').eq('author','client').gte('created_at',sinceIso).limit(300);
+    (rc.data||[]).forEach(function(x){var m=String(x.client_id).slice(6); if(x.deleted||!tagged[m]||hidden[m]) return;
+      items.push({m:m,ts:new Date(x.created_at).getTime(),icon:'💬',text:'<b>'+ncEsc(nm(m))+'</b> · <span class="nc-meal">Replied</span> <span class="nc-time">'+ncEsc(ncDayLabel(x.day))+'</span><div class="nc-food">"'+ncEsc(String(x.body).slice(0,90))+'"</div>'});});
   }catch(e){}
   var seen=ncSeenAll();
   items.forEach(function(it){it.isNew=it.ts>(seen[it.m]||0);});
@@ -7111,7 +7256,7 @@ async function kfitBellOpen(){
       +'<div style="font-size:14px;line-height:1.45">'+it.icon+' '+it.text+'<div style="font-size:12px;color:var(--muted)">'+d.toDateString().slice(0,10)+', '+d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase()+'</div></div>'
       +(it.isNew?'<span style="background:#2A2618;border:1px solid #6B5A2A;color:#E7CF8C;border-radius:6px;padding:1px 6px;font-size:11px;font-weight:800">NEW</span>':'')+'</div>';}).join('')
     :'<div style="font-size:14px;color:var(--muted);padding:10px 0">Nothing new from your tagged clients in the last 7 days.</div>';
-  ov.innerHTML='<div style="max-width:560px;margin:0 auto;background:var(--surf,#1b1b1b);border-radius:14px;padding:16px;color:var(--text)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:18px;font-weight:800">🔔 What\'s new</div><button class="btn-sm" id="bellClose">Close</button></div>'
+  ov.innerHTML=NC_F+'<div style="max-width:560px;margin:0 auto;background:var(--surf,#1b1b1b);border-radius:14px;padding:16px;color:var(--text)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:18px;font-weight:800">🔔 What\'s new</div><button class="btn-sm" id="bellClose">Close</button></div>'
     +'<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Your tagged clients, last 7 days. Tap one to open them; it stops being new once you have.</div>'+rows+'</div>';
   document.getElementById('bellClose').onclick=function(){ov.remove();};
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
@@ -7121,7 +7266,24 @@ async function kfitBellOpen(){
       if(c) openUniClient(c.key); else alert('Open this client from your client list.'); }catch(e){}
   };});
 }
-setTimeout(function(){kfitBellRefresh();setInterval(kfitBellRefresh,60000);},2500);
+setTimeout(function(){kfitBellRefresh();setInterval(kfitBellRefresh,60000);kfitLiveStart();},2500);
+var kfitLive=null, kfitLiveT=null;
+function kfitLiveStart(){
+  try{
+    if(kfitLive||typeof getSB!=='function') return; var sb=getSB(); if(!sb||!sb.channel) return;
+    var onChange=function(payload){
+      clearTimeout(kfitLiveT);
+      kfitLiveT=setTimeout(function(){
+        kfitBellRefresh();
+        var row=(payload&&(payload.new||payload.old))||{};
+        if(ncCurrent&&row.client_id&&String(row.client_id).slice(6)===ncCurrent.slice(6)&&document.getElementById('ncDays_'+ncCurrent)) ncDaysRender(ncCurrent);
+      },800);
+    };
+    kfitLive=sb.channel('kfit-coach-live');
+    ['nutrition_meals','nutrition_checkins','nutrition_meal_comments','fitness_sessions'].forEach(function(t){ kfitLive=kfitLive.on('postgres_changes',{event:'*',schema:'public',table:t},onChange); });
+    kfitLive.subscribe();
+  }catch(e){ console.warn('live updates off',e); }
+}
 </script>
 </body>
 </html>
