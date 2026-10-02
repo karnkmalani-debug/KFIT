@@ -151,6 +151,12 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .set-header span{font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted2);text-align:center;}
 .set-row{display:grid;grid-template-columns:18px 0.85fr 1fr 32px 32px 32px 32px 16px;gap:4px;align-items:center;margin-bottom:5px;}
 .set-row.functional-row{grid-template-columns:18px 1fr 1fr;}
+.functional-duration-input,.functional-weight-input{width:100%;background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 4px;color:var(--text);font-family:'DM Mono',monospace;font-size:17px;outline:none;text-align:center;-moz-appearance:textfield;appearance:textfield;}
+.functional-duration-input::-webkit-inner-spin-button,.functional-duration-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+.fmode-cell{display:flex;justify-content:center;}
+.fmode-btn{padding:3px 9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:10px;font-weight:800;letter-spacing:.5px;cursor:pointer;}
+.fmode-btn:first-child{border-radius:6px 0 0 6px;}.fmode-btn:last-child{border-radius:0 6px 6px 0;border-left:none;}
+.fmode-btn.on{background:var(--gold);border-color:var(--gold);color:#1a1408;}
 .set-header.functional-header{grid-template-columns:18px 1fr 1fr;}
 .assist-toggle{width:32px;height:24px;border-radius:6px;border:1.5px solid var(--red);background:transparent;color:var(--red);font-size:8px;font-weight:900;letter-spacing:0.4px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-family:'DM Sans',sans-serif;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
 .assist-toggle.active{background:var(--red);border-color:var(--red);color:#fff;font-size:13px;}
@@ -459,21 +465,6 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 <script src="./kfit-exercise-library-extra.js"></script>
 <script src="./kfit-fitness-store.js"></script>
 <script src="./kfit-coach-chat.js"></script>
-<script src="./kfit-join-coach.js"></script>
-<script>
-// Opened a different coach's invite link? Offer to join them (their consent).
-// Waits until this phone is signed in to a client, then asks once.
-(function(){
-  var tries=0;
-  function go(){
-    tries++;
-    var m=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
-    if(!window.KFitJoinCoach||typeof getSB!=='function'||m.length<8){ if(tries<20) setTimeout(go,3000); return; }
-    try{ KFitJoinCoach.check({sb:getSB(),mobile:m,name:localStorage.getItem('kmfit_name')||'',onToast:function(t){ if(typeof toast==='function') toast(t); else alert(t); }}); }catch(e){}
-  }
-  if(/[?&]coach=/.test(location.search)) setTimeout(go,4000);
-})();
-</script>
 <script>
 if(/CriOS/i.test(navigator.userAgent)&&/iphone|ipad|ipod/i.test(navigator.userAgent)){
 document.getElementById('criosBanner').style.display='flex';
@@ -1154,6 +1145,7 @@ btn.textContent='Could not copy -- select the address bar manually';
     <div class="rest-preset" onclick="startRest(90)">90s</div>
     <div class="rest-preset" onclick="startRest(120)">2m</div>
     <div class="rest-preset" onclick="startRest(180)">3m</div>
+    <div class="rest-preset rest-manual" onclick="openManualRest()" title="Log a rest that already happened" style="color:var(--gold);border-color:var(--gold);">&#9998;</div>
   </div>
   <button class="rest-stop-btn" onclick="stopRest()" id="restStopBtn">■</button>
   <button onclick="cancelRest()" id="restCancelBtn" style="display:none;background:none;border:1px solid var(--muted2);border-radius:6px;color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:13px;padding:5px 10px;cursor:pointer;">Cancel</button>
@@ -1169,7 +1161,7 @@ btn.textContent='Could not copy -- select the address bar manually';
       <option value="">Select body part</option>
       <option>Back</option><option>Chest</option><option>Shoulders</option>
       <option>Biceps</option><option>Triceps</option><option>Legs</option>
-      <option>Core</option><option>Cardio</option>
+      <option>Core</option><option>Cardio</option><option>Functional</option>
     </select>
     <label style="display:flex;align-items:flex-start;gap:8px;margin:4px 0 14px;cursor:pointer;">
       <input type="checkbox" id="customExPrivate" onchange="toggleCustomExPrivate()" style="margin-top:3px;accent-color:var(--sage);">
@@ -1365,7 +1357,7 @@ const BODY_PARTS = ['Back','Chest','Shoulders','Biceps','Triceps','Legs','Core',
 const ALL_EX = Object.values(EX_LIB).flat();
 const CARDIO_EX = new Set(EX_LIB['Cardio']);
 const FUNCTIONAL_EX = new Set(EX_LIB['Functional']);
-function isFunctional(exName){ return FUNCTIONAL_EX.has(exName); }
+function isFunctional(exName){ return FUNCTIONAL_EX.has(exName)||(EX_LIB['Functional']||[]).indexOf(exName)>-1; }
 
 let selectedBP=[], sessions=[], notes={}, assignedWorkouts={}, deletedSessionIds=[], measurements=[], routines=[], deletedRoutineIds=[], deletedAssignedWorkoutDates=[];
 // A deleted session's full data (not just its id) so a coach can actually
@@ -1486,6 +1478,7 @@ const all=[...EX_LIB['Cardio'],...custom.filter(e=>!EX_LIB['Cardio'].includes(e)
 chips.innerHTML=all.map(ex=>
 `<div class="cardio-chip" onclick="addCardioBlock('${ex.replace(/'/g,"\\'")}')">${ex}<button class="ex-chip-del" onclick="event.stopPropagation();deleteCardioEx('${ex.replace(/'/g,"\\'")}')" style="margin-left:3px;">&#10005;</button></div>`
 ).join('');
+_ensureSuggestLink(chips,'Cardio');
 }
 
 function deleteCardioEx(name){
@@ -1575,6 +1568,7 @@ const all=[...EX_LIB['Functional'],...custom.filter(e=>!EX_LIB['Functional'].inc
 chips.innerHTML=all.map(ex=>
 `<div class="cardio-chip" onclick="addFunctionalBlock('${ex.replace(/'/g,"\\'")}')">${ex}<button class="ex-chip-del" onclick="event.stopPropagation();deleteFunctionalEx('${ex.replace(/'/g,"\\'")}')" style="margin-left:3px;">&#10005;</button></div>`
 ).join('');
+_ensureSuggestLink(chips,'Functional');
 }
 function deleteFunctionalEx(name){
 const del=getDeletedFunctional();del.add(name);saveDeletedFunctional(del);
@@ -3033,8 +3027,31 @@ inp.value=Math.round(converted*10)/10;
 if(!silent) localStorage.setItem('kmfit_unit', unit);
 }
 
-function isCardio(exName){ return CARDIO_EX.has(exName); }
+function isCardio(exName){ return CARDIO_EX.has(exName)||(EX_LIB['Cardio']||[]).indexOf(exName)>-1; }
 
+// Functional movements are logged in seconds (holds) or reps (burpees etc.)
+function _ensureSuggestLink(chips,bp){
+if(!chips||!chips.parentElement) return;
+var id='suggestLink'+bp; if(document.getElementById(id)) return;
+var b=document.createElement('button'); b.id=id; b.className='custom-ex-btn'; b.textContent='+ Suggest a new '+(bp==='Cardio'?'cardio activity':'movement')+' to your coach';
+b.onclick=function(){ openCustomEx(bp); };
+chips.insertAdjacentElement('afterend',b);
+}
+function _defaultFMode(name){ return /plank|hold|wall sit|hang|carry|crawl|yoga/i.test(name||'')?'time':'reps'; }
+function setFMode(btn,m){
+var c=btn.closest('.set-header').parentElement; if(!c) return;
+c.dataset.fmode=m;
+btn.parentElement.querySelectorAll('.fmode-btn').forEach(function(b){ b.classList.toggle('on',b===btn); });
+try{ draftSave(); }catch(e){}
+}
+function _readFunctionalSets(container){
+var fm=(container&&container.dataset.fmode)||'time', out=[];
+(container?[...container.querySelectorAll('.functional-row')]:[]).forEach(function(row,i){
+var v=row.querySelector('.functional-duration-input')?.value||'', w=row.querySelector('.functional-weight-input')?.value||'';
+out.push(fm==='reps'?{set:i+1,reps:v,weight:w}:{set:i+1,duration:v,weight:w});
+});
+return {mode:fm,setData:out};
+}
 function generateSetRows(container, count, exName){
 const isC=isCardio(exName||'');
 if(isC){
@@ -3057,8 +3074,10 @@ if(isFunctional(exName||'')){
 // typically varies round to round as fatigue sets in, same reason strength
 // sets get one row each rather than a single shared value.
 const existingRows=[...container.querySelectorAll('.functional-row')];
+const _fm=container.dataset.fmode||_defaultFMode(exName);
+container.dataset.fmode=_fm;
 const fVals=existingRows.map(r=>({duration:r.querySelector('.functional-duration-input').value,weight:r.querySelector('.functional-weight-input').value}));
-container.innerHTML=`<div class="set-header functional-header"><span></span><span>Time (sec)</span><span class="wt-label">${weightUnit} (optional)</span></div>`;
+container.innerHTML=`<div class="set-header functional-header"><span></span><span class="fmode-cell"><button type="button" class="fmode-btn${_fm==='time'?' on':''}" onclick="setFMode(this,'time')">SEC</button><button type="button" class="fmode-btn${_fm==='reps'?' on':''}" onclick="setFMode(this,'reps')">REPS</button></span><span class="wt-label">${weightUnit} (optional)</span></div>`;
 for(let i=0;i<count;i++){
 const row=document.createElement('div');
 row.className='set-row functional-row';
@@ -3073,7 +3092,7 @@ const existingAll=[...container.querySelectorAll('.set-row')];
 const existingMain=existingAll.filter(r=>!r.classList.contains('drop-row'));
 const existingDrops=existingAll.filter(r=>r.classList.contains('drop-row'));
 const vals=[];
-existingMain.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value,assistedReps:parseInt(r.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(r.querySelector('.lp-toggle')?.dataset.count)||0,myoRepMatch:r.querySelector('.mm-toggle')?.classList.contains('active')||false,rir:_rirOf(r)}));
+existingMain.forEach(r=>vals.push({reps:r.querySelector('.reps-input').value,weight:r.querySelector('.weight-input').value,assistedReps:parseInt(r.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(r.querySelector('.lp-toggle')?.dataset.count)||0,myoRepMatch:r.querySelector('.mm-toggle')?.classList.contains('active')||false,rpReps:parseInt(r.querySelector('.mm-toggle')?.dataset.count)||0,restAfter:parseInt(r.dataset.restAfter)||0,workSecs:parseInt(r.dataset.workSecs)||0,rir:_rirOf(r)}));
 
 const dropsByMain={};
 existingDrops.forEach(d=>{
@@ -3087,17 +3106,19 @@ row.className='set-row';
 const startCount=vals[i]?.assistedReps||0;
 const startLPCount=vals[i]?.lengthenedPartialReps||0;
 const startMM=vals[i]?.myoRepMatch||false;
+const startRPn=parseInt(vals[i]?.rpReps)||0;
 const startRIR=(vals[i]&&vals[i].rir!=null)?String(vals[i].rir):'';
 row.innerHTML=`<span class="set-num">S${i+1}</span>
 <input class="reps-input" type="number" inputmode="numeric" min="0" max="999" placeholder="--" value="${vals[i]?.reps||''}" onblur="autoFixNum(this)">
 <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" value="${vals[i]?.weight||''}" onblur="autoFixNum(this)">
 <button type="button" class="rir-toggle${startRIR!==''?' active':''}" data-v="${startRIR}" title="Reps in reserve (tap to change)" onclick="cycleRIR(this)">${startRIR!==''?'R'+startRIR:'RIR'}</button>
 <button type="button" class="assist-toggle${startCount>0?' active':''}" data-count="${startCount}" title="Tap: +1 rep needed help. Hold: -1">${startCount>0?startCount:'H'}</button>
-<button type="button" class="mm-toggle${startMM?' active':''}" title="Rest-pause: short breaks within the set" onclick="this.classList.toggle('active')">RP</button>
+<button type="button" class="mm-toggle${startMM?' active':''}" data-count="${startRPn}" title="Rest-pause: reps done after the pause. Tap to add, hold to remove">${startRPn>0?startRPn:'RP'}</button>
 <button type="button" class="lp-toggle${startLPCount>0?' active':''}" data-count="${startLPCount}" title="Tap: +1 lengthened partial rep. Hold: -1">${startLPCount>0?startLPCount:'LP'}</button>
 <span class="pr-badge-slot" style="font-size:14px;text-align:center;"></span>`;
 wireAssistButton(row.querySelector('.assist-toggle'));
 wireLPButton(row.querySelector('.lp-toggle'));
+wireRPButton(row.querySelector('.mm-toggle'));
 row.querySelectorAll('.reps-input,.weight-input').forEach(inp=>{
 inp.addEventListener('blur',()=>checkSetForPR(row));
 });
@@ -3120,6 +3141,27 @@ renumberDropGroup(container,i);
 }
 }
 
+// RP = reps done after the rest-pause(s). Same tap/hold as H and LP.
+function wireRPButton(btn){
+if(!btn) return;
+let pressTimer=null, didLongPress=false;
+const clearTimer=()=>{ if(pressTimer){ clearTimeout(pressTimer); pressTimer=null; } };
+btn.addEventListener('pointerdown',(e)=>{ e.preventDefault(); didLongPress=false; pressTimer=setTimeout(()=>{ didLongPress=true; changeRPCount(btn,-1); },550); });
+btn.addEventListener('pointerup',clearTimer);
+btn.addEventListener('pointerleave',clearTimer);
+btn.addEventListener('pointercancel',clearTimer);
+btn.addEventListener('click',()=>{ if(didLongPress){ didLongPress=false; return; } changeRPCount(btn,1); });
+}
+function changeRPCount(btn,delta){
+let n=(parseInt(btn.dataset.count)||0)+delta;
+if(n<0) n=0;
+btn.dataset.count=n;
+btn.textContent=n>0?n:'RP';
+btn.classList.toggle('active',n>0);
+const row=btn.closest('.set-row');
+if(row) checkSetForPR(row);
+draftSave();
+}
 function wireLPButton(btn){
 if(!btn) return;
 let pressTimer=null;
@@ -3195,7 +3237,7 @@ if(open&&!box.innerHTML){
 box.innerHTML=
 '<div class="si"><span class="sc" style="background:#4aa3c7;color:#06222e;">RIR</span><span>How many more reps you <b>COULD</b> have done. Tap to pick.</span></div>'+
 '<div class="si"><span class="sc" style="background:var(--red);color:#fff;">H</span><span>Reps someone <b>HELPED</b> you finish. Tap to add, hold to remove.</span></div>'+
-'<div class="si"><span class="sc" style="background:#9a6ad4;color:#1a0e2a;">RP</span><span>You <b>PAUSED BRIEFLY</b> mid-set to get more reps. Tap to mark.</span></div>'+
+'<div class="si"><span class="sc" style="background:#9a6ad4;color:#1a0e2a;">RP</span><span>Reps you did after <b>PAUSING BRIEFLY</b> mid-set. Tap to add, hold to remove.</span></div>'+
 '<div class="si"><span class="sc" style="background:var(--gold);color:#1a1408;">LP</span><span><b>HALF-REPS</b> at the end when full reps got too hard. Tap to add, hold to remove.</span></div>'+
 '<div style="font-size:11px;color:var(--muted);padding-top:4px;">All optional -- skip them if they don\'t apply.</div>';
 }
@@ -3216,11 +3258,12 @@ row.innerHTML=`<span class="set-num dropset">D</span>
 <input class="weight-input" type="number" inputmode="decimal" min="0" max="9999" step="0.5" placeholder="--" onblur="autoFixNum(this)">
 <button type="button" class="rir-toggle" data-v="" title="Reps in reserve (tap to change)" onclick="cycleRIR(this)">RIR</button>
 <button type="button" class="assist-toggle" data-count="0" title="Tap: +1 rep needed help. Hold: -1">H</button>
-<button type="button" class="mm-toggle" title="Rest-pause: short breaks within the set" onclick="this.classList.toggle('active')">RP</button>
+<button type="button" class="mm-toggle" data-count="0" title="Rest-pause: reps done after the pause. Tap to add, hold to remove">RP</button>
 <button type="button" class="lp-toggle" title="Lengthened partial rep">LP</button>
 <button type="button" class="drop-del-btn" title="Remove this drop set">&#10005;</button>`;
 wireAssistButton(row.querySelector('.assist-toggle'));
 wireLPButton(row.querySelector('.lp-toggle'));
+wireRPButton(row.querySelector('.mm-toggle'));
 row.querySelectorAll('.reps-input,.weight-input').forEach(inp=>{
 inp.addEventListener('blur',()=>checkSetForPR(row));
 });
@@ -3249,8 +3292,91 @@ renumberDropGroup(container,afterMain);
 draftSave();
 }
 
+function _functionalForCalories(exs,sss){
+var all=(exs||[]).slice(); (sss||[]).forEach(function(ss){ all=all.concat(ss.exercises||[]); });
+return all.filter(function(e){ return e&&e.type==='functional'; }).map(function(e){
+var secs=(e.setData||[]).reduce(function(a,r){ return a+((parseInt(r.duration)||0)||((parseInt(r.reps)||0)*3)); },0);
+return {ex:e.ex,duration:secs};
+});
+}
+function _fmtRest(sec){ sec=Math.round(sec)||0; return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
+// Every second of a session = working time + rest.
+//  - working: measured set time where the rest timer bracketed the set,
+//    otherwise reps x this person's own pace (learned from measured sets;
+//    4 s/rep until there's enough data). Timed movements count their
+//    seconds, cardio its minutes.
+//  - rest: the rest of the session time. Without a session time: their
+//    rest-timer average, else the average they typed, else 90 s per break.
+function _kfitPersonalPace(){
+var samples=[];
+(sessions||[]).forEach(function(s){
+var exs=(s.exercises||[]).slice(); (s.supersets||[]).forEach(function(ss){ exs=exs.concat(ss.exercises||[]); });
+exs.forEach(function(e){ (e.setData||[]).forEach(function(r){
+var reps=(parseInt(r.reps)||0)+(parseInt(r.rpReps)||0);
+if(r.workSecs>0&&reps>0){ var p=r.workSecs/reps; if(p>=1.5&&p<=15) samples.push(p); }
+}); });
+});
+if(samples.length<5) return {pace:4,learned:false};
+samples.sort(function(a,b){return a-b;});
+var med=samples[Math.floor(samples.length/2)];
+return {pace:Math.max(2,Math.min(8,Math.round(med*10)/10)),learned:true};
+}
+function computeTimeSplit(s){
+var pp=_kfitPersonalPace(), pace=pp.pace, work=0, breaks=0, measured=0;
+var exs=(s.exercises||[]).slice(); (s.supersets||[]).forEach(function(ss){ exs=exs.concat(ss.exercises||[]); });
+exs.forEach(function(e){
+if(e.type==='cardio'){ work+=(parseFloat(e.duration)||0)*60; breaks++; return; }
+(e.setData||[]).forEach(function(r){
+var reps=(parseInt(r.reps)||0)+(parseInt(r.rpReps)||0), secs=parseInt(r.duration)||0;
+if(!reps&&!secs) return;
+breaks++;
+if(secs&&!reps){ work+=secs; return; }
+if(e.type==='functional'){ work+=reps*3; return; }
+if(r.workSecs>0){ work+=r.workSecs; measured++; } else work+=reps*pace;
+});
+});
+(s.functional||[]).forEach(function(f){ var d=parseInt(f.duration)||0; if(d){ work+=d; breaks++; } });
+(s.cardio||[]).forEach(function(c){ var d=parseFloat(c.duration)||0; if(d){ work+=d*60; breaks++; } });
+work=Math.round(work);
+var gaps=Math.max(0,breaks-1), rest, source;
+var times=(s.restTimes||[]).filter(function(x){return x>0;});
+if(s.duration>0){ rest=Math.max(0,Math.round(s.duration)-work); source='from your session time'; }
+else if(times.length){ rest=Math.round(times.reduce(function(a,b){return a+b;},0)/times.length*gaps); source='from your rest timer'; }
+else if(s.avgRestManual){ rest=Math.round(s.avgRestManual*gaps); source='from your average rest'; }
+else { rest=90*gaps; source='estimated'; }
+return {work:work,rest:rest,source:source,pace:pace,learned:pp.learned,measuredSets:measured};
+}
+function _timeSplitCard(s){
+try{
+var t=computeTimeSplit(s);
+if(!t.work&&!t.rest) return '';
+var m=function(x){ return Math.round(x/60); };
+return '<div class="card" style="padding:12px 14px;"><div style="font-size:14px;color:var(--text);line-height:1.5;">'
++'Session '+m(t.work+t.rest)+' min = <b style="color:var(--sage);">'+m(t.work)+' min working</b> + <b style="color:#4aa3c7;">'+m(t.rest)+' min rest</b></div>'
++'<div style="font-size:12px;color:var(--muted);margin-top:3px;">Rest '+t.source+' · pace '+t.pace+' s/rep'+(t.learned?' (yours)':' (default until we learn yours)')+'</div></div>';
+}catch(e){ return ''; }
+}
+function _restoreRowExtras(row,sd){
+const mm=row.querySelector('.mm-toggle');
+const c=parseInt(sd.rpReps)||0;
+if(mm&&(sd.myoRepMatch||c>0)){ mm.classList.add('active'); mm.dataset.count=c; mm.textContent=c>0?c:'RP'; }
+if(sd.restAfter) row.dataset.restAfter=sd.restAfter;
+if(sd.workSecs) row.dataset.workSecs=sd.workSecs;
+}
+// (editSession calls this for functional movements inside supersets; it was
+// missing, so those values never came back when a session was reopened)
+function restoreFunctionalSetData(container,setData){ if(container) restoreSetData(container,setData); }
 function restoreSetData(container,setData){
 if(!setData) return;
+if(container.querySelector('.functional-row')){
+var isReps=setData.some(function(sd){ return sd.reps&&!sd.duration; });
+var m=isReps?'reps':'time';
+container.dataset.fmode=m;
+container.querySelectorAll('.fmode-btn').forEach(function(b){ b.classList.toggle('on',(b.textContent==='REPS')===(m==='reps')); });
+var fr=[...container.querySelectorAll('.functional-row')];
+setData.forEach(function(sd,i){ if(!fr[i]) return; fr[i].querySelector('.functional-duration-input').value=(m==='reps'?sd.reps:sd.duration)||''; fr[i].querySelector('.functional-weight-input').value=sd.weight||''; });
+return;
+}
 const mainRows=[...container.querySelectorAll('.set-row:not(.drop-row)')];
 let mi=0;
 setData.forEach(function(sd){
@@ -3265,7 +3391,7 @@ dropRow.querySelector('.reps-input').value=sd.reps||'';
 dropRow.querySelector('.weight-input').value=sd.weight||'';
 if(n>0){ const btn=dropRow.querySelector('.assist-toggle'); btn.dataset.count=n; btn.textContent=n; btn.classList.add('active'); }
 if(sd.lengthenedPartialReps>0){ const lp=dropRow.querySelector('.lp-toggle'); if(lp){ lp.dataset.count=sd.lengthenedPartialReps; lp.textContent=sd.lengthenedPartialReps; lp.classList.add('active'); } }
-if(sd.myoRepMatch){ const mm=dropRow.querySelector('.mm-toggle'); if(mm) mm.classList.add('active'); }
+_restoreRowExtras(dropRow,sd);
 _setRIR(dropRow.querySelector('.rir-toggle'),sd.rir);
 renumberDropGroup(container,afterMain);
 }
@@ -3277,7 +3403,7 @@ row.querySelector('.reps-input').value=sd.reps||'';
 row.querySelector('.weight-input').value=sd.weight||'';
 if(n>0){ const btn=row.querySelector('.assist-toggle'); btn.dataset.count=n; btn.textContent=n; btn.classList.add('active'); }
 if(sd.lengthenedPartialReps>0){ const lp=row.querySelector('.lp-toggle'); if(lp){ lp.dataset.count=sd.lengthenedPartialReps; lp.textContent=sd.lengthenedPartialReps; lp.classList.add('active'); } }
-if(sd.myoRepMatch){ const mm=row.querySelector('.mm-toggle'); if(mm) mm.classList.add('active'); }
+_restoreRowExtras(row,sd);
 _setRIR(row.querySelector('.rir-toggle'),sd.rir);
 }
 }
@@ -3394,7 +3520,7 @@ function addExRow(){
 // time someone opens the tracker. Redirect to body-part selection instead
 // of adding a block with that giant unfiltered list.
 var realBps=selectedBP.filter(function(bp){return bp!=='Cardio';});
-if(!realBps.length){
+if(!realBps.length&&!window._kfitForceAdd){
 var bpCard=document.getElementById('bpCard');
 if(bpCard){
 bpCard.scrollIntoView({behavior:'smooth',block:'center'});
@@ -3501,7 +3627,10 @@ const bpToActivate=owningBps[0];
 const btn2=[...document.querySelectorAll('.bp-btn')].find(b=>b.textContent.trim()===bpToActivate);
 if(btn2) toggleBP(btn2,bpToActivate,true);
 }
-addExRow();
+// The exercise was chosen first: always add it (e.g. Plank, which has no
+// body-part button) -- never block with "pick a body part first".
+window._kfitForceAdd=true;
+try{ addExRow(); } finally { window._kfitForceAdd=false; }
 const blocks=document.querySelectorAll('#exBody .ex-block');
 const newBlock=blocks[blocks.length-1];
 const sel=newBlock.querySelector('.ex-select');
@@ -4172,7 +4301,36 @@ list=[...new Set(list)].filter(e=>!deleted.has(e));
 const cur=sel.value;
 // keep an already-chosen exercise even if its body part was just deselected
 if(cur&&list.indexOf(cur)<0) list.push(cur);
-sel.innerHTML='<option value="">-- Select Exercise --</option>'+list.map(e=>`<option value="${e}"${e===cur?' selected':''}>${e}</option>`).join('');
+const fn=(EX_LIB['Functional']||[]).filter(e=>list.indexOf(e)<0&&!deleted.has(e));
+sel.innerHTML='<option value="">-- Select Exercise --</option>'+list.map(e=>`<option value="${e}"${e===cur?' selected':''}>${e}</option>`).join('')
++(fn.length?'<optgroup label="Functional">'+fn.map(e=>`<option value="${e}"${e===cur?' selected':''}>${e}</option>`).join('')+'</optgroup>':'');
+_ensureSSSearch(sel);
+}
+// A search box above each superset slot: any exercise or functional movement.
+function _ensureSSSearch(sel){
+if(!sel||sel._kfitSearch) return;
+var top=sel.closest('.ex-top-row'); if(!top||!top.parentElement) return;
+sel._kfitSearch=true;
+var wrap=document.createElement('div'); wrap.className='ss-search-wrap'; wrap.style.cssText='margin:0 0 6px;position:relative;';
+wrap.innerHTML='<input type="text" class="ss-search" placeholder="🔍 Search any exercise or movement..." autocomplete="off" style="width:100%;box-sizing:border-box;padding:9px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surf3);color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:14px;">'
++'<div class="ss-search-res" style="display:none;margin-top:4px;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surf2);"></div>';
+top.parentElement.insertBefore(wrap,top);
+var inp=wrap.querySelector('.ss-search'), res=wrap.querySelector('.ss-search-res');
+inp.addEventListener('input',function(){
+var q=inp.value.trim().toLowerCase();
+if(q.length<2){ res.style.display='none'; res.innerHTML=''; return; }
+var hits=[];
+Object.keys(EX_LIB).forEach(function(bp){ if(bp==='Cardio') return; (EX_LIB[bp]||[]).forEach(function(n){ if(n.toLowerCase().indexOf(q)>-1&&!hits.some(function(h){return h.n===n;})) hits.push({n:n,bp:bp}); }); });
+hits=hits.slice(0,8);
+res.innerHTML=hits.length?hits.map(function(h){ return '<div class="ss-hit" data-n="'+h.n.replace(/"/g,'&quot;')+'" style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:14px;color:var(--text);cursor:pointer;">'+h.n+' <span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;margin-left:4px;background:var(--surf3);color:'+(h.bp==='Functional'?'var(--sage)':'var(--gold)')+';">'+h.bp+'</span></div>'; }).join(''):'<div style="padding:8px 10px;font-size:13px;color:var(--muted);">No match</div>';
+res.style.display='block';
+res.querySelectorAll('.ss-hit').forEach(function(d){ d.onclick=function(){
+var n=d.getAttribute('data-n');
+if(![...sel.options].some(function(o){return o.value===n;})){ var o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); }
+sel.value=n; inp.value=''; res.style.display='none';
+onSupersetExChange(sel);
+}; });
+});
 }
 // Superset dropdowns follow their OWN body-part buttons, never the main ones.
 function refreshSupersetSelects(){
@@ -4248,8 +4406,8 @@ innerHtml=setData.map(function(r){
 const label=r.dropset?(++dsN>1?'D'+dsN:'D'):(dsN=0,mainN++,'Set '+mainN);
 return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;'+(r.dropset?'margin-left:16px;border-left:2px solid var(--red);':'')+'">'
 +'<span style="font-family:\'DM Mono\',monospace;font-size:17px;color:'+(r.dropset?'var(--red)':'var(--muted2)')+';width:42px;flex-shrink:0;text-transform:uppercase;">'+label+'</span>'
-+(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.myoRepMatch?' <span style="color:#9a6ad4;font-size:14px;font-weight:700;">(RP)</span>':'')+((r.rir!=null&&r.rir!=='')?' <span style="color:#4aa3c7;font-size:14px;font-weight:700;">(RIR '+r.rir+')</span>':'')+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:14px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
-+(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:17px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
++(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+((r.myoRepMatch||r.rpReps>0)?' <span style="color:#9a6ad4;font-size:14px;font-weight:700;">(RP'+(r.rpReps>0?' +'+r.rpReps:'')+')</span>':'')+((r.rir!=null&&r.rir!=='')?' <span style="color:#4aa3c7;font-size:14px;font-weight:700;">(RIR '+r.rir+')</span>':'')+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:14px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
++(r.restAfter>0?'<span style="font-size:12px;color:var(--muted);white-space:nowrap;">rest '+_fmtRest(r.restAfter)+'</span>':'')+(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:17px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
 +'</div>';
 }).join('');
 if(!innerHtml) innerHtml='<div style="font-size:17px;color:var(--muted);padding:4px 0;">No set data recorded</div>';
@@ -4367,16 +4525,13 @@ const intensity=exBlock.querySelector('.ss-cardio-int')?.value||'';
 exercises.push({ex,type:'cardio',duration:dur,intensity});
 } else if(isFunctional(ex)){
 const setsCount=+exBlock.querySelector('.sets-select').value;
-const setData=[];
-exBlock.querySelectorAll('.functional-row').forEach((row,i)=>{
-setData.push({set:i+1,duration:row.querySelector('.functional-duration-input')?.value||'',weight:row.querySelector('.functional-weight-input')?.value||''});
-});
-exercises.push({ex,type:'functional',sets:setsCount,setData});
+const _f=_readFunctionalSets(exBlock.querySelector('.set-rows'));
+exercises.push({ex,type:'functional',mode:_f.mode,sets:setsCount,setData:_f.setData});
 } else {
 const setsCount=+exBlock.querySelector('.sets-select').value;
 const setData=[];
 exBlock.querySelectorAll('.set-row').forEach((row,i)=>{
-setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(row.querySelector('.lp-toggle')?.dataset.count)||0,myoRepMatch:row.querySelector('.mm-toggle')?.classList.contains('active')||false,rir:_rirOf(row),dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
+setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(row.querySelector('.lp-toggle')?.dataset.count)||0,myoRepMatch:row.querySelector('.mm-toggle')?.classList.contains('active')||false,rpReps:parseInt(row.querySelector('.mm-toggle')?.dataset.count)||0,restAfter:parseInt(row.dataset.restAfter)||0,workSecs:parseInt(row.dataset.workSecs)||0,rir:_rirOf(row),dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
 });
 exercises.push({ex,sets:setsCount,setData});
 }
@@ -4400,7 +4555,15 @@ if(found) return found;
 return null;
 }
 
+function _autoTickBP(name){
+if(!name) return;
+var owning=Object.keys(EX_LIB).filter(function(bp){ return bp!=='Cardio'&&(EX_LIB[bp]||[]).indexOf(name)>-1; });
+if(!owning.length||owning.some(function(bp){ return selectedBP.indexOf(bp)>-1; })) return;
+var b=[...document.querySelectorAll('.bp-btn')].find(function(x){ return x.textContent.trim()===owning[0]; });
+if(b) toggleBP(b,owning[0],true);
+}
 function onExChange(sel){
+try{ _autoTickBP(sel&&sel.value); }catch(e){}
 const block=sel.closest('.ex-block');
 const exName=sel.value;
 const setsEl=block.querySelector('.sets-select');
@@ -4485,8 +4648,8 @@ innerHtml=setData.map(function(r){
 const label=r.dropset?(++dsN>1?'D'+dsN:'D'):(dsN=0,mainN++,'Set '+mainN);
 return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;'+(r.dropset?'margin-left:16px;border-left:2px solid var(--red);':'')+'">'
 +'<span style="font-family:\'DM Mono\',monospace;font-size:17px;color:'+(r.dropset?'var(--red)':'var(--muted2)')+';width:42px;flex-shrink:0;text-transform:uppercase;">'+label+'</span>'
-+(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.myoRepMatch?' <span style="color:#9a6ad4;font-size:14px;font-weight:700;">(RP)</span>':'')+((r.rir!=null&&r.rir!=='')?' <span style="color:#4aa3c7;font-size:14px;font-weight:700;">(RIR '+r.rir+')</span>':'')+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:14px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
-+(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:17px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
++(r.reps?'<span style="font-size:17px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+((r.myoRepMatch||r.rpReps>0)?' <span style="color:#9a6ad4;font-size:14px;font-weight:700;">(RP'+(r.rpReps>0?' +'+r.rpReps:'')+')</span>':'')+((r.rir!=null&&r.rir!=='')?' <span style="color:#4aa3c7;font-size:14px;font-weight:700;">(RIR '+r.rir+')</span>':'')+(r.assistedReps>0?' <span style="color:var(--terra);font-size:14px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:14px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
++(r.restAfter>0?'<span style="font-size:12px;color:var(--muted);white-space:nowrap;">rest '+_fmtRest(r.restAfter)+'</span>':'')+(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:17px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
 +'</div>';
 }).join('');
 if(!innerHtml) innerHtml='<div style="font-size:17px;color:var(--muted);padding:4px 0;">No set data recorded</div>';
@@ -4591,6 +4754,9 @@ const dur=block.querySelector('.cardio-input')?.value||'';
 const dist=block.querySelectorAll('.cardio-input')[1]?.value||'';
 const intensity=block.querySelector('.intensity-sel')?.value||'';
 exercises.push({ex,type:'cardio',duration:dur,distance:dist,intensity,order:_exOrder.get(block)});
+} else if(isFunctional(ex)){
+const _f=_readFunctionalSets(block.querySelector('.set-rows'));
+exercises.push({ex,type:'functional',mode:_f.mode,sets:setsCount,setData:_f.setData,order:_exOrder.get(block)});
 } else {
 const isBodyweight=BODYWEIGHT_EX.includes(ex);
 const setData=[];
@@ -4607,7 +4773,7 @@ row.style.borderRadius='6px';
 } else {
 row.style.outline='';
 }
-setData.push({set:i+1,reps:reps,weight:weight,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(row.querySelector('.lp-toggle')?.dataset.count)||0,myoRepMatch:row.querySelector('.mm-toggle')?.classList.contains('active')||false,rir:_rirOf(row),dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
+setData.push({set:i+1,reps:reps,weight:weight,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(row.querySelector('.lp-toggle')?.dataset.count)||0,myoRepMatch:row.querySelector('.mm-toggle')?.classList.contains('active')||false,rpReps:parseInt(row.querySelector('.mm-toggle')?.dataset.count)||0,restAfter:parseInt(row.dataset.restAfter)||0,workSecs:parseInt(row.dataset.workSecs)||0,rir:_rirOf(row),dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
 });
 exercises.push({ex,sets:setsCount,setData,order:_exOrder.get(block)});
 }
@@ -4688,7 +4854,7 @@ var _estCal=computeSessionCalories({
 strengthSecs:_strengthSecs,
 avgRestSec:avgRestSecFromPage(),
 cardioBlocks:cardioBlocks.map(function(c){return {ex:c.ex,duration:c.duration,intensity:c.intensity};}),
-functionalBlocks:functionalBlocks.map(function(f){return {ex:f.ex,duration:f.duration};}),
+functionalBlocks:functionalBlocks.map(function(f){return {ex:f.ex,duration:f.duration};}).concat(_functionalForCalories(exercises,collectSupersets())),
 profile:getClientProfile()
 });
 var _newSess={
@@ -4840,29 +5006,10 @@ d=d||new Date();
 return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 
-
-// Client apps keep their OWN sign-in, separate from Merge (the coach app) on
-// the same phone. Before, a coach testing a client app on their own phone was
-// seen as the coach ("Coach accounts can't sign up as clients", email code
-// errors). A client's existing anonymous sign-in is carried over once, so
-// nobody is logged out; a coach's sign-in is never copied.
-var KFIT_CLIENT_AUTH='kfit-client-auth';
-function kfitClientAuthMigrate(url){
-  try{
-    if(localStorage.getItem(KFIT_CLIENT_AUTH)) return;
-    var ref=(String(url).match(/https:\/\/([^.]+)\./)||[])[1]; if(!ref) return;
-    var old=localStorage.getItem('sb-'+ref+'-auth-token'); if(!old) return;
-    var o=JSON.parse(old), tok=o&&(o.access_token||(o.currentSession&&o.currentSession.access_token)); if(!tok) return;
-    var b=tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'); while(b.length%4) b+='=';
-    var claims=JSON.parse(atob(b));
-    if(claims&&claims.is_anonymous===true) localStorage.setItem(KFIT_CLIENT_AUTH,old);
-  }catch(e){}
-}
-
 function getSB(){
 // Fitness reads/writes go to the per-row tables (kfit-fitness-store.js);
 // everything else is the plain Supabase client.
-if(!sbClient){ kfitClientAuthMigrate(SB_URL); sbClient=KFitStore.wrapClient(supabase.createClient(SB_URL,SB_KEY,{auth:{storageKey:KFIT_CLIENT_AUTH,persistSession:true,autoRefreshToken:true}}),{claim:true,coachId:function(){return getClientCoachId();}}); }
+if(!sbClient) sbClient=KFitStore.wrapClient(supabase.createClient(SB_URL,SB_KEY),{claim:true,coachId:function(){return getClientCoachId();}});
 return sbClient;
 }
 // IMPORTANT: replace this with your actual coach id (from `select id from
@@ -6140,7 +6287,7 @@ const ex=block.querySelector('.ex-select').value;
 const sets=+block.querySelector('.sets-select').value;
 const setData=[];
 block.querySelectorAll('.set-row').forEach((row,i)=>{
-setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(row.querySelector('.lp-toggle')?.dataset.count)||0,myoRepMatch:row.querySelector('.mm-toggle')?.classList.contains('active')||false,rir:_rirOf(row),dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
+setData.push({set:i+1,reps:row.querySelector('.reps-input').value,weight:row.querySelector('.weight-input').value,assistedReps:parseInt(row.querySelector('.assist-toggle')?.dataset.count)||0,lengthenedPartialReps:parseInt(row.querySelector('.lp-toggle')?.dataset.count)||0,myoRepMatch:row.querySelector('.mm-toggle')?.classList.contains('active')||false,rpReps:parseInt(row.querySelector('.mm-toggle')?.dataset.count)||0,restAfter:parseInt(row.dataset.restAfter)||0,workSecs:parseInt(row.dataset.workSecs)||0,rir:_rirOf(row),dropset:row.classList.contains('drop-row'),afterMain:row.dataset.afterMain!==undefined?parseInt(row.dataset.afterMain):null});
 });
 exercises.push({ex,sets,setData,autobp:block.dataset.autobp||null});
 });
@@ -7095,7 +7242,7 @@ if(!realSets.length) return '';
 var hasWeight=realSets.some(function(r){return r.weight;});
 var rows=realSets.map(function(r){
 return '<tr><td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">S'+r.set+(r.dropset?' (drop)':'')+'</td>'+
-'<td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">'+(r.reps||'--')+(r.myoRepMatch?' (RP)':'')+(r.assistedReps>0?' (H '+r.assistedReps+')':'')+(r.lengthenedPartialReps>0?' (LP '+r.lengthenedPartialReps+')':'')+'</td>'+
+'<td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">'+(r.reps||'--')+((r.myoRepMatch||r.rpReps>0)?' (RP'+(r.rpReps>0?' +'+r.rpReps:'')+')':'')+(r.assistedReps>0?' (H '+r.assistedReps+')':'')+(r.lengthenedPartialReps>0?' (LP '+r.lengthenedPartialReps+')':'')+'</td>'+
 (hasWeight?'<td style="border-bottom:1px solid #999;padding:4px 8px;text-align:center;">'+(r.weight||'--')+' '+uLabel+'</td>':'')+'</tr>';
 }).join('');
 return '<div style="margin-bottom:10px;"><div style="font-size:14px;font-weight:700;margin-bottom:4px;">'+e.ex+'</div>'+
@@ -7741,7 +7888,7 @@ return computeSessionCalories({
 strengthSecs:_strSecs,
 avgRestSec:_avgRest,
 cardioBlocks:(s.cardio||[]).map(c=>({ex:c.ex,duration:c.duration,intensity:c.intensity})),
-functionalBlocks:(s.functional||[]).map(f=>({ex:f.ex,duration:f.duration})),
+functionalBlocks:(s.functional||[]).map(f=>({ex:f.ex,duration:f.duration})).concat(_functionalForCalories(s.exercises||[],s.supersets||[])),
 profile:getClientProfile()
 });
 }
@@ -7836,7 +7983,7 @@ const showTrophy=isSessionPR&&!(r.assistedReps>0)&&!r.dropset&&!(r.lengthenedPar
 const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
 return`<tr>
 <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${dropLabel}</td>
-<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.myoRepMatch?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Rest-pause set">RP</span>':''}${(r.rir!=null&&r.rir!=='')?'<span style="display:inline-flex;align-items:center;background:#4aa3c7;color:#06222e;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Reps in reserve">RIR '+r.rir+'</span>':''}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">H '+r.assistedReps+'</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.lengthenedPartialReps+' lengthened partial rep(s)">LP '+r.lengthenedPartialReps+'</span>':''}</td>
+<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${(r.myoRepMatch||r.rpReps>0)?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Rest-pause set">RP'+(r.rpReps>0?' +'+r.rpReps:'')+'</span>':''}${(r.rir!=null&&r.rir!=='')?'<span style="display:inline-flex;align-items:center;background:#4aa3c7;color:#06222e;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Reps in reserve">RIR '+r.rir+'</span>':''}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">H '+r.assistedReps+'</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.lengthenedPartialReps+' lengthened partial rep(s)">LP '+r.lengthenedPartialReps+'</span>':''}</td>
 ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
 </tr>`;}).join('')})()}</tbody>
 </table>
@@ -7905,7 +8052,7 @@ const showTrophy=ssIsSessionPR&&!(r.assistedReps>0)&&!r.dropset&&!(r.lengthenedP
 const dropLabel=r.dropset?(++dropN>1?'D'+dropN:'D'):(dropN=0,'S'+r.set);
 return`<tr>
 <td style="text-align:center;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:${r.dropset?'var(--terra)':'var(--text)'};border-bottom:1px solid var(--border);padding:7px 0">${dropLabel}</td>
-<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${r.myoRepMatch?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Rest-pause set">RP</span>':''}${(r.rir!=null&&r.rir!=='')?'<span style="display:inline-flex;align-items:center;background:#4aa3c7;color:#06222e;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Reps in reserve">RIR '+r.rir+'</span>':''}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">H '+r.assistedReps+'</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.lengthenedPartialReps+' lengthened partial rep(s)">LP '+r.lengthenedPartialReps+'</span>':''}</td>
+<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);padding:7px 0">${r.reps||'--'}${(r.myoRepMatch||r.rpReps>0)?'<span style="display:inline-flex;align-items:center;background:#9a6ad4;color:#1a0e2a;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Rest-pause set">RP'+(r.rpReps>0?' +'+r.rpReps:'')+'</span>':''}${(r.rir!=null&&r.rir!=='')?'<span style="display:inline-flex;align-items:center;background:#4aa3c7;color:#06222e;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="Reps in reserve">RIR '+r.rir+'</span>':''}${r.assistedReps>0?'<span style="display:inline-flex;align-items:center;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.assistedReps+' rep(s) needed help">H '+r.assistedReps+'</span>':''}${r.lengthenedPartialReps>0?'<span style="display:inline-flex;align-items:center;background:var(--gold);color:#1a1408;font-size:10px;font-weight:800;padding:2px 6px;border-radius:8px;margin-left:5px;" title="'+r.lengthenedPartialReps+' lengthened partial rep(s)">LP '+r.lengthenedPartialReps+'</span>':''}</td>
 ${hasWeight?`<td style="text-align:center;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--gold);border-bottom:1px solid var(--border);padding:7px 0">${r.weight||'--'}</td><td style="text-align:center;width:22px;border-bottom:1px solid var(--border);padding:7px 0;font-size:14px;">${showTrophy?'🏆':''}</td>`:''}
 </tr>`;}).join('')})()}</tbody>
 </table>
@@ -7921,7 +8068,7 @@ const _sessCal=getSessionCalorieEstimate(s);
 const _calBadge=_sessCal?`<span style="color:var(--flame);font-size:16px;font-weight:800;">&#128293; ${_sessCal.isRange?(_sessCal.low+'-'+_sessCal.high):_sessCal.value} kcal</span>`:'';
 document.getElementById('dBody').innerHTML=`
 ${_effectiveTags.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${_effectiveTags.map(b=>`<span class="sess-tag${_prInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')}${_prPillHtml}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}${_calBadge}</div>`:''}
-${durLine}
+${durLine}${_timeSplitCard(s)}
 ${cardioSection}
 ${functionalSection}
 ${_hasRealOrder?_interleavedSection:ssSection+exSection}
@@ -8017,6 +8164,7 @@ if(sharedAC.state==='suspended')sharedAC.resume();
 }
 
 function startRest(secs){
+_measureWork();
 unlockAudio();
 if(restTmr)clearInterval(restTmr);
 restLeft=secs; restStartSecs=secs;
@@ -8037,7 +8185,7 @@ el.textContent='--';el.className='rest-time';
 if(ht){ht.style.display='none';}
 showMoveOverlay();
 document.querySelectorAll('.rest-preset').forEach(p=>p.classList.remove('active'));
-currentRestTimes.push(restStartSecs);
+_recordRest(restStartSecs);
 updateSessionRestCard();
 playBeep();
 return;
@@ -8048,10 +8196,63 @@ el.textContent=timeStr;
 el.className='rest-time'+(restLeft<=10?' urgent':'');
 if(ht){ht.style.display='block';ht.textContent='REST '+timeStr;}
 }
+// Every rest belongs to the set it followed (the last set typed into).
+// The time from one rest ending to the next starting is that set's real
+// working time -- that's how each person's own pace is learned.
+document.addEventListener('input',function(e){
+var row=e.target&&e.target.closest?e.target.closest('#exBody .set-row'):null;
+if(row) window._lastSetRow=row;
+},true);
+function _recordRest(sec){
+sec=Math.round(sec)||0; if(sec<=0) return;
+currentRestTimes.push(sec);
+var r=window._lastSetRow;
+if(r&&r.isConnected) r.dataset.restAfter=(parseInt(r.dataset.restAfter)||0)+sec;
+window._restEndedAt=Date.now();
+try{ draftSave(); }catch(e){}
+}
+function _measureWork(){
+var r=window._lastSetRow;
+if(!window._restEndedAt||!r||!r.isConnected||r.dataset.workSecs) return;
+var w=Math.round((Date.now()-window._restEndedAt)/1000);
+if(w>=5&&w<=600) r.dataset.workSecs=w;
+}
+// ✎: log a rest that already happened (any length, e.g. a 9-minute break).
+function openManualRest(){
+var m=document.getElementById('manualRestModal');
+if(!m){
+m=document.createElement('div'); m.id='manualRestModal';
+m.style.cssText='position:fixed;top:0;right:0;bottom:0;left:0;z-index:100000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px;';
+m.innerHTML='<div style="background:var(--surf);border:1px solid var(--border);border-radius:16px;padding:18px;width:100%;max-width:340px;">'
++'<div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:12px;">How long did you rest?</div>'
++'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
++'<input id="mrMin" type="number" inputmode="numeric" min="0" max="120" placeholder="0" style="width:70px;padding:10px;border-radius:9px;border:1px solid var(--border);background:var(--surf3);color:var(--text);font-size:18px;text-align:center;font-family:\'DM Mono\',monospace;">'
++'<span style="font-size:12px;font-weight:800;color:var(--muted);">MIN</span>'
++'<input id="mrSec" type="number" inputmode="numeric" min="0" max="59" placeholder="0" style="width:70px;padding:10px;border-radius:9px;border:1px solid var(--border);background:var(--surf3);color:var(--text);font-size:18px;text-align:center;font-family:\'DM Mono\',monospace;">'
++'<span style="font-size:12px;font-weight:800;color:var(--muted);">SEC</span></div>'
++'<div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Counts as rest after your last set, and in calories.</div>'
++'<div style="display:flex;gap:10px;"><button onclick="document.getElementById(\'manualRestModal\').style.display=\'none\'" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Cancel</button>'
++'<button onclick="logManualRest()" style="flex:1;padding:11px;border-radius:10px;border:none;background:var(--sage);color:#fff;font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:800;cursor:pointer;">Log rest</button></div></div>';
+document.body.appendChild(m);
+}
+document.getElementById('mrMin').value=''; document.getElementById('mrSec').value='';
+m.style.display='flex';
+setTimeout(function(){ var x=document.getElementById('mrMin'); if(x) x.focus(); },50);
+}
+function logManualRest(){
+var mi=parseInt(document.getElementById('mrMin').value)||0, se=parseInt(document.getElementById('mrSec').value)||0;
+var t=mi*60+se;
+if(t<=0){ toast('Enter how long you rested'); return; }
+if(restTmr) stopRest();
+_recordRest(t);
+updateSessionRestCard();
+document.getElementById('manualRestModal').style.display='none';
+toast('Rest of '+mi+':'+String(se).padStart(2,'0')+' logged');
+}
 function stopRest(){
 if(restTmr){
 const elapsed=restStartSecs-restLeft;
-if(elapsed>=5){currentRestTimes.push(elapsed);updateSessionRestCard();}
+if(elapsed>=5){_recordRest(elapsed);updateSessionRestCard();}
 clearInterval(restTmr);restTmr=null;
 }
 restLeft=0;restEndTime=0;
@@ -8099,7 +8300,7 @@ clearInterval(restTmr);restTmr=null;
 const el=document.getElementById('restDisp');
 if(el){el.textContent='MOVE THAT ASS!';el.className='rest-time go';}
 document.querySelectorAll('.rest-preset').forEach(p=>p.classList.remove('active'));
-currentRestTimes.push(restStartSecs);
+_recordRest(restStartSecs);
 updateSessionRestCard();
 var ht=document.getElementById('headerRestTimer');
 if(ht) ht.style.display='none';
@@ -8173,7 +8374,8 @@ const HELP_TEXT=[
 '<b>2. For each exercise, fill in your sets</b><br>Every exercise shows boxes for Reps and Weight, one row per set. Just type the numbers in as you finish each set. Did an extra set that isn\'t shown? Tap "+ Add Set" to add another row.<br><br>'+
 '<b>3. The H button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "H" (for Help). Tap it once for every rep in that set where someone helped you finish (a spot) -- it\'ll show a number like "H 2". Tapped it by mistake, or want to lower the count? Press and hold the button to subtract one. Didn\'t need help at all? Just leave it alone.<br><br>'+
 '<b>3b. The LP button (lengthened partials)</b><br>Works exactly the same way as H, right next to it. Tap "LP" once for every rep in that set done as a lengthened partial -- a shorter rep performed in the stretched position of the movement (e.g. the bottom half of a leg extension or bicep curl), a technique some research suggests builds muscle as well as full-range reps for certain exercises. Same as H: tap to add one, press and hold to subtract one. Like H and drop sets, LP reps are excluded from your Personal Records, since a partial-range rep isn\'t really the same lift as a full-range one.<br><br>'+
-'<b>3c. The RP button (rest-pause)</b><br>Tap RP if you took short breaks within the set to squeeze out more reps. Like H and LP, rest-pause sets don\'t count towards personal records.<br><br>'+
+'<b>3c. The RP button (rest-pause)</b><br>Did you pause briefly mid-set and squeeze out more reps? Tap RP once for each of those extra reps (hold to take one off). They count towards the set\'s volume, but -- like H and LP -- rest-pause sets don\'t count towards personal records.<br><br>'+
+'<b>3e. Rest and working time</b><br>Use the rest timer (1m / 90s / 2m / 3m) between sets, or tap <b>&#9998;</b> to log a rest that already happened -- even a long one. Each rest is saved with the set it followed. Every session is then split into <b>working time</b> and <b>rest</b>, shown in History. The more you use the rest timer, the better KFit learns your own pace.<br><br>'+
 '<b>3d. The RIR button (reps in reserve)</b><br>How many more reps you could have done at the end of the set. Tap it to cycle 0, 1, 2, 3, 4+ (tap again to clear). It helps your coach judge how hard each set was.<br><br>'+
 '<b>Not sure what a button means?</b> Tap the small <b>i</b> above the four buttons on any exercise for a one-line reminder.<br><br>'+
 '<b>4. Drop sets</b><br>Right after a set, you\'ll see a small "+ Drop set" link. Tap it if you dropped the weight and kept going with no rest (a classic drop set) -- it adds a new row marked "D" underneath that set.<br><br>'+
@@ -8465,7 +8667,7 @@ document.querySelectorAll('.ex-select:not(.ss-ex-select)').forEach(function(sel)
 });
 }
 
-function openCustomEx(){document.getElementById('customExModal').style.display='flex';}
+function openCustomEx(bp){document.getElementById('customExModal').style.display='flex';if(typeof bp==='string'){var s=document.getElementById('customExBP');if(s)s.value=bp;}}
 function closeCustomEx(){document.getElementById('customExModal').style.display='none';}
 function toggleCustomExPrivate(){
 var isPrivate=document.getElementById('customExPrivate').checked;

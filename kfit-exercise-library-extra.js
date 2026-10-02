@@ -42,7 +42,7 @@ var KFIT_STANDARD_SPLITS={
 {name:'Day 1 - Chest, Shoulders & Triceps',bodyParts:['Chest','Shoulders','Triceps'],exercises:[
 {ex:'Barbell Bench Press (Flat)',sets:3},{ex:'Dumbbell Press (Incline)',sets:3},{ex:'Pec Deck Fly',sets:2},{ex:'Dumbbell Shoulder Press',sets:3},
 {ex:'Lateral Raises (Standing, Super ROM)',sets:3},{ex:'Overhead Tricep Extension (Dumbbell)',sets:3},{ex:'Tricep Pushdown (Rope)',sets:2}]},
-{name:'Day 2 - Back, Rear Delts & Biceps',bodyParts:['Back','Shoulders','Biceps'],exercises:[
+{name:'Day 2 - Back & Biceps',bodyParts:['Back','Biceps'],exercises:[
 {ex:'Lat Pulldown Wide',sets:3},{ex:'Seated Row Close',sets:3},{ex:'Chest Supported Row Wide',sets:2},{ex:'Lat Prayer (Cable Pullover)',sets:2},
 {ex:'Face Pulls',sets:2},{ex:'Incline Bench Prone Reverse Fly',sets:2},{ex:'Bayesian Curl',sets:3},{ex:'Preacher Curl (Dumbbell)',sets:2}]},
 {name:'Day 3 - Legs & Core',bodyParts:['Legs','Core'],exercises:[

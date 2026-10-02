@@ -500,7 +500,7 @@ function _keyed(list){
 }
 function _setStr(r){
   if(!r) return '';
-  return (r.dropset?'Drop ':'')+(r.reps||'-')+' × '+(r.weight||'-')+(r.assistedReps>0?' (+'+r.assistedReps+' helped)':'')+(r.lengthenedPartialReps>0?' (+'+r.lengthenedPartialReps+' partials)':'')+((r.rir!=null&&r.rir!=='')?' · RIR '+r.rir:'');
+  return (r.dropset?'Drop ':'')+(r.reps||'-')+' × '+(r.weight||'-')+(r.assistedReps>0?' (+'+r.assistedReps+' helped)':'')+(r.lengthenedPartialReps>0?' (+'+r.lengthenedPartialReps+' partials)':'')+((r.rir!=null&&r.rir!=='')?' · RIR '+r.rir:'')+(r.rpReps>0?' · RP +'+r.rpReps:(r.myoRepMatch?' · RP':''));
 }
 function _itemStr(it,list){
   if(!it) return '';
