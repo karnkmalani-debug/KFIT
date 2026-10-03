@@ -11,10 +11,11 @@
 <link rel="manifest" href="/manifest-nutrition.json">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Serif+Devanagari:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./kfit-exercise-library.js"></script>
 <script src="./kfit-nutrition-lessons.js"></script>
+<script src="./kfit-i18n.js"></script>
 <script src="./kfit-coach-chat.js"></script>
 <script src="./kfit-join-coach.js"></script>
 <style>
@@ -23,7 +24,7 @@
   --line:#2E2F28; --line2:#3E3F36; --green:#2F6B4A; --green-d:#255A3D; --tint:#1E2B22; --mid:#5E8F6D; --sand:#26261F;
   --gold:#C9A24A; --leaf:#8FD1A2; --terra:#E39A6E;
   --surf:#1C1D18; --surf2:#26261F; --border:#2E2F28; --text:#F3EEE3; --sage:#6E9E7A;
-  --serif:"Playfair Display",Georgia,serif; --sans:"DM Sans",system-ui,-apple-system,sans-serif;
+  --serif:"Playfair Display","Noto Serif Devanagari",Georgia,serif; --sans:"DM Sans","Noto Sans Devanagari",system-ui,-apple-system,sans-serif;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -130,6 +131,7 @@ h2{margin:0;font-family:var(--serif);font-weight:500;font-size:22px;line-height:
 .hint .row{gap:14px}
 .hint button{background:none;border:none;padding:6px 0;font-weight:700;font-size:14px;color:var(--leaf);min-height:36px}
 .helpbtn{width:40px;height:40px;border-radius:20px;border:1px solid var(--line2);background:var(--card);font-weight:700;font-size:17px;color:var(--gold);flex-shrink:0}
+.langbtn{width:40px;height:40px;border-radius:20px;border:1px solid var(--line2);background:var(--card);font-size:16px;flex-shrink:0}
 .hrow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 .unit{display:inline-flex;border:1.5px solid var(--line2);border-radius:12px;overflow:hidden}
 .unit button{border:none;background:var(--card);padding:6px 12px;font-weight:700;font-size:13px;min-height:34px}
@@ -229,7 +231,55 @@ window.addEventListener('online',function(){flush();});
 function tpl(){return S.program&&TEMPLATES[S.program.template_id];}
 function hasPlan(){return !!tpl();}
 function stepId(i){var t=tpl();return t&&t.path[i==null?S.program.step_index:i];}
-function habitOf(id){return HABITS[id]||null;}
+function habitOf(id){var h=HABITS[id]||null; if(h) trEnsure(id,h); return h;}
+// ---------- Lessons in other languages: the AI translates each habit once,
+// then it's kept on the phone (instant after that; English until ready). ----------
+var TR_KEYS=['title','short','checkin','action','moveOnText','stayText','line','visual','label','prompt','text'];
+var TR_ARRAYS=['read','questions'];
+function trCollect(obj){
+  var refs=[];
+  (function walk(o,key){
+    if(Array.isArray(o)){
+      o.forEach(function(x,i){ if(typeof x==='string'){ if(TR_ARRAYS.indexOf(key)>=0) refs.push([o,i]); } else walk(x,key); });
+    } else if(o&&typeof o==='object'){
+      Object.keys(o).forEach(function(k){ var v=o[k]; if(typeof v==='string'){ if(TR_KEYS.indexOf(k)>=0&&/[A-Za-z]{2}/.test(v)) refs.push([o,k]); } else walk(v,k); });
+    }
+  })(obj,'');
+  return refs;
+}
+var trApplied={}, trBusy={};
+function trCacheKey(key){return 'kfit_tr1_'+kLang()+'_'+key;}
+function applyTr(obj,key){
+  try{ var c=JSON.parse(localStorage.getItem(trCacheKey(key))||'null'); var refs=trCollect(obj);
+    if(!Array.isArray(c)||c.length!==refs.length) return false;
+    refs.forEach(function(r,i){ if(typeof c[i]==='string'&&c[i]) r[0][r[1]]=c[i]; }); return true;
+  }catch(e){ return false; }
+}
+async function trChunk(list){
+  var L=KFitI18n.aiName(), hi=kLang()==='hi';
+  var prompt='Translate each string in this JSON array from English to '+L+'. Keep the same order and exactly the same number of items. '
+    +'Keep "KFit", numbers, times and emoji unchanged. Hand portions: palm = '+(hi?'हथेली':'palma')+', fist = '+(hi?'मुट्ठी':'puño')+', cupped hand = '+(hi?'अंजुली':'mano ahuecada')+', thumb = '+(hi?'अँगूठा':'pulgar')+'. '
+    +(hi?'Keep food and everyday words people normally say in English (protein, carbs, salad, Greek yogurt, snack, kcal) in Devanagari transliteration. ':'Use common Spanish food names. ')
+    +'Tone: warm, simple, encouraging, never preachy. Reply ONLY with a JSON array of strings.\n'+JSON.stringify(list);
+  var r=await fetch(GEMINI_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.2,maxOutputTokens:8192,responseMimeType:'application/json',thinkingConfig:{thinkingBudget:0}}})});
+  var j=await r.json(); var t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&(j.candidates[0].content.parts||[]).map(function(q){return q.text||'';}).join('');
+  var a=JSON.parse(String(t||'').replace(/```json|```/g,'').trim());
+  if(!Array.isArray(a)||a.length!==list.length) throw new Error('length mismatch');
+  return a.map(function(x,i){return typeof x==='string'&&x.trim()?x:list[i];});
+}
+async function translateObj(obj,key){
+  var refs=trCollect(obj), src=refs.map(function(r){return r[0][r[1]];}), out=[];
+  for(var i=0;i<src.length;i+=40){ out=out.concat(await trChunk(src.slice(i,i+40))); }
+  try{ localStorage.setItem(trCacheKey(key),JSON.stringify(out)); }catch(e){}
+  return applyTr(obj,key);
+}
+function trEnsure(key,obj){
+  if(kLang()==='en'||!obj||trApplied[key]) return;
+  if(applyTr(obj,key)){ trApplied[key]=1; return; }
+  if(trBusy[key]) return; trBusy[key]=1;
+  if(!trEnsure._toast){ trEnsure._toast=1; setTimeout(function(){ toast(kLang()==='hi'?'पाठ आपकी भाषा में तैयार हो रहे हैं…':'Preparando las lecciones en tu idioma…'); },300); }
+  translateObj(obj,key).then(function(ok){ trBusy[key]=0; if(ok){ trApplied[key]=1; try{ render(); }catch(e){} } },function(){ trBusy[key]=0; });
+}
 // the lesson days of a habit at this template's pace
 function stepDays(id){
   var h=habitOf(id), t=tpl(); if(!h) return [];
@@ -326,7 +376,7 @@ function markThreadRead(list){
   list.forEach(function(c){if(c.author==='coach'&&!c.read_by_client_at)c.read_by_client_at=new Date().toISOString();});
   sb.from('nutrition_meal_comments').update({read_by_client_at:new Date().toISOString()}).in('id',ids).then(function(){updateBadge();},function(){});
 }
-function whenShort(iso){var d=new Date(iso);return d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase()+(dstr(d)!==today()?' · '+d.toDateString().slice(4,10):'');}
+function whenShort(iso){var d=new Date(iso);return d.toLocaleTimeString(kLoc(), {hour:'numeric',minute:'2-digit'}).toLowerCase()+(dstr(d)!==today()?' · '+d.toDateString().slice(4,10):'');}
 function threadHtml(day,mealId){
   var list=commentsFor(day,mealId); if(!list.length&&!mealId) return '';
   var key=day+'|'+(mealId||'');
@@ -394,7 +444,7 @@ function go(tab){ if(chatUI&&tab!=='chat'){try{chatUI.destroy();}catch(e){} chat
 function renderSignIn(msg){
   S.view=function(){renderSignIn(msg);};
   show('<div class="screen full">'
-    +'<div style="height:24px"></div>'
+    +'<div style="height:12px"></div>'+langChips()
     +'<h1>Welcome to KFit Nutrition.</h1>'
     +'<div class="body"><p>A calm, simple coach for everyday eating. One small habit at a time, a two-minute lesson a day, and meals logged with a photo. No strict diets.</p>'
     +'<p style="margin:0">New here or coming back, just enter your name and mobile number.</p></div>'
@@ -405,6 +455,7 @@ function renderSignIn(msg){
     +'<button class="btn" id="siGo">Continue</button>'
     +'</div>');
   $('#siHow').onclick=function(){openGuide(false);};
+  bindLangChips();
   $('#siGo').onclick=async function(){
     var name=$('#siName').value.trim(), m=$('#siMobile').value.replace(/\D/g,'');
     if(m.length<8||m.length>15){toast('Please enter your mobile number');return;}
@@ -484,6 +535,7 @@ async function enter(){
   S.view=null; loadCache(); render();
   try{ await flush(); await loadAll(); await loadNotes(); }catch(e){}
   startLive(); updateBadge();
+  try{ if(kLang()!=='en'){ if(G_R) trEnsure('reset',G_R); habitOf('start'); if(hasPlan()) habitOf(stepId()); } }catch(e){}
   try{ await syncLegacy(); }catch(e){ console.warn(e); }
   S.loaded=true; S.view=null; render(); checkUnread();
   // Opened a different coach's invite link? Offer to join them (their consent).
@@ -501,7 +553,8 @@ function renderHome(){
   var unread=(S.notes||[]).filter(function(n){return !n.read_at;}).length+unreadCoach().length, anyNotes=(S.notes||[]).length+(S.comments||[]).filter(function(c){return c.author==='coach';}).length;
   var html='<div class="screen">'
     +'<div class="hrow" style="align-items:center"><div class="brand"><span class="k">K</span><span class="f">F</span><span class="i">it</span><small>NUTRITION</small></div>'
-    +'<div class="row" style="gap:8px"><button id="hmOut" style="background:none;border:1px solid var(--line2);border-radius:20px;padding:8px 14px;font-weight:700;font-size:14px;color:var(--soft);min-height:40px">Log out</button><button class="helpbtn" aria-label="How KFit works">?</button></div></div>'
+    +'<div class="row" style="gap:8px"><button id="hmOut" style="background:none;border:1px solid var(--line2);border-radius:20px;padding:8px 14px;font-weight:700;font-size:14px;color:var(--soft);min-height:40px">Log out</button><button class="langbtn" id="hmLang" aria-label="Language">🌐</button><button class="helpbtn" aria-label="How KFit works">?</button></div></div>'
+    +'<div id="hmLangBox" style="display:none">'+langChips()+'</div>'
     +'<h1 style="font-size:34px">'+partOfDay()+(name?',<br><i style="color:var(--gold)">'+esc(name)+'</i>':'.')+'</h1><div class="goldline"></div>'
     +hint('home')
     +'<button class="tile main" id="hmLog"><div class="ic" style="background:#23382B;color:var(--leaf)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div><div style="flex:1"><h2>Log a meal</h2><div class="meta" style="font-weight:400">'+(todays.length?todays.length+' logged today':'Your day, meal by meal')+'</div>'+kcalBar(today())+'</div></button>'
@@ -515,6 +568,8 @@ function renderHome(){
   $('#hmPlan').onclick=function(){go('plan');};
   var hc=$('#hmCoach'); if(hc) hc.onclick=function(){go('coach');};
   $('#hmOut').onclick=logOut;
+  var hl=$('#hmLang'); if(hl) hl.onclick=function(){var bx=$('#hmLangBox');bx.style.display=bx.style.display==='none'?'block':'none';};
+  bindLangChips();
   document.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){ if(b.dataset.go==='weekly') return openWeekly(); go(b.dataset.go);};});
 }
 // The habit ladder: what a habit is, and where she is on the plan.
@@ -526,6 +581,13 @@ function ladder(){
     +'<div style="display:flex;flex-wrap:wrap;gap:6px">'+path.map(function(id,i){var h=habitOf(id),on=id===cur,dn=done[id]||path.indexOf(cur)>i;
       return '<span style="border:1px solid '+(on?'var(--gold)':dn?'#3D6B4F':'var(--line2)')+';background:'+(on?'var(--gold)':'transparent')+';color:'+(on?'#12130F':dn?'var(--leaf)':'var(--muted)')+';border-radius:14px;padding:4px 10px;font-size:13px;font-weight:'+(on?'700':'500')+'">'+(dn&&!on?'✓ ':'')+(id==='reset'?'7-day Reset':(i+1)+' '+esc(h?h.title:id))+'</span>';}).join('')+'</div></details>';
 }
+// Language: chips on sign-in, a 🌐 button on home. Changing reloads the app.
+function langChips(){
+  if(!window.KFitI18n) return '';
+  var L=KFitI18n.LANGS, cur=kLang();
+  return '<div class="row" style="gap:8px;flex-wrap:wrap" data-notr>'+Object.keys(L).map(function(k){return '<button data-lang="'+k+'" style="border:1px solid '+(k===cur?'var(--gold)':'var(--line2)')+';background:'+(k===cur?'var(--gold)':'none')+';color:'+(k===cur?'#12130F':'var(--soft)')+';border-radius:20px;padding:6px 14px;font-weight:700;font-size:14px;min-height:36px">'+L[k].name+'</button>';}).join('')+'</div>';
+}
+function bindLangChips(){ document.querySelectorAll('[data-lang]').forEach(function(b){b.onclick=function(){ if(b.dataset.lang!==kLang()) KFitI18n.set(b.dataset.lang); };}); }
 function renderCoachNotes(){
   S.tab='coach';
   var plans=coachBox().replace('<h2 style="font-size:20px">From your coach</h2>','');
@@ -558,7 +620,7 @@ async function logOut(){
 function renderWelcome(){ return renderHome(); }
 function mealsOn(d){return Object.keys(S.meals).map(function(k){return S.meals[k];}).filter(function(m){return m.day===d&&!m.deleted;}).sort(function(a,b){return mealAt(a)-mealAt(b);});}
 function mealAt(m){var b=m.body||{};return b.eatenAt?new Date(b.eatenAt).getTime():(b.at||0);}
-function mealTime(m){var t=mealAt(m);if(!t)return '';var d=new Date(t);return d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase();}
+function mealTime(m){var t=mealAt(m);if(!t)return '';var d=new Date(t);return d.toLocaleTimeString(kLoc(), {hour:'numeric',minute:'2-digit'}).toLowerCase();}
 function weekMealDays(){var n=0;for(var i=0;i<7;i++){if(mealsOn(addDays(today(),-i)).length)n++;}return n;}
 // ---------- From your coach: advice on past meals + meal plans ----------
 async function loadNotes(){
@@ -791,17 +853,27 @@ var speaking=false, speakCb=null;
 // read in short phrases with natural pauses, like a person talking.
 var VOICE_PREF=['samantha','ava','karen','serena','tessa','google us english','google uk english female','moira','aria','jenny','zira','victoria','allison','susan','fiona'];
 var VOICE_AVOID=/rishi|daniel|alex|fred|aaron|arthur|google uk english male|male/i;
+var VOICE_PREF_L={hi:['lekha','kiyara','swara','neerja','google हिन्दी','hindi'],es:['monica','mónica','paulina','marisol','helena','sabina','dalia','elvira','google español']};
+var VOICE_AVOID_L=/rishi|hemant|prabhat|madhur|jorge|diego|juan|carlos|pablo|alvaro|álvaro/i;
 function voice(){
+  var L=kLang();
+  if(L!=='en'){
+    var lv=(window.speechSynthesis?speechSynthesis.getVoices():[]).filter(function(v){return v.lang.toLowerCase().indexOf(L)===0&&!VOICE_AVOID_L.test(v.name);});
+    var pl=VOICE_PREF_L[L]||[];
+    for(var j=0;j<pl.length;j++){var fv=lv.filter(function(v){return v.name.toLowerCase().indexOf(pl[j])>=0;})[0];if(fv)return fv;}
+    if(lv.length) return lv[0];
+  }
   var vs=(window.speechSynthesis?speechSynthesis.getVoices():[]).filter(function(v){return /^en/i.test(v.lang)&&!VOICE_AVOID.test(v.name);});
   for(var i=0;i<VOICE_PREF.length;i++){var f=vs.filter(function(v){return v.name.toLowerCase().indexOf(VOICE_PREF[i])>=0;})[0];if(f)return f;}
   return vs.filter(function(v){return /en-(US|GB|AU)/i.test(v.lang);})[0]||vs[0]||null;
 }
 if(window.speechSynthesis){ try{ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged=function(){}; }catch(e){} }
 function phrases(text){
-  return String(text||'').match(/[^.!?:;,]+[.!?:;,]?/g).map(function(x){return x.trim();}).filter(Boolean);
+  return (String(text||'').match(/[^.!?:;,।]+[.!?:;,।]?/g)||[]).map(function(x){return x.trim();}).filter(Boolean);
 }
 function speak(parts,done){
   stopSpeech(); if(!window.speechSynthesis){if(done)done();return;}
+  if(window.KFitI18n&&kLang()!=='en') parts=parts.map(function(x){return KFitI18n.t(x);});
   speaking=true; speakCb=done; var i=0, bits=[];
   parts.forEach(function(p){ bits=bits.concat(phrases(p)); bits.push(''); });
   (function next(){
@@ -809,7 +881,7 @@ function speak(parts,done){
     if(i>=bits.length){speaking=false;if(speakCb)speakCb();return;}
     var t=bits[i++];
     if(!t){ return setTimeout(next,500); }                       // pause between paragraphs
-    var u=new SpeechSynthesisUtterance(t); var v=voice(); if(v){u.voice=v;u.lang=v.lang;}
+    var u=new SpeechSynthesisUtterance(t); var v=voice(); if(v){u.voice=v;u.lang=v.lang;} else if(kLang()!=='en'){ u.lang=KFitI18n.locale(); }
     u.rate=0.96; u.pitch=1.12;
     var gap=/[.!?]$/.test(t)?380:/[:;]$/.test(t)?260:160;       // natural pauses
     var goOn=function(){ if(speaking) setTimeout(next,gap); };
@@ -919,7 +991,7 @@ function renderLog(){
   var pd=parseD(d), wd=(pd.getDay()+6)%7, mon=addDays(d,-wd), strip='';
   for(var i=0;i<7;i++){var x=addDays(mon,i),k=dayKcal(x),on=x===d,fut=x>today();
     strip+='<button data-day="'+x+'"'+(fut?' disabled':'')+' style="background:none;border:none;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:2px;padding:0;opacity:'+(fut?'.35':'1')+'">'
-      +'<span class="meta" style="font-size:11px">'+'MTWTFSS'[i]+'</span>'
+      +'<span class="meta" style="font-size:11px">'+((window.KFitI18n?KFitI18n.week():'MTWTFSS'.split(''))[i])+'</span>'
       +'<span style="width:32px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;'+(on?'background:var(--ink);color:#12130F':x===today()?'border:2px solid var(--gold)':'border:1px solid var(--line2)')+'">'+parseD(x).getDate()+'</span>'
       +'<span class="f-time" style="font-size:10px;color:'+(k.n?'var(--gold)':'var(--muted)')+'">'+(k.n?fmt(k.sum):'–')+'</span></button>';}
   // header: ring + today's habit
@@ -937,8 +1009,8 @@ function renderLog(){
   } else {
     var cc=S.checkins[d]; habit='<div style="flex:1;font-size:14px;color:var(--soft)">'+(cc&&cc.answer?'Habit: <b>'+({done:'Done',partly:'Partly',not:'Not yet'}[cc.answer])+'</b>':'')+'</div>';
   }
-  var nowT=new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase();
-  var dateTxt=pd.toLocaleDateString([], {weekday:'short',day:'numeric',month:'short'});
+  var nowT=new Date().toLocaleTimeString(kLoc(), {hour:'numeric',minute:'2-digit'}).toLowerCase();
+  var dateTxt=pd.toLocaleDateString(kLoc(), {weekday:'short',day:'numeric',month:'short'});
   var html='<div class="screen">'+head(isToday?'Today':dateTxt,isToday?dateTxt+' · '+nowT:pd.getFullYear()+'')
     +'<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px">'+strip+'</div>'
     +'<div class="card" style="border:1px solid var(--line);flex-direction:row;gap:14px;align-items:center">'+kcalRing(d)+habit+'</div>';
@@ -970,7 +1042,7 @@ function renderLog(){
       +(ps.length?'<img class="mthumb" data-path="'+esc(ps[0].path)+'" alt="">':'<span class="mthumb">🍽️</span>')
       +'<div style="flex:1;min-width:0"><div><span class="f-time">'+esc(mealTime(m))+'</span> <span class="f-meal" style="font-size:16px">'+esc(b.slot||'Meal')+'</span>'+(th.length?' <span class="meta">💬 '+th.length+(unread?' new':'')+'</span>':'')+'</div>'
       +'<div class="f-food" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(b.text||'Photo')+'</div>'
-      +(function(){var la=b.at?new Date(b.at):null, ea=b.eatenAt?new Date(b.eatenAt):null; if(!la||!ea||Math.abs(la-ea)<15*60000) return ''; return '<div class="meta" style="font-weight:400">eaten '+esc(mealTime(m))+' · logged '+la.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase()+(dstr(la)!==m.day?' '+la.toDateString().slice(4,10):'')+'</div>';})()
+      +(function(){var la=b.at?new Date(b.at):null, ea=b.eatenAt?new Date(b.eatenAt):null; if(!la||!ea||Math.abs(la-ea)<15*60000) return ''; return '<div class="meta" style="font-weight:400">eaten '+esc(mealTime(m))+' · logged '+la.toLocaleTimeString(kLoc(), {hour:'numeric',minute:'2-digit'}).toLowerCase()+(dstr(la)!==m.day?' '+la.toDateString().slice(4,10):'')+'</div>';})()
       +'</div>'
       +(f&&f.kcal?'<span class="f-time" style="color:var(--muted)">'+esc(fmt(f.kcal))+'</span>':(b.text||ps.length?'<span data-retry="'+esc(m.meal_id)+'" role="button" class="meta" style="color:var(--gold);text-align:right">no estimate<br>tap to retry</span>':''))+'</button>';
     if(isOpen){
@@ -1148,7 +1220,7 @@ async function handFeedback(blob,note){
     +'protein in palms, vegetables in fists, carbs in cupped hands, fats in thumbs (use halves like 0.5, 1, 1.5). '
     +'Then give ONE short, kind, practical tip in plain English (max 25 words) based on: protein first, a fist of vegetables, eat protein then vegetables then fats and carbs last. Never shame. '
     +'Also estimate the meal\'s total calories as a single rounded number (kcal), for reference only. '
-    +'Reply ONLY with JSON: {"protein":number,"veg":number,"carbs":number,"fats":number,"kcal":number,"tip":"..."}';
+    +(kLang()!=='en'?'Write the tip in '+KFitI18n.aiName()+'. ':'')+'Reply ONLY with JSON: {"protein":number,"veg":number,"carbs":number,"fats":number,"kcal":number,"tip":"..."}';
   var data=await b64(blob);
   var r=await fetch(GEMINI_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:data}}]}],generationConfig:{temperature:0.2,maxOutputTokens:1024,responseMimeType:'application/json',thinkingConfig:{thinkingBudget:0}}})});
   var j=await r.json(); var t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&(j.candidates[0].content.parts||[]).map(function(q){return q.text||'';}).join('');
@@ -1164,7 +1236,7 @@ async function textFeedback(text){
     +'Estimate portions using hands: protein in palms, vegetables in fists, carbs in cupped hands, fats in thumbs (halves like 0.5, 1, 1.5), '
     +'and the total calories as one rounded number (kcal), for reference only. Assume typical home portions for that cuisine if amounts are not given. '
     +'Give ONE short, kind, practical tip (max 25 words) based on: protein first, a fist of vegetables, carbs last. Never shame. '
-    +'Reply ONLY with JSON: {"protein":number,"veg":number,"carbs":number,"fats":number,"kcal":number,"tip":"..."}';
+    +(kLang()!=='en'?'Write the tip in '+KFitI18n.aiName()+'. ':'')+'Reply ONLY with JSON: {"protein":number,"veg":number,"carbs":number,"fats":number,"kcal":number,"tip":"..."}';
   var r=await fetch(GEMINI_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.2,maxOutputTokens:1024,responseMimeType:'application/json',thinkingConfig:{thinkingBudget:0}}})});
   var j=await r.json(); var t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&(j.candidates[0].content.parts||[]).map(function(q){return q.text||'';}).join('');
   var o=JSON.parse(String(t||'').replace(/```json|```/g,'').trim());
@@ -1332,6 +1404,8 @@ function calorieCard(){
     +'<button class="btn link" id="pgProfile">Edit your details</button></div>';
 }
 // About you: needed once so calorie estimates always exist. Editable in Progress.
+function kLoc(){return window.KFitI18n?KFitI18n.locale():[];}
+function kLang(){return window.KFitI18n?KFitI18n.lang():'en';}
 function cmToFtIn(cm){var t=Math.round(cm/2.54);return {ft:Math.floor(t/12),inch:t%12};}
 function heightText(cm){if(!cm)return '';var f=cmToFtIn(cm);return cm+' cm ('+f.ft+'′'+f.inch+'″)';}
 function renderProfile(required){
