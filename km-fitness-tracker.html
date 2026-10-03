@@ -807,7 +807,7 @@ btn.textContent='Could not copy -- select the address bar manually';
         <div id="exSearchSuggestions" style="display:none;position:absolute;left:0;right:0;bottom:calc(100% + 4px);background:var(--surf3);border:1px solid var(--border);border-radius:10px;overflow:hidden;z-index:60;max-height:260px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4);"></div>
       </div>
       <div class="add-row" onclick="addExRow()" style="background:var(--flame);border-style:solid;border-color:var(--flame);color:#1a0d05;font-weight:800;">+ Add Exercise</div>
-      <div class="add-row" onclick="addSupersetBlock()" style="color:var(--sage);border-color:var(--sage);margin-top:6px;">+ Superset</div>
+      <div class="add-row" onclick="addSupersetBlock()" style="color:var(--sage);border-color:var(--sage);margin-top:6px;">+ Superset / Circuit</div>
       <div class="add-row" onclick="window.location.href='https://kfit.pages.dev/kfit-voice'" style="color:var(--gold);border-color:var(--gold);margin-top:6px;">&#127897; Voice Log Session</div>
       <div style="margin-top:10px;">
         <div class="quick-add-header" onclick="toggleExChips()" style="padding:8px 0;cursor:pointer;">
@@ -3047,6 +3047,13 @@ function isCardio(exName){ return CARDIO_EX.has(exName)||(EX_LIB['Cardio']||[]).
 // Functional movements are logged in seconds (holds) or reps (burpees etc.)
 function _ensureSuggestLink(chips,bp){
 if(!chips||!chips.parentElement) return;
+if(bp==='Functional'&&!document.getElementById('fnCircuitBtn')){
+var cb=document.createElement('div'); cb.id='fnCircuitBtn'; cb.className='add-row';
+cb.style.cssText='color:var(--sage);border-color:var(--sage);margin-top:8px;';
+cb.textContent='+ Superset / Circuit';
+cb.onclick=function(){ addSupersetBlock(); var b=[...document.querySelectorAll('#exBody .superset-block')].pop(); if(b) b.scrollIntoView({behavior:'smooth',block:'center'}); };
+chips.insertAdjacentElement('afterend',cb);
+}
 var id='suggestLink'+bp; if(document.getElementById(id)) return;
 var b=document.createElement('button'); b.id=id; b.className='custom-ex-btn'; b.textContent='+ Suggest a new '+(bp==='Cardio'?'cardio activity':'movement')+' to your coach';
 b.onclick=function(){ openCustomEx(bp); };
@@ -3307,6 +3314,21 @@ renumberDropGroup(container,afterMain);
 draftSave();
 }
 
+function _ssWord(n){ return n>=3?'Circuit':'Superset'; }
+// keep each block's label right as exercises are added or removed
+(function(){
+var t=null;
+function relabel(){ t=null; document.querySelectorAll('#exBody .superset-block').forEach(function(b){ var l=b.querySelector('.superset-label'); if(l){ var w=_ssWord(b.querySelectorAll('.superset-ex-block').length)+' '+(b.dataset.ssnum||''); if(l.textContent!==w) l.textContent=w; } }); }
+function start(){ var eb=document.getElementById('exBody'); if(!eb) return; new MutationObserver(function(){ if(!t) t=setTimeout(relabel,30); }).observe(eb,{childList:true,subtree:true}); }
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
+})();
+function _ssCardioForCalories(sss){
+var out=[];
+(sss||[]).forEach(function(ss){ (ss.exercises||[]).forEach(function(e){
+if(e&&e.type==='cardio'&&parseFloat(e.duration)>0) out.push({ex:e.ex,duration:e.duration,intensity:e.intensity||'Moderate'});
+}); });
+return out;
+}
 function _functionalForCalories(exs,sss){
 var all=(exs||[]).slice(); (sss||[]).forEach(function(ss){ all=all.concat(ss.exercises||[]); });
 return all.filter(function(e){ return e&&e.type==='functional'; }).map(function(e){
@@ -3477,8 +3499,8 @@ if(setRows.length){
 const filled=[...setRows].filter(r=>r.querySelector('.reps-input')?.value||r.querySelector('.weight-input')?.value);
 summary+=filled.length?` · ${filled.length}/${setRows.length} sets logged`:setsCount?` · ${setsCount} sets`:'';
 }
-const durInp=block.querySelector('.ss-cardio-dur');
-if(durInp&&durInp.value)summary+=` · ${durInp.value} min`;
+const _cs=[...block.querySelectorAll('.ss-cardio-sec')].reduce((a,x)=>a+(parseInt(x.value)||0),0);
+if(_cs)summary+=` · ${Math.round(_cs/6)/10} min`;
 
 block.dataset.collapsed='1';
 if(rows)rows.style.display='none';
@@ -4318,7 +4340,8 @@ const cur=sel.value;
 if(cur&&list.indexOf(cur)<0) list.push(cur);
 const fn=(EX_LIB['Functional']||[]).filter(e=>list.indexOf(e)<0&&!deleted.has(e));
 sel.innerHTML='<option value="">-- Select Exercise --</option>'+list.map(e=>`<option value="${e}"${e===cur?' selected':''}>${e}</option>`).join('')
-+(fn.length?'<optgroup label="Functional">'+fn.map(e=>`<option value="${e}"${e===cur?' selected':''}>${e}</option>`).join('')+'</optgroup>':'');
++(fn.length?'<optgroup label="Functional">'+fn.map(e=>`<option value="${e}"${e===cur?' selected':''}>${e}</option>`).join('')+'</optgroup>':'')
++((EX_LIB['Cardio']||[]).length?'<optgroup label="Cardio">'+(EX_LIB['Cardio']||[]).filter(e=>!deleted.has(e)).map(e=>`<option value="${e}"${e===cur?' selected':''}>${e}</option>`).join('')+'</optgroup>':'');
 _ensureSSSearch(sel);
 }
 // A search box above each superset slot: any exercise or functional movement.
@@ -4335,9 +4358,12 @@ inp.addEventListener('input',function(){
 var q=inp.value.trim().toLowerCase();
 if(q.length<2){ res.style.display='none'; res.innerHTML=''; return; }
 var hits=[];
-Object.keys(EX_LIB).forEach(function(bp){ if(bp==='Cardio') return; (EX_LIB[bp]||[]).forEach(function(n){ if(n.toLowerCase().indexOf(q)>-1&&!hits.some(function(h){return h.n===n;})) hits.push({n:n,bp:bp}); }); });
+Object.keys(EX_LIB).forEach(function(bp){ (EX_LIB[bp]||[]).forEach(function(n){ if(n.toLowerCase().indexOf(q)>-1&&!hits.some(function(h){return h.n===n;})) hits.push({n:n,bp:bp}); }); });
+// best matches first: name starts with it, then a word starts with it
+hits.forEach(function(h){ var l=h.n.toLowerCase(); h.r=l.indexOf(q)===0?0:((' '+l).indexOf(' '+q)>-1?1:2); });
+hits.sort(function(a,b){ return a.r-b.r||a.n.length-b.n.length; });
 hits=hits.slice(0,8);
-res.innerHTML=hits.length?hits.map(function(h){ return '<div class="ss-hit" data-n="'+h.n.replace(/"/g,'&quot;')+'" style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:14px;color:var(--text);cursor:pointer;">'+h.n+' <span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;margin-left:4px;background:var(--surf3);color:'+(h.bp==='Functional'?'var(--sage)':'var(--gold)')+';">'+h.bp+'</span></div>'; }).join(''):'<div style="padding:8px 10px;font-size:13px;color:var(--muted);">No match</div>';
+res.innerHTML=hits.length?hits.map(function(h){ return '<div class="ss-hit" data-n="'+h.n.replace(/"/g,'&quot;')+'" style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:14px;color:var(--text);cursor:pointer;">'+h.n+' <span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;margin-left:4px;background:var(--surf3);color:'+(h.bp==='Functional'?'var(--sage)':(h.bp==='Cardio'?'#4aa3c7':'var(--gold)'))+';">'+h.bp+'</span></div>'; }).join(''):'<div style="padding:8px 10px;font-size:13px;color:var(--muted);">No match</div>';
 res.style.display='block';
 res.querySelectorAll('.ss-hit').forEach(function(d){ d.onclick=function(){
 var n=d.getAttribute('data-n');
@@ -4375,22 +4401,8 @@ block.querySelector('.ex-top-row').insertAdjacentElement('afterend',histEl);
 if(!exName){ histEl.innerHTML=''; }
 
 if(isCardio(exName)){
-setsEl.style.display='none';
-setRows.innerHTML=`
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:4px 0;">
-<div><div class="cardio-field-label">Duration (min)</div>
-<input class="cardio-field-inp ss-cardio-dur" type="text" inputmode="decimal" placeholder="--" onblur="autoFixNum(this)">
-</div>
-<div><div class="cardio-field-label">Intensity</div>
-<select class="cardio-field-sel ss-cardio-int">
-<option value="">--</option>
-<option value="Easy">Easy</option>
-<option value="Moderate">Moderate</option>
-<option value="Hard">Hard</option>
-<option value="Max">Max</option>
-</select>
-</div>
-</div>`;
+setsEl.style.display='';
+_buildSSCardioRows(setRows,+setsEl.value||3);
 } else {
 setsEl.style.display='';
 generateSetRows(setRows,+setsEl.value,exName);
@@ -4444,9 +4456,27 @@ function updateSupersetSetRows(sel){
 const block=sel.closest('.superset-ex-block');
 const exSel=block.querySelector('.ss-ex-select');
 const exName=exSel?exSel.value:'';
-if(!isCardio(exName)){
-generateSetRows(block.querySelector('.set-rows'),+sel.value,exName);
+if(isCardio(exName)) _buildSSCardioRows(block.querySelector('.set-rows'),+sel.value);
+else generateSetRows(block.querySelector('.set-rows'),+sel.value,exName);
 }
+// Cardio inside a superset/circuit: one row per round (seconds + optional
+// metres) and ONE effort level for the slot (Moderate unless changed).
+function _buildSSCardioRows(container,count){
+if(!container) return;
+var keep=[...container.querySelectorAll('.ss-cardio-row')].map(function(r){ return {d:r.querySelector('.ss-cardio-sec').value,m:r.querySelector('.ss-cardio-dist').value}; });
+var effort=(container.querySelector('.ss-cardio-int')||{}).value||container.dataset.effort||'Moderate';
+var html='<div style="display:flex;align-items:center;gap:8px;margin:2px 0 8px;"><span class="cardio-field-label" style="margin:0;">Effort</span>'
++'<select class="cardio-field-sel ss-cardio-int" style="flex:1;" onchange="this.closest(\'.set-rows\').dataset.effort=this.value;draftSave();">'
++['Easy','Moderate','Hard','Max'].map(function(x){ return '<option value="'+x+'"'+(x===effort?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></div>'
++'<div class="set-header functional-header"><span></span><span>Time (sec)</span><span>Distance (m, optional)</span></div>';
+for(var i=0;i<count;i++){
+var v=keep[i]||{d:'',m:''};
+html+='<div class="set-row functional-row ss-cardio-row"><span class="set-num">R'+(i+1)+'</span>'
++'<input class="functional-duration-input ss-cardio-sec" type="number" inputmode="numeric" min="0" max="9999" placeholder="--" value="'+(v.d||'')+'" onblur="autoFixNum(this)">'
++'<input class="functional-weight-input ss-cardio-dist" type="text" inputmode="decimal" placeholder="--" value="'+(v.m||'')+'" onblur="autoFixNum(this)"></div>';
+}
+container.dataset.effort=effort;
+container.innerHTML=html;
 }
 
 function doneSuperset(ssId,quiet){
@@ -4480,7 +4510,7 @@ nextWrap.innerHTML=`<div class="add-row" style="color:var(--sage);border-color:v
 block.insertAdjacentElement('afterend',nextWrap);
 }
 // only when the person taps Done -- not when a saved session is reopened
-if(!quiet) toast(`Superset ${ssNum} done`);
+if(!quiet) toast(`${_ssWord(block?block.querySelectorAll('.superset-ex-block').length:2)} ${ssNum} done`);
 }
 
 function editSuperset(ssId){
@@ -4513,7 +4543,7 @@ function renumberSupersets(){
 const blocks=[...document.querySelectorAll('#exBody .superset-block')];
 blocks.forEach(function(b,i){
 b.dataset.ssnum=i+1;
-const lbl=b.querySelector('.superset-label'); if(lbl) lbl.textContent='Superset '+(i+1);
+const lbl=b.querySelector('.superset-label'); if(lbl) lbl.textContent=_ssWord(b.querySelectorAll('.superset-ex-block').length)+' '+(i+1);
 });
 supersetCounter=blocks.length;
 }
@@ -4535,9 +4565,10 @@ ssBlock.querySelectorAll('.superset-ex-block').forEach(exBlock=>{
 const ex=exBlock.querySelector('.ss-ex-select')?.value;
 if(!ex)return;
 if(isCardio(ex)){
-const dur=exBlock.querySelector('.ss-cardio-dur')?.value||'';
-const intensity=exBlock.querySelector('.ss-cardio-int')?.value||'';
-exercises.push({ex,type:'cardio',duration:dur,intensity});
+const intensity=exBlock.querySelector('.ss-cardio-int')?.value||'Moderate';
+const setData=[...exBlock.querySelectorAll('.ss-cardio-row')].map((r,i)=>({set:i+1,duration:r.querySelector('.ss-cardio-sec').value||'',distance:r.querySelector('.ss-cardio-dist').value||''}));
+const secs=setData.reduce((a,r)=>a+(parseInt(r.duration)||0),0);
+exercises.push({ex,type:'cardio',duration:secs?String(Math.round(secs/6)/10):'',intensity,sets:setData.length,setData});
 } else if(isFunctional(ex)){
 const setsCount=+exBlock.querySelector('.sets-select').value;
 const _f=_readFunctionalSets(exBlock.querySelector('.set-rows'));
@@ -4868,7 +4899,7 @@ var _strengthSecs=hasStrengthWork?Math.max(0,(finalDur||0)-_cardioSecsTotal-_fun
 var _estCal=computeSessionCalories({
 strengthSecs:_strengthSecs,
 avgRestSec:avgRestSecFromPage(),
-cardioBlocks:cardioBlocks.map(function(c){return {ex:c.ex,duration:c.duration,intensity:c.intensity};}),
+cardioBlocks:cardioBlocks.map(function(c){return {ex:c.ex,duration:c.duration,intensity:c.intensity};}).concat(_ssCardioForCalories(collectSupersets())),
 functionalBlocks:functionalBlocks.map(function(f){return {ex:f.ex,duration:f.duration};}).concat(_functionalForCalories(exercises,collectSupersets())),
 profile:getClientProfile()
 });
@@ -7302,7 +7333,7 @@ return '<div style="font-size:14px;font-weight:700;margin-bottom:4px;">'+e.ex+(f
 }
 return exTable(e);
 }).join('');
-return '<div style="border-left:3px solid #666;padding-left:10px;margin-bottom:14px;"><div style="font-size:13px;font-weight:800;text-transform:uppercase;margin-bottom:6px;">Superset '+ss.num+'</div>'+inner+'</div>';
+return '<div style="border-left:3px solid #666;padding-left:10px;margin-bottom:14px;"><div style="font-size:13px;font-weight:800;text-transform:uppercase;margin-bottom:6px;">'+_ssWord((ss.exercises||[]).length)+' '+ss.num+'</div>'+inner+'</div>';
 }).join('');
 if(ssHtml) out+=ssHtml;
 var cardioHtml=(s.cardio||[]).map(function(c){
@@ -7872,11 +7903,14 @@ if(!opt){var newOpt=document.createElement('option');newOpt.value=e.ex;newOpt.te
 exSel.value=e.ex;
 }
 if(e.type==='cardio'){
+var csel=exBlock.querySelector('.sets-select');
+if(csel&&e.setData&&e.setData.length) csel.value=e.setData.length;
 onSupersetExChange(exSel);
-var durInp=exBlock.querySelector('.ss-cardio-dur');
+var crows=[...exBlock.querySelectorAll('.ss-cardio-row')];
+if(e.setData&&e.setData.length){ e.setData.forEach(function(r,i){ if(crows[i]){ crows[i].querySelector('.ss-cardio-sec').value=r.duration||''; crows[i].querySelector('.ss-cardio-dist').value=r.distance||''; } }); }
+else if(e.duration&&crows[0]){ crows[0].querySelector('.ss-cardio-sec').value=Math.round((parseFloat(e.duration)||0)*60)||''; }
 var intSel=exBlock.querySelector('.ss-cardio-int');
-if(durInp) durInp.value=e.duration||'';
-if(intSel) intSel.value=e.intensity||'';
+if(intSel&&e.intensity){ intSel.value=e.intensity; intSel.closest('.set-rows').dataset.effort=e.intensity; }
 } else if(e.type==='functional'){
 var setsEl=exBlock.querySelector('.sets-select');
 var setCount=e.sets||(e.setData?e.setData.length:3)||3;
@@ -7920,7 +7954,7 @@ var _avgRest=(s.restTimes&&s.restTimes.length)?(s.restTimes.reduce((a,b)=>a+b,0)
 return computeSessionCalories({
 strengthSecs:_strSecs,
 avgRestSec:_avgRest,
-cardioBlocks:(s.cardio||[]).map(c=>({ex:c.ex,duration:c.duration,intensity:c.intensity})),
+cardioBlocks:(s.cardio||[]).map(c=>({ex:c.ex,duration:c.duration,intensity:c.intensity})).concat(_ssCardioForCalories(s.supersets||[])),
 functionalBlocks:(s.functional||[]).map(f=>({ex:f.ex,duration:f.duration})).concat(_functionalForCalories(s.exercises||[],s.supersets||[])),
 profile:getClientProfile()
 });
@@ -8027,7 +8061,7 @@ return{order:e.order!=null?e.order:100000+i, html};
 const _ssItems=(s.supersets||[]).map((ss,i)=>{
 const uLabel=s.unit||'kg';
 const html=`<div class="card" style="border-color:var(--sage);">
-<div style="font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--sage);margin-bottom:12px;">Superset ${ss.num}</div>
+<div style="font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--sage);margin-bottom:12px;">${_ssWord((ss.exercises||[]).length)} ${ss.num}</div>
 ${ssBodyHtml(ss,uLabel,prMap8,s)}
 </div>`;
 return{order:ss.order!=null?ss.order:i, html};

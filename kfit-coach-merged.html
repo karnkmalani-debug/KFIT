@@ -3970,7 +3970,7 @@ function renderCoachSession(s,allSessions,full){
   // Supersets
   const _ssItemsCoach=(s.supersets||[]).map((ss,i)=>{
     const html=`<div class="card" style="border-color:var(--sage);">
-    <div class="card-title" style="color:var(--sage);">Superset ${ss.num}</div>
+    <div class="card-title" style="color:var(--sage);">${((ss.exercises||[]).length>=3)?'Circuit':'Superset'} ${ss.num}</div>
     ${ssBodyHtmlCoach(ss,uLabel,prMap8,s,allSessions)}
   </div>`;
     return{order:ss.order!=null?ss.order:i, html};
@@ -4857,7 +4857,7 @@ function renderAsSupersets(){
   document.getElementById('as-superset-blocks').innerHTML=asSupersets.map((ss,ssIdx)=>`
     <div style="border:1.5px solid var(--sage);border-radius:10px;padding:10px;margin-bottom:10px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <span style="font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--sage);">Superset ${ssIdx+1}</span>
+        <span style="font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--sage);">${((ss.exercises||[]).length>=3)?'Circuit':'Superset'} ${ssIdx+1}</span>
         <button onclick="removeAsSuperset('${ss.id}')" style="background:none;border:none;color:var(--muted2);font-size:16px;cursor:pointer;">✕ Remove</button>
       </div>
       ${ss.exercises.map((e,i)=>{
