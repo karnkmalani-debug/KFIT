@@ -1,7 +1,7 @@
-const V = "kfit-v14";
+const V = "kfit-v15";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => e.waitUntil(
-  // v14: batch 6 (day log with ring + habit, Merge days to match). Bumping
+  // v15: batch 7 (dates, past-day summaries, ticks, Merge snapshot). Bumping
   // the version wipes every old cache so no phone keeps an old app copy.
   caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())
 ));

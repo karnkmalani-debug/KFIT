@@ -151,7 +151,7 @@ var CSS='.kc-wrap{display:flex;flex-direction:column;height:100%;min-height:0;fo
 +'.kc-b{max-width:80%;padding:9px 12px;border-radius:14px;font-size:15px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word;}'
 +'.kc-them{align-self:flex-start;background:var(--surf2,#26241f);color:var(--text,#f2efe8);border:1px solid var(--border,#3a372f);}'
 +'.kc-me{align-self:flex-end;background:var(--sage,#3a6e40);color:#fff;}'
-+'.kc-t{font-size:11px;opacity:.7;margin-top:3px;}'
++'.kc-t{font-size:11px;opacity:.7;margin-top:3px;}.kc-tick{margin-left:4px;opacity:.8;letter-spacing:-2px}.kc-tick.kc-read{color:#5BB8F5;opacity:1}'
 +'.kc-ev{align-self:stretch;display:flex;gap:10px;align-items:center;border:1px solid var(--border,#3a372f);border-radius:12px;padding:9px 12px;background:transparent;color:var(--text,#f2efe8);font-size:14px;}'
 +'.kc-ev b{font-weight:700;}.kc-ev .kc-d{font-size:12px;color:var(--muted,#9a958a);margin-top:1px;}'
 +'.kc-img{display:block;max-width:220px;max-height:260px;border-radius:12px;border:1px solid var(--border,#3a372f);}'
@@ -211,7 +211,10 @@ function mount(el,o){
       else if(m.kind==='video') inner='<video class="kc-vid" data-path="'+mp+'" controls playsinline preload="none"></video>'+cap+save;
       else if(m.kind==='file') inner='<a data-path="'+mp+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">📎 '+(mn||'File')+'</a>'+cap+save;
       else inner=linkify(m.body);
-      return '<div class="kc-b '+(mine?'kc-me':'kc-them')+'">'+inner+'<div class="kc-t">'+esc(when(m.created_at))+'</div></div>';
+      // WhatsApp-style ticks on my own messages: ✓ sent, ✓✓ (blue) read
+      var readAt=role==='client'?m.read_by_coach_at:m.read_by_client_at;
+      var tick=mine?(readAt?' <span class="kc-tick kc-read" title="Read" aria-label="Read">✓✓</span>':' <span class="kc-tick" title="Sent" aria-label="Sent">✓</span>'):'';
+      return '<div class="kc-b '+(mine?'kc-me':'kc-them')+'">'+inner+'<div class="kc-t">'+esc(when(m.created_at))+tick+'</div></div>';
     }).join('');
     list.querySelectorAll('[data-path]').forEach(function(node){
       var p=node.getAttribute('data-path'); if(!p) return;

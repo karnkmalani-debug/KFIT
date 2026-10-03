@@ -1196,7 +1196,8 @@ sessionCountByKey[k]=(sessionCountByKey[k]||0)+1;
 if(a.client_name&&!nameByKey[k]) nameByKey[k]=a.client_name;
 });
 var fitClients=fitTags.map(function(t){return {name:t.name||nameByKey[t.client_key]||'(no name)',mobile:t.mobile||'',count:sessionCountByKey[t.client_key]||0,tracker:'fitness'};}).sort(function(a,b){return b.count-a.count;});
-var nutClients=nutTags.map(function(t){return {name:t.name||nameByKey[t.client_key]||'(no name)',mobile:t.mobile||'',tracker:'nutrition'};});
+function _rosterName(t){ try{ var m=String(t.mobile||t.client_key||'').replace(/\D/g,''); if(!m) return ''; var r=(typeof buildUnifiedRoster==='function'?buildUnifiedRoster():[]).find(function(x){return String(x.mobile||'').replace(/\D/g,'')===m;}); return (r&&r.name)||''; }catch(e){ return ''; } }
+var nutClients=nutTags.map(function(t){var m=String(t.mobile||t.client_key||'').replace(/\D/g,'');return {name:t.name||nameByKey[t.client_key]||_rosterName(t)||(m?'+'+m:'(no name)'),mobile:t.mobile||m,tracker:'nutrition'};});
 function renderClientRow(cl){
 var mobEsc=(cl.mobile||'').replace(/'/g,"\\'");
 var nameEsc=(cl.name||'').replace(/'/g,"\\'");
@@ -6775,15 +6776,82 @@ async function nutCoachAttach(c){
   document.getElementById('uniSubTabNut').style.display='block';
   if(!c.nut){ document.getElementById('uniNutDetail').innerHTML=''; if(!c.fit) setUniSubTab('nutrition'); }
   // Order: billing → her days (meal conversations) → plan a day → habits & plan
-  box.innerHTML=NC_F+'<div id="ncBill_'+cid+'"></div><div id="ncDays_'+cid+'"></div>'
-    +'<details class="card nc-fold" style="margin-bottom:12px"><summary style="cursor:pointer;font-size:15px;font-weight:800">🗓️ Plan a day for her</summary><div id="ncTools_'+cid+'" style="margin-top:10px"></div></details>'
-    +'<details class="card nc-fold" open style="margin-bottom:12px"><summary style="cursor:pointer;font-size:15px;font-weight:800">🌱 Habits &amp; plan</summary><div id="ncPlanBox_'+cid+'" style="margin-top:10px"></div></details>';
+  var secs=[['days','🍽️ Days'],['plan','🗓️ Plan a day'],['habits','🌱 Habits'],['billing','💳 Billing'],['notes','🔒 Private notes']];
+  var focusDays=!!(window.ncFocus&&window.ncFocus.m===m);
+  ncSection[cid]=focusDays?'days':(ncSection[cid]||'days');
+  box.innerHTML=NC_F+'<div id="ncSnap_'+cid+'"></div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px">'+secs.map(function(x){return '<button class="btn-sm" data-ncsec="'+x[0]+'">'+x[1]+'</button>';}).join('')+'</div>'
+    +'<div data-sec="days"><div id="ncDays_'+cid+'"></div></div>'
+    +'<div data-sec="plan"><div class="card" style="margin-bottom:12px"><div style="font-size:15px;font-weight:800;margin-bottom:8px">🗓️ Plan a day for her</div><div id="ncTools_'+cid+'"></div></div></div>'
+    +'<div data-sec="habits"><div id="ncPlanBox_'+cid+'"></div></div>'
+    +'<div data-sec="billing"><div id="ncBill_'+cid+'"></div></div>'
+    +'<div data-sec="notes"><div id="ncNotes_'+cid+'"></div></div>';
+  box.querySelectorAll('[data-ncsec]').forEach(function(b){b.onclick=function(){ncShowSection(cid,b.dataset.ncsec);};});
+  ncShowSection(cid,ncSection[cid]);
   ncCurrent=cid;
-  ncBillRender(cid); ncDaysRender(cid);
+  ncSnapRender(cid); ncBillRender(cid); ncDaysRender(cid); ncNotesRender(cid);
   ncToolsRender(cid,'plan',true);
   await nutCoachPanel(cid,document.getElementById('ncPlanBox_'+cid),hasProg?r.data[0]:null);
 }
-var ncCurrent=null;
+var ncCurrent=null, ncSection={};
+function ncShowSection(cid,sec){
+  ncSection[cid]=sec; var box=document.getElementById('uniNutCoach'); if(!box) return;
+  box.querySelectorAll('[data-sec]').forEach(function(d){d.style.display=d.dataset.sec===sec?'block':'none';});
+  box.querySelectorAll('[data-ncsec]').forEach(function(b){var on=b.dataset.ncsec===sec;b.style.background=on?'var(--sage)':'';b.style.color=on?'#fff':'';});
+}
+// Snapshot: six tiles at the top of her page, each a shortcut to its section.
+async function ncSnapRender(cid){
+  var el=document.getElementById('ncSnap_'+cid); if(!el) return;
+  var since=ncAddDays(ncToday(),-6);
+  var ml=await getSB().from('nutrition_meals').select('day,deleted,body').eq('client_id',cid).gte('day',since);
+  var meals=(ml.data||[]).filter(function(x){return !x.deleted;});
+  var pr=await getSB().from('nutrition_program').select('template_id,settings').eq('client_id',cid);
+  var p0=pr.data&&pr.data[0], prof=p0&&p0.settings&&p0.settings.profile, goal=p0&&p0.settings&&p0.settings.goal;
+  var tg=prof?ncTargets(prof):null, target=tg&&tg.maint?(goal==='maintain'?tg.maint:tg.loss):null;
+  var ck=await getSB().from('nutrition_checkins').select('day,answer').eq('client_id',cid).gte('day',since);
+  var cm=await getSB().from('nutrition_meal_comments').select('author,read_by_coach_at,deleted,meal_id,day').eq('client_id',cid).eq('author','client').is('read_by_coach_at',null);
+  var bl=await getSB().from('nutrition_billing').select('*').eq('client_id',cid);
+  var cs=await getSB().from('nutrition_consults').select('consult_day').eq('client_id',cid).order('consult_day',{ascending:false}).limit(1);
+  function kc(b){b=b||{};var ps=Array.isArray(b.photos)?b.photos:[];var k=ps.reduce(function(a,q){return a+((q.feedback&&Number(q.feedback.kcal))||0);},0);return k||(b.feedback&&Number(b.feedback.kcal))||0;}
+  var todayK=meals.filter(function(x){return x.day===ncToday();}).reduce(function(a,x){return a+kc(x.body);},0);
+  var days={}; meals.forEach(function(x){days[x.day]=1;}); var logged=Object.keys(days).length;
+  var hab=(ck.data||[]).filter(function(c){return c.answer==='done';}).length;
+  var unread=(cm.data||[]).filter(function(c){return !c.deleted;}).length;
+  var bill=bl.data&&bl.data[0], start=bill&&bill.start_date, renew=null, paid=false;
+  if(start){var k=0;while(ncAddMonths(start,k+1)<=ncToday())k++;var cur=ncAddMonths(start,k);renew=ncAddMonths(start,k+1);paid=(bill.paid_months||[]).indexOf(cur)>=0;}
+  var lastC=cs.data&&cs.data[0]&&cs.data[0].consult_day, nextC=start?ncAddDays(lastC||start,7):null; if(nextC) while(nextC<ncToday()) nextC=ncAddDays(nextC,7);
+  // needs attention: few logged days, habit missed 3 days running, or unpaid
+  var hd={}; (ck.data||[]).forEach(function(c){hd[c.day]=c.answer;});
+  var missed3=p0&&p0.template_id&&[1,2,3].every(function(i){return hd[ncAddDays(ncToday(),-i)]!=='done';});
+  var reasons=[]; if(logged<4) reasons.push('logged '+logged+' of 7 days'); if(missed3) reasons.push('habit missed 3 days'); if(start&&!paid) reasons.push('unpaid');
+  function tile(lbl,val,sub,sec,col){return '<button data-snap="'+sec+'" style="text-align:left;background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:8px 10px;color:var(--text);cursor:pointer;font-family:inherit"><div style="font-size:10px;letter-spacing:.1em;color:var(--muted)">'+lbl+'</div><div style="font-family:\'Playfair Display\',Georgia,serif;font-size:18px;color:'+(col||'var(--text)')+'">'+val+'</div><div style="font-size:11px;color:var(--muted)">'+sub+'</div></button>';}
+  el.innerHTML='<div class="card" style="margin-bottom:10px;gap:8px">'
+    +(reasons.length?'<div style="align-self:flex-start;background:#3A2A1E;color:#E39A6E;border-radius:10px;padding:3px 9px;font-size:12px;font-weight:700">Needs attention · '+ncEsc(reasons.join(' · '))+'</div>':'<div style="align-self:flex-start;background:#1E2B22;color:#8FD1A2;border-radius:10px;padding:3px 9px;font-size:12px;font-weight:700">On track</div>')
+    +'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">'
+    +tile('TODAY',Math.round(todayK/10)*10,target?'of '+target+' kcal':'kcal','days','#C9A24A')
+    +tile('LOGGED',logged+' / 7','days this week','days')
+    +tile('HABIT',p0&&p0.template_id?hab+' / 7':'–',p0&&p0.template_id?'done this week':'no plan yet','habits','#8FD1A2')
+    +tile('REPLIES',unread?unread+' new':'none','from her','days',unread?'#E7CF8C':'')
+    +tile('RENEWS',renew?ncNice(renew).slice(4):'–',start?(paid?'paid':'unpaid'):'set start date','billing',start?(paid?'':'#E39A6E'):'')
+    +tile('CONSULT',nextC?ncNice(nextC).slice(4):'–','next','billing')
+    +'</div></div>';
+  el.querySelectorAll('[data-snap]').forEach(function(b){b.onclick=function(){ncShowSection(cid,b.dataset.snap);};});
+}
+// Private notes: only you see these (kept with her billing record).
+async function ncNotesRender(cid){
+  var el=document.getElementById('ncNotes_'+cid); if(!el) return;
+  var r=await getSB().from('nutrition_billing').select('notes').eq('client_id',cid);
+  var v=(r.data&&r.data[0]&&r.data[0].notes)||'';
+  el.innerHTML='<div class="card" style="margin-bottom:12px;gap:8px"><div style="font-size:15px;font-weight:800">🔒 Private notes</div><div style="font-size:12px;color:var(--muted)">Only you see these. Goals, likes and dislikes, medical notes, anything to remember.</div>'
+    +'<textarea id="ncPN_'+cid+'" style="min-height:140px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:14px">'+ncEsc(v)+'</textarea>'
+    +'<button class="btn-sm" id="ncPNsave_'+cid+'" style="align-self:flex-start">Save notes</button></div>';
+  document.getElementById('ncPNsave_'+cid).onclick=async function(){
+    var t=document.getElementById('ncPN_'+cid).value.slice(0,8000);
+    var ex=await getSB().from('nutrition_billing').select('client_id').eq('client_id',cid);
+    var res=ex.data&&ex.data.length?await getSB().from('nutrition_billing').update({notes:t}).eq('client_id',cid):await getSB().from('nutrition_billing').insert({client_id:cid,notes:t,start_date:null});
+    if(res.error){alert('Not saved -- '+res.error.message);return;} this.textContent='Saved ✓'; var b=this; setTimeout(function(){b.textContent='Save notes';},1500);
+  };
+}
 async function nutCoachPanel(cid,box,p){
   var since=ncAddDays(ncToday(),-27);
   var ck=await getSB().from('nutrition_checkins').select('*').eq('client_id',cid).gte('day',since);
@@ -7074,7 +7142,7 @@ function ncNice(d){var p=d.split('-');return new Date(+p[0],+p[1]-1,+p[2]).toDat
 async function ncBillRender(cid){
   var el=document.getElementById('ncBill_'+cid); if(!el) return;
   var b=await getSB().from('nutrition_billing').select('*').eq('client_id',cid);
-  var bill=b.data&&b.data[0];
+  var bill=b.data&&b.data[0]; if(bill&&!bill.start_date) bill=null;
   var cs=await getSB().from('nutrition_consults').select('*').eq('client_id',cid).order('consult_day',{ascending:false}).limit(50);
   var consults=(cs.data||[]);
   var html='<div class="card" style="margin-bottom:12px;gap:8px">';
@@ -7101,6 +7169,7 @@ async function ncBillRender(cid){
   var ss=document.getElementById('ncSetStart_'+cid); if(ss) ss.onclick=async function(){
     var v=document.getElementById('ncStart_'+cid).value; if(!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
     var r=await getSB().from('nutrition_billing').upsert({client_id:cid,start_date:v,paid_months:bill?bill.paid_months:[]},{onConflict:'client_id'});
+    ncSnapRender(cid);
     if(r.error){alert('Not saved -- '+r.error.message);return;} ncBillRender(cid);
   };
   var pb=document.getElementById('ncPaid_'+cid); if(pb) pb.onclick=async function(){
@@ -7120,6 +7189,7 @@ async function ncBillRender(cid){
 async function ncDaysRender(cid){
   var el=document.getElementById('ncDays_'+cid); if(!el) return;
   var st=ncState[cid]=ncState[cid]||{rows:null,plan:null,tab:'week'};
+  var focus=null; if(window.ncFocus&&window.ncFocus.m===cid.slice(6)){ focus=window.ncFocus; window.ncFocus=null; }
   st.rows=(await ncLoadWeek(cid)).concat(st.keepShots||[]);
   st.rows.sort(function(a,b){return a.day===b.day?(a.time||'99').localeCompare(b.time||'99'):(a.day<b.day?1:-1);});
   var cm=await getSB().from('nutrition_meal_comments').select('*').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-90)).order('created_at',{ascending:true});
@@ -7128,7 +7198,7 @@ async function ncDaysRender(cid){
   var tg=prof?ncTargets(prof):null, target=tg&&tg.maint?(goal==='maintain'?tg.maint:tg.loss):null;
   var ck=await getSB().from('nutrition_checkins').select('day,answer').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-90));
   var hab={}; (ck.data||[]).forEach(function(c){if(c.answer)hab[c.day]=c.answer;});
-  st.open=st.open||{};
+  st.open=st.open||{}; if(focus&&focus.meal_id) st.open[focus.meal_id]=true;
   var comments=((cm.data)||[]).filter(function(c){return !c.deleted;});
   var mob=cid.slice(6), seen=ncPrevSeen[mob]||0, thisW=ncWeekStart(ncToday()), monthCut=ncAddDays(thisW,-21);
   var byMeal={}, byDay={};
@@ -7139,7 +7209,7 @@ async function ncDaysRender(cid){
     return '<div style="align-self:'+(me?'flex-start':'flex-end')+';max-width:88%;background:'+(me?'#2A2618':'#23382B')+';border:1px solid '+(me?'#6B5A2A':'#3D6B4F')+';color:'+(me?'#E7CF8C':'#CFEBD8')+';border-radius:'+(me?'12px 12px 12px 4px':'12px 12px 4px 12px')+';padding:6px 10px;font-size:13px">'
       +(me?'':'<b>Her:</b> ')+ncEsc(c.body)+(isNew?'<span class="nc-new">NEW</span>':'')
       +'<div style="font-size:11px;opacity:.75">'+new Date(c.created_at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase()+' · '+new Date(c.created_at).toDateString().slice(4,10)
-      +(c.edited_at?' · edited':'')+(me?(c.read_by_client_at?' · seen ✓':' · not seen yet')+' · <a href="#" data-nce="'+c.id+'" style="color:inherit">edit</a>':'')+'</div></div>';}
+      +(c.edited_at?' · edited':'')+(me?(c.read_by_client_at?' <span style="color:#5BB8F5;letter-spacing:-2px" title="Read">✓✓</span>':' <span style="letter-spacing:-2px" title="Sent">✓</span>')+' · <a href="#" data-nce="'+c.id+'" style="color:inherit">edit</a>':'')+'</div></div>';}
   function thread(list,key,ph){
     return '<div style="display:flex;flex-direction:column;gap:5px;margin-top:6px">'+(list||[]).map(bubble).join('')
       +'<div style="display:flex;gap:6px"><input data-ncin="'+key+'" placeholder="'+ph+'" style="flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:13px"><button class="btn-sm" data-ncsend="'+key+'">Send</button></div></div>';}
@@ -7174,7 +7244,7 @@ async function ncDaysRender(cid){
           +'<div>'
           +(r.fromPlan?' <span style="color:var(--muted);font-size:11px">(from your plan)</span>':'')+(r.src==='screenshot'?' <span style="color:var(--muted);font-size:11px">(screenshot)</span>':'')+(r.src==='earlier'?' <span style="color:var(--muted);font-size:11px">(earlier app)</span>':'')
           +'</div>'
-          +(r.text?'<div class="nc-food">'+ncEsc(r.text)+'</div>':'')
+          +(r.text&&r.text.length>38?'<div class="nc-food">'+ncEsc(r.text)+'</div>':'')
           +((r.photos||[]).length?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+r.photos.map(function(pth){return '<img data-ncph="'+ncEsc(pth)+'" alt="Meal photo" style="width:64px;height:64px;border-radius:8px;object-fit:cover;background:#333;cursor:pointer">';}).join('')+'</div>':'')
           +(r.meal_id?thread(th,'m|'+r.meal_id+'|'+d,'Note on this meal…'):thread([], 's|'+r._i+'|'+d,'Note on this meal…'))+'</div></div>';
       });
@@ -7205,6 +7275,12 @@ async function ncDaysRender(cid){
     if(res.error){alert('Not saved -- '+res.error.message);return;} ncDaysRender(cid);
   };});
   var shots=document.getElementById('ncShots_'+cid); if(shots) shots.onchange=async function(){ await ncImportShots(cid,this.files,true); };
+  if(focus){ setTimeout(function(){
+    var t=focus.meal_id?el.querySelector('[data-ncopen="'+focus.meal_id+'"]'):null; if(!t&&focus.day){ t=el.querySelector('[data-ncin="d||'+focus.day+'"]'); }
+    if(!t) return; var dt=t.closest('details'); if(dt) dt.open=true; var card=t.parentNode;
+    card.scrollIntoView({behavior:'smooth',block:'center'}); card.style.transition='box-shadow .4s'; card.style.boxShadow='0 0 0 2px #C9A24A';
+    setTimeout(function(){card.style.boxShadow='';},2500);
+  },150); }
   el.querySelectorAll('[data-ncopen]').forEach(function(h){h.onclick=function(){
     var k=h.dataset.ncopen, body=h.nextElementSibling, open=body.style.display==='none';
     body.style.display=open?'block':'none'; if(open) body.style.marginTop='6px'; st.open[k]=open;
@@ -7231,9 +7307,9 @@ async function kfitBellLoad(){
   var items=[];
   function nm(m){return names[m]||('+'+m);}
   try{
-    var ml=await getSB().from('nutrition_meals').select('client_id,day,body,created_at,deleted').gte('created_at',sinceIso).limit(300);
+    var ml=await getSB().from('nutrition_meals').select('client_id,meal_id,day,body,created_at,deleted').gte('created_at',sinceIso).limit(300);
     (ml.data||[]).forEach(function(x){var m=String(x.client_id).slice(6); if(x.deleted||!tagged[m]||hidden[m]) return; var b=x.body||{};
-      items.push({m:m,ts:new Date(x.created_at).getTime(),icon:'🥗',text:'<b>'+ncEsc(nm(m))+'</b> · <span class="nc-meal">'+ncEsc(b.slot||'Meal')+'</span>'+(b.time?' <span class="nc-time">'+ncEsc(b.time)+'</span>':'')+(b.text?'<div class="nc-food">'+ncEsc(String(b.text).slice(0,90))+'</div>':'')});});
+      items.push({m:m,meal_id:x.meal_id,day:x.day,ts:new Date(x.created_at).getTime(),icon:'🥗',text:'<b>'+ncEsc(nm(m))+'</b> · <span class="nc-meal">'+ncEsc(b.slot||'Meal')+'</span>'+(b.time?' <span class="nc-time">'+ncEsc(b.time)+'</span>':'')+(b.text?'<div class="nc-food">'+ncEsc(String(b.text).slice(0,90))+'</div>':'')});});
   }catch(e){}
   try{
     var ck=await getSB().from('nutrition_checkins').select('client_id,day,answer,reflection,updated_at').gte('updated_at',sinceIso).limit(300);
@@ -7254,9 +7330,9 @@ async function kfitBellLoad(){
         +'<div class="nc-food">'+ncEsc(kinds.join(', ')||'Workout')+(nEx?' · '+nEx+' exercise'+(nEx===1?'':'s'):'')+(x.duration?' · '+ncEsc(x.duration)+' min':'')+' · '+ncEsc(ncDayLabel(x.session_date))+'</div>'});});
   }catch(e){}
   try{
-    var rc=await getSB().from('nutrition_meal_comments').select('client_id,day,body,created_at,author,deleted').eq('author','client').gte('created_at',sinceIso).limit(300);
+    var rc=await getSB().from('nutrition_meal_comments').select('client_id,meal_id,day,body,created_at,author,deleted').eq('author','client').gte('created_at',sinceIso).limit(300);
     (rc.data||[]).forEach(function(x){var m=String(x.client_id).slice(6); if(x.deleted||!tagged[m]||hidden[m]) return;
-      items.push({m:m,ts:new Date(x.created_at).getTime(),icon:'💬',text:'<b>'+ncEsc(nm(m))+'</b> · <span class="nc-meal">Replied</span> <span class="nc-time">'+ncEsc(ncDayLabel(x.day))+'</span><div class="nc-food">"'+ncEsc(String(x.body).slice(0,90))+'"</div>'});});
+      items.push({m:m,meal_id:x.meal_id,day:x.day,ts:new Date(x.created_at).getTime(),icon:'💬',text:'<b>'+ncEsc(nm(m))+'</b> · <span class="nc-meal">Replied</span> <span class="nc-time">'+ncEsc(ncDayLabel(x.day))+'</span><div class="nc-food">"'+ncEsc(String(x.body).slice(0,90))+'"</div>'});});
   }catch(e){}
   var seen=ncSeenAll();
   items.forEach(function(it){it.isNew=it.ts>(seen[it.m]||0);});
@@ -7283,6 +7359,7 @@ async function kfitBellOpen(){
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
   ov.querySelectorAll('[data-bell]').forEach(function(el){el.onclick=function(){
     var it=items[+el.dataset.bell]; ov.remove();
+    if(it.meal_id||it.day) window.ncFocus={m:it.m,meal_id:it.meal_id||null,day:it.day||null};
     try{ var c=buildUnifiedRoster().find(function(r){return String(r.mobile||'').replace(/\D/g,'')===it.m;});
       if(c) openUniClient(c.key); else alert('Open this client from your client list.'); }catch(e){}
   };});
