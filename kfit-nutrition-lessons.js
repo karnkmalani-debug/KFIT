@@ -144,7 +144,7 @@ const KFIT_HABITS = [
           "Lunch and dinner often have some protein already. Breakfast usually doesn't.",
           "Cereal, toast, a pastry with coffee, oats with just milk: mostly carbs, almost no protein. Then by 11am you're hungry again, and it isn't your fault.",
           "You don't have to give up your breakfast. Just add to it.",
-          "Toast, plus 2 eggs. Oats with a scoop of Greek yogurt stirred in. A vegetable omelette. Cottage cheese with fruit. Or, if you like Indian breakfasts, poha or upma with a bowl of yogurt or eggs on the side.",
+          "Toast, plus 2 eggs. Greek yogurt with fruit and a few nuts. A vegetable omelette. Cottage cheese with fruit. Or, if you like Indian breakfasts, poha or upma with a bowl of yogurt or eggs on the side.",
           "Add first. Take away later, only if you want to."
         ],
         "action": "Plan tomorrow's breakfast protein tonight.",
@@ -349,7 +349,7 @@ const KFIT_HABITS = [
         "title": "What counts as a fist",
         "read": [
           "A fist is about the size of your closed fist. Here's what that looks like:",
-          "A bowl of cooked greens, beans, broccoli, cauliflower or cabbage. A plate of salad. A bowl of vegetable soup. A big handful of roasted peppers or mushrooms. A cooked vegetable dish like a stir-fry or a sabzi.",
+          "A bowl of cooked greens, beans, broccoli, cauliflower or cabbage. A plate of salad. A bowl of vegetable soup. A big handful of roasted peppers or mushrooms. A cooked vegetable dish like a stir-fry.",
           "Some vegetables behave more like carbs: potato, sweet potato, sweet corn, and to a smaller degree peas. They're good foods. They just don't count as your fist.",
           "So a potato and cauliflower dish counts for the cauliflower, not the potato.",
           "Raw or cooked, fresh or frozen, all count. There's no wrong way to eat a vegetable."
@@ -773,7 +773,7 @@ const KFIT_HABITS = [
         "title": "The cupped hand",
         "read": [
           "Carbs are not the enemy. They're energy, and many of our favourite foods live here.",
-          "A cupped hand looks like: a small bowl of rice or pasta, one or two slices of bread or rotis, a bowl of cereal or oats, a medium potato, or a piece of fruit.",
+          "A cupped hand looks like: a small bowl of rice or pasta, one or two slices of bread or rotis, a bowl of cereal, a medium potato, or a piece of fruit.",
           "Most plates have two or three cupped hands without anyone noticing. Just noticing is the first step.",
           "Remember the order you learned: carbs come last."
         ],
@@ -839,7 +839,7 @@ const KFIT_HABITS = [
         "title": "Hands for breakfast",
         "read": [
           "Breakfast by hand: a palm of protein, a cupped hand of carbs, a thumb of fat. Vegetables are a bonus.",
-          "Two eggs, one slice of toast, a little butter. Greek yogurt with berries and a few nuts. Oats with a scoop of protein and some fruit.",
+          "Two eggs, one slice of toast, a little butter. Greek yogurt with berries and a few nuts. Scrambled eggs with vegetables and a piece of fruit.",
           "It's a smaller plate than lunch, and that's fine."
         ],
         "action": "Build tomorrow's breakfast by hand.",

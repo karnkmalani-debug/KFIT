@@ -16,6 +16,7 @@
 <script src="./kfit-exercise-library.js"></script>
 <script src="./kfit-nutrition-lessons.js"></script>
 <script src="./kfit-i18n.js"></script>
+<script src="./kfit-steps.js"></script>
 <script src="./kfit-coach-chat.js"></script>
 <script src="./kfit-join-coach.js"></script>
 <style>
@@ -248,7 +249,7 @@ function trCollect(obj){
   return refs;
 }
 var trApplied={}, trBusy={};
-function trCacheKey(key){return 'kfit_tr1_'+kLang()+'_'+key;}
+function trCacheKey(key){return 'kfit_tr2_'+kLang()+'_'+key;}
 function applyTr(obj,key){
   try{ var c=JSON.parse(localStorage.getItem(trCacheKey(key))||'null'); var refs=trCollect(obj);
     if(!Array.isArray(c)||c.length!==refs.length) return false;
@@ -436,6 +437,7 @@ function render(){
   if(S.tab==='journey') return hasPlan()?renderJourney():renderChooser(true);
   if(S.tab==='plan') return hasPlan()?renderToday():renderChooser(true);
   if(S.tab==='coach') return renderCoachNotes();
+  if(S.tab==='guide') return renderFoodGuide();
   return renderHome();
 }
 function go(tab){ if(chatUI&&tab!=='chat'){try{chatUI.destroy();}catch(e){} chatUI=null;} S.tab=tab;S.view=null;stopSpeech();render(); }
@@ -561,7 +563,7 @@ function renderHome(){
     +'<button class="tile" id="hmPlan"><div class="ic" style="background:#3A2A1E;color:var(--terra)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M6 20c0-5 12-3 12-9S9 6 9 3"/><circle cx="9" cy="3" r="1"/><circle cx="6" cy="20" r="1"/></svg></div><div><h2>My plan</h2><div class="meta" style="font-weight:400">'+esc(planSub)+'</div></div></button>';
   if(anyNotes) html+='<button class="tile" id="hmCoach" style="border-color:#6B5A2A;padding:13px 16px"><div style="font-size:15px">'+(unread?'<b style="color:var(--gold)">'+unread+' new note'+(unread===1?'':'s')+' from your coach</b>':'<b style="color:var(--gold)">From your coach</b>')+' <span style="color:var(--muted)">· tap to read</span></div></button>';
   html+='<div class="links">'+(dueWeekly()?'<button data-go="weekly" style="border-color:#6B5A2A;color:var(--gold)">Weekly check-in</button>':'')
-    +'<button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')
+    +'<button data-go="guide">Food guide</button><button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')
     +'<button data-go="chat">'+(S.unread?'Chat ('+S.unread+' new)':'Chat')+'</button></div></div>';
   show(html);
   $('#hmLog').onclick=function(){go('log');};
@@ -588,6 +590,27 @@ function langChips(){
   return '<div class="row" style="gap:8px;flex-wrap:wrap" data-notr>'+Object.keys(L).map(function(k){return '<button data-lang="'+k+'" style="border:1px solid '+(k===cur?'var(--gold)':'var(--line2)')+';background:'+(k===cur?'var(--gold)':'none')+';color:'+(k===cur?'#12130F':'var(--soft)')+';border-radius:20px;padding:6px 14px;font-weight:700;font-size:14px;min-height:36px">'+L[k].name+'</button>';}).join('')+'</div>';
 }
 function bindLangChips(){ document.querySelectorAll('[data-lang]').forEach(function(b){b.onclick=function(){ if(b.dataset.lang!==kLang()) KFitI18n.set(b.dataset.lang); };}); }
+// Food guide: what's protein, carbs, sugars, fats and fibre, simply.
+var FOOD_GUIDE=[
+  ['🥚','Protein','palm','Keeps you full and builds muscle.','Eggs, chicken, fish, paneer, tofu, Greek yogurt, lean meat.','Lentils, beans and chickpeas are half protein, half carbs.'],
+  ['🥦','Vegetables (fibre)','fist','Filling, with very few calories.','Salad, leafy greens, broccoli, cucumber, cooked vegetables, soups.',''],
+  ['🍚','Carbs','cupped hand','Your energy.','Choose more often: brown rice, millets, whole grains, fruit, potato with skin.','Less often: white bread, biscuits, refined flour.'],
+  ['🍬','Sugars','a treat, not a meal','Sweets, juice, cold drinks, sugar in tea or coffee.','Fine sometimes, and better after a meal than on their own.',''],
+  ['🥑','Fats','thumb','Healthy: nuts, seeds, olive or mustard oil, avocado, fish.','Limit: butter, ghee, cream. Small amounts are fine.','Avoid: trans fats in hydrogenated oils, many fried snacks and packaged bakery.']
+];
+function renderFoodGuide(){
+  S.tab='guide';
+  var html='<div class="screen">'+head("What's in my food?")
+    +'<div class="body" style="font-size:16px"><p style="margin:0">Most foods are a mix. Go by what they are mostly. Your hand shows how much.</p></div>'
+    +('speechSynthesis' in window?'<button class="btn out" id="fgListen" style="width:auto;align-self:flex-start;min-height:44px;border-radius:22px;font-size:14px">🔊 Listen</button>':'');
+  FOOD_GUIDE.forEach(function(g){
+    html+='<div class="card" style="border:1px solid var(--line);gap:6px"><div class="row" style="justify-content:space-between;align-items:center"><span class="f-meal" style="font-size:19px">'+g[0]+' '+esc(g[1])+'</span><span class="steplbl" style="font-size:11px">'+esc(g[2].toUpperCase())+'</span></div>'
+      +g.slice(3).filter(Boolean).map(function(x){return '<div class="f-food">'+esc(x)+'</div>';}).join('')+'</div>';
+  });
+  html+='<div class="card" style="border:1px solid var(--line);gap:6px"><div class="steplbl">QUICK CHECK</div><div class="f-food">Paneer: protein, with some fat. Lentils: half protein, half carbs. Peanut butter: mostly fat. Fruit juice: sugar.</div></div></div>';
+  show(html);
+  var ls=$('#fgListen'); if(ls) ls.onclick=function(){ if(speaking){stopSpeech();return;} speak(FOOD_GUIDE.map(function(g){return g[1]+'. '+g.slice(3).filter(Boolean).join(' ');})); };
+}
 function renderCoachNotes(){
   S.tab='coach';
   var plans=coachBox().replace('<h2 style="font-size:20px">From your coach</h2>','');
@@ -1033,6 +1056,7 @@ function renderLog(){
       sc0.addEventListener('touchend',function(e){ if(x00==null) return; var dx=e.changedTouches[0].clientX-x00; x00=null; if(Math.abs(dx)<70) return; var nd=addDays(d,dx<0?1:-1); if(nd>today()) return; S._logDay=nd; S._fullDay=null; renderLog(); },{passive:true}); }
     return;
   }
+  html+='<div id="stepsBox"></div>';
   if(dayNotes.length) html+='<div class="coachbox"><div class="steplbl">NOTE FROM YOUR COACH</div>'+threadHtml(d,null)+'</div>';
   var planned=plannedFor(d), ticked={}; list.forEach(function(m){if(m.body&&m.body.planKey)ticked[m.body.planKey]=1;});
   var open=S._openMeal;
@@ -1094,6 +1118,7 @@ function renderLog(){
   };});
   document.querySelectorAll('img[data-path]').forEach(loadPhoto);
   bindThreads(renderLog);
+  try{ if(window.KFitSteps) KFitSteps.mount($('#stepsBox'),{sb:sb,mobile:S.mobile,day:d}); }catch(e){}
   // swipe left/right to change day
   var sc=document.querySelector('.screen'), x0=null;
   if(sc){ sc.addEventListener('touchstart',function(e){x0=e.touches[0].clientX;},{passive:true});
@@ -1160,11 +1185,13 @@ function openMealForm(d,forSlot,editId){
     +'<div class="card" style="border:1px solid var(--line)"><div class="steplbl">WHEN DID YOU EAT?</div><div class="row"><select id="mfDay" aria-label="Day" style="flex:1;min-height:48px;border-radius:12px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);padding:0 10px">'+days+'</select>'
     +'<input id="mfTime" type="time" aria-label="Time" value="'+pad(hh)+':'+pad(mm)+'" style="flex:1;min-height:48px;border-radius:12px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);padding:0 10px"></div></div>'
     +'<div class="field"><label for="mfSlot">Which meal</label><select id="mfSlot">'+['Breakfast','Morning snack','Lunch','Evening snack','Dinner','Late snack'].map(function(s){return '<option'+(s===slot?' selected':'')+'>'+s+'</option>';}).join('')+'</select><div class="fhelp">Fills itself from the time. Change it if you like.</div></div>'
+    +'<button class="btn link" id="mfGuide" style="align-self:flex-start;min-height:32px;font-size:14px">What\'s protein, carbs or fat? See the food guide</button>'
     +'<div class="field"><label for="mfText">What did you have?</label><textarea id="mfText" placeholder="Grilled chicken, rice, salad">'+(em?esc((em.body||{}).text||''):'')+'</textarea></div>'
     +'<button class="btn out" id="mfPhoto">Add a photo</button><img id="mfPrev" class="hide" alt="Meal photo preview" style="width:100%;border-radius:16px">'
     +'<div class="meta" id="mfNote">With a photo, you\'ll get gentle feedback in hand portions.</div>'
     +'<button class="btn" id="mfSave">Save</button></div>');
   $('#mfBack').onclick=function(){S.view=null;S.tab='log';render();};
+  $('#mfGuide').onclick=function(){S.view=null;go('guide');};
   $('#mfTime').onchange=function(){var h=parseInt(String(this.value).split(':')[0],10);if(isFinite(h))$('#mfSlot').value=slotFor(h);};
   $('#mfPhoto').onclick=function(){var inp=$('#photoInput');inp.value='';inp.onchange=async function(){
     var f=inp.files&&inp.files[0]; if(!f) return;

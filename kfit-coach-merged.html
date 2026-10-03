@@ -6820,6 +6820,13 @@ async function ncSnapRender(cid){
   var bill=bl.data&&bl.data[0], start=bill&&bill.start_date, renew=null, paid=false;
   if(start){var k=0;while(ncAddMonths(start,k+1)<=ncToday())k++;var cur=ncAddMonths(start,k);renew=ncAddMonths(start,k+1);paid=(bill.paid_months||[]).indexOf(cur)>=0;}
   var lastC=cs.data&&cs.data[0]&&cs.data[0].consult_day, nextC=start?ncAddDays(lastC||start,7):null; if(nextC) while(nextC<ncToday()) nextC=ncAddDays(nextC,7);
+  var mob=cid.slice(6), stepsToday=null, stepsAvg=null, stepGoal=8000;
+  try{
+    var sr=await getSB().from('client_daily_steps').select('day,steps').eq('mobile',mob).gte('day',since);
+    var sd=sr.data||[]; sd.forEach(function(x){ if(x.day===ncToday()) stepsToday=x.steps; });
+    if(sd.length) stepsAvg=Math.round(sd.reduce(function(a,x){return a+x.steps;},0)/sd.length/10)*10;
+    var sg=await getSB().from('client_step_goals').select('goal').eq('mobile',mob); if(sg.data&&sg.data[0]) stepGoal=sg.data[0].goal;
+  }catch(e){}
   // needs attention: few logged days, habit missed 3 days running, or unpaid
   var hd={}; (ck.data||[]).forEach(function(c){hd[c.day]=c.answer;});
   var missed3=p0&&p0.template_id&&[1,2,3].every(function(i){return hd[ncAddDays(ncToday(),-i)]!=='done';});
@@ -6833,9 +6840,24 @@ async function ncSnapRender(cid){
     +tile('HABIT',p0&&p0.template_id?hab+' / 7':'–',p0&&p0.template_id?'done this week':'no plan yet','habits','#8FD1A2')
     +tile('REPLIES',unread?unread+' new':'none','from her','days',unread?'#E7CF8C':'')
     +tile('RENEWS',renew?ncNice(renew).slice(4):'–',start?(paid?'paid':'unpaid'):'set start date','billing',start?(paid?'':'#E39A6E'):'')
-    +tile('CONSULT',nextC?ncNice(nextC).slice(4):'–','next','billing')
+    +tile('CONSULT',nextC?ncNice(nextC).slice(4):'–',start?'next · tap to log one':'set start date','consult')
+    +tile('STEPS',stepsToday!=null?stepsToday.toLocaleString('en-IN'):'–','of '+stepGoal.toLocaleString('en-IN')+(stepsAvg!=null?' · avg '+stepsAvg.toLocaleString('en-IN'):'')+' · tap for goal','steps','#C9A24A')
     +'</div></div>';
-  el.querySelectorAll('[data-snap]').forEach(function(b){b.onclick=function(){ncShowSection(cid,b.dataset.snap);};});
+  el.querySelectorAll('[data-snap]').forEach(function(b){b.onclick=async function(){
+    var sec=b.dataset.snap;
+    if(sec==='steps'){
+      var v=prompt('Daily step goal for her (1,000 to 50,000):',String(stepGoal)); if(v===null) return;
+      var g=parseInt(String(v).replace(/\D/g,''),10); if(!(g>=1000&&g<=50000)){ alert('Please enter a number between 1,000 and 50,000.'); return; }
+      var r=await getSB().from('client_step_goals').upsert({mobile:mob,goal:g},{onConflict:'mobile'});
+      if(r.error){ alert('Not saved -- '+r.error.message); return; } ncSnapRender(cid); return;
+    }
+    if(sec==='consult'){
+      ncShowSection(cid,'billing');
+      setTimeout(function(){ var dt=document.querySelector('#ncBill_'+cid+' details'); if(dt){ dt.open=true; var n=document.getElementById('ncCNote_'+cid); if(n){ n.scrollIntoView({behavior:'smooth',block:'center'}); n.focus(); } } },150);
+      return;
+    }
+    ncShowSection(cid,sec);
+  };});
 }
 // Private notes: only you see these (kept with her billing record).
 async function ncNotesRender(cid){
@@ -7137,6 +7159,38 @@ async function ncImportShots(cid,files,intoDays){
 // ═══════════════════════════════════════════════════════════════════
 // Nutrition client page: billing strip + her days as meal conversations.
 // ═══════════════════════════════════════════════════════════════════
+// Fill in calorie estimates for her meals that never got one (last 14 days).
+async function ncAiJson(parts,maxTok){
+  var r=await fetch(NC_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:parts}],generationConfig:{temperature:0.2,maxOutputTokens:maxTok||1024,responseMimeType:'application/json',thinkingConfig:{thinkingBudget:0}}})});
+  var j=await r.json(); var t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&(j.candidates[0].content.parts||[]).map(function(q){return q.text||'';}).join('');
+  return JSON.parse(String(t||'').replace(/```json|```/g,'').trim());
+}
+async function ncEstimateMissing(cid,btn){
+  var since=ncAddDays(ncToday(),-14);
+  var ml=await getSB().from('nutrition_meals').select('*').eq('client_id',cid).gte('day',since);
+  var todo=(ml.data||[]).filter(function(x){ if(x.deleted) return false; var b=x.body||{}; var ps=Array.isArray(b.photos)?b.photos:[]; var k=ps.reduce(function(a,q){return a+((q.feedback&&Number(q.feedback.kcal))||0);},0)||(b.feedback&&Number(b.feedback.kcal))||0; return !k&&(b.text||ps.length||b.photo); });
+  if(!todo.length){ alert('All her meals from the last two weeks already have an estimate.'); return; }
+  if(!confirm('Estimate calories for '+todo.length+' meal'+(todo.length===1?'':'s')+' with no estimate? It takes a few seconds each.')) return;
+  btn.disabled=true; var done=0, failed=0;
+  for(var i=0;i<todo.length;i++){
+    btn.textContent='Estimating '+(i+1)+' of '+todo.length+'…';
+    var x=todo[i], b=x.body||{};
+    try{
+      var parts=[{text:'You are a nutrition coach. Estimate this meal in hand portions (protein palms, vegetable fists, carb cupped hands, fat thumbs) and total calories. The food may be from any cuisine; assume typical home portions if no amount is given. Meal: '+(b.slot||'meal')+': '+(b.text||'(see photo)')+'. Reply ONLY with JSON: {"protein":number,"veg":number,"carbs":number,"fats":number,"kcal":number,"tip":"one short kind sentence"}'}];
+      var ph=(Array.isArray(b.photos)&&b.photos[0]&&b.photos[0].path)||b.photo;
+      if(ph){ var u=await getSB().storage.from('kfit-meals').createSignedUrl(ph,600); if(u.data&&u.data.signedUrl){ var blob=await (await fetch(u.data.signedUrl)).blob(); var b64=await new Promise(function(ok){var fr=new FileReader();fr.onload=function(){ok(String(fr.result).split(',')[1]);};fr.readAsDataURL(blob);}); parts.push({inline_data:{mime_type:blob.type||'image/jpeg',data:b64}}); } }
+      var f=await ncAiJson(parts,1024);
+      if(!f||!Number(f.kcal)) throw new Error('no estimate');
+      b.feedback={protein:Number(f.protein)||0,veg:Number(f.veg)||0,carbs:Number(f.carbs)||0,fats:Number(f.fats)||0,kcal:Math.round(Number(f.kcal)),tip:String(f.tip||'').slice(0,200)};
+      if(Array.isArray(b.photos)&&b.photos[0]&&!b.photos[0].feedback) b.photos[0].feedback=b.feedback;
+      var up=await getSB().from('nutrition_meals').update({body:b,updated_ms:Date.now()}).eq('client_id',cid).eq('meal_id',x.meal_id);
+      if(up.error) throw up.error; done++;
+    }catch(e){ failed++; console.warn('estimate',e); }
+  }
+  btn.disabled=false; btn.textContent='🔢 Estimate missing calories';
+  alert('Added estimates for '+done+' meal'+(done===1?'':'s')+(failed?' ('+failed+' could not be estimated)':'')+'.');
+  ncDaysRender(cid); ncSnapRender(cid);
+}
 function ncAddMonths(d,k){var p=d.split('-'),y=+p[0],m=+p[1]-1+k,dd=+p[2];y+=Math.floor(m/12);m=((m%12)+12)%12;var last=new Date(y,m+1,0).getDate();var x=new Date(y,m,Math.min(dd,last));return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');}
 function ncNice(d){var p=d.split('-');return new Date(+p[0],+p[1]-1,+p[2]).toDateString().slice(0,10);}
 async function ncBillRender(cid){
@@ -7198,6 +7252,7 @@ async function ncDaysRender(cid){
   var tg=prof?ncTargets(prof):null, target=tg&&tg.maint?(goal==='maintain'?tg.maint:tg.loss):null;
   var ck=await getSB().from('nutrition_checkins').select('day,answer').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-90));
   var hab={}; (ck.data||[]).forEach(function(c){if(c.answer)hab[c.day]=c.answer;});
+  var stepsBy={}; try{ var sr2=await getSB().from('client_daily_steps').select('day,steps').eq('mobile',cid.slice(6)).gte('day',ncAddDays(ncToday(),-90)); (sr2.data||[]).forEach(function(x){stepsBy[x.day]=x.steps;}); }catch(e){}
   st.open=st.open||{}; if(focus&&focus.meal_id) st.open[focus.meal_id]=true;
   var comments=((cm.data)||[]).filter(function(c){return !c.deleted;});
   var mob=cid.slice(6), seen=ncPrevSeen[mob]||0, thisW=ncWeekStart(ncToday()), monthCut=ncAddDays(thisW,-21);
@@ -7218,7 +7273,7 @@ async function ncDaysRender(cid){
     if(!gi[key]){gi[key]={label:key[0]==='w'?ncWeekLabel(key.slice(1)):ncMonthLabel(d),days:[],meals:0,kcal:0};groups.push(gi[key]);}
     gi[key].days.push(d);});
   var html='<div class="card" style="margin-bottom:12px;gap:6px"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:16px;font-weight:800">🍽️ Her days</div>'
-    +'<label class="btn-sm" style="display:inline-flex;align-items:center">📷 Import screenshots<input type="file" accept="image/*" multiple id="ncShots_'+cid+'" style="display:none"></label></div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn-sm" id="ncEst_'+cid+'">🔢 Estimate missing calories</button><label class="btn-sm" style="display:inline-flex;align-items:center">📷 Import screenshots<input type="file" accept="image/*" multiple id="ncShots_'+cid+'" style="display:none"></label></div></div>'
     +'<div style="font-size:12px;color:var(--muted)">Write a note under any meal or day. It\'s sent straight away, she can reply, and you can edit it anytime.</div><div id="ncShotMsg_'+cid+'" style="font-size:12px;color:var(--muted)"></div>';
   groups.forEach(function(g,gix){
     var inner='', hasNew=false;
@@ -7228,7 +7283,7 @@ async function ncDaysRender(cid){
       var r=17,c=2*Math.PI*r,pct=target?Math.min(1,dk/target):0,over=target&&dk>target;
       var ring='<svg width="44" height="44" viewBox="0 0 44 44" role="img" aria-label="'+dk+' of '+(target||'?')+' kcal"><circle cx="22" cy="22" r="'+r+'" fill="none" stroke="#2E2F28" stroke-width="5"/><circle cx="22" cy="22" r="'+r+'" fill="none" stroke="'+(over?'#E39A6E':'#C9A24A')+'" stroke-width="5" stroke-linecap="round" stroke-dasharray="'+(c*pct).toFixed(1)+' '+c.toFixed(1)+'" transform="rotate(-90 22 22)"/></svg>';
       var ha=hab[d], hl={done:'Habit done',partly:'Habit partly',not:'Habit not yet'}[ha];
-      inner+='<div class="nc-day" style="display:flex;align-items:center;gap:10px">'+ring+'<div style="flex:1"><div>'+ncEsc(ncDayLabel(d).toUpperCase())+'</div><div style="font-family:\'DM Mono\',monospace;font-size:12px;letter-spacing:0;color:var(--text);font-weight:500">'+(dk?Math.round(dk/10)*10:0)+(target?' / '+target:'')+' kcal'+(hl?' · <span style="color:'+(ha==='done'?'#8FD1A2':ha==='partly'?'#C9A24A':'#E39A6E')+'">'+hl+'</span>':'')+'</div></div></div>';
+      inner+='<div class="nc-day" style="display:flex;align-items:center;gap:10px">'+ring+'<div style="flex:1"><div>'+ncEsc(ncDayLabel(d).toUpperCase())+'</div><div style="font-family:\'DM Mono\',monospace;font-size:12px;letter-spacing:0;color:var(--text);font-weight:500">'+(dk?Math.round(dk/10)*10:0)+(target?' / '+target:'')+' kcal'+(stepsBy[d]!=null?' · 👟 '+Number(stepsBy[d]).toLocaleString('en-IN'):'')+(hl?' · <span style="color:'+(ha==='done'?'#8FD1A2':ha==='partly'?'#C9A24A':'#E39A6E')+'">'+hl+'</span>':'')+'</div></div></div>';
       meals.forEach(function(r){
         var isNew=r.src==='app'&&r.ts&&r.ts>seen; if(isNew||r.src==='screenshot') hasNew=true;
         var th=r.meal_id?(byMeal[r.meal_id]||[]):[]; if(th.some(function(c){return c.author==='client'&&new Date(c.created_at).getTime()>seen;})) hasNew=true;
@@ -7275,6 +7330,7 @@ async function ncDaysRender(cid){
     if(res.error){alert('Not saved -- '+res.error.message);return;} ncDaysRender(cid);
   };});
   var shots=document.getElementById('ncShots_'+cid); if(shots) shots.onchange=async function(){ await ncImportShots(cid,this.files,true); };
+  var est=document.getElementById('ncEst_'+cid); if(est) est.onclick=function(){ ncEstimateMissing(cid,est); };
   if(focus){ setTimeout(function(){
     var t=focus.meal_id?el.querySelector('[data-ncopen="'+focus.meal_id+'"]'):null; if(!t&&focus.day){ t=el.querySelector('[data-ncin="d||'+focus.day+'"]'); }
     if(!t) return; var dt=t.closest('details'); if(dt) dt.open=true; var card=t.parentNode;
