@@ -1,7 +1,7 @@
-const V = "kfit-v15";
+const V = "kfit-v16";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => e.waitUntil(
-  // v15: batch 7 (dates, past-day summaries, ticks, Merge snapshot). Bumping
+  // v16: batch 8 (coach phone notifications). Bumping
   // the version wipes every old cache so no phone keeps an old app copy.
   caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())
 ));
@@ -37,4 +37,38 @@ self.addEventListener("fetch", e => {
       })
     )
   );
+});
+
+// ---- Coach phone notifications (Merge) ----
+// The server sends {title, body, url, tag, silent}. We show it, bump the
+// number on the KFit Coach icon, and tapping it opens Merge at that client.
+async function kfitBadgeBump(){
+  try{
+    const c = await caches.open("kfit-badge");
+    const r = await c.match("/__badge"); const n = (r ? parseInt(await r.text(), 10) || 0 : 0) + 1;
+    await c.put("/__badge", new Response(String(n)));
+    if (self.navigator && self.navigator.setAppBadge) await self.navigator.setAppBadge(n);
+  }catch(e){}
+}
+self.addEventListener("push", e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) { d = { title: "KFit", body: e.data ? e.data.text() : "" }; }
+  e.waitUntil(Promise.all([
+    self.registration.showNotification(d.title || "KFit", {
+      body: d.body || "", tag: d.tag || undefined, renotify: !!d.tag, silent: !!d.silent,
+      icon: "/icon-coach-192.png", badge: "/icon-coach-192.png", data: { url: d.url || "/kfit-coach-merged.html" }
+    }),
+    kfitBadgeBump()
+  ]));
+});
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || "/kfit-coach-merged.html";
+  e.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of all) {
+      if (c.url.indexOf("kfit-coach-merged") >= 0) { c.postMessage({ type: "kfit-open", url }); return c.focus(); }
+    }
+    return self.clients.openWindow(url);
+  })());
 });

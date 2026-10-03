@@ -7290,6 +7290,85 @@ async function ncDaysRender(cid){
   if(unread.length) getSB().from('nutrition_meal_comments').update({read_by_coach_at:new Date().toISOString()}).in('id',unread).then(function(){if(window.kfitBellRefresh)kfitBellRefresh();});
 }
 // ═══════════════════════════════════════════════════════════════════
+// 📱 Phone notifications for coaches (works when Merge is closed).
+// ═══════════════════════════════════════════════════════════════════
+try{ if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){}); }catch(e){}
+function kfitB64ToU8(b){var p='='.repeat((4-b.length%4)%4),s=(b+p).replace(/-/g,'+').replace(/_/g,'/'),r=atob(s),o=new Uint8Array(r.length);for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o;}
+function kfitIsStandalone(){return (window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true;}
+var KFIT_PUSH_DEFAULT={meals:true,replies:true,workouts:true,checkins:false,quiet_from:'22:00',quiet_to:'07:00',tz:'Asia/Kolkata'};
+async function kfitPushState(){
+  var st={supported:'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window,permission:(window.Notification&&Notification.permission)||'default',subscribed:false,prefs:KFIT_PUSH_DEFAULT};
+  try{ if(st.supported){ var reg=await navigator.serviceWorker.ready; var sub=await reg.pushManager.getSubscription(); st.subscribed=!!sub; } }catch(e){}
+  try{ var r=await getSB().from('coach_push_prefs').select('prefs').eq('coach_id',window.currentCoachId); if(r.data&&r.data[0]) st.prefs=Object.assign({},KFIT_PUSH_DEFAULT,r.data[0].prefs); }catch(e){}
+  return st;
+}
+async function kfitPushOn(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)){
+    alert(/iPhone|iPad/.test(navigator.userAgent)&&!kfitIsStandalone()?'On iPhone, notifications only work when Merge is opened from its home-screen icon.\n\nIn Safari: Share → Add to Home Screen, then open KFit Coach from that icon and turn notifications on there.':'This browser can\'t show notifications.');
+    return false;
+  }
+  var perm=await Notification.requestPermission();
+  if(perm!=='granted'){ alert('Notifications are blocked for KFit Coach. Allow them in your phone\'s Settings → Notifications → KFit Coach, then try again.'); return false; }
+  try{ await getSB().rpc('kfit_push_setup',{p_url:SB_URL,p_key:SB_KEY}); }catch(e){}
+  var k=await getSB().functions.invoke('kfit-push',{body:{action:'public_key'}});
+  if(k.error||!k.data||!k.data.publicKey){ alert('The notification sender isn\'t set up yet (the "kfit-push" Edge Function). '+(k.error?k.error.message:'')); return false; }
+  var reg=await navigator.serviceWorker.ready;
+  var sub=await reg.pushManager.getSubscription();
+  if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:kfitB64ToU8(k.data.publicKey)});
+  var j=sub.toJSON();
+  var ins=await getSB().from('coach_push_subscriptions').upsert({coach_id:window.currentCoachId,endpoint:j.endpoint,p256dh:j.keys.p256dh,auth:j.keys.auth,device:(navigator.userAgent||'').slice(0,120)},{onConflict:'endpoint'});
+  if(ins.error){ alert('Could not save this phone: '+ins.error.message); return false; }
+  var pr=await getSB().from('coach_push_prefs').select('coach_id').eq('coach_id',window.currentCoachId);
+  if(!(pr.data&&pr.data.length)) await getSB().from('coach_push_prefs').insert({coach_id:window.currentCoachId,prefs:KFIT_PUSH_DEFAULT});
+  return true;
+}
+async function kfitPushOff(){
+  try{ var reg=await navigator.serviceWorker.ready; var sub=await reg.pushManager.getSubscription(); if(sub){ await getSB().from('coach_push_subscriptions').delete().eq('endpoint',sub.endpoint); await sub.unsubscribe(); } }catch(e){}
+}
+async function kfitPushCard(el){
+  var st=await kfitPushState(), P=st.prefs;
+  function tg(k,l){return '<label style="display:flex;justify-content:space-between;align-items:center;font-size:14px;padding:4px 0"><span>'+l+'</span><input type="checkbox" data-pp="'+k+'"'+(P[k]?' checked':'')+' style="width:20px;height:20px"></label>';}
+  el.innerHTML='<div style="background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;display:flex;flex-direction:column;gap:6px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:800">📱 Phone notifications</div>'
+    +(st.subscribed?'<span style="color:var(--sage);font-size:13px;font-weight:700">On for this phone ✓</span>':'<button class="btn-sm" id="kpOn">Turn on</button>')+'</div>'
+    +(st.subscribed?'':'<div style="font-size:12px;color:var(--muted)">Get a buzz when tagged clients log something, even when Merge is closed.'+(/iPhone|iPad/.test(navigator.userAgent)&&!kfitIsStandalone()?' <b>On iPhone, open Merge from its home-screen icon first.</b>':'')+'</div>')
+    +tg('meals','Meals logged')+tg('replies','Replies (meal notes and chat)')+tg('workouts','Workouts logged')+tg('checkins','Habit check-ins')
+    +'<div style="display:flex;justify-content:space-between;align-items:center;font-size:14px"><span>Quiet hours (no buzz)</span><span><input type="time" id="kpQf" value="'+(P.quiet_from||'')+'" style="padding:4px"> – <input type="time" id="kpQt" value="'+(P.quiet_to||'')+'" style="padding:4px"></span></div>'
+    +(st.subscribed?'<div style="display:flex;gap:8px;margin-top:4px"><button class="btn-sm" id="kpTest">Send a test</button><button class="btn-sm" id="kpOff">Turn off on this phone</button></div>':'')
+    +'</div>';
+  async function savePrefs(){
+    var np=Object.assign({},P); el.querySelectorAll('[data-pp]').forEach(function(c){np[c.dataset.pp]=c.checked;});
+    np.quiet_from=(document.getElementById('kpQf').value||''); np.quiet_to=(document.getElementById('kpQt').value||'');
+    var r=await getSB().from('coach_push_prefs').upsert({coach_id:window.currentCoachId,prefs:np},{onConflict:'coach_id'}); if(!r.error) P=np;
+  }
+  el.querySelectorAll('[data-pp]').forEach(function(c){c.onchange=savePrefs;});
+  ['kpQf','kpQt'].forEach(function(id){var x=document.getElementById(id); if(x) x.onchange=savePrefs;});
+  var on=document.getElementById('kpOn'); if(on) on.onclick=async function(){ on.disabled=true; if(await kfitPushOn()){ await kfitPushCard(el); var t=await getSB().functions.invoke('kfit-push',{body:{action:'test'}}); } else on.disabled=false; };
+  var te=document.getElementById('kpTest'); if(te) te.onclick=async function(){ var t=await getSB().functions.invoke('kfit-push',{body:{action:'test'}}); alert(t.error?('Test failed: '+t.error.message):'Test sent. It should arrive in a few seconds.'); };
+  var of=document.getElementById('kpOff'); if(of) of.onclick=async function(){ await kfitPushOff(); kfitPushCard(el); };
+}
+// Open a client (and a meal) from a notification link: ?open=<mobile>&meal=<id>&day=<date>
+function kfitOpenFromUrl(u){
+  try{
+    var q=new URL(u,location.href).searchParams, m=(q.get('open')||'').replace(/\D/g,''); if(!m) return;
+    var tries=0;
+    (function wait(){
+      tries++;
+      var roster=[]; try{ roster=buildUnifiedRoster(); }catch(e){}
+      var c=roster.find(function(r){return String(r.mobile||'').replace(/\D/g,'')===m;});
+      if(!c||!window.currentCoachId){ if(tries<60) setTimeout(wait,500); return; }
+      window.ncFocus={m:m,meal_id:q.get('meal')||null,day:q.get('day')||null};
+      openUniClient(c.key);
+      try{ history.replaceState(null,'',location.pathname); }catch(e){}
+    })();
+  }catch(e){}
+}
+if(/[?&]open=/.test(location.search)) kfitOpenFromUrl(location.href);
+try{ navigator.serviceWorker&&navigator.serviceWorker.addEventListener('message',function(ev){ if(ev.data&&ev.data.type==='kfit-open') kfitOpenFromUrl(ev.data.url); }); }catch(e){}
+// Clear the number on the KFit Coach icon whenever Merge is opened
+function kfitClearBadge(){ try{ if(navigator.clearAppBadge) navigator.clearAppBadge(); caches.open('kfit-badge').then(function(c){c.delete('/__badge');}); }catch(e){} }
+kfitClearBadge(); document.addEventListener('visibilitychange',function(){ if(!document.hidden) kfitClearBadge(); });
+// ═══════════════════════════════════════════════════════════════════
 // 🔔 What's new: meals, check-ins and sessions from your tagged clients
 // (fitness and nutrition), last 7 days. An item is NEW until you open that
 // client in Merge (remembered on this device).
@@ -7354,8 +7433,9 @@ async function kfitBellOpen(){
       +(it.isNew?'<span style="background:#2A2618;border:1px solid #6B5A2A;color:#E7CF8C;border-radius:6px;padding:1px 6px;font-size:11px;font-weight:800">NEW</span>':'')+'</div>';}).join('')
     :'<div style="font-size:14px;color:var(--muted);padding:10px 0">Nothing new from your tagged clients in the last 7 days.</div>';
   ov.innerHTML=NC_F+'<div style="max-width:560px;margin:0 auto;background:var(--surf,#1b1b1b);border-radius:14px;padding:16px;color:var(--text)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:18px;font-weight:800">🔔 What\'s new</div><button class="btn-sm" id="bellClose">Close</button></div>'
-    +'<div style="font-size:12px;color:var(--muted);margin-bottom:6px">Your tagged clients, last 7 days. Tap one to open them; it stops being new once you have.</div>'+rows+'</div>';
+    +'<div id="kfitPushCard"></div><div style="font-size:12px;color:var(--muted);margin-bottom:6px">Your tagged clients, last 7 days. Tap one to open them; it stops being new once you have.</div>'+rows+'</div>';
   document.getElementById('bellClose').onclick=function(){ov.remove();};
+  try{ kfitPushCard(document.getElementById('kfitPushCard')); }catch(e){}
   ov.onclick=function(e){if(e.target===ov)ov.remove();};
   ov.querySelectorAll('[data-bell]').forEach(function(el){el.onclick=function(){
     var it=items[+el.dataset.bell]; ov.remove();
