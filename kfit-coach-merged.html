@@ -7008,7 +7008,8 @@ async function ncLoadWeek(cid){
   (ml.data||[]).filter(function(x){return !x.deleted;}).forEach(function(x){var b=x.body||{};
     var ps=Array.isArray(b.photos)?b.photos.slice():[]; if(b.photo&&!ps.some(function(q){return q.path===b.photo;})) ps.unshift({path:b.photo,feedback:b.feedback});
     var kc=(Array.isArray(b.items)&&b.items.length&&b.feedback&&b.feedback.kcal)||ps.reduce(function(a,q){return a+((q.feedback&&Number(q.feedback.kcal))||0);},0)||(b.feedback&&b.feedback.kcal)||null;
-    rows.push({day:x.day,meal_id:x.meal_id,time:b.time||(b.eatenAt?new Date(b.eatenAt).toTimeString().slice(0,5):''),slot:b.slot||'',text:b.text||'',note:'',src:'app',ts:x.created_at?new Date(x.created_at).getTime():(b.at||0),kcal:kc,photos:ps.map(function(q){return q.path;}),fromPlan:!!b.planKey,items:Array.isArray(b.items)?b.items:null,edited:!!b.edited,noPhoto:!!b.noPhoto});});
+    rows.push({day:x.day,meal_id:x.meal_id,time:b.time||(b.eatenAt?new Date(b.eatenAt).toTimeString().slice(0,5):''),slot:b.slot||'',text:b.text||'',note:'',src:'app',ts:x.created_at?new Date(x.created_at).getTime():(b.at||0),kcal:kc,photos:ps.map(function(q){return q.path;}),fromPlan:!!b.planKey,items:Array.isArray(b.items)?b.items:null,edited:!!b.edited,noPhoto:!!b.noPhoto,earlier:!!b.fromEarlierApp});});
+  var haveSlot={}; rows.forEach(function(r){haveSlot[r.day+'|'+r.slot]=1;});
   // earlier-app log (days only, no times were recorded then)
   var td=await getSB().from('tracker_data').select('data').eq('client_id',cid).eq('tracker','nutrition');
   var d=td.data&&td.data[0]&&td.data[0].data; if(typeof d==='string'){try{d=JSON.parse(d);}catch(e){d=null;}}
@@ -7022,7 +7023,7 @@ async function ncLoadWeek(cid){
       if(ds<since||ds>ncToday()) return;
       MEALS.forEach(function(mm){var fl=day.foodLog&&day.foodLog[mm[0]], nt=day.mealNotes&&day.mealNotes[mm[0]];
         var text=[].concat(Array.isArray(fl)?fl:[]).concat(nt?[nt]:[]).join(', ');
-        if(text) rows.push({day:ds,time:'',slot:mm[1],text:text,note:'',src:'earlier'});});
+        if(text&&!haveSlot[ds+'|'+mm[1]]) rows.push({day:ds,time:'',slot:mm[1],text:text,note:'',src:'earlier'});});
     });});});
   }
   rows.sort(function(a,b){return a.day===b.day?(a.time||'99').localeCompare(b.time||'99'):(a.day<b.day?1:-1);});
@@ -7059,7 +7060,7 @@ async function ncToolsRender(cid,tab,noTabs){
         if(r.day!==lastDay){ inner+='<div class="nc-day">'+ncEsc(ncDayLabel(r.day).toUpperCase())+'</div>'; lastDay=r.day; }
         var isNew=r.src==='app'&&r.ts&&r.ts>seen;
         inner+='<div style="display:flex;flex-direction:column;gap:3px;padding:6px 0;'+(isNew?'background:rgba(201,162,74,.08);border-radius:6px;padding:6px;':'')+'">'
-          +'<div>'+(r.time?'<span class="nc-time">'+ncEsc(r.time)+'</span> ':'')+'<span class="nc-meal">'+ncEsc(r.slot||'Meal')+'</span>'+(isNew?'<span class="nc-new">NEW</span>':'')+(r.src==='screenshot'?' <span style="color:var(--muted);font-size:11px">(screenshot)</span>':'')+(r.src==='earlier'?' <span style="color:var(--muted);font-size:11px">(earlier app)</span>':'')+'</div>'
+          +'<div>'+(r.time?'<span class="nc-time">'+ncEsc(r.time)+'</span> ':'')+'<span class="nc-meal">'+ncEsc(r.slot||'Meal')+'</span>'+(isNew?'<span class="nc-new">NEW</span>':'')+(r.src==='screenshot'?' <span style="color:var(--muted);font-size:11px">(screenshot)</span>':'')+(r.src==='earlier'||r.earlier?' <span style="color:var(--muted);font-size:11px">(earlier app)</span>':'')+'</div>'
           +(r.text?'<div class="nc-food">'+ncEsc(r.text)+(r.kcal?' <span style="color:var(--muted)">· ~'+r.kcal+' kcal</span>':'')+'</div>':'')
           +'<input data-ncnote="'+i+'" value="'+ncEsc(r.note)+'" placeholder="Add a note (optional)" style="padding:7px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:13px"></div>';
       });
@@ -7178,10 +7179,10 @@ async function ncAiJson(parts,maxTok){
   return JSON.parse(String(t||'').replace(/```json|```/g,'').trim());
 }
 async function ncEstimateMissing(cid,btn){
-  var since=ncAddDays(ncToday(),-14);
+  var since=ncAddDays(ncToday(),-60);
   var ml=await getSB().from('nutrition_meals').select('*').eq('client_id',cid).gte('day',since);
   var todo=(ml.data||[]).filter(function(x){ if(x.deleted) return false; var b=x.body||{}; var ps=Array.isArray(b.photos)?b.photos:[]; var k=ps.reduce(function(a,q){return a+((q.feedback&&Number(q.feedback.kcal))||0);},0)||(b.feedback&&Number(b.feedback.kcal))||0; return !k&&(b.text||ps.length||b.photo); });
-  if(!todo.length){ alert('All her meals from the last two weeks already have an estimate.'); return; }
+  if(!todo.length){ alert('All her meals from the last 60 days already have an estimate.'); return; }
   if(!confirm('Estimate calories for '+todo.length+' meal'+(todo.length===1?'':'s')+' with no estimate? It takes a few seconds each.')) return;
   btn.disabled=true; var done=0, failed=0;
   for(var i=0;i<todo.length;i++){
@@ -7309,7 +7310,7 @@ async function ncDaysRender(cid){
           +(r.kcal?'<span class="nc-time" style="color:var(--muted)">'+r.kcal+'</span>':'')+'</div>'
           +(isOpen?'<div style="margin-top:6px">':'<div style="display:none">')
           +'<div>'
-          +(r.fromPlan?' <span style="color:var(--muted);font-size:11px">(from your plan)</span>':'')+(r.src==='screenshot'?' <span style="color:var(--muted);font-size:11px">(screenshot)</span>':'')+(r.src==='earlier'?' <span style="color:var(--muted);font-size:11px">(earlier app)</span>':'')
+          +(r.fromPlan?' <span style="color:var(--muted);font-size:11px">(from your plan)</span>':'')+(r.src==='screenshot'?' <span style="color:var(--muted);font-size:11px">(screenshot)</span>':'')+(r.src==='earlier'||r.earlier?' <span style="color:var(--muted);font-size:11px">(earlier app)</span>':'')
           +'</div>'
           +(r.items&&r.items.length?'<div style="display:flex;flex-direction:column;gap:2px;margin:4px 0">'+r.items.map(function(it){return '<div class="nc-food">'+ncEsc(it.name)+' · <span class="nc-time">'+ncEsc((it.amount===0.5?'½':it.amount===0.25?'¼':it.amount===0.75?'¾':it.amount===1.5?'1½':it.amount===2.5?'2½':it.amount)+(it.unit?' '+it.unit:''))+'</span>'+(it.kcal?' <span style="color:var(--muted)">~'+it.kcal+'</span>':'')+'</div>';}).join('')+'</div>'
              :(r.text&&r.text.length>38?'<div class="nc-food">'+ncEsc(r.text)+'</div>':''))

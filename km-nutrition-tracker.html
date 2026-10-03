@@ -1075,6 +1075,7 @@ function renderLog(){
         +(Array.isArray(b.items)&&b.items.length?'<div style="display:flex;flex-direction:column;gap:2px">'+b.items.map(function(it){return '<div class="f-food" style="white-space:normal">'+esc(it.name)+' · <span class="f-time">'+esc(amtTxt(it.amount)+(it.unit?' '+it.unit:''))+'</span>'+(showK()&&it.kcal?' <span class="meta">~'+fmt(it.kcal)+'</span>':'')+'</div>';}).join('')+'</div>'
           :(b.text&&b.text.length>38?'<div class="f-food" style="white-space:normal">'+esc(b.text)+'</div>':''))
         +(b.noPhoto?'<div class="meta" style="font-weight:400">No photo · logged from words</div>':'')
+        +(b.fromEarlierApp?'<div class="meta" style="font-weight:400">From the earlier app (no time recorded)</div>':'')
         +(f&&f.protein!=null?'<div class="meta" style="font-weight:400">Hands: protein '+esc(f.protein)+' · veg '+esc(f.veg)+' · carbs '+esc(f.carbs)+' · fats '+esc(f.fats)+' · estimate</div>':'')
         +(f&&f.tip?'<div style="font-size:14px;color:var(--soft)">'+esc(f.tip)+'</div>':'')
         +'<div class="row" style="gap:14px;flex-wrap:wrap"><button class="btn link" data-addphoto="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px">+ Photo</button><button class="btn link" data-edit="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px">Edit</button><button class="btn link" data-del="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px;color:var(--muted)">Remove</button></div>'
