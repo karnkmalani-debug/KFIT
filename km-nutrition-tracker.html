@@ -113,6 +113,15 @@ h2{margin:0;font-family:var(--serif);font-weight:500;font-size:22px;line-height:
 .links{display:flex;flex-wrap:wrap;gap:10px}
 .links button{background:none;border:1px solid var(--line2);border-radius:20px;color:var(--soft);padding:8px 14px;font-weight:700;font-size:14px;min-height:40px}
 .tm{color:var(--muted);font-variant-numeric:tabular-nums;min-width:62px;display:inline-block}
+.mcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;text-align:left;width:100%;color:var(--ink)}
+.mcard .sum{display:flex;gap:10px;align-items:center}
+.mthumb{width:52px;height:52px;border-radius:12px;object-fit:cover;background:var(--sand);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px}
+.addgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.addgrid button{border:1px dashed var(--line2);background:none;border-radius:12px;min-height:44px;color:var(--leaf);font-weight:700;font-size:14px}
+.hbtn{border:1px solid var(--line2);background:none;border-radius:10px;min-height:40px;color:var(--ink);font-weight:700;font-size:14px}
+.hbtn.on{background:var(--green);border-color:var(--green);color:#fff}
+.hdot{width:14px;height:14px;border-radius:7px;display:inline-block;border:1px solid var(--line2);background:transparent}
+.hdot.d{background:var(--leaf);border-color:var(--leaf)}.hdot.p{background:#4E7A5C;border-color:#4E7A5C}.hdot.n{background:#3A2A1E;border-color:#3A2A1E}.hdot.t{border:2px solid var(--gold)}
 .f-time{font-family:"DM Mono",ui-monospace,Menlo,monospace;color:var(--gold);font-size:13px;letter-spacing:.02em}
 .f-meal{font-family:var(--serif);font-size:18px;font-weight:500;color:var(--ink)}
 .f-food{font-family:var(--sans);font-size:15px;color:var(--soft);line-height:1.45}
@@ -589,14 +598,14 @@ function renderChooser(canSkip){
   var sel=S._tpl||'reset-7d';
   var cards=G_T.map(function(t){
     return '<button class="tpl'+(t.id===sel?' on':'')+'" data-t="'+t.id+'"><div class="cap g">'+(t.weeks===1?'1 week':t.weeks+' weeks')+(t.id==='reset-7d'?' · <span style="color:var(--gold)">RECOMMENDED TO START</span>':'')+'</div>'
-      +'<h2>'+esc(t.name)+'</h2><div class="body" style="font-size:15px">'+esc(TPL_BLURB[t.id]||'')+'</div><span data-about="'+t.id+'" role="button" style="color:var(--leaf);font-weight:700;font-size:14px">About this plan →</span></button>';
+      +'<h2>'+esc(t.name)+'</h2><div class="body" style="font-size:15px">'+esc(TPL_BLURB[t.id]||'')+'</div></button>';
   }).join('');
   show('<div class="screen full">'+(canSkip?'<button class="btn link" data-home style="align-self:flex-start;color:var(--soft)">‹ Home</button>':'<div style="height:12px"></div>')+'<h1>Choose a plan</h1>'
     +'<div class="body"><p>A plan teaches one small eating <b>habit</b> at a time, like "a palm of protein at every meal". Each day: a 2-minute lesson, one small thing to try, and a tap to say how it went.</p>'
     +'<p style="margin:0">Not sure? <b style="color:var(--gold)">Start with the 7-day Reset.</b> It\'s short, and you can carry on afterwards. Your progress always comes with you.</p></div>'+cards
     +'<button class="btn" id="chGo">Start</button>'
     +(canSkip?'<button class="btn link" id="chLater" style="align-self:center">Not now</button>':'')+'</div>');
-  document.querySelectorAll('.tpl').forEach(function(b){b.onclick=function(e){ if(e.target&&e.target.dataset&&e.target.dataset.about) return openPlanInfo(e.target.dataset.about,canSkip); S._tpl=b.dataset.t;renderChooser(canSkip);};});
+  document.querySelectorAll('.tpl').forEach(function(b){b.onclick=function(){ S._tpl=b.dataset.t; openPlanInfo(b.dataset.t,canSkip); };});
   var lt=$('#chLater'); if(lt) lt.onclick=function(){S.view=null;S.tab='home';render();};
   $('#chGo').onclick=function(){startTemplate(sel,[]);};
 }
@@ -615,7 +624,7 @@ function openPlanInfo(id,canSkip){
   show('<div class="screen full"><div class="top"><button class="round" id="piBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>'
     +('speechSynthesis' in window?'<button class="btn out" id="piListen" style="width:auto;min-height:44px;border-radius:22px;font-size:14px">🔊 Listen</button>':'')+'</div>'
     +'<div class="cap g">'+(t.weeks===1?'1 week':t.weeks+' weeks')+'</div><h1>'+esc(t.name)+'</h1>'
-    +'<div class="still" style="padding:0;overflow:hidden;border-radius:18px;aspect-ratio:16/10"><img src="plan-'+esc(id)+'.jpeg" data-alts="plan-'+esc(id)+'.jpeg.jpg|plan-'+esc(id)+'.jpg|plan-'+esc(id)+'.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block" onerror="var a=(this.dataset.alts||\'\').split(\'|\').filter(Boolean);if(a.length){this.dataset.alts=a.slice(1).join(\'|\');this.src=a[0];}else{this.parentNode.style.display=\'none\';}"></div>'
+    +'<div class="still" style="padding:0;overflow:hidden;border-radius:18px;aspect-ratio:1/1"><img src="plan-'+esc(id)+'.jpeg" data-alts="plan-'+esc(id)+'.jpeg.jpg|plan-'+esc(id)+'.jpg|plan-'+esc(id)+'.png" alt="" style="width:100%;height:100%;object-fit:cover;display:block" onerror="var a=(this.dataset.alts||\'\').split(\'|\').filter(Boolean);if(a.length){this.dataset.alts=a.slice(1).join(\'|\');this.src=a[0];}else{this.parentNode.style.display=\'none\';}"></div>'
     +'<div class="body"><p>'+esc(body)+'</p><p style="margin:0"><b>How every day works:</b> a 2-minute lesson, one small thing to try, and a tap at night to say how it went. After each habit you choose: move on, or stay a little longer. Your progress always comes with you.</p></div>'
     +'<div class="card" style="border:1px solid var(--line);gap:6px"><div class="steplbl">THE HABITS ON THIS PLAN</div>'
     +path.map(function(hid,i){var h=habitOf(hid);return '<div style="font-size:15px"><span class="f-time">'+(i+1)+'</span> <b>'+esc(hid==='reset'?'7-day Reset':(h?h.title:hid))+'</b>'+(h&&h.short?' <span style="color:var(--muted)">· '+esc(h.short)+'</span>':'')+'</div>';}).join('')+'</div>'
@@ -906,53 +915,72 @@ function plannedFor(d){
 }
 function renderLog(){
   S.tab='log';
-  var d=S._logDay||today(), list=mealsOn(d);
-  // week strip (Mon-Sun) with each day's calories
+  var d=S._logDay||today(), list=mealsOn(d), isToday=d===today();
   var pd=parseD(d), wd=(pd.getDay()+6)%7, mon=addDays(d,-wd), strip='';
   for(var i=0;i<7;i++){var x=addDays(mon,i),k=dayKcal(x),on=x===d,fut=x>today();
     strip+='<button data-day="'+x+'"'+(fut?' disabled':'')+' style="background:none;border:none;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:2px;padding:0;opacity:'+(fut?'.35':'1')+'">'
       +'<span class="meta" style="font-size:11px">'+'MTWTFSS'[i]+'</span>'
-      +'<span style="width:34px;height:34px;border-radius:17px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;'+(on?'background:var(--ink);color:#12130F':x===today()?'border:2px solid var(--gold)':'border:1px solid var(--line2)')+'">'+parseD(x).getDate()+'</span>'
-      +'<span class="f-time" style="font-size:11px;color:'+(k.n?'var(--gold)':'var(--muted)')+'">'+(k.n?fmt(k.sum):'–')+'</span></button>';}
-  var html='<div class="screen">'+head(d===today()?'Today\'s meals':parseD(d).toDateString().slice(0,10))+hint('log')
+      +'<span style="width:32px;height:32px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;'+(on?'background:var(--ink);color:#12130F':x===today()?'border:2px solid var(--gold)':'border:1px solid var(--line2)')+'">'+parseD(x).getDate()+'</span>'
+      +'<span class="f-time" style="font-size:10px;color:'+(k.n?'var(--gold)':'var(--muted)')+'">'+(k.n?fmt(k.sum):'–')+'</span></button>';}
+  // header: ring + today's habit
+  var habit='';
+  if(hasPlan()&&isToday){
+    var h=habitOf(stepId()), c=S.checkins[today()]||{}, q=checkinText();
+    habit='<div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0">'
+      +'<div class="steplbl" style="font-size:11px">HABIT · '+esc((stepId()==='reset'?'7-DAY RESET':(h?h.title:'')).toUpperCase())+' · DAY '+(dayIndex()+1)+'</div>'
+      +'<div style="font-size:14px;line-height:1.4">'+esc(q||'How did today go?')+'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px">'
+      +[['done','Done'],['partly','Partly'],['not','Not yet']].map(function(o){return '<button class="hbtn'+(c.answer===o[0]?' on':'')+'" data-hab="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div>'
+      +'<div style="display:flex;gap:4px;align-items:center">'+weekDots(d)+'<span class="meta" style="margin-left:4px">this week</span></div></div>';
+  } else if(isToday&&!hasPlan()){
+    habit='<div style="flex:1;display:flex;flex-direction:column;gap:6px"><div style="font-size:14px;color:var(--soft)">Want one small daily habit to go with your logging?</div><button class="btn link" id="lgPlan" style="align-self:flex-start;min-height:36px">Choose a plan →</button></div>';
+  } else {
+    var cc=S.checkins[d]; habit='<div style="flex:1;font-size:14px;color:var(--soft)">'+(cc&&cc.answer?'Habit: <b>'+({done:'Done',partly:'Partly',not:'Not yet'}[cc.answer])+'</b>':'')+'</div>';
+  }
+  var html='<div class="screen">'+head(isToday?'Today':parseD(d).toDateString().slice(0,10))
     +'<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px">'+strip+'</div>'
-    +'<div class="row" style="justify-content:space-between;align-items:center"><button class="btn link" id="lgPrev" style="min-height:36px">‹ Last week</button>'+(mon<addDays(today(),-((new Date().getDay()+6)%7))?'<button class="btn link" id="lgNext" style="min-height:36px">Next week ›</button>':'')+'</div>'
-    +'<div class="card" style="border:1px solid var(--line);gap:6px">'+kcalBar(d)+'</div>';
+    +'<div class="card" style="border:1px solid var(--line);flex-direction:row;gap:14px;align-items:center">'+kcalRing(d)+habit+'</div>';
   var dayNotes=commentsFor(d,null);
   if(dayNotes.length) html+='<div class="coachbox"><div class="steplbl">NOTE FROM YOUR COACH</div>'+threadHtml(d,null)+'</div>';
-  var used={}, planned=plannedFor(d);
-  function mealHtml(m){
-    used[m.meal_id]=1; var b=m.body||{}, f=aggFeedback(b), ps=mealPhotos(b);
-    return '<div style="display:flex;flex-direction:column;gap:6px;padding-top:8px;border-top:1px solid var(--line)">'
-      +'<div class="row" style="justify-content:space-between;align-items:flex-start"><div><div class="f-time">'+esc(mealTime(m))+'</div><div class="f-food">'+esc(b.text||'Photo')+'</div></div>'
-      +(f&&f.kcal?'<div class="f-time" style="color:var(--muted)">~'+esc(fmt(f.kcal))+' kcal</div>':'')+'</div>'
-      +(ps.length?'<div style="display:flex;gap:6px;flex-wrap:wrap">'+ps.map(function(x){return '<img data-path="'+esc(x.path)+'" alt="Meal photo" style="width:64px;height:64px;border-radius:10px;object-fit:cover;background:var(--sand)">';}).join('')+'</div>':'')
-      +(f&&f.protein!=null?'<div class="meta" style="font-weight:400">Hands: protein '+esc(f.protein)+' · veg '+esc(f.veg)+' · carbs '+esc(f.carbs)+' · fats '+esc(f.fats)+' · estimate</div>':'')
-      +(f&&f.tip?'<div style="font-size:14px;color:var(--soft)">'+esc(f.tip)+'</div>':'')
-      +'<div class="row" style="gap:14px;flex-wrap:wrap"><button class="btn link" data-addphoto="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px">+ Photo</button><button class="btn link" data-edit="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px">Edit</button><button class="btn link" data-del="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px;color:var(--muted)">Remove</button></div>'
-      +threadHtml(d,m.meal_id)+'</div>';
+  var planned=plannedFor(d), ticked={}; list.forEach(function(m){if(m.body&&m.body.planKey)ticked[m.body.planKey]=1;});
+  var open=S._openMeal;
+  function card(m){
+    var b=m.body||{}, f=aggFeedback(b), ps=mealPhotos(b), th=commentsFor(d,m.meal_id), unread=th.filter(function(c){return c.author==='coach'&&!c.read_by_client_at;}).length, isOpen=open===m.meal_id;
+    var html2='<div class="mcard"><button class="sum" data-open="'+esc(m.meal_id)+'" style="background:none;border:none;color:inherit;padding:0;text-align:left;width:100%">'
+      +(ps.length?'<img class="mthumb" data-path="'+esc(ps[0].path)+'" alt="">':'<span class="mthumb">🍽️</span>')
+      +'<div style="flex:1;min-width:0"><div><span class="f-time">'+esc(mealTime(m))+'</span> <span class="f-meal" style="font-size:16px">'+esc(b.slot||'Meal')+'</span>'+(th.length?' <span class="meta">💬 '+th.length+(unread?' new':'')+'</span>':'')+'</div>'
+      +'<div class="f-food" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(b.text||'Photo')+'</div></div>'
+      +(f&&f.kcal?'<span class="f-time" style="color:var(--muted)">'+esc(fmt(f.kcal))+'</span>':'')+'</button>';
+    if(isOpen){
+      html2+=(ps.length>1||ps.length&&ps[0]?'<div style="display:flex;gap:6px;flex-wrap:wrap">'+ps.map(function(x){return '<img data-path="'+esc(x.path)+'" alt="Meal photo" style="width:84px;height:84px;border-radius:10px;object-fit:cover;background:var(--sand)">';}).join('')+'</div>':'')
+        +(b.text?'<div class="f-food" style="white-space:normal">'+esc(b.text)+'</div>':'')
+        +(f&&f.protein!=null?'<div class="meta" style="font-weight:400">Hands: protein '+esc(f.protein)+' · veg '+esc(f.veg)+' · carbs '+esc(f.carbs)+' · fats '+esc(f.fats)+' · estimate</div>':'')
+        +(f&&f.tip?'<div style="font-size:14px;color:var(--soft)">'+esc(f.tip)+'</div>':'')
+        +'<div class="row" style="gap:14px;flex-wrap:wrap"><button class="btn link" data-addphoto="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px">+ Photo</button><button class="btn link" data-edit="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px">Edit</button><button class="btn link" data-del="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px;color:var(--muted)">Remove</button></div>'
+        +threadHtml(d,m.meal_id);
+    }
+    return html2+'</div>';
   }
-  function plannedHtml(it){
-    return '<div class="row" style="justify-content:space-between;align-items:center;gap:10px;padding-top:8px;border-top:1px dashed var(--line2)"><div><div class="f-time">'+esc(it.time||'')+' · <span style="color:var(--muted)">from your coach\'s plan</span></div><div class="f-food">'+esc(it.text||'')+'</div>'+(it.note?'<span class="cnote">'+esc(it.note)+'</span>':'')+'</div>'
-      +'<button data-tick="'+esc(it.key)+'" aria-label="I ate this" style="width:30px;height:30px;border-radius:8px;border:1.5px solid var(--line2);background:none;color:var(--leaf);font-weight:700;flex-shrink:0"></button></div>';
-  }
-  var ticked={}; list.forEach(function(m){if(m.body&&m.body.planKey)ticked[m.body.planKey]=1;});
-  DAY_SLOTS.concat([['Something else','21:30']]).forEach(function(sl,si){
-    var isOther=si===DAY_SLOTS.length;
-    var ms=isOther?[]:list.filter(function(m){return (m.body||{}).slot===sl[0];});
-    var pl=isOther?[]:planned.filter(function(it){return it.slot===sl[0]&&!ticked[it.key];});
-    var inner=ms.map(mealHtml).join('')+pl.map(plannedHtml).join('');
-    if(isOther){ var other=list.filter(function(m){return !used[m.meal_id];}); inner=other.map(mealHtml).join(''); }
-    html+='<div class="card" style="border:1px '+(inner?'solid var(--line)':'dashed var(--line2)')+';gap:4px">'
-      +'<div class="row" style="justify-content:space-between;align-items:center"><div class="f-meal">'+sl[0]+'</div>'
-      +'<button class="btn link" data-add="'+(isOther?'Late snack':sl[0])+'" style="min-height:36px;font-size:14px">+ Add</button></div>'
-      +(inner||'<div class="meta" style="font-weight:400">'+(isOther?'A drink, a late snack, anything extra':'Type it or snap a photo · the time fills in')+'</div>')+'</div>';
+  var bySlot={}; list.forEach(function(m){var sl=(m.body||{}).slot||'Late snack'; (bySlot[sl]=bySlot[sl]||[]).push(m);});
+  var cards='';
+  list.forEach(function(m){ cards+=card(m); });
+  planned.filter(function(it){return !ticked[it.key];}).forEach(function(it){
+    cards+='<div class="mcard" style="border-style:dashed"><div class="sum"><span class="mthumb" style="background:none;border:1px dashed var(--line2)">🗓️</span><div style="flex:1;min-width:0"><div><span class="f-time">'+esc(it.time||'')+'</span> <span class="f-meal" style="font-size:16px">'+esc(it.slot||'Meal')+'</span> <span class="meta">· from your coach</span></div><div class="f-food">'+esc(it.text||'')+'</div>'+(it.note?'<span class="cnote">'+esc(it.note)+'</span>':'')+'</div>'
+      +'<button data-tick="'+esc(it.key)+'" aria-label="I ate this" style="width:34px;height:34px;border-radius:9px;border:1.5px solid var(--line2);background:none;flex-shrink:0"></button></div></div>';
   });
+  html+=cards||'<div class="meta" style="font-weight:400;text-align:center;padding:6px 0">Nothing logged '+(isToday?'yet today':'on this day')+'.</div>';
+  var missing=DAY_SLOTS.map(function(x){return x[0];}).filter(function(sl){return !bySlot[sl];});
+  var SHORT={'Morning snack':'AM snack','Evening snack':'PM snack'};
+  html+='<div class="addgrid">'+missing.map(function(sl){return '<button data-add="'+sl+'">+ '+(SHORT[sl]||sl)+'</button>';}).join('')+'<button data-add="Late snack">+ Other</button></div>';
   html+='<div class="links"><button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')+'</div></div>';
   show(html);
-  $('#lgPrev').onclick=function(){S._logDay=addDays(mon,-1);renderLog();};
-  var nx=$('#lgNext'); if(nx) nx.onclick=function(){var t=addDays(mon,7);S._logDay=t>today()?today():t;renderLog();};
-  document.querySelectorAll('[data-day]').forEach(function(b){b.onclick=function(){S._logDay=b.dataset.day;renderLog();};});
+  document.querySelectorAll('[data-day]').forEach(function(b){b.onclick=function(){S._logDay=b.dataset.day;S._openMeal=null;renderLog();};});
+  document.querySelectorAll('[data-open]').forEach(function(b){b.onclick=function(){S._openMeal=S._openMeal===b.dataset.open?null:b.dataset.open;renderLog();};});
+  document.querySelectorAll('[data-hab]').forEach(function(b){b.onclick=function(){
+    var was=(S.checkins[today()]||{}).answer; setCheckin(b.dataset.hab);
+    if(b.dataset.hab==='done'&&was!=='done') toast('Nice work ✓ Habit done for today');
+  };});
+  var lp=$('#lgPlan'); if(lp) lp.onclick=function(){go('plan');};
   document.querySelectorAll('[data-add]').forEach(function(b){b.onclick=function(){openMealForm(d,b.dataset.add);};});
   document.querySelectorAll('[data-edit]').forEach(function(b){b.onclick=function(){openMealForm(d,null,b.dataset.edit);};});
   document.querySelectorAll('[data-addphoto]').forEach(function(b){b.onclick=function(){addPhotoToMeal(b.dataset.addphoto);};});
@@ -966,11 +994,16 @@ function renderLog(){
   };});
   document.querySelectorAll('[data-del]').forEach(function(b){b.onclick=function(){
     var m=S.meals[b.dataset.del]; if(!m||!confirm('Remove this meal?')) return;
-    m.deleted=true; m.updated_ms=now(); write('nutrition_meals',mealRow(m)); renderLog();
+    m.deleted=true; m.updated_ms=now(); write('nutrition_meals',mealRow(m)); S._openMeal=null; renderLog();
   };});
   document.querySelectorAll('img[data-path]').forEach(loadPhoto);
   bindThreads(renderLog);
-  markThreadRead(dayNotes.concat((S.comments||[]).filter(function(c){return c.day===d&&c.meal_id;})));
+  // swipe left/right to change day
+  var sc=document.querySelector('.screen'), x0=null;
+  if(sc){ sc.addEventListener('touchstart',function(e){x0=e.touches[0].clientX;},{passive:true});
+    sc.addEventListener('touchend',function(e){ if(x0==null) return; var dx=e.changedTouches[0].clientX-x0; x0=null;
+      if(Math.abs(dx)<70) return; var nd=addDays(d,dx<0?1:-1); if(nd>today()) return; S._logDay=nd; S._openMeal=null; renderLog(); },{passive:true}); }
+  markThreadRead(dayNotes.concat(open?commentsFor(d,open):[]));
 }
 function addPhotoToMeal(mealId){
   var m=S.meals[mealId]; if(!m) return;
@@ -1186,6 +1219,20 @@ function targets(){
 function dayKcal(d){
   var sum=0,n=0; Object.keys(S.meals).forEach(function(k){var m=S.meals[k];if(m.day!==d||m.deleted||!m.body)return;var f=aggFeedback(m.body);if(f&&f.kcal){sum+=f.kcal;n++;}});
   return {sum:sum,n:n};
+}
+function kcalRing(d,size){
+  size=size||96; var k=dayKcal(d), t=targets(), tgt=t&&t.maint?((S.program&&S.program.settings&&S.program.settings.goal)==='maintain'?t.maint:t.loss):null;
+  var r=size/2-8, c=2*Math.PI*r, pct=tgt?Math.min(1,k.sum/tgt):0, over=tgt&&k.sum>tgt;
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" role="img" aria-label="'+fmt(k.sum)+' of '+(tgt?fmt(tgt):'?')+' calories"><circle cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="#2E2F28" stroke-width="9"/>'
+    +'<circle cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="'+(over?'#E39A6E':'#C9A24A')+'" stroke-width="9" stroke-linecap="round" stroke-dasharray="'+(c*pct).toFixed(1)+' '+c.toFixed(1)+'" transform="rotate(-90 '+size/2+' '+size/2+')" style="transition:stroke-dasharray .6s"/>'
+    +'<text x="'+size/2+'" y="'+(size/2+2)+'" text-anchor="middle" style="font-family:var(--serif);font-size:'+Math.round(size/4.6)+'px;fill:#F3EEE3">'+fmt(k.sum)+'</text>'
+    +'<text x="'+size/2+'" y="'+(size/2+18)+'" text-anchor="middle" style="font-size:10px;fill:#9C978A">'+(tgt?'of '+fmt(tgt):'kcal')+'</text></svg>';
+}
+function weekDots(d){
+  var pd=parseD(d), wd=(pd.getDay()+6)%7, mon=addDays(d,-wd), out='';
+  for(var i=0;i<7;i++){var x=addDays(mon,i), c=S.checkins[x], a=c&&c.answer;
+    out+='<span class="hdot '+(a==='done'?'d':a==='partly'?'p':a==='not'?'n':'')+(x===today()?' t':'')+'" title="'+x+'"></span>';}
+  return out;
 }
 function kcalBar(d){
   var k=dayKcal(d), t=targets(); if(!k.n&&!(t&&t.maint)) return '';

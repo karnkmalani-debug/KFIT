@@ -465,6 +465,21 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 <script src="./kfit-exercise-library-extra.js"></script>
 <script src="./kfit-fitness-store.js"></script>
 <script src="./kfit-coach-chat.js"></script>
+<script src="./kfit-join-coach.js"></script>
+<script>
+// Opened a different coach's invite link? Offer to join them (their consent).
+// Waits until this phone is signed in to a client, then asks once.
+(function(){
+  var tries=0;
+  function go(){
+    tries++;
+    var m=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
+    if(!window.KFitJoinCoach||typeof getSB!=='function'||m.length<8){ if(tries<20) setTimeout(go,3000); return; }
+    try{ KFitJoinCoach.check({sb:getSB(),mobile:m,name:localStorage.getItem('kmfit_name')||'',onToast:function(t){ if(typeof toast==='function') toast(t); else alert(t); }}); }catch(e){}
+  }
+  if(/[?&]coach=/.test(location.search)) setTimeout(go,4000);
+})();
+</script>
 <script>
 if(/CriOS/i.test(navigator.userAgent)&&/iphone|ipad|ipod/i.test(navigator.userAgent)){
 document.getElementById('criosBanner').style.display='flex';
@@ -5006,10 +5021,28 @@ d=d||new Date();
 return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 
+// Client apps keep their OWN sign-in, separate from Merge (the coach app) on
+// the same phone. Before, a coach testing a client app on their own phone was
+// seen as the coach ("Coach accounts can't sign up as clients", email code
+// errors). A client's existing anonymous sign-in is carried over once, so
+// nobody is logged out; a coach's sign-in is never copied.
+var KFIT_CLIENT_AUTH='kfit-client-auth';
+function kfitClientAuthMigrate(url){
+  try{
+    if(localStorage.getItem(KFIT_CLIENT_AUTH)) return;
+    var ref=(String(url).match(/https:\/\/([^.]+)\./)||[])[1]; if(!ref) return;
+    var old=localStorage.getItem('sb-'+ref+'-auth-token'); if(!old) return;
+    var o=JSON.parse(old), tok=o&&(o.access_token||(o.currentSession&&o.currentSession.access_token)); if(!tok) return;
+    var b=tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'); while(b.length%4) b+='=';
+    var claims=JSON.parse(atob(b));
+    if(claims&&claims.is_anonymous===true) localStorage.setItem(KFIT_CLIENT_AUTH,old);
+  }catch(e){}
+}
+
 function getSB(){
 // Fitness reads/writes go to the per-row tables (kfit-fitness-store.js);
 // everything else is the plain Supabase client.
-if(!sbClient) sbClient=KFitStore.wrapClient(supabase.createClient(SB_URL,SB_KEY),{claim:true,coachId:function(){return getClientCoachId();}});
+if(!sbClient){ kfitClientAuthMigrate(SB_URL); sbClient=KFitStore.wrapClient(supabase.createClient(SB_URL,SB_KEY,{auth:{storageKey:KFIT_CLIENT_AUTH,persistSession:true,autoRefreshToken:true}}),{claim:true,coachId:function(){return getClientCoachId();}}); }
 return sbClient;
 }
 // IMPORTANT: replace this with your actual coach id (from `select id from
