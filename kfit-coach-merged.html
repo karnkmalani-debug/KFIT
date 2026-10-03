@@ -7118,8 +7118,8 @@ async function ncImportShots(cid,files,intoDays){
       var data=await ncB64(files[i]);
       var prompt='This is a screenshot of a food log from a nutrition app. List every meal shown. Dates look like "Thu Sep 24"; the year is '+yr+'. '
         +'Reply ONLY with JSON: {"meals":[{"date":"YYYY-MM-DD","time":"HH:MM or empty","slot":"Breakfast|Morning snack|Lunch|Evening snack|Dinner|Late snack","text":"what was eaten, exactly as written"}]}. Do not invent anything that is not in the image.';
-      var r=await fetch(NC_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:data}}]}],generationConfig:{temperature:0,maxOutputTokens:2048}})});
-      var j=await r.json(); var t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts[0].text;
+      var r=await fetch(NC_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:data}}]}],generationConfig:{temperature:0,maxOutputTokens:2048,responseMimeType:'application/json',thinkingConfig:{thinkingBudget:0}}})});
+      var j=await r.json(); var t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&(j.candidates[0].content.parts||[]).map(function(q){return q.text||'';}).join('');
       var o=JSON.parse(String(t||'').replace(/```json|```/g,'').trim());
       (o.meals||[]).forEach(function(m){
         if(!/^\d{4}-\d{2}-\d{2}$/.test(m.date||'')||!m.text) return;

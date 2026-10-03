@@ -1150,8 +1150,8 @@ async function handFeedback(blob,note){
     +'Also estimate the meal\'s total calories as a single rounded number (kcal), for reference only. '
     +'Reply ONLY with JSON: {"protein":number,"veg":number,"carbs":number,"fats":number,"kcal":number,"tip":"..."}';
   var data=await b64(blob);
-  var r=await fetch(GEMINI_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:data}}]}],generationConfig:{temperature:0.2,maxOutputTokens:512}})});
-  var j=await r.json(); var t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts[0].text;
+  var r=await fetch(GEMINI_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:data}}]}],generationConfig:{temperature:0.2,maxOutputTokens:1024,responseMimeType:'application/json',thinkingConfig:{thinkingBudget:0}}})});
+  var j=await r.json(); var t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&(j.candidates[0].content.parts||[]).map(function(q){return q.text||'';}).join('');
   var o=JSON.parse(String(t||'').replace(/```json|```/g,'').trim());
   function n(x){x=Number(x);return isFinite(x)&&x>=0&&x<10?Math.round(x*2)/2:0;}
   return {protein:n(o.protein),veg:n(o.veg),carbs:n(o.carbs),fats:n(o.fats),kcal:kc(o.kcal),tip:String(o.tip||'').slice(0,200)};
@@ -1165,8 +1165,8 @@ async function textFeedback(text){
     +'and the total calories as one rounded number (kcal), for reference only. Assume typical home portions for that cuisine if amounts are not given. '
     +'Give ONE short, kind, practical tip (max 25 words) based on: protein first, a fist of vegetables, carbs last. Never shame. '
     +'Reply ONLY with JSON: {"protein":number,"veg":number,"carbs":number,"fats":number,"kcal":number,"tip":"..."}';
-  var r=await fetch(GEMINI_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.2,maxOutputTokens:400}})});
-  var j=await r.json(); var t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts[0].text;
+  var r=await fetch(GEMINI_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.2,maxOutputTokens:1024,responseMimeType:'application/json',thinkingConfig:{thinkingBudget:0}}})});
+  var j=await r.json(); var t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&(j.candidates[0].content.parts||[]).map(function(q){return q.text||'';}).join('');
   var o=JSON.parse(String(t||'').replace(/```json|```/g,'').trim());
   function n(x){x=Number(x);return isFinite(x)&&x>=0&&x<10?Math.round(x*2)/2:0;}
   return {protein:n(o.protein),veg:n(o.veg),carbs:n(o.carbs),fats:n(o.fats),kcal:kc(o.kcal),tip:String(o.tip||'').slice(0,200)};
