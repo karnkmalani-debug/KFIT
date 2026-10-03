@@ -6841,8 +6841,20 @@ async function ncSnapRender(cid){
     +tile('REPLIES',unread?unread+' new':'none','from her','days',unread?'#E7CF8C':'')
     +tile('RENEWS',renew?ncNice(renew).slice(4):'–',start?(paid?'paid':'unpaid'):'set start date','billing',start?(paid?'':'#E39A6E'):'')
     +tile('CONSULT',nextC?ncNice(nextC).slice(4):'–',start?'next · tap to log one':'set start date','consult')
-    +tile('STEPS',stepsToday!=null?stepsToday.toLocaleString('en-IN'):'–','of '+stepGoal.toLocaleString('en-IN')+(stepsAvg!=null?' · avg '+stepsAvg.toLocaleString('en-IN'):'')+' · tap for goal','steps','#C9A24A')
+    +'' +tile('STEPS',stepsToday!=null?stepsToday.toLocaleString('en-IN'):'–','of '+stepGoal.toLocaleString('en-IN')+(stepsAvg!=null?' · avg '+stepsAvg.toLocaleString('en-IN'):'')+' · tap for goal','steps','#C9A24A')
     +'</div></div>';
+  if(p0){
+    var showK=!(p0.settings&&p0.settings.showKcal===false);
+    var sw=document.createElement('label'); sw.style.cssText='display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-top:8px;padding:0 2px';
+    sw.innerHTML='<span>Show calories to her <span style="color:var(--muted)">(off = she sees hand portions only)</span></span><input type="checkbox" id="ncShowK_'+cid+'"'+(showK?' checked':'')+' style="width:20px;height:20px">';
+    el.querySelector('.card').appendChild(sw);
+    document.getElementById('ncShowK_'+cid).onchange=async function(){
+      var cb=this, pr2=await getSB().from('nutrition_program').select('settings').eq('client_id',cid); var st2=(pr2.data&&pr2.data[0]&&pr2.data[0].settings)||{};
+      st2=Object.assign({},st2,{showKcal:cb.checked});
+      var r=await getSB().from('nutrition_program').update({settings:st2,updated_ms:Date.now()}).eq('client_id',cid);
+      if(r.error){ alert('Not saved -- '+r.error.message); cb.checked=!cb.checked; }
+    };
+  }
   el.querySelectorAll('[data-snap]').forEach(function(b){b.onclick=async function(){
     var sec=b.dataset.snap;
     if(sec==='steps'){
@@ -6995,8 +7007,8 @@ async function ncLoadWeek(cid){
   var ml=await getSB().from('nutrition_meals').select('meal_id,day,deleted,body,created_at').eq('client_id',cid).gte('day',since);
   (ml.data||[]).filter(function(x){return !x.deleted;}).forEach(function(x){var b=x.body||{};
     var ps=Array.isArray(b.photos)?b.photos.slice():[]; if(b.photo&&!ps.some(function(q){return q.path===b.photo;})) ps.unshift({path:b.photo,feedback:b.feedback});
-    var kc=ps.reduce(function(a,q){return a+((q.feedback&&Number(q.feedback.kcal))||0);},0)||(b.feedback&&b.feedback.kcal)||null;
-    rows.push({day:x.day,meal_id:x.meal_id,time:b.time||(b.eatenAt?new Date(b.eatenAt).toTimeString().slice(0,5):''),slot:b.slot||'',text:b.text||'',note:'',src:'app',ts:x.created_at?new Date(x.created_at).getTime():(b.at||0),kcal:kc,photos:ps.map(function(q){return q.path;}),fromPlan:!!b.planKey});});
+    var kc=(Array.isArray(b.items)&&b.items.length&&b.feedback&&b.feedback.kcal)||ps.reduce(function(a,q){return a+((q.feedback&&Number(q.feedback.kcal))||0);},0)||(b.feedback&&b.feedback.kcal)||null;
+    rows.push({day:x.day,meal_id:x.meal_id,time:b.time||(b.eatenAt?new Date(b.eatenAt).toTimeString().slice(0,5):''),slot:b.slot||'',text:b.text||'',note:'',src:'app',ts:x.created_at?new Date(x.created_at).getTime():(b.at||0),kcal:kc,photos:ps.map(function(q){return q.path;}),fromPlan:!!b.planKey,items:Array.isArray(b.items)?b.items:null,edited:!!b.edited,noPhoto:!!b.noPhoto});});
   // earlier-app log (days only, no times were recorded then)
   var td=await getSB().from('tracker_data').select('data').eq('client_id',cid).eq('tracker','nutrition');
   var d=td.data&&td.data[0]&&td.data[0].data; if(typeof d==='string'){try{d=JSON.parse(d);}catch(e){d=null;}}
@@ -7299,7 +7311,9 @@ async function ncDaysRender(cid){
           +'<div>'
           +(r.fromPlan?' <span style="color:var(--muted);font-size:11px">(from your plan)</span>':'')+(r.src==='screenshot'?' <span style="color:var(--muted);font-size:11px">(screenshot)</span>':'')+(r.src==='earlier'?' <span style="color:var(--muted);font-size:11px">(earlier app)</span>':'')
           +'</div>'
-          +(r.text&&r.text.length>38?'<div class="nc-food">'+ncEsc(r.text)+'</div>':'')
+          +(r.items&&r.items.length?'<div style="display:flex;flex-direction:column;gap:2px;margin:4px 0">'+r.items.map(function(it){return '<div class="nc-food">'+ncEsc(it.name)+' · <span class="nc-time">'+ncEsc((it.amount===0.5?'½':it.amount===0.25?'¼':it.amount===0.75?'¾':it.amount===1.5?'1½':it.amount===2.5?'2½':it.amount)+(it.unit?' '+it.unit:''))+'</span>'+(it.kcal?' <span style="color:var(--muted)">~'+it.kcal+'</span>':'')+'</div>';}).join('')+'</div>'
+             :(r.text&&r.text.length>38?'<div class="nc-food">'+ncEsc(r.text)+'</div>':''))
+          +(r.edited||r.noPhoto?'<div style="font-size:11px;color:var(--muted)">'+[r.edited?'she adjusted the AI\'s amounts':'',r.noPhoto?'no photo · from her words':''].filter(Boolean).join(' · ')+'</div>':'')
           +((r.photos||[]).length?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+r.photos.map(function(pth){return '<img data-ncph="'+ncEsc(pth)+'" alt="Meal photo" style="width:64px;height:64px;border-radius:8px;object-fit:cover;background:#333;cursor:pointer">';}).join('')+'</div>':'')
           +(r.meal_id?thread(th,'m|'+r.meal_id+'|'+d,'Note on this meal…'):thread([], 's|'+r._i+'|'+d,'Note on this meal…'))+'</div></div>';
       });
