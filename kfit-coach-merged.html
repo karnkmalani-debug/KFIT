@@ -7600,7 +7600,7 @@ async function kfitBellLoad(){
       var nEx=(Array.isArray(x.exercises)?x.exercises.length:0)+(Array.isArray(x.supersets)?x.supersets.reduce(function(a,q){return a+((q&&q.exercises)||[]).length;},0):0);
       var when=x.created_at?new Date(x.created_at).getTime():0; if(x.session_date&&ncDayLabel){ var p=x.session_date.split('-'); var dt=new Date(+p[0],+p[1]-1,+p[2],12); if(!when||Math.abs(when-dt.getTime())>3*864e5) when=dt.getTime(); }
       items.push({m:m,ts:when,icon:'🏋️',text:'<b>'+ncEsc(nm(m))+'</b> · <span class="nc-meal">Workout</span>'+(x.time_of_day?' <span class="nc-time">'+ncEsc(String(x.time_of_day).slice(0,8))+'</span>':'')
-        +'<div class="nc-food">'+ncEsc(kinds.join(', ')||'Workout')+(nEx?' · '+nEx+' exercise'+(nEx===1?'':'s'):'')+(x.duration?' · '+ncEsc(x.duration)+' min':'')+' · '+ncEsc(ncDayLabel(x.session_date))+'</div>'});});
+        +'<div class="nc-food">'+ncEsc(kinds.join(', ')||'Workout')+(nEx?' · '+nEx+' exercise'+(nEx===1?'':'s'):'')+(x.duration?' · '+(Number(x.duration)>=3600?Math.floor(x.duration/3600)+' h '+Math.round((x.duration%3600)/60)+' min':Math.round(Number(x.duration)/60)+' min'):'')+' · '+ncEsc(ncDayLabel(x.session_date))+'</div>'});});
   }catch(e){}
   try{
     var rc=await getSB().from('nutrition_meal_comments').select('client_id,meal_id,day,body,created_at,author,deleted').eq('author','client').gte('created_at',sinceIso).limit(300);
@@ -7868,7 +7868,13 @@ async function kfFitDaysRender(c,el){
   try{ var r=await getSB().from('fitness_sessions').select('session_date,time_of_day,body,deleted').eq('client_id',key).order('session_date',{ascending:false}).limit(150);
     rows=(r.data||[]).filter(function(x){return !x.deleted&&x.body;}).sort(function(a,b){return String(b.session_date).localeCompare(String(a.session_date));}); kfFitCache[key]=rows; }catch(e){ rows=rows||[]; }
   var steps={}; try{ var sr=await getSB().from('client_daily_steps').select('day,steps').eq('mobile',m).gte('day',ncAddDays(ncToday(),-120)); (sr.data||[]).forEach(function(x){steps[x.day]=x.steps;}); }catch(e){}
-  function exList(b){ var out=[]; (b.exercises||[]).forEach(function(e){out.push(e);}); (b.supersets||[]).forEach(function(ss){(ss&&ss.exercises||[]).forEach(function(e){out.push(e);});}); return out.filter(function(e){return e&&e.ex;}); }
+  // weights, supersets, cardio and functional moves all count
+  function exList(b){ var out=[]; (b.exercises||[]).forEach(function(e){out.push(e);}); (b.supersets||[]).forEach(function(ss){(ss&&ss.exercises||[]).forEach(function(e){out.push(e);});});
+    (Array.isArray(b.cardio)?b.cardio:[]).forEach(function(e){ if(e&&e.ex&&!out.some(function(o){return o.ex===e.ex&&o.type==='cardio';})) out.push(Object.assign({type:'cardio'},e)); });
+    (Array.isArray(b.functional)?b.functional:[]).forEach(function(e){ if(e&&e.ex&&!out.some(function(o){return o.ex===e.ex;})) out.push(Object.assign({type:'functional',fsecs:true},e)); });
+    return out.filter(function(e){return e&&e.ex;}); }
+  // the app stores a workout's length in seconds
+  function durTxt(sec){ sec=Number(sec)||0; if(!sec) return ''; var m=Math.round(sec/60); if(m<60) return m+' min'; var h=Math.floor(m/60), r=m%60; return h+' h'+(r?' '+r+' min':''); }
   function maxW(e){ return (e.setData||[]).reduce(function(a,sd){var w=parseFloat(sd&&sd.weight);return isFinite(w)&&w>a?w:a;},0); }
   // personal records: heaviest weight beating every earlier session
   var best={}, prs={};
@@ -7876,20 +7882,38 @@ async function kfFitDaysRender(c,el){
     if(best[e.ex]!=null&&w>best[e.ex]) (prs[i]=prs[i]||[]).push(e.ex+' '+w+(rw.body.unit||'kg'));
     best[e.ex]=Math.max(best[e.ex]||0,w); }); });
   var n=rows.length;
-  if(!n){ el.innerHTML='<div class="kf-row" style="cursor:default;justify-content:center;color:var(--muted)">No workouts logged yet.</div>'; return; }
-  el.innerHTML='<div style="font-size:16px;font-weight:800;margin:4px 2px 8px">🏋️ Workouts</div>'+rows.slice(0,40).map(function(rw,idx){
-    var b=rw.body, ex=exList(b), bp=(b.bodyParts||[]).join(', '), pr=prs[n-1-idx]||[];
-    var dur=b.duration||b.durationMin||null, st=steps[rw.session_date];
-    var lines=ex.map(function(e){ if(e.type==='cardio') return ncEsc(e.ex)+(e.duration?' · '+ncEsc(e.duration)+' min':'')+(e.distance?' · '+ncEsc(e.distance)+' km':'');
+  // Every class or session attended (from attendance), named exactly as logged:
+  // "Zumba", "BOLLYFIT", or the body parts. Workout details are added when they exist.
+  var recs=((c.fit&&c.fit.records)||[]).filter(function(r){return r&&r.session_date;});
+  var used={}, entries=[];
+  recs.forEach(function(r){
+    var same=rows.map(function(x,i){return {x:x,i:i};}).filter(function(o){return o.x.session_date===r.session_date&&!used[o.i];});
+    var hit=same.filter(function(o){return (o.x.time_of_day||'')===(r.session_time||'');})[0]||(same.length===1?same[0]:null);
+    if(hit) used[hit.i]=1;
+    entries.push({date:r.session_date,time:r.session_time||'',label:(r.activity&&r.activity.trim())||(r.body_parts&&r.body_parts.trim())||r.workout_type||'',paid:!!r.paid,row:hit?hit.x:null,ri:hit?hit.i:-1});
+  });
+  rows.forEach(function(x,i){ if(!used[i]) entries.push({date:x.session_date,time:x.time_of_day||'',label:'',paid:null,row:x,ri:i}); });
+  entries.sort(function(a,b){ return (b.date+b.time).localeCompare(a.date+a.time); });
+  if(!entries.length){ el.innerHTML='<div class="kf-row" style="cursor:default;justify-content:center;color:var(--muted)">No workouts logged yet.</div>'; return; }
+  el.innerHTML='<div style="font-size:16px;font-weight:800;margin:4px 2px 8px">🏋️ Workouts</div>'+entries.slice(0,60).map(function(en,idx){
+    var b=(en.row&&en.row.body)||{}, ex=en.row?exList(b):[], pr=en.ri>=0?(prs[n-1-en.ri]||[]):[];
+    var bp=(b.bodyParts||[]).join(', ');
+    var kind=ex.some(function(e){return e.type==='cardio';})?'Cardio':ex.some(function(e){return e.type==='functional';})?'Functional':'Workout';
+    var title=en.label||bp||(ex.length===1&&ex[0].type==='cardio'?ex[0].ex:kind);
+    var dur=b.duration?durTxt(b.duration):(b.durationMin?b.durationMin+' min':''), st=steps[en.date];
+    var lines=ex.map(function(e){ if(e.type==='cardio') return '🏃 '+ncEsc(e.ex)+(e.duration?' · '+ncEsc(e.duration)+' min':'')+(e.distance?' · '+ncEsc(e.distance)+' km':'')+(e.intensity?' · '+ncEsc(e.intensity):'');
+      if(e.type==='functional'&&!(e.setData||[]).length) return '⚡ '+ncEsc(e.ex)+(e.duration?' · '+(e.fsecs&&Number(e.duration)>=60?Math.round(e.duration/60)+' min':ncEsc(e.duration)+(e.fsecs?' sec':'')):'')+(e.weight?' · '+ncEsc(e.weight)+' kg':'');
       var sd=(e.setData||[]).filter(function(x){return x&&(x.reps||x.weight);});
       return ncEsc(e.ex)+(sd.length?' · '+sd.map(function(x){return (x.reps||'?')+(x.weight?'×'+x.weight:'');}).join(', '):''); });
+    var sub=ex.length?ex.length+' exercise'+(ex.length===1?'':'s'):(en.row?'':'class attended');
     return '<div class="card" style="margin-bottom:8px;gap:4px;cursor:pointer" data-fd="'+idx+'">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center"><b>'+ncNice(rw.session_date)+'</b><span style="font-size:12px;color:var(--muted)">'+[dur?dur+' min':'',st!=null?'👟 '+Number(st).toLocaleString('en-IN'):''].filter(Boolean).join(' · ')+'</span></div>'
-      +'<div style="font-size:14px">'+ncEsc(bp||'Workout')+' · '+ex.length+' exercise'+(ex.length===1?'':'s')+(pr.length?' · <span style="color:#C9A24A">PR: '+ncEsc(pr[0])+' 🏆</span>':'')+'</div>'
-      +'<div class="kf-fd-short" style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+lines.slice(0,3).join(' · ')+(lines.length>3?' … tap for all':'')+'</div>'
-      +'<div class="kf-fd-all" style="display:none;font-size:13px;line-height:1.6;margin-top:4px">'+lines.join('<br>')+(pr.length>1?'<br><span style="color:#C9A24A">PRs: '+ncEsc(pr.join(', '))+' 🏆</span>':'')+'</div></div>';
+      +'<div style="display:flex;justify-content:space-between;align-items:center"><b>'+ncNice(en.date)+'</b><span style="font-size:12px;color:var(--muted)">'+[en.time?String(en.time).slice(0,5):'',dur,st!=null?'👟 '+Number(st).toLocaleString('en-IN'):'',en.paid===false?'<span style="color:var(--terra)">unpaid</span>':''].filter(Boolean).join(' · ')+'</span></div>'
+      +'<div style="font-size:15px"><b>'+ncEsc(title)+'</b>'+(sub?' · '+sub:'')+(pr.length?' · <span style="color:#C9A24A">PR: '+ncEsc(pr[0])+' 🏆</span>':'')+'</div>'
+      +(en.label&&bp&&en.label!==bp?'<div style="font-size:12px;color:var(--muted)">'+ncEsc(bp)+'</div>':'')
+      +(lines.length?'<div class="kf-fd-short" style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+lines.slice(0,3).join(' · ')+(lines.length>3?' … tap for all':'')+'</div>'
+        +'<div class="kf-fd-all" style="display:none;font-size:13px;line-height:1.6;margin-top:4px">'+lines.join('<br>')+(pr.length>1?'<br><span style="color:#C9A24A">PRs: '+ncEsc(pr.join(', '))+' 🏆</span>':'')+'</div>':'')+'</div>';
   }).join('');
-  el.querySelectorAll('[data-fd]').forEach(function(cd){cd.onclick=function(){ var a=cd.querySelector('.kf-fd-all'), sh=cd.querySelector('.kf-fd-short'); var open=a.style.display==='none'; a.style.display=open?'block':'none'; sh.style.display=open?'none':'block'; };});
+  el.querySelectorAll('[data-fd]').forEach(function(cd){cd.onclick=function(){ var a=cd.querySelector('.kf-fd-all'), sh=cd.querySelector('.kf-fd-short'); if(!a) return; var open=a.style.display==='none'; a.style.display=open?'block':'none'; sh.style.display=open?'none':'block'; };});
 }
 // ---------- Today: only what needs you ----------
 var kfTodayBusy=false;
