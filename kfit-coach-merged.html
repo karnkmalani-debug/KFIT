@@ -7217,6 +7217,9 @@ async function ncEstimateMissing(cid,btn){
 }
 function ncAddMonths(d,k){var p=d.split('-'),y=+p[0],m=+p[1]-1+k,dd=+p[2];y+=Math.floor(m/12);m=((m%12)+12)%12;var last=new Date(y,m+1,0).getDate();var x=new Date(y,m,Math.min(dd,last));return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');}
 function ncNice(d){var p=d.split('-');return new Date(+p[0],+p[1]-1,+p[2]).toDateString().slice(0,10);}
+// A real (see-through) date field over the thing you tap -- iPhones only open
+// their date picker when the field itself is tapped.
+function ncDateField(value,attr){ return '<input type="date" '+attr+' value="'+(value||'')+'" style="position:absolute;inset:0;width:100%;height:100%;opacity:0.011;font-size:16px;border:none;background:none;cursor:pointer;-webkit-appearance:none;appearance:none">'; }
 // Open the phone's own date picker; cb(value) when a date is chosen.
 function ncPickDate(initial,cb){
   var inp=document.createElement('input'); inp.type='date'; inp.value=initial||ncToday();
@@ -7265,17 +7268,17 @@ async function ncSaveBill(cid,info,patch){
 async function ncBillRender(cid){
   var el=document.getElementById('ncBill_'+cid); if(!el) return;
   var I=await ncBillInfo(cid);
-  function cell(lbl,val,sub,act){return '<button data-bd="'+act+'" style="text-align:left;background:none;border:1px solid var(--border);border-radius:10px;padding:8px 10px;color:var(--text);font-family:inherit;cursor:pointer"><div style="font-size:11px;color:var(--muted);letter-spacing:.08em">'+lbl+' ✎</div><div style="font-size:14px">'+val+'</div>'+(sub?'<div style="font-size:11px;color:var(--muted)">'+sub+'</div>':'')+'</button>';}
+  function cell(lbl,val,sub,act,dateVal){return '<div data-bd="'+act+'" style="position:relative;text-align:left;border:1px solid var(--border);border-radius:10px;padding:8px 10px;color:var(--text);cursor:pointer"><div style="font-size:11px;color:var(--muted);letter-spacing:.08em">'+lbl+' ✎</div><div style="font-size:14px">'+val+'</div>'+(sub?'<div style="font-size:11px;color:var(--muted)">'+sub+'</div>':'')+(dateVal!==undefined?ncDateField(dateVal,'data-bdate="'+act+'"'):'')+'</div>';}
   var html='<div class="card" style="margin-bottom:12px;gap:8px">';
   if(!I.start){
     html+='<div style="font-size:15px;font-weight:800">💳 Billing &amp; consults</div><div style="font-size:13px;color:var(--muted)">No meals logged yet. Pick her start date; she renews on the same date each month, with a consult each week.</div>'
-      +'<button class="btn-sm" data-bd="start" style="align-self:flex-start">📅 Pick start date</button>';
+      +'<div class="btn-sm" style="position:relative;align-self:flex-start;display:inline-block">📅 Pick start date'+ncDateField('','data-bdate="start"')+'</div>';
   } else {
     html+='<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:15px;font-weight:800">💳 Month '+I.month+'</div><button class="btn-sm" id="ncPaid_'+cid+'" style="'+(I.paid?'background:var(--sage);color:#fff':'')+'">'+(I.paid?'Paid ✓':'Mark this month paid')+'</button></div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'
-      +cell('STARTED',ncNice(I.start),I.fromFirstLog?'from her first logged meal':'','start')
-      +cell('RENEWS',ncNice(I.renew),'<span style="color:'+(I.paid?'var(--sage)':'var(--terra)')+'">'+(I.paid?'paid':'unpaid')+'</span>','renew')
-      +cell('NEXT CONSULT',ncNice(I.nextC),I.prep?'<span style="color:#CFEBD8">her note: "'+ncEsc(I.prep.notes.slice(0,60))+'"</span>':'','next')
+      +cell('STARTED',ncNice(I.start),I.fromFirstLog?'from her first logged meal':'','start',I.start)
+      +cell('RENEWS',ncNice(I.renew),'<span style="color:'+(I.paid?'var(--sage)':'var(--terra)')+'">'+(I.paid?'paid':'unpaid')+'</span>','renew',I.renew)
+      +cell('NEXT CONSULT',ncNice(I.nextC),I.prep?'<span style="color:#CFEBD8">her note: "'+ncEsc(I.prep.notes.slice(0,60))+'"</span>':'','next',I.nextC)
       +cell('LAST CONSULT',I.lastC?ncNice(I.lastC.consult_day):'none yet',I.lastC?(I.lastC.notes?'"'+ncEsc(I.lastC.notes.slice(0,50))+'"':''):'tap to log one','last')
       +'</div>'
       +'<div style="font-size:11px;color:var(--muted);letter-spacing:.08em;margin-top:4px">THIS MONTH, WEEK BY WEEK</div>'
@@ -7283,7 +7286,7 @@ async function ncBillRender(cid){
         var st=w.done?'background:#1E2B22;border-color:#3D6B4F;color:#8FD1A2':w.now?'border-color:#C9A24A;color:#C9A24A':w.past?'border-color:#5A3A2A;color:#E39A6E':'color:var(--muted)';
         return '<button data-wk="'+w.start+'" style="border:1px solid var(--border);background:none;border-radius:10px;padding:6px 8px;font-size:12px;font-family:inherit;cursor:pointer;'+st+'"><b>W'+w.n+'</b> '+ncNice(w.start).slice(4)+'<br>'+(w.done?'consult ✓':w.past?'missed':w.now?'this week':'upcoming')+'</button>';}).join('')+'</div>'
       +'<details id="ncCons_'+cid+'"><summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--sage)">Consult notes ('+I.consults.length+') · add one</summary>'
-      +'<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px"><div style="display:flex;gap:6px;align-items:center"><button class="btn-sm" id="ncCDayBtn_'+cid+'">📅 <span id="ncCDayTxt_'+cid+'">'+ncNice(ncToday())+'</span></button><input type="hidden" id="ncCDay_'+cid+'" value="'+ncToday()+'"><button class="btn-sm" id="ncCAdd_'+cid+'">Save consult</button></div>'
+      +'<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px"><div style="display:flex;gap:6px;align-items:center"><div class="btn-sm" style="position:relative;display:inline-block">📅 <span id="ncCDayTxt_'+cid+'">'+ncNice(ncToday())+'</span>'+ncDateField(ncToday(),'id="ncCDay_'+cid+'"')+'</div><button class="btn-sm" id="ncCAdd_'+cid+'">Save consult</button></div>'
       +'<textarea id="ncCNote_'+cid+'" placeholder="What you discussed (optional)" style="min-height:56px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit"></textarea>'
       +I.consults.map(function(c){return '<div data-cons="'+c.id+'" style="font-size:13px;border-top:1px solid var(--border);padding-top:6px;cursor:pointer"><span class="nc-time">'+ncEsc(ncNice(c.consult_day))+'</span> '+ncEsc(c.notes||'')+' <span style="color:var(--muted);font-size:11px">✎ edit</span>'
         +(c.client_notes?'<div style="background:#23382B;border:1px solid #3D6B4F;color:#CFEBD8;border-radius:8px;padding:5px 8px;margin-top:4px"><b>Her notes:</b> '+ncEsc(c.client_notes)+'</div>':'')+'</div>';}).join('')
@@ -7295,13 +7298,13 @@ async function ncBillRender(cid){
     if(day){ document.getElementById('ncCDay_'+cid).value=day; document.getElementById('ncCDayTxt_'+cid).textContent=ncNice(day); }
     var n=document.getElementById('ncCNote_'+cid); if(n){ n.scrollIntoView({behavior:'smooth',block:'center'}); n.focus(); }
   }
-  el.querySelectorAll('[data-bd]').forEach(function(b){b.onclick=function(){
-    var k=b.dataset.bd;
-    if(k==='start') return ncPickDate(I.start,function(v){ ncSaveBill(cid,I,{start_date:v,renew_on:null}); });
-    if(k==='renew') return ncPickDate(I.renew,function(v){ if(v<ncToday()){alert('Pick today or a later date.');return;} ncSaveBill(cid,I,{renew_on:v}); });
-    if(k==='next') return ncPickDate(I.nextC,function(v){ if(v<ncToday()){alert('Pick today or a later date.');return;} ncSaveBill(cid,I,{next_consult:v}); });
-    if(k==='last') return ncPickDate(ncToday(),function(v){ openConsult(v); });
+  el.querySelectorAll('[data-bdate]').forEach(function(inp){ inp.onchange=function(){
+    var k=inp.dataset.bdate, v=inp.value; if(!/^\d{4}-\d{2}-\d{2}$/.test(v)) return;
+    if(k==='start') return ncSaveBill(cid,I,{start_date:v,renew_on:null});
+    if(k==='renew'){ if(v<ncToday()){alert('Pick today or a later date.');return;} return ncSaveBill(cid,I,{renew_on:v}); }
+    if(k==='next'){ if(v<ncToday()){alert('Pick today or a later date.');return;} return ncSaveBill(cid,I,{next_consult:v}); }
   };});
+  var lastCell=el.querySelector('[data-bd="last"]'); if(lastCell&&!I.lastC) lastCell.onclick=function(){ openConsult(ncToday()); };
   el.querySelectorAll('[data-wk]').forEach(function(b){b.onclick=function(){ var w=b.dataset.wk; openConsult(w>ncToday()?ncToday():w); };});
   // tap a saved consult to change its date or notes, or delete it
   el.querySelectorAll('[data-cons]').forEach(function(row){row.onclick=function(){
@@ -7309,10 +7312,12 @@ async function ncBillRender(cid){
     var c=I.consults.filter(function(x){return String(x.id)===row.dataset.cons;})[0]; if(!c) return;
     var day=c.consult_day;
     row.style.cursor='default';
-    row.innerHTML='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0"><button class="btn-sm" data-ed="day">📅 <span>'+ncNice(day)+'</span></button></div>'
+    row.innerHTML='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0"><div class="btn-sm" style="position:relative;display:inline-block">📅 <span data-ed="daytxt">'+ncNice(day)+'</span>'+ncDateField(day,'data-ed="day"')+'</div><span style="font-size:12px;color:var(--muted)">tap the date to change it</span></div>'
       +'<textarea data-ed="notes" style="width:100%;min-height:56px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit">'+ncEsc(c.notes||'')+'</textarea>'
       +'<div style="display:flex;gap:6px;margin:6px 0"><button class="btn-sm" data-ed="save">Save</button><button class="btn-sm" data-ed="cancel">Cancel</button><button class="btn-sm" data-ed="del" style="margin-left:auto;color:var(--terra)">Delete</button></div>';
-    row.querySelector('[data-ed="day"]').onclick=function(e){ e.stopPropagation(); var btn=this; ncPickDate(day,function(v){ day=v; btn.querySelector('span').textContent=ncNice(v); }); };
+    var dIn=row.querySelector('[data-ed="day"]'); dIn.onclick=function(e){ e.stopPropagation(); };
+    dIn.onchange=function(){ if(/^\d{4}-\d{2}-\d{2}$/.test(dIn.value)){ day=dIn.value; row.querySelector('[data-ed="daytxt"]').textContent=ncNice(day); } };
+    row.querySelector('[data-ed="notes"]').onclick=function(e){ e.stopPropagation(); };
     row.querySelector('[data-ed="cancel"]').onclick=function(e){ e.stopPropagation(); ncBillRender(cid); };
     row.querySelector('[data-ed="save"]').onclick=async function(e){ e.stopPropagation();
       var n=(row.querySelector('[data-ed="notes"]').value||'').trim();
@@ -7324,7 +7329,7 @@ async function ncBillRender(cid){
   };});
   // the LAST CONSULT box edits that consult directly
   var lastBtn=el.querySelector('[data-bd="last"]'); if(lastBtn&&I.lastC) lastBtn.onclick=function(){ var dt=document.getElementById('ncCons_'+cid); if(dt) dt.open=true; var r=el.querySelector('[data-cons="'+I.lastC.id+'"]'); if(r){ r.scrollIntoView({behavior:'smooth',block:'center'}); r.click(); } };
-  var db2=document.getElementById('ncCDayBtn_'+cid); if(db2) db2.onclick=function(){ ncPickDate(document.getElementById('ncCDay_'+cid).value,function(v){ document.getElementById('ncCDay_'+cid).value=v; document.getElementById('ncCDayTxt_'+cid).textContent=ncNice(v); }); };
+  var cd=document.getElementById('ncCDay_'+cid); if(cd) cd.onchange=function(){ if(/^\d{4}-\d{2}-\d{2}$/.test(cd.value)) document.getElementById('ncCDayTxt_'+cid).textContent=ncNice(cd.value); };
   var pb=document.getElementById('ncPaid_'+cid); if(pb) pb.onclick=async function(){
     var pm=((I.bill&&I.bill.paid_months)||[]).slice(), i=pm.indexOf(I.cur);
     if(i>=0){ if(!confirm('Mark this month as unpaid?')) return; pm.splice(i,1);} else pm.push(I.cur);

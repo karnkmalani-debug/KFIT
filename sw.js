@@ -1,4 +1,4 @@
-const V = "kfit-v24";
+const V = "kfit-v25";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => e.waitUntil(
   // v16: batch 8 (coach phone notifications). Bumping
