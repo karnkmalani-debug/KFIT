@@ -6742,7 +6742,7 @@ function ncLadderHtml(p){
   var chips=path.map(function(id,i){var h=NC_H[id],on=id===cur,dn=i<ci;
     return '<span style="border:1px solid '+(on?'#C9A24A':dn?'var(--sage)':'var(--border)')+';background:'+(on?'#C9A24A':'transparent')+';color:'+(on?'#12130F':dn?'var(--sage)':'var(--muted)')+';border-radius:12px;padding:3px 8px;font-size:12px;white-space:nowrap;font-weight:'+(on?'800':'500')+'">'+(dn?'✓ ':'')+(id==='reset'?'7-day Reset':(i+1)+' '+ncEsc(h?h.title:id))+(on?' · day '+ncDay(p):'')+'</span>';}).join(' ');
   var sw=(p.history||[]).filter(function(h){return h.type==='coachChangePlan'||h.type==='start';}).slice(-1)[0];
-  return '<div style="font-size:12px;color:var(--muted);margin:8px 0 6px;line-height:1.5">A <b>habit</b> is one eating skill she practises for about '+(t.pace===7?'a week':'two weeks')+', with a 2-minute lesson a day. When it feels automatic, she moves to the next.</div>'
+  return '<div style="font-size:12px;color:var(--muted);margin:8px 0 6px;line-height:1.5">A <b>habit</b> is one eating skill they practise for about '+(t.pace===7?'a week':'two weeks')+', with a 2-minute lesson a day. When it feels automatic, she moves to the next.</div>'
     +'<div style="display:flex;flex-wrap:wrap;gap:5px">'+chips+'</div>'
     +(sw&&sw.type==='coachChangePlan'?'<div style="font-size:12px;color:var(--muted);margin-top:6px">Switched to '+ncEsc((NC_T[sw.to]||{}).name||'')+(sw.from?' from '+ncEsc((NC_T[sw.from]||{}).name||''):'')+' on '+ncEsc(sw.on)+' · progress kept</div>':'');
 }
@@ -6787,7 +6787,7 @@ async function nutCoachAttach(c){
   box.innerHTML=NC_F+'<div id="ncSnap_'+cid+'"></div>'
     +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px">'+secs.map(function(x){return '<button class="btn-sm" data-ncsec="'+x[0]+'">'+x[1]+'</button>';}).join('')+'</div>'
     +'<div data-sec="days"><div id="ncDays_'+cid+'"></div></div>'
-    +'<div data-sec="plan"><div class="card" style="margin-bottom:12px"><div style="font-size:15px;font-weight:800;margin-bottom:8px">🗓️ Plan a day for her</div><div id="ncTools_'+cid+'"></div></div></div>'
+    +'<div data-sec="plan"><div class="card" style="margin-bottom:12px"><div style="font-size:15px;font-weight:800;margin-bottom:8px">🗓️ Plan a day</div><div id="ncTools_'+cid+'"></div></div></div>'
     +'<div data-sec="habits"><div id="ncPlanBox_'+cid+'"></div></div>'
     +'<div data-sec="billing"><div id="ncBill_'+cid+'"></div></div>'
     +'<div data-sec="notes"><div id="ncNotes_'+cid+'"></div></div>';
@@ -6861,7 +6861,7 @@ async function ncSnapRender(cid){
   el.querySelectorAll('[data-snap]').forEach(function(b){b.onclick=async function(){
     var sec=b.dataset.snap;
     if(sec==='steps'){
-      var v=prompt('Daily step goal for her (1,000 to 50,000):',String(stepGoal)); if(v===null) return;
+      var v=prompt('Daily step goal (1,000 to 50,000):',String(stepGoal)); if(v===null) return;
       var g=parseInt(String(v).replace(/\D/g,''),10); if(!(g>=1000&&g<=50000)){ alert('Please enter a number between 1,000 and 50,000.'); return; }
       var r=await getSB().from('client_step_goals').upsert({mobile:mob,goal:g},{onConflict:'mobile'});
       if(r.error){ alert('Not saved -- '+r.error.message); return; } ncSnapRender(cid); return;
@@ -7042,7 +7042,7 @@ async function ncToolsRender(cid,tab,noTabs){
   var el=document.getElementById('ncTools_'+cid); if(!el) return;
   var st=ncState[cid]=ncState[cid]||{rows:null,plan:null,tab:'week'};
   st.tab=tab||st.tab; if(noTabs!==undefined) st.noTabs=noTabs;
-  var tabs=[['week','Her week'],['plan','Meal plan'],['sent','Sent']].map(function(t){return '<button class="btn-sm" data-nctab="'+t[0]+'" style="'+(st.tab===t[0]?'background:var(--sage);color:#fff':'')+'">'+t[1]+'</button>';}).join(' ');
+  var tabs=[['week','Week'],['plan','Meal plan'],['sent','Sent']].map(function(t){return '<button class="btn-sm" data-nctab="'+t[0]+'" style="'+(st.tab===t[0]?'background:var(--sage);color:#fff':'')+'">'+t[1]+'</button>';}).join(' ');
   var html=st.noTabs?'<div id="ncBody_'+cid+'">Loading…</div>':'<div class="card" style="margin-bottom:12px"><div style="font-size:16px;font-weight:800;margin-bottom:8px">✍️ Coach notes</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+tabs+'</div><div id="ncBody_'+cid+'">Loading…</div></div>';
   el.innerHTML=html;
   el.querySelectorAll('[data-nctab]').forEach(function(b){b.onclick=function(){ncToolsRender(cid,b.dataset.nctab);};});
@@ -7076,7 +7076,7 @@ async function ncToolsRender(cid,tab,noTabs){
       +'<div id="ncShotMsg_'+cid+'" style="font-size:12px;color:var(--muted);margin-top:6px"></div>'
       +'<textarea id="ncMsg_'+cid+'" placeholder="A message with your advice (optional)" style="width:100%;margin-top:10px;min-height:60px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit"></textarea>'
       +'<button class="btn-sm" id="ncSendAdvice_'+cid+'" style="margin-top:8px">📨 Send as advice</button>'
-      +'<div style="font-size:12px;color:var(--muted);margin-top:6px">Only meals with a note are sent. They appear in her app under "From your coach".</div>';
+      +'<div style="font-size:12px;color:var(--muted);margin-top:6px">Only meals with a note are sent. They appear in their app under "From your coach".</div>';
     body.querySelectorAll('[data-ncnote]').forEach(function(inp){inp.oninput=function(){st.rows[+inp.dataset.ncnote].note=inp.value;};});
     document.getElementById('ncShots_'+cid).onchange=function(){ncImportShots(cid,this.files);};
     document.getElementById('ncSendAdvice_'+cid).onclick=function(){ncSendAdvice(cid);};
@@ -7091,7 +7091,7 @@ async function ncToolsRender(cid,tab,noTabs){
       +'<div style="display:flex;gap:8px;margin-top:10px"><button class="btn-sm" id="ncAddRow_'+cid+'">+ Add meal</button></div>'
       +'<textarea id="ncPlanMsg_'+cid+'" placeholder="A message with the plan (optional)" style="width:100%;margin-top:10px;min-height:50px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit"></textarea>'
       +'<button class="btn-sm" id="ncSendPlan_'+cid+'" style="margin-top:8px">📨 Send plan</button>'
-      +'<div style="font-size:12px;color:var(--muted);margin-top:6px">She sees it as "Today\'s" or "Tomorrow\'s meal plan" in her app.</div>';
+      +'<div style="font-size:12px;color:var(--muted);margin-top:6px">They see it as "Today\'s" or "Tomorrow\'s meal plan" in their app.</div>';
     function sync(){P.day=document.getElementById('ncPlanDay_'+cid).value;P.copy=+document.getElementById('ncPlanCopy_'+cid).value;
       body.querySelectorAll('[data-pt]').forEach(function(x){P.rows[+x.dataset.pt].time=x.value;});
       body.querySelectorAll('[data-px]').forEach(function(x){P.rows[+x.dataset.px].text=x.value;});
@@ -7130,7 +7130,7 @@ async function ncSendAdvice(cid){
   var r=await getSB().from('nutrition_coach_notes').insert({client_id:cid,kind:'advice',items:items,message:msg||null});
   b.disabled=false;
   if(r.error){alert('Not sent -- nothing changed. '+r.error.message);return;}
-  st.rows.forEach(function(x){x.note='';}); alert('Sent. It shows in her app under "Suggestions from your coach".'); ncToolsRender(cid,'sent');
+  st.rows.forEach(function(x){x.note='';}); alert('Sent. It shows in their app under "Suggestions from your coach".'); ncToolsRender(cid,'sent');
 }
 async function ncSendPlan(cid){
   var P=ncState[cid].plan, rows=P.rows.filter(function(r){return r.text&&r.text.trim();});
@@ -7144,7 +7144,7 @@ async function ncSendPlan(cid){
   var r=await getSB().from('nutrition_coach_notes').insert(ins);
   b.disabled=false;
   if(r.error){alert('Not sent -- nothing changed. '+r.error.message);return;}
-  alert('Plan sent for '+ins.length+' day'+(ins.length===1?'':'s')+'. She sees it in her day as meals to tick off.'); ncToolsRender(cid,'plan'); ncDaysRender(cid);
+  alert('Plan sent for '+ins.length+' day'+(ins.length===1?'':'s')+'. They see it in their day as meals to tick off.'); ncToolsRender(cid,'plan'); ncDaysRender(cid);
 }
 function ncB64(file){return new Promise(function(ok,bad){var img=new Image();img.onload=function(){var s=Math.min(1,1600/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',0.8).split(',')[1]);};img.onerror=bad;img.src=URL.createObjectURL(file);});}
 async function ncImportShots(cid,files,intoDays){
@@ -7185,7 +7185,7 @@ async function ncEstimateMissing(cid,btn){
   var since=ncAddDays(ncToday(),-60);
   var ml=await getSB().from('nutrition_meals').select('*').eq('client_id',cid).gte('day',since);
   var todo=(ml.data||[]).filter(function(x){ if(x.deleted) return false; var b=x.body||{}; var ps=Array.isArray(b.photos)?b.photos:[]; var k=ps.reduce(function(a,q){return a+((q.feedback&&Number(q.feedback.kcal))||0);},0)||(b.feedback&&Number(b.feedback.kcal))||0; return !k&&(b.text||ps.length||b.photo); });
-  if(!todo.length){ alert('All her meals from the last 60 days already have an estimate.'); return; }
+  if(!todo.length){ alert('All meals from the last 60 days already have an estimate.'); return; }
   if(!confirm('Estimate calories for '+todo.length+' meal'+(todo.length===1?'':'s')+' with no estimate? It takes a few seconds each.')) return;
   btn.disabled=true; var done=0, failed=0;
   for(var i=0;i<todo.length;i++){
@@ -7271,20 +7271,20 @@ async function ncBillRender(cid){
   var line='<div style="width:2px;height:12px;background:var(--border);margin-left:6px"></div>';
   var html='<div class="card" style="margin-bottom:12px;gap:2px">';
   if(!I.start){
-    html+='<div style="font-size:16px;font-weight:800;margin-bottom:6px">💳 Her month</div><div style="font-size:13px;color:var(--muted);margin-bottom:8px">She hasn\'t logged anything yet. Pick the day she started: she renews on that date each month, with a consult every week.</div>'
-      +'<div class="kf-act main" style="position:relative;display:inline-block;align-self:flex-start">📅 Pick her start date'+ncDateField('','data-bdate="start"')+'</div>';
+    html+='<div style="font-size:16px;font-weight:800;margin-bottom:6px">💳 Billing</div><div style="font-size:13px;color:var(--muted);margin-bottom:8px">Nothing logged yet. Pick their start date: they renew on that date each month, with a consult every week.</div>'
+      +'<div class="kf-act main" style="position:relative;display:inline-block;align-self:flex-start">📅 Pick the start date'+ncDateField('','data-bdate="start"')+'</div>';
   } else {
     html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:16px;font-weight:800">💳 Month '+I.month+'</div>'
       +'<button class="kf-act'+(I.paid?' main':'')+'" id="ncPaid_'+cid+'">'+(I.paid?'Paid ✓':'Mark paid')+'</button></div>';
-    html+='<div style="display:flex;gap:10px">'+node('#6E9E7A')+'<div style="font-size:14px"><b>Started</b> '+dateBtn(I.start,'data-bdate="start"')+(I.fromFirstLog?' <span style="font-size:11px;color:var(--muted)">(her first logged meal)</span>':'')+'</div></div>';
+    html+='<div style="display:flex;gap:10px">'+node('#6E9E7A')+'<div style="font-size:14px"><b>Started</b> '+dateBtn(I.start,'data-bdate="start"')+(I.fromFirstLog?' <span style="font-size:11px;color:var(--muted)">(first logged meal)</span>':'')+'</div></div>';
     var past=I.consults.slice().reverse().filter(function(c){return c.consult_day>=I.cur||I.consults.length<=6;});
     past.forEach(function(c){
       html+=line+'<div style="display:flex;gap:10px" data-cons="'+c.id+'">'+node('#8FD1A2')+'<div style="flex:1;min-width:0"><div style="font-size:14px"><b>Consult ✓</b> <span style="font-family:\'DM Mono\',monospace;color:#C9A24A">'+nice(c.consult_day)+'</span> <span style="font-size:11px;color:var(--muted)">tap to edit</span></div>'
         +(c.notes?'<div style="font-size:13px;color:var(--text)">"'+ncEsc(c.notes)+'"</div>':'')
-        +(c.client_notes?'<div style="background:#23382B;border:1px solid #3D6B4F;color:#CFEBD8;border-radius:8px;padding:5px 8px;margin-top:4px;font-size:13px"><b>Her notes:</b> '+ncEsc(c.client_notes)+'</div>':'')+'</div></div>';
+        +(c.client_notes?'<div style="background:#23382B;border:1px solid #3D6B4F;color:#CFEBD8;border-radius:8px;padding:5px 8px;margin-top:4px;font-size:13px"><b>Client\'s notes:</b> '+ncEsc(c.client_notes)+'</div>':'')+'</div></div>';
     });
     html+=line+'<div style="display:flex;gap:10px">'+node('#C9A24A',true)+'<div style="flex:1"><div style="font-size:14px"><b>Next consult</b> '+dateBtn(I.nextC,'data-bdate="next"')+'</div>'
-      +(I.prep?'<div style="background:#23382B;border:1px solid #3D6B4F;color:#CFEBD8;border-radius:8px;padding:5px 8px;margin-top:4px;font-size:13px"><b>Her note for it:</b> '+ncEsc(I.prep.notes)+'</div>':'')
+      +(I.prep?'<div style="background:#23382B;border:1px solid #3D6B4F;color:#CFEBD8;border-radius:8px;padding:5px 8px;margin-top:4px;font-size:13px"><b>Client\'s note for it:</b> '+ncEsc(I.prep.notes)+'</div>':'')
       +'<button class="kf-act main" id="kfLogConsult_'+cid+'" style="margin-top:8px">+ Log a consult</button>'
       +'<div id="ncNewCons_'+cid+'" style="display:none;margin-top:8px"><div style="font-size:13px;margin-bottom:6px">Date: '+dateBtn(ncToday(),'id="ncCDay_'+cid+'"','<span id="ncCDayTxt_'+cid+'">'+nice(ncToday())+'</span>')+' <span style="font-size:11px;color:var(--muted)">(tap to change)</span></div>'
       +'<textarea id="ncCNote_'+cid+'" placeholder="What you discussed" style="width:100%;min-height:64px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit"></textarea>'
@@ -7294,8 +7294,8 @@ async function ncBillRender(cid){
   }
   html+='</div>';
   // her settings live here too
-  html+='<div class="card" style="margin-bottom:12px;gap:8px"><div style="font-size:16px;font-weight:800">⚙️ Her settings</div>'
-    +'<label style="display:flex;justify-content:space-between;align-items:center;font-size:14px"><span>Show calories to her<br><span style="font-size:12px;color:var(--muted)">Off: she sees hand portions only</span></span><input type="checkbox" id="ncShowK2_'+cid+'" style="width:22px;height:22px"></label>'
+  html+='<div class="card" style="margin-bottom:12px;gap:8px"><div style="font-size:16px;font-weight:800">⚙️ Settings</div>'
+    +'<label style="display:flex;justify-content:space-between;align-items:center;font-size:14px"><span>Show calories to client<br><span style="font-size:12px;color:var(--muted)">Off: they see hand portions only</span></span><input type="checkbox" id="ncShowK2_'+cid+'" style="width:22px;height:22px"></label>'
     +'<div style="display:flex;justify-content:space-between;align-items:center;font-size:14px"><span>Daily step goal</span><input type="number" inputmode="numeric" id="ncGoal_'+cid+'" style="width:110px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:15px"></div></div>';
   el.innerHTML=html;
   // settings values
@@ -7376,7 +7376,7 @@ async function ncDaysRender(cid){
   var dayList=Object.keys(days).sort().reverse();
   function bubble(c){var me=c.author==='coach', isNew=c.author==='client'&&new Date(c.created_at).getTime()>seen;
     return '<div style="align-self:'+(me?'flex-start':'flex-end')+';max-width:88%;background:'+(me?'#2A2618':'#23382B')+';border:1px solid '+(me?'#6B5A2A':'#3D6B4F')+';color:'+(me?'#E7CF8C':'#CFEBD8')+';border-radius:'+(me?'12px 12px 12px 4px':'12px 12px 4px 12px')+';padding:6px 10px;font-size:13px">'
-      +(me?'':'<b>Her:</b> ')+ncEsc(c.body)+(isNew?'<span class="nc-new">NEW</span>':'')
+      +(me?'':'<b>Client:</b> ')+ncEsc(c.body)+(isNew?'<span class="nc-new">NEW</span>':'')
       +'<div style="font-size:11px;opacity:.75">'+new Date(c.created_at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase()+' · '+new Date(c.created_at).toDateString().slice(4,10)
       +(c.edited_at?' · edited':'')+(me?(c.read_by_client_at?' <span style="color:#5BB8F5;letter-spacing:-2px" title="Read">✓✓</span>':' <span style="letter-spacing:-2px" title="Sent">✓</span>')+' · <a href="#" data-nce="'+c.id+'" style="color:inherit">edit</a>':'')+'</div></div>';}
   function thread(list,key,ph){
@@ -7387,9 +7387,9 @@ async function ncDaysRender(cid){
   dayList.forEach(function(d){var key=d>=monthCut?'w'+ncWeekStart(d):'m'+d.slice(0,7);
     if(!gi[key]){gi[key]={label:key[0]==='w'?ncWeekLabel(key.slice(1)):ncMonthLabel(d),days:[],meals:0,kcal:0};groups.push(gi[key]);}
     gi[key].days.push(d);});
-  var html='<div class="card" style="margin-bottom:12px;gap:6px"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:16px;font-weight:800">🍽️ Her days</div>'
+  var html='<div class="card" style="margin-bottom:12px;gap:6px"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:16px;font-weight:800">🍽️ Days</div>'
     +'<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn-sm" id="ncEst_'+cid+'">🔢 Estimate missing calories</button><label class="btn-sm" style="display:inline-flex;align-items:center">📷 Import screenshots<input type="file" accept="image/*" multiple id="ncShots_'+cid+'" style="display:none"></label></div></div>'
-    +'<div style="font-size:12px;color:var(--muted)">Write a note under any meal or day. It\'s sent straight away, she can reply, and you can edit it anytime.</div><div id="ncShotMsg_'+cid+'" style="font-size:12px;color:var(--muted)"></div>';
+    +'<div style="font-size:12px;color:var(--muted)">Write a note under any meal or day. It\'s sent straight away, they can reply, and you can edit it anytime.</div><div id="ncShotMsg_'+cid+'" style="font-size:12px;color:var(--muted)"></div>';
   groups.forEach(function(g,gix){
     var inner='', hasNew=false;
     g.days.forEach(function(d){
@@ -7416,7 +7416,7 @@ async function ncDaysRender(cid){
           +'</div>'
           +(r.items&&r.items.length?'<div style="display:flex;flex-direction:column;gap:2px;margin:4px 0">'+r.items.map(function(it){return '<div class="nc-food">'+ncEsc(it.name)+' · <span class="nc-time">'+ncEsc((it.amount===0.5?'½':it.amount===0.25?'¼':it.amount===0.75?'¾':it.amount===1.5?'1½':it.amount===2.5?'2½':it.amount)+(it.unit?' '+it.unit:''))+'</span>'+(it.kcal?' <span style="color:var(--muted)">~'+it.kcal+'</span>':'')+'</div>';}).join('')+'</div>'
              :(r.text&&r.text.length>38?'<div class="nc-food">'+ncEsc(r.text)+'</div>':''))
-          +(r.edited||r.noPhoto?'<div style="font-size:11px;color:var(--muted)">'+[r.edited?'she adjusted the AI\'s amounts':'',r.noPhoto?'no photo · from her words':''].filter(Boolean).join(' · ')+'</div>':'')
+          +(r.edited||r.noPhoto?'<div style="font-size:11px;color:var(--muted)">'+[r.edited?'adjusted the AI\'s amounts':'',r.noPhoto?'no photo · from their words':''].filter(Boolean).join(' · ')+'</div>':'')
           +((r.photos||[]).length?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+r.photos.map(function(pth){return '<img data-ncph="'+ncEsc(pth)+'" alt="Meal photo" style="width:64px;height:64px;border-radius:8px;object-fit:cover;background:#333;cursor:pointer">';}).join('')+'</div>':'')
           +(r.meal_id?thread(th,'m|'+r.meal_id+'|'+d,'Note on this meal…'):thread([], 's|'+r._i+'|'+d,'Note on this meal…'))+'</div></div>';
       });
@@ -7431,10 +7431,10 @@ async function ncDaysRender(cid){
   try{ var wk=await getSB().from('nutrition_week_summaries').select('*').eq('client_id',cid).order('week_start',{ascending:false}).limit(1); var W=wk.data&&wk.data[0];
     if(W&&(W.data&&W.data.week_end||ncAddDays(W.week_start,6))>=ncAddDays(ncToday(),-6)){ var D=W.data||{};
       var wc=document.createElement('div'); wc.className='card'; wc.style.cssText='margin-bottom:12px;gap:8px;border-color:#6B5A2A';
-      wc.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:16px;font-weight:800">✨ Her week</div><span style="font-size:12px;color:var(--muted)">'+ncNice(D.week_start||W.week_start).slice(4)+' – '+ncNice(D.week_end||ncAddDays(W.week_start,6)).slice(4)+'</span></div>'
+      wc.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:16px;font-weight:800">✨ Week summary</div><span style="font-size:12px;color:var(--muted)">'+ncNice(D.week_start||W.week_start).slice(4)+' – '+ncNice(D.week_end||ncAddDays(W.week_start,6)).slice(4)+'</span></div>'
         +'<div style="font-size:14px">'+(D.days_logged||0)+'/7 days logged · '+(D.habit_done||0)+'/7 habit done'+(D.avg_steps!=null?' · avg '+Number(D.avg_steps).toLocaleString('en-IN')+' steps':'')+'</div>'
         +(D.best_day?'<div style="font-size:13px;color:var(--muted)">Best day: '+ncNice(D.best_day).slice(0,3)+' ('+(D.best_meals||0)+' meals)</div>':'')
-        +'<div style="display:flex;gap:6px"><input id="ncWkLine_'+cid+'" value="'+ncEsc(W.coach_line||'')+'" placeholder="Add a line for her (she sees it on her week card)" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:13px"><button class="btn-sm" id="ncWkSave_'+cid+'">Save</button></div>';
+        +'<div style="display:flex;gap:6px"><input id="ncWkLine_'+cid+'" value="'+ncEsc(W.coach_line||'')+'" placeholder="Add a line for them (they see it on their week card)" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:13px"><button class="btn-sm" id="ncWkSave_'+cid+'">Save</button></div>';
       el.insertBefore(wc,el.firstChild);
       document.getElementById('ncWkSave_'+cid).onclick=async function(){ var v=(document.getElementById('ncWkLine_'+cid).value||'').trim().slice(0,500);
         var r=await getSB().from('nutrition_week_summaries').update({coach_line:v||null}).eq('client_id',cid).eq('week_start',W.week_start);
@@ -7659,7 +7659,7 @@ function kfitLiveStart(){
 
 // ═══════════════════════════════════════════════════════════════════
 // SIMPLE MERGE. Three places: Today (what needs you), Clients (one list),
-// More (everything else). A client's page has three tabs: Her days, Plan,
+// More (everything else). A client's page has three tabs: Days, Plan,
 // Account. Everything underneath is the same as before; it's just
 // organised so a new coach knows what to do without learning a system.
 // ═══════════════════════════════════════════════════════════════════
@@ -7796,7 +7796,7 @@ function kfClientTabs(){
   var sub=document.getElementById('uniSubTabFit'); if(sub&&sub.parentNode&&sub.parentNode.id!=='kfTabs') sub.parentNode.style.display='none';
   var bar=document.getElementById('kfTabs');
   if(!bar){ bar=document.createElement('div'); bar.id='kfTabs'; bar.className='kf-tabs';
-    bar.innerHTML='<button data-kt="days">Her days</button><button data-kt="plan">Plan</button><button data-kt="account">Account</button>';
+    bar.innerHTML='<button data-kt="days">Days</button><button data-kt="plan">Plan</button><button data-kt="account">Account</button>';
     var hdr=document.getElementById('uniClientHeader'); hdr.parentNode.insertBefore(bar,hdr.nextSibling);
     bar.querySelectorAll('[data-kt]').forEach(function(b){b.onclick=function(){kfClientTab(b.dataset.kt);};}); }
   var back=v.querySelector('.back-btn'); if(back) back.innerHTML='<span style="font-size:16px;font-weight:900;">←</span> Clients';
@@ -7806,12 +7806,13 @@ function kfClientTab(t){
   document.querySelectorAll('#kfTabs [data-kt]').forEach(function(b){b.classList.toggle('on',b.dataset.kt===t);});
   var c0=null; try{ c0=buildUnifiedRoster().find(function(r){return r.key===uniCurrentKey;}); }catch(e){}
   var fit=document.getElementById('uniFitDetail'), nc=document.getElementById('uniNutCoach'), nd=document.getElementById('uniNutDetail'), tg=document.getElementById('ncOldToggle');
-  var both=!!(c0&&c0.fit&&c0.nut&&nc&&nc.innerHTML.trim().length>0);
+  var both=!!(c0&&c0.fit&&c0.nut);
   if(both&&!kfSide) kfSide='nut';
-  if(!both) kfSide=null;
+  if(!both&&c0) kfSide=null;
   // a client with both shows one side at a time
   var c=c0?Object.assign({},c0):null; if(c&&both&&kfSide==='nut') c.fit=null;
   var hasNut=nc&&nc.innerHTML.trim().length>0&&!(both&&kfSide==='fit');
+  if(both&&kfSide==='fit'&&nc) nc.style.display='none';
   var sbar=document.getElementById('kfSideBar');
   if(both){
     if(!sbar){ sbar=document.createElement('div'); sbar.id='kfSideBar'; var tb=document.getElementById('kfTabs'); tb.parentNode.insertBefore(sbar,tb); }
@@ -7876,7 +7877,7 @@ async function kfFitDaysRender(c,el){
     best[e.ex]=Math.max(best[e.ex]||0,w); }); });
   var n=rows.length;
   if(!n){ el.innerHTML='<div class="kf-row" style="cursor:default;justify-content:center;color:var(--muted)">No workouts logged yet.</div>'; return; }
-  el.innerHTML='<div style="font-size:16px;font-weight:800;margin:4px 2px 8px">🏋️ His workouts</div>'+rows.slice(0,40).map(function(rw,idx){
+  el.innerHTML='<div style="font-size:16px;font-weight:800;margin:4px 2px 8px">🏋️ Workouts</div>'+rows.slice(0,40).map(function(rw,idx){
     var b=rw.body, ex=exList(b), bp=(b.bodyParts||[]).join(', '), pr=prs[n-1-idx]||[];
     var dur=b.duration||b.durationMin||null, st=steps[rw.session_date];
     var lines=ex.map(function(e){ if(e.type==='cardio') return ncEsc(e.ex)+(e.duration?' · '+ncEsc(e.duration)+' min':'')+(e.distance?' · '+ncEsc(e.distance)+' km':'');
@@ -7917,7 +7918,7 @@ async function kfTodayRender(){
     for(var i=0;i<roster.length&&i<40;i++){
       var c=roster[i], cid='knut__'+String(c.mobile).replace(/\D/g,''), I=await ncBillInfo(cid);
       if(!I.start) continue;
-      if(I.nextC&&I.nextC<=ncToday()) (function(c,cid){ items.push({ic:'🗓️',bg:'#2E2A1A',title:'Consult '+(I.nextC===ncToday()?'today':'due')+': '+(c.name||''),sub:I.prep?'her note: "'+String(I.prep.notes).slice(0,60)+'"':'weekly consult',act:'Log it',ts:Date.now()-1,fn:function(){ window.kfOpenConsult=cid; kfOpenClientByMobile(String(c.mobile).replace(/\D/g,''),'account','nut'); }}); })(c,cid);
+      if(I.nextC&&I.nextC<=ncToday()) (function(c,cid){ items.push({ic:'🗓️',bg:'#2E2A1A',title:'Consult '+(I.nextC===ncToday()?'today':'due')+': '+(c.name||''),sub:I.prep?'their note: "'+String(I.prep.notes).slice(0,60)+'"':'weekly consult',act:'Log it',ts:Date.now()-1,fn:function(){ window.kfOpenConsult=cid; kfOpenClientByMobile(String(c.mobile).replace(/\D/g,''),'account','nut'); }}); })(c,cid);
       var daysLeft=Math.round((new Date(I.renew)-new Date(ncToday()))/864e5);
       if(!I.paid&&daysLeft<=3) (function(c,cid,I){ items.push({ic:'💳',bg:'#3A2A1E',title:(c.name||'')+(daysLeft<0?' renewal overdue':daysLeft===0?' renews today':' renews in '+daysLeft+' day'+(daysLeft===1?'':'s')),sub:'unpaid',act:'Mark paid',ts:Date.now()-2,fn:async function(){ var pm=((I.bill&&I.bill.paid_months)||[]).slice(); if(pm.indexOf(I.cur)<0) pm.push(I.cur); var ok=await ncSaveBill(cid,I,{paid_months:pm}); if(ok) kfTodayRender(); }}); })(c,cid,I);
     }
@@ -7947,13 +7948,13 @@ kfitBellRefresh=async function(){ await _kfBellRefresh(); if(kfPlace==='today') 
 var KF_HELP=[
   ['☀️','Today','Your starting point. It lists only what needs you: replies, new meals or workouts, consults that are due, renewals coming up unpaid, and requests waiting. Each has one button (Reply, Open, Log it, Mark paid, Review). When the list is empty, you\'re all caught up.'],
   ['👥','Clients','Your clients, grouped as Nutrition, Fitness, or both. "My clients" shows the people you\'ve tagged; "All users" shows everyone who signed up. The dot shows recent activity: green (last 2 days), amber (this week), red (longer). "+ Invite" shares your nutrition or fitness link.'],
-  ['⇄','Fitness + Nutrition clients','Tapping someone you coach for both asks which side to open. Her page then shows only that side; tap "Switch to …" at the top to flip.'],
-  ['🍽️','Her days','Tap a client, then Her days: her snapshot at the top, then each day with its ring, steps and meals (and workouts for fitness clients). Tap a meal to see photos and amounts, and write a note under it. It sends straight away; ✓ means sent, blue ✓✓ means she read it.'],
-  ['🏋️','Fitness clients','Her days shows each workout as a card: body parts, exercises, duration, steps and personal records 🏆. Tap a card for every set. Plan has the full workout tools (Assign, Log, Edit).'],
-  ['🗓️','Plan','Plan a day of meals for her (she ticks them off in her app), see her habit plan, and for fitness clients the workout tools.'],
+  ['⇄','Fitness + Nutrition clients','Tapping someone you coach for both asks which side to open. Their page then shows only that side; tap "Switch to …" at the top to flip.'],
+  ['🍽️','Days','Tap a client, then Days: their snapshot at the top, then each day with its ring, steps and meals (and workouts for fitness clients). Tap a meal to see photos and amounts, and write a note under it. It sends straight away; ✓ means sent, blue ✓✓ means she read it.'],
+  ['🏋️','Fitness clients','Days shows each workout as a card: body parts, exercises, duration, steps and personal records 🏆. Tap a card for every set. Plan has the full workout tools (Assign, Log, Edit).'],
+  ['🗓️','Plan','Plan a day of meals for them (they tick them off in their app), see their habit plan, and for fitness clients the workout tools.'],
   ['⚡','Quick replies','Under each meal, tap a ready-made note (like "Great protein! 💪") to send it in one tap. Tap ✎ edit to change your list.'],
-  ['✨','Her week','Every Sunday each nutrition client gets a summary of her week. It appears at the top of Her days; add a line for her and she sees it on her card.'],
-  ['💳','Account','Fitness: sessions this month, which are unpaid, and Mark all paid. Nutrition: her month as one timeline: started, each consult (with your notes and hers), next consult, and renewal. Tap "+ Log a consult" after you talk; tap any date to change it; tap Mark paid when she pays. Her settings (show calories, step goal) and your private notes are here too.'],
+  ['✨','Week summary','Every Sunday each nutrition client gets a summary of their week. It appears at the top of Days; add a line and they see it on their card.'],
+  ['💳','Account','Fitness: sessions this month, which are unpaid, and Mark all paid. Nutrition: their month as one timeline: started, each consult (with your notes and hers), next consult, and renewal. Tap "+ Log a consult" after you talk; tap any date to change it; tap Mark paid when she pays. Her settings (show calories, step goal) and your private notes are here too.'],
   ['🔔','Notifications','Turn on phone notifications from Today (open Merge from its home-screen icon on iPhone). You\'ll get a buzz when a tagged client logs, replies or checks in, plus a morning summary at 8 am. Quiet 10 pm to 7 am. Clients can turn on their own reminders too.'],
   ['☰','More','Requests, feedback, exercises, your account and invite links, trash, print, help and log out.']
 ];
@@ -7961,7 +7962,7 @@ showCoachHelp=function(){
   var ov=document.createElement('div'); ov.id='kfHelp'; ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;overflow:auto;padding:20px 14px calc(20px + env(safe-area-inset-bottom,0px))';
   ov.innerHTML='<div style="max-width:560px;margin:0 auto;background:var(--surf,#1b1b1b);color:var(--text);border-radius:16px;padding:16px">'
     +'<div style="display:flex;justify-content:space-between;align-items:center"><div class="kf-h1" style="font-size:24px">How Merge works</div><button class="kf-act" id="kfHelpClose">Close</button></div>'
-    +'<div class="kf-sub">Three places at the bottom: Today, Clients, More. Each client has three tabs: Her days, Plan, Account.</div>'
+    +'<div class="kf-sub">Three places at the bottom: Today, Clients, More. Each client has three tabs: Days, Plan, Account.</div>'
     +KF_HELP.map(function(h){return '<div class="kf-row" style="cursor:default;align-items:flex-start"><div class="kf-ic">'+h[0]+'</div><div style="flex:1"><b>'+h[1]+'</b><div style="font-size:13px;color:var(--muted);line-height:1.5;margin-top:2px">'+h[2]+'</div></div></div>';}).join('')
     +'</div>';
   document.body.appendChild(ov);
