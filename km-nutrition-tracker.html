@@ -438,6 +438,7 @@ function render(){
   if(S.tab==='plan') return hasPlan()?renderToday():renderChooser(true);
   if(S.tab==='coach') return renderCoachNotes();
   if(S.tab==='guide') return renderFoodGuide();
+  if(S.tab==='consults') return renderConsults();
   return renderHome();
 }
 function go(tab){ if(chatUI&&tab!=='chat'){try{chatUI.destroy();}catch(e){} chatUI=null;} S.tab=tab;S.view=null;stopSpeech();render(); }
@@ -563,7 +564,7 @@ function renderHome(){
     +'<button class="tile" id="hmPlan"><div class="ic" style="background:#3A2A1E;color:var(--terra)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M6 20c0-5 12-3 12-9S9 6 9 3"/><circle cx="9" cy="3" r="1"/><circle cx="6" cy="20" r="1"/></svg></div><div><h2>My plan</h2><div class="meta" style="font-weight:400">'+esc(planSub)+'</div></div></button>';
   if(anyNotes) html+='<button class="tile" id="hmCoach" style="border-color:#6B5A2A;padding:13px 16px"><div style="font-size:15px">'+(unread?'<b style="color:var(--gold)">'+unread+' new note'+(unread===1?'':'s')+' from your coach</b>':'<b style="color:var(--gold)">From your coach</b>')+' <span style="color:var(--muted)">· tap to read</span></div></button>';
   html+='<div class="links">'+(dueWeekly()?'<button data-go="weekly" style="border-color:#6B5A2A;color:var(--gold)">Weekly check-in</button>':'')
-    +'<button data-go="guide">Food guide</button><button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')
+    +'<button data-go="consults">Consults</button><button data-go="guide">Food guide</button><button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')
     +'<button data-go="chat">'+(S.unread?'Chat ('+S.unread+' new)':'Chat')+'</button></div></div>';
   show(html);
   $('#hmLog').onclick=function(){go('log');};
@@ -598,6 +599,38 @@ var FOOD_GUIDE=[
   ['🍬','Sugars','a treat, not a meal','Sweets, juice, cold drinks, sugar in tea or coffee.','Fine sometimes, and better after a meal than on their own.',''],
   ['🥑','Fats','thumb','Healthy: nuts, seeds, olive or mustard oil, avocado, fish.','Limit: butter, ghee, cream. Small amounts are fine.','Avoid: trans fats in hydrogenated oils, many fried snacks and packaged bakery.']
 ];
+// Consults: her next consult (with a note to bring), and past consults with
+// her coach's notes and her own.
+async function renderConsults(){
+  S.tab='consults';
+  show('<div class="screen">'+head('Your consults')+'<div class="meta" style="font-weight:400">Loading…</div></div>');
+  var next=null, prep='', list=[];
+  try{ var r=await sb.rpc('kfit_my_next_consult',{p_client:S.clientId}); next=r&&r.data||null; }catch(e){}
+  try{ var p=await sb.from('nutrition_consult_prep').select('notes').eq('client_id',S.clientId); prep=(p.data&&p.data[0]&&p.data[0].notes)||''; }catch(e){}
+  try{ var c=await sb.from('nutrition_consults').select('*').eq('client_id',S.clientId).order('consult_day',{ascending:false}).limit(50); list=c.data||[]; }catch(e){}
+  if(S.tab!=='consults') return;
+  var html='<div class="screen">'+head('Your consults');
+  html+='<div class="card" style="border:1px solid var(--gold);gap:8px"><div class="steplbl">NEXT CONSULT</div>'
+    +'<div class="f-meal" style="font-size:20px">'+(next?esc(parseD(next).toLocaleDateString(kLoc(),{weekday:'short',day:'numeric',month:'short'})):'Your coach will set it')+'</div>'
+    +'<div class="meta" style="font-weight:400">Anything you want to bring up?</div>'
+    +'<textarea id="csPrep" placeholder="Write a note for this consult…" style="min-height:70px;border-radius:10px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);padding:8px 10px;font-family:inherit;font-size:15px">'+esc(prep)+'</textarea>'
+    +'<button class="btn" id="csPrepSave" style="min-height:44px">Save note</button></div>';
+  if(!list.length) html+='<div class="card"><div class="body">No consults yet. After each one, your coach\'s notes appear here, and you can add your own.</div></div>';
+  list.forEach(function(c){
+    html+='<div class="card" style="border:1px solid var(--line);gap:6px"><div class="f-time">'+esc(parseD(c.consult_day).toLocaleDateString(kLoc(),{weekday:'short',day:'numeric',month:'short'}))+'</div>'
+      +(c.notes?'<div style="background:#2A2618;border:1px solid #6B5A2A;color:#E7CF8C;border-radius:10px;padding:7px 10px;font-size:14px"><b>Coach:</b> '+esc(c.notes)+'</div>':'')
+      +'<textarea data-cn="'+c.id+'" placeholder="My notes (how it went, what I\'ll try)…" style="min-height:56px;border-radius:10px;border:1px solid #3D6B4F;background:#1E2B22;color:#CFEBD8;padding:8px 10px;font-family:inherit;font-size:14px">'+esc(c.client_notes||'')+'</textarea>'
+      +'<button class="btn link" data-cns="'+c.id+'" style="align-self:flex-start;min-height:32px;font-size:14px">Save my notes</button></div>';
+  });
+  show(html+'</div>');
+  $('#csPrepSave').onclick=async function(){ var t=$('#csPrep').value.trim().slice(0,4000);
+    var r=await sb.from('nutrition_consult_prep').upsert({client_id:S.clientId,notes:t||null},{onConflict:'client_id'});
+    toast(r.error?'Not saved. Check your connection.':'Saved'); };
+  document.querySelectorAll('[data-cns]').forEach(function(b){b.onclick=async function(){
+    var ta=document.querySelector('[data-cn="'+b.dataset.cns+'"]'), t=(ta.value||'').trim().slice(0,4000);
+    var r=await sb.from('nutrition_consults').update({client_notes:t||null}).eq('id',+b.dataset.cns);
+    toast(r.error?'Not saved. Check your connection.':'Saved'); };});
+}
 function renderFoodGuide(){
   S.tab='guide';
   var html='<div class="screen">'+head("What's in my food?")

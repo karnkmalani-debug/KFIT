@@ -355,7 +355,17 @@
 "Saving…": "सेव हो रहा है…",
 "Show calories in the app": "ऐप में कैलोरी दिखाएँ",
 "Off: you'll see your hand portions instead of calorie numbers.": "बंद: कैलोरी नंबर की जगह हाथ के माप दिखेंगे।",
-"Veg": "सब्ज़ी"
+"Veg": "सब्ज़ी",
+"Consults": "कंसल्ट",
+"Your consults": "आपके कंसल्ट",
+"NEXT CONSULT": "अगला कंसल्ट",
+"Your coach will set it": "आपका कोच तय करेगा",
+"Anything you want to bring up?": "कुछ ऐसा जो आप बात करना चाहें?",
+"Write a note for this consult…": "इस कंसल्ट के लिए एक नोट लिखें…",
+"Save note": "नोट सेव करें",
+"Save my notes": "मेरे नोट सेव करें",
+"My notes (how it went, what I'll try)…": "मेरे नोट (कैसा रहा, क्या आज़माऊँगी/आज़माऊँगा)…",
+"No consults yet. After each one, your coach's notes appear here, and you can add your own.": "अभी कोई कंसल्ट नहीं। हर कंसल्ट के बाद कोच के नोट यहाँ दिखेंगे, और आप अपने जोड़ सकते हैं।"
 },es:{
 "Welcome to KFit Nutrition.": "Te damos la bienvenida a KFit Nutrición.",
 "A calm, simple coach for everyday eating. One small habit at a time, a two-minute lesson a day, and meals logged with a photo. No strict diets.": "Un coach tranquilo y sencillo para tu comida de cada día. Un pequeño hábito a la vez, una lección de dos minutos al día y tus comidas registradas con una foto. Sin dietas estrictas.",
@@ -702,7 +712,17 @@
 "Saving…": "Guardando…",
 "Show calories in the app": "Mostrar calorías en la app",
 "Off: you'll see your hand portions instead of calorie numbers.": "Desactivado: verás tus porciones de mano en lugar de calorías.",
-"Veg": "Verdura"
+"Veg": "Verdura",
+"Consults": "Consultas",
+"Your consults": "Tus consultas",
+"NEXT CONSULT": "PRÓXIMA CONSULTA",
+"Your coach will set it": "Tu coach la fijará",
+"Anything you want to bring up?": "¿Algo que quieras comentar?",
+"Write a note for this consult…": "Escribe una nota para esta consulta…",
+"Save note": "Guardar nota",
+"Save my notes": "Guardar mis notas",
+"My notes (how it went, what I'll try)…": "Mis notas (cómo fue, qué probaré)…",
+"No consults yet. After each one, your coach's notes appear here, and you can add your own.": "Aún no hay consultas. Después de cada una, las notas de tu coach aparecerán aquí y podrás añadir las tuyas."
 }};
   var WD={hi:{Mon:'सोम',Tue:'मंगल',Wed:'बुध',Thu:'गुरु',Fri:'शुक्र',Sat:'शनि',Sun:'रवि'},es:{Mon:'lun',Tue:'mar',Wed:'mié',Thu:'jue',Fri:'vie',Sat:'sáb',Sun:'dom'}};
   var MO={hi:{Jan:'जन',Feb:'फ़र',Mar:'मार्च',Apr:'अप्रै',May:'मई',Jun:'जून',Jul:'जुल',Aug:'अग',Sep:'सित',Oct:'अक्टू',Nov:'नव',Dec:'दिस'},es:{Jan:'ene',Feb:'feb',Mar:'mar',Apr:'abr',May:'may',Jun:'jun',Jul:'jul',Aug:'ago',Sep:'sept',Oct:'oct',Nov:'nov',Dec:'dic'}};

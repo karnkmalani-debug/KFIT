@@ -7238,7 +7238,8 @@ async function ncBillInfo(cid){
     var first=(fm.data||[]).filter(function(x){return !x.deleted&&x.day;})[0];
     if(first){ start=first.day; fromFirstLog=true; }
   }
-  var info={bill:bill,consults:consults,start:start,fromFirstLog:fromFirstLog};
+  var prep=null; try{ var pp=await getSB().from('nutrition_consult_prep').select('notes,updated_at').eq('client_id',cid); prep=pp.data&&pp.data[0]&&pp.data[0].notes?pp.data[0]:null; }catch(e){}
+  var info={bill:bill,consults:consults,start:start,fromFirstLog:fromFirstLog,prep:prep};
   if(start){
     var k=0; while(ncAddMonths(start,k+1)<=ncToday()) k++;
     info.month=k+1; info.cur=ncAddMonths(start,k); info.renew=ncAddMonths(start,k+1);
@@ -7274,7 +7275,7 @@ async function ncBillRender(cid){
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'
       +cell('STARTED',ncNice(I.start),I.fromFirstLog?'from her first logged meal':'','start')
       +cell('RENEWS',ncNice(I.renew),'<span style="color:'+(I.paid?'var(--sage)':'var(--terra)')+'">'+(I.paid?'paid':'unpaid')+'</span>','renew')
-      +cell('NEXT CONSULT',ncNice(I.nextC),'','next')
+      +cell('NEXT CONSULT',ncNice(I.nextC),I.prep?'<span style="color:#CFEBD8">her note: "'+ncEsc(I.prep.notes.slice(0,60))+'"</span>':'','next')
       +cell('LAST CONSULT',I.lastC?ncNice(I.lastC.consult_day):'none yet',I.lastC?(I.lastC.notes?'"'+ncEsc(I.lastC.notes.slice(0,50))+'"':''):'tap to log one','last')
       +'</div>'
       +'<div style="font-size:11px;color:var(--muted);letter-spacing:.08em;margin-top:4px">THIS MONTH, WEEK BY WEEK</div>'
@@ -7284,7 +7285,8 @@ async function ncBillRender(cid){
       +'<details id="ncCons_'+cid+'"><summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--sage)">Consult notes ('+I.consults.length+') · add one</summary>'
       +'<div style="display:flex;flex-direction:column;gap:6px;margin-top:8px"><div style="display:flex;gap:6px;align-items:center"><button class="btn-sm" id="ncCDayBtn_'+cid+'">📅 <span id="ncCDayTxt_'+cid+'">'+ncNice(ncToday())+'</span></button><input type="hidden" id="ncCDay_'+cid+'" value="'+ncToday()+'"><button class="btn-sm" id="ncCAdd_'+cid+'">Save consult</button></div>'
       +'<textarea id="ncCNote_'+cid+'" placeholder="What you discussed (optional)" style="min-height:56px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit"></textarea>'
-      +I.consults.map(function(c){return '<div style="font-size:13px;border-top:1px solid var(--border);padding-top:6px"><span class="nc-time">'+ncEsc(ncNice(c.consult_day))+'</span> '+ncEsc(c.notes||'')+'</div>';}).join('')
+      +I.consults.map(function(c){return '<div data-cons="'+c.id+'" style="font-size:13px;border-top:1px solid var(--border);padding-top:6px;cursor:pointer"><span class="nc-time">'+ncEsc(ncNice(c.consult_day))+'</span> '+ncEsc(c.notes||'')+' <span style="color:var(--muted);font-size:11px">✎ edit</span>'
+        +(c.client_notes?'<div style="background:#23382B;border:1px solid #3D6B4F;color:#CFEBD8;border-radius:8px;padding:5px 8px;margin-top:4px"><b>Her notes:</b> '+ncEsc(c.client_notes)+'</div>':'')+'</div>';}).join('')
       +'</div></details>';
   }
   el.innerHTML=html+'</div>';
@@ -7301,6 +7303,27 @@ async function ncBillRender(cid){
     if(k==='last') return ncPickDate(ncToday(),function(v){ openConsult(v); });
   };});
   el.querySelectorAll('[data-wk]').forEach(function(b){b.onclick=function(){ var w=b.dataset.wk; openConsult(w>ncToday()?ncToday():w); };});
+  // tap a saved consult to change its date or notes, or delete it
+  el.querySelectorAll('[data-cons]').forEach(function(row){row.onclick=function(){
+    if(row.dataset.editing) return; row.dataset.editing='1';
+    var c=I.consults.filter(function(x){return String(x.id)===row.dataset.cons;})[0]; if(!c) return;
+    var day=c.consult_day;
+    row.style.cursor='default';
+    row.innerHTML='<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0"><button class="btn-sm" data-ed="day">📅 <span>'+ncNice(day)+'</span></button></div>'
+      +'<textarea data-ed="notes" style="width:100%;min-height:56px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit">'+ncEsc(c.notes||'')+'</textarea>'
+      +'<div style="display:flex;gap:6px;margin:6px 0"><button class="btn-sm" data-ed="save">Save</button><button class="btn-sm" data-ed="cancel">Cancel</button><button class="btn-sm" data-ed="del" style="margin-left:auto;color:var(--terra)">Delete</button></div>';
+    row.querySelector('[data-ed="day"]').onclick=function(e){ e.stopPropagation(); var btn=this; ncPickDate(day,function(v){ day=v; btn.querySelector('span').textContent=ncNice(v); }); };
+    row.querySelector('[data-ed="cancel"]').onclick=function(e){ e.stopPropagation(); ncBillRender(cid); };
+    row.querySelector('[data-ed="save"]').onclick=async function(e){ e.stopPropagation();
+      var n=(row.querySelector('[data-ed="notes"]').value||'').trim();
+      var r=await getSB().from('nutrition_consults').update({consult_day:day,notes:n||null}).eq('id',c.id);
+      if(r.error){ alert('Not saved -- '+r.error.message); return; } ncBillRender(cid); ncSnapRender(cid); };
+    row.querySelector('[data-ed="del"]').onclick=async function(e){ e.stopPropagation(); if(!confirm('Delete this consult?')) return;
+      var r=await getSB().from('nutrition_consults').delete().eq('id',c.id);
+      if(r.error){ alert('Not deleted -- '+r.error.message); return; } ncBillRender(cid); ncSnapRender(cid); };
+  };});
+  // the LAST CONSULT box edits that consult directly
+  var lastBtn=el.querySelector('[data-bd="last"]'); if(lastBtn&&I.lastC) lastBtn.onclick=function(){ var dt=document.getElementById('ncCons_'+cid); if(dt) dt.open=true; var r=el.querySelector('[data-cons="'+I.lastC.id+'"]'); if(r){ r.scrollIntoView({behavior:'smooth',block:'center'}); r.click(); } };
   var db2=document.getElementById('ncCDayBtn_'+cid); if(db2) db2.onclick=function(){ ncPickDate(document.getElementById('ncCDay_'+cid).value,function(v){ document.getElementById('ncCDay_'+cid).value=v; document.getElementById('ncCDayTxt_'+cid).textContent=ncNice(v); }); };
   var pb=document.getElementById('ncPaid_'+cid); if(pb) pb.onclick=async function(){
     var pm=((I.bill&&I.bill.paid_months)||[]).slice(), i=pm.indexOf(I.cur);
@@ -7311,8 +7334,10 @@ async function ncBillRender(cid){
     var d=document.getElementById('ncCDay_'+cid).value, n=(document.getElementById('ncCNote_'+cid).value||'').trim();
     if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
     if(!I.bill){ var ok=await ncSaveBill(cid,I,{}); if(!ok) return; }
-    var r=await getSB().from('nutrition_consults').insert({client_id:cid,consult_day:d,notes:n||null});
+    var row={client_id:cid,consult_day:d,notes:n||null}; if(I.prep&&I.prep.notes) row.client_notes=I.prep.notes;
+    var r=await getSB().from('nutrition_consults').insert(row);
     if(r.error){alert('Not saved -- '+r.error.message);return;}
+    if(I.prep){ try{ await getSB().from('nutrition_consult_prep').delete().eq('client_id',cid); }catch(e){} }
     var bl=await getSB().from('nutrition_billing').select('next_consult').eq('client_id',cid);
     if(bl.data&&bl.data[0]&&bl.data[0].next_consult&&bl.data[0].next_consult<=ncAddDays(d,1)) await getSB().from('nutrition_billing').update({next_consult:null}).eq('client_id',cid);
     ncBillRender(cid); ncSnapRender(cid);
