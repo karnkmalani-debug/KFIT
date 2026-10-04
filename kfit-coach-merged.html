@@ -7673,11 +7673,11 @@ function kfShowOnly(id){
   ['clientsSection','exSection','fbSection','accSection','adminSection','kfTodaySection','kfMoreSection'].forEach(function(x){var e=document.getElementById(x);if(e)e.style.display=x===id?'block':'none';});
 }
 function kfGo(place){
-  kfPlace=place;
+  kfPlace=place; var bb=document.getElementById('kfBackBar'); if(bb) bb.remove();
   document.querySelectorAll('#kfNav [data-kp]').forEach(function(b){b.classList.toggle('on',b.dataset.kp===place);});
   var pt=document.getElementById('pageTitle');
   if(place==='today'){ kfShowOnly('kfTodaySection'); if(pt) pt.textContent='Coach'; kfTodayRender(); }
-  else if(place==='clients'){ switchMode('clients'); if(pt) pt.textContent='Coach'; }
+  else if(place==='clients'){ switchMode('clients'); kfShowOnly('clientsSection'); if(pt) pt.textContent='Coach'; }
   else if(place==='more'){ kfShowOnly('kfMoreSection'); if(pt) pt.textContent='Coach'; kfMoreRender(); }
   window.scrollTo(0,0);
 }
@@ -7692,8 +7692,17 @@ function kfMoreRender(){
   el.innerHTML='<div class="kf-h1">More</div><div class="kf-sub">Everything else, out of the way.</div>'
     +items.map(function(x){return '<div class="kf-row" onclick="'+x[3]+'"><div class="kf-ic">'+x[0]+'</div><div style="flex:1"><b>'+x[1]+'</b>'+(x[2]?'<div style="font-size:12px;color:var(--muted)">'+x[2]+'</div>':'')+'</div><span style="color:var(--muted)">›</span></div>';}).join('');
 }
-function kfMode(m){ switchMode(m); document.querySelectorAll('#kfNav [data-kp]').forEach(function(b){b.classList.toggle('on',b.dataset.kp==='more');}); var bk=document.getElementById('kfBackMore'); if(!bk){ bk=document.createElement('button'); bk.id='kfBackMore'; bk.className='back-btn'; bk.style.cssText='margin:12px 16px 0'; bk.innerHTML='<span style="font-size:16px;font-weight:900;">←</span> More'; bk.onclick=function(){kfGo('more');}; }
-  var sec={feedback:'fbSection',exercises:'exSection',account:'accSection',admin:'adminSection'}[m], se=sec&&document.getElementById(sec); if(se&&se.firstChild!==bk) se.insertBefore(bk,se.firstChild); }
+function kfMode(m){
+  switchMode(m);
+  ['kfMoreSection','kfTodaySection'].forEach(function(x){var e=document.getElementById(x);if(e)e.style.display='none';});
+  document.querySelectorAll('#kfNav [data-kp]').forEach(function(b){b.classList.toggle('on',b.dataset.kp==='more');});
+  var sec={feedback:'fbSection',exercises:'exSection',account:'accSection',admin:'adminSection'}[m], se=sec&&document.getElementById(sec); if(!se) return;
+  var bk=document.getElementById('kfBackBar');
+  if(!bk){ bk=document.createElement('div'); bk.id='kfBackBar'; bk.style.cssText='position:sticky;top:0;z-index:50;background:var(--bg,#0e0e0c);padding:10px 16px;border-bottom:1px solid var(--border)';
+    bk.innerHTML='<button class="kf-act" style="font-size:15px;padding:8px 14px">← Back</button>'; bk.querySelector('button').onclick=function(){ bk.remove(); kfGo('more'); }; }
+  se.insertBefore(bk,se.firstChild);
+  window.scrollTo(0,0);
+}
 // ---------- Clients: one simple list ----------
 var kfShowAll=false;
 function kfClientsRender(){
@@ -7703,16 +7712,23 @@ function kfClientsRender(){
   var list=roster.filter(function(c){return !c.isBlocked&&(kfShowAll||c.isTagged)&&(!q||String(c.name||'').toLowerCase().indexOf(q.toLowerCase())>=0||String(c.mobile||'').indexOf(q)>=0);});
   function dot(c){ if(!c.lastDate) return '#6A6258'; var d=Math.round((new Date(ncToday())-new Date(c.lastDate))/864e5); return d<=2?'#8FD1A2':d<=6?'#C9A24A':'#E39A6E'; }
   function last(c){ if(!c.lastDate) return 'nothing logged yet'; var d=Math.round((new Date(ncToday())-new Date(c.lastDate))/864e5); return d<=0?'logged today':d===1?'logged yesterday':'last log '+d+' days ago'; }
-  var html='<div class="kf-h1">Clients</div><div class="kf-sub">'+list.length+' '+(kfShowAll?'people':'clients')+'</div>'
-    +'<input id="kfSearch" type="search" placeholder="🔍 Search by name or number" value="'+ncEsc(q)+'" style="width:100%;padding:11px 12px;margin-bottom:10px;background:var(--surf2);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:inherit;font-size:15px">'
-    +list.map(function(c){return '<div class="kf-row" data-kc="'+ncEsc(c.key)+'"><span class="kf-dot" style="background:'+dot(c)+'"></span><div style="flex:1;min-width:0"><b>'+ncEsc(c.name||('+'+c.mobile))+'</b><div style="font-size:12px;color:var(--muted)">'+[c.fit?'Fitness':'',c.nut?'Nutrition':''].filter(Boolean).join(' + ')+' · '+last(c)+(c.unpaidN?' · '+c.unpaidN+' unpaid':'')+'</div></div><span style="color:var(--muted)">›</span></div>';}).join('')
-    +(list.length?'':'<div class="kf-sub">No clients yet. Invite your first one below.</div>')
-    +'<button class="kf-act main" id="kfInvite" style="width:100%;padding:12px;margin-top:6px">+ Invite a client</button>'
-    +'<label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);margin-top:12px"><input type="checkbox" id="kfAll"'+(kfShowAll?' checked':'')+'> Show everyone, not just my tagged clients</label>';
+  function pill(t){ return t==='fit'?'<span style="background:#1E2433;color:#9DB7F0;border-radius:8px;padding:2px 8px;font-size:12px;font-weight:800">🏋️ Fitness</span>':'<span style="background:#23382B;color:#8FD1A2;border-radius:8px;padding:2px 8px;font-size:12px;font-weight:800">🥗 Nutrition</span>'; }
+  function row(c){ return '<div class="kf-row" data-kc="'+ncEsc(c.key)+'" style="padding:14px 12px"><span class="kf-dot" style="background:'+dot(c)+';width:12px;height:12px;border-radius:6px"></span><div style="flex:1;min-width:0">'
+      +'<div style="font-size:18px;font-weight:800;margin-bottom:4px">'+ncEsc(c.name||('+'+c.mobile))+'</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+(c.fit?pill('fit'):'')+(c.nut?pill('nut'):'')+'<span style="font-size:12px;color:var(--muted)">'+last(c)+(c.unpaidN?' · '+c.unpaidN+' unpaid':'')+'</span></div></div><span style="color:var(--muted);font-size:20px">›</span></div>'; }
+  var groups=[['🥗 Nutrition',list.filter(function(c){return c.nut&&!c.fit;})],['🏋️ Fitness',list.filter(function(c){return c.fit&&!c.nut;})],['🏋️🥗 Fitness + Nutrition',list.filter(function(c){return c.fit&&c.nut;})],['Not set up yet',list.filter(function(c){return !c.fit&&!c.nut;})]];
+  var seg='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">'
+    +'<button class="kf-act'+(kfShowAll?'':' main')+'" data-all="0" style="padding:10px;font-size:14px">My clients</button><button class="kf-act'+(kfShowAll?' main':'')+'" data-all="1" style="padding:10px;font-size:14px">All users</button></div>';
+  var html='<div style="display:flex;justify-content:space-between;align-items:center"><div class="kf-h1">Clients</div><button class="kf-act main" id="kfInvite">+ Invite</button></div>'
+    +'<div class="kf-sub">'+(kfShowAll?'Everyone who has signed up, including people you haven\'t tagged as your clients.':'People you\'ve tagged as your clients.')+'</div>'+seg
+    +'<input id="kfSearch" type="search" placeholder="🔍 Search by name or number" value="'+ncEsc(q)+'" style="width:100%;padding:12px;margin-bottom:12px;background:var(--surf2);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:inherit;font-size:16px">';
+  groups.forEach(function(g){ if(!g[1].length) return;
+    html+='<div style="font-size:13px;font-weight:800;letter-spacing:.08em;color:var(--muted);margin:14px 2px 8px">'+g[0].toUpperCase()+' · '+g[1].length+'</div>'+g[1].map(row).join(''); });
+  if(!list.length) html+='<div class="kf-row" style="cursor:default;justify-content:center;color:var(--muted)">'+(q?'No one matches that search.':'No clients yet. Tap "+ Invite" to add your first one.')+'</div>';
   el.innerHTML=html;
   var sb=el.querySelector('#kfSearch'); sb.oninput=function(){ var pos=sb.selectionStart; kfClientsRender(); var n=document.getElementById('kfSearch'); n.focus(); try{n.setSelectionRange(pos,pos);}catch(e){} };
   el.querySelectorAll('[data-kc]').forEach(function(r){r.onclick=function(){ openUniClient(r.dataset.kc); };});
-  el.querySelector('#kfAll').onchange=function(){ kfShowAll=this.checked; kfClientsRender(); };
+  el.querySelectorAll('[data-all]').forEach(function(b){b.onclick=function(){ kfShowAll=b.dataset.all==='1'; kfClientsRender(); };});
   el.querySelector('#kfInvite').onclick=kfInvite;
 }
 function kfInvite(){
@@ -7760,8 +7776,22 @@ function kfClientTab(t){
   if(t==='plan'&&c&&c.fit){ if(!fp){ fp=document.createElement('div'); fp.id='kfFitPlan'; fp.className='card'; fp.style.cssText='margin-bottom:12px'; fp.innerHTML='<div style="font-size:15px;font-weight:800;margin-bottom:6px">🏋️ Workouts</div><div style="font-size:13px;color:var(--muted);margin-bottom:8px">Assign her next workout in her own tracker.</div><button class="kf-act main" id="kfAssign">📋 Assign a workout</button>'; v.appendChild(fp);
       fp.querySelector('#kfAssign').onclick=function(){ kfClientTab('days'); try{ setClientTab('assign'); }catch(e){} }; }
     fp.style.display='block'; } else if(fp) fp.style.display='none';
+  var fa=document.getElementById('kfFitAcct');
+  if(t==='account'&&c&&c.fit){
+    if(!fa){ fa=document.createElement('div'); fa.id='kfFitAcct'; fa.className='card'; fa.style.cssText='margin-bottom:12px'; var hdr2=document.getElementById('kfTabs'); hdr2.parentNode.insertBefore(fa,hdr2.nextSibling); }
+    var recs=(c.fit.records||[]).slice().sort(function(a,b){return String(b.session_date||b.date||'').localeCompare(String(a.session_date||a.date||''));});
+    var unpaid=recs.filter(function(r){return !r.paid;});
+    var mStart=ncToday().slice(0,7), thisMonth=recs.filter(function(r){return String(r.session_date||r.date||'').slice(0,7)===mStart;}).length;
+    fa.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:16px;font-weight:800">🏋️ Fitness sessions</div>'
+      +(unpaid.length?'<span style="color:var(--terra);font-weight:800;font-size:13px">'+unpaid.length+' unpaid</span>':'<span style="color:var(--sage);font-weight:800;font-size:13px">all paid ✓</span>')+'</div>'
+      +'<div style="font-size:13px;color:var(--muted);margin-bottom:8px">'+thisMonth+' session'+(thisMonth===1?'':'s')+' this month · '+recs.length+' in total</div>'
+      +(unpaid.length?'<div style="font-size:13px;margin-bottom:8px">Unpaid: '+unpaid.slice(0,8).map(function(r){return '<span style="font-family:\'DM Mono\',monospace;color:#C9A24A">'+ncEsc(String(r.session_date||r.date||'').slice(5))+'</span>';}).join(', ')+(unpaid.length>8?' …':'')+'</div>'
+        +'<button class="kf-act main" id="kfFitPaid">Mark all paid</button>':'');
+    var fp2=document.getElementById('kfFitPaid'); if(fp2) fp2.onclick=function(){ try{ markClientPaidInFull(c.mobile||'',c.name||'',unpaid.length); }catch(e){} setTimeout(function(){ kfClientTab('account'); },1200); };
+    fa.style.display='block';
+  } else if(fa) fa.style.display='none';
   var empty=document.getElementById('kfTabEmpty');
-  var nothing=(t==='plan'&&!hasNut&&!(c&&c.fit))||(t==='account'&&!hasNut)||(t==='days'&&!hasNut&&!(c&&c.fit));
+  var nothing=(t==='plan'&&!hasNut&&!(c&&c.fit))||(t==='account'&&!hasNut&&!(c&&c.fit))||(t==='days'&&!hasNut&&!(c&&c.fit));
   if(nothing){ if(!empty){ empty=document.createElement('div'); empty.id='kfTabEmpty'; empty.className='kf-sub'; v.appendChild(empty);} empty.style.display='block'; empty.textContent=t==='account'?'Billing and consults appear here for nutrition clients.':'Nothing here yet.'; } else if(empty) empty.style.display='none';
 }
 setUniSubTab=function(){ kfClientTab(kfTab||'days'); };
@@ -7820,6 +7850,27 @@ function kfOpenClientByMobile(m,tab){
 // the bell's count lives on Today now
 var _kfBellRefresh=kfitBellRefresh;
 kfitBellRefresh=async function(){ await _kfBellRefresh(); if(kfPlace==='today') kfTodayRender(); };
+
+// ---------- Help: written for the simple Merge (kept in step with every update) ----------
+var KF_HELP=[
+  ['☀️','Today','Your starting point. It lists only what needs you: replies, new meals or workouts, consults that are due, renewals coming up unpaid, and requests waiting. Each has one button (Reply, Open, Log it, Mark paid, Review). When the list is empty, you\'re all caught up.'],
+  ['👥','Clients','Your clients, grouped as Nutrition, Fitness, or both. "My clients" shows the people you\'ve tagged; "All users" shows everyone who signed up. The dot shows recent activity: green (last 2 days), amber (this week), red (longer). "+ Invite" shares your nutrition or fitness link.'],
+  ['🍽️','Her days','Tap a client, then Her days: her snapshot at the top, then each day with its ring, steps and meals (and workouts for fitness clients). Tap a meal to see photos and amounts, and write a note under it. It sends straight away; ✓ means sent, blue ✓✓ means she read it.'],
+  ['🗓️','Plan','Plan a day of meals for her (she ticks them off in her app), see her habit plan, and for fitness clients assign a workout.'],
+  ['💳','Account','Fitness: sessions this month, which are unpaid, and Mark all paid. Nutrition: her month as one timeline: started, each consult (with your notes and hers), next consult, and renewal. Tap "+ Log a consult" after you talk; tap any date to change it; tap Mark paid when she pays. Her settings (show calories, step goal) and your private notes are here too.'],
+  ['🔔','Notifications','Turn on phone notifications from Today (open Merge from its home-screen icon on iPhone). You\'ll get a buzz when a tagged client logs, replies or checks in. Quiet 10 pm to 7 am.'],
+  ['☰','More','Requests, feedback, exercises, your account and invite links, trash, print, help and log out.']
+];
+showCoachHelp=function(){
+  var ov=document.createElement('div'); ov.id='kfHelp'; ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;overflow:auto;padding:20px 14px calc(20px + env(safe-area-inset-bottom,0px))';
+  ov.innerHTML='<div style="max-width:560px;margin:0 auto;background:var(--surf,#1b1b1b);color:var(--text);border-radius:16px;padding:16px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center"><div class="kf-h1" style="font-size:24px">How Merge works</div><button class="kf-act" id="kfHelpClose">Close</button></div>'
+    +'<div class="kf-sub">Three places at the bottom: Today, Clients, More. Each client has three tabs: Her days, Plan, Account.</div>'
+    +KF_HELP.map(function(h){return '<div class="kf-row" style="cursor:default;align-items:flex-start"><div class="kf-ic">'+h[0]+'</div><div style="flex:1"><b>'+h[1]+'</b><div style="font-size:13px;color:var(--muted);line-height:1.5;margin-top:2px">'+h[2]+'</div></div></div>';}).join('')
+    +'</div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#kfHelpClose').onclick=function(){ov.remove();}; ov.onclick=function(e){if(e.target===ov)ov.remove();};
+};
 // start: once Merge is showing, put up the bottom bar and open Today
 (function kfStart(){
   var app=document.getElementById('mainApp');

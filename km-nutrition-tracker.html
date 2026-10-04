@@ -17,6 +17,7 @@
 <script src="./kfit-nutrition-lessons.js"></script>
 <script src="./kfit-i18n.js"></script>
 <script src="./kfit-steps.js"></script>
+<script src="./kfit-client-push.js"></script>
 <script src="./kfit-coach-chat.js"></script>
 <script src="./kfit-join-coach.js"></script>
 <style>
@@ -538,6 +539,11 @@ async function enter(){
   S.view=null; loadCache(); render();
   try{ await flush(); await loadAll(); await loadNotes(); }catch(e){}
   startLive(); updateBadge();
+  try{ if(window.KFitClientPush&&!enter._push){ enter._push=1; KFitClientPush.onOpen(function(u){
+    var q=new URL(u,location.href).searchParams, o=q.get('open'); S.view=null;
+    if(o==='meal'){ S._logDay=q.get('day')||null; S._openMeal=q.get('meal')||null; S._fullDay=S._logDay; S.tab='log'; }
+    else if(o==='coach') S.tab='coach'; else if(o==='chat') S.tab='chat';
+    render(); }); } }catch(e){}
   try{ if(kLang()!=='en'){ if(G_R) trEnsure('reset',G_R); habitOf('start'); if(hasPlan()) habitOf(stepId()); } }catch(e){}
   try{ await syncLegacy(); }catch(e){ console.warn(e); }
   S.loaded=true; S.view=null; render(); checkUnread();
@@ -563,7 +569,7 @@ function renderHome(){
     +'<button class="tile main" id="hmLog"><div class="ic" style="background:#23382B;color:var(--leaf)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div><div style="flex:1"><h2>Log a meal</h2><div class="meta" style="font-weight:400">'+(todays.length?todays.length+' logged today':'Your day, meal by meal')+'</div>'+kcalBar(today())+'</div></button>'
     +'<button class="tile" id="hmPlan"><div class="ic" style="background:#3A2A1E;color:var(--terra)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M6 20c0-5 12-3 12-9S9 6 9 3"/><circle cx="9" cy="3" r="1"/><circle cx="6" cy="20" r="1"/></svg></div><div><h2>My plan</h2><div class="meta" style="font-weight:400">'+esc(planSub)+'</div></div></button>';
   if(anyNotes) html+='<button class="tile" id="hmCoach" style="border-color:#6B5A2A;padding:13px 16px"><div style="font-size:15px">'+(unread?'<b style="color:var(--gold)">'+unread+' new note'+(unread===1?'':'s')+' from your coach</b>':'<b style="color:var(--gold)">From your coach</b>')+' <span style="color:var(--muted)">· tap to read</span></div></button>';
-  html+='<div class="links">'+(dueWeekly()?'<button data-go="weekly" style="border-color:#6B5A2A;color:var(--gold)">Weekly check-in</button>':'')
+  html+='<div id="pushCard"></div><div class="links">'+(dueWeekly()?'<button data-go="weekly" style="border-color:#6B5A2A;color:var(--gold)">Weekly check-in</button>':'')
     +'<button data-go="consults">Consults</button><button data-go="guide">Food guide</button><button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')
     +'<button data-go="chat">'+(S.unread?'Chat ('+S.unread+' new)':'Chat')+'</button></div></div>';
   show(html);
@@ -573,6 +579,7 @@ function renderHome(){
   $('#hmOut').onclick=logOut;
   var hl=$('#hmLang'); if(hl) hl.onclick=function(){var bx=$('#hmLangBox');bx.style.display=bx.style.display==='none'?'block':'none';};
   bindLangChips();
+  try{ if(window.KFitClientPush) KFitClientPush.card($('#pushCard'),{sb:sb,mobile:S.mobile,app:'nutrition',compact:true}); }catch(e){}
   document.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){ if(b.dataset.go==='weekly') return openWeekly(); go(b.dataset.go);};});
 }
 // The habit ladder: what a habit is, and where she is on the plan.

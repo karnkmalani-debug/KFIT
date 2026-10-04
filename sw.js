@@ -1,4 +1,4 @@
-const V = "kfit-v26";
+const V = "kfit-v28";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => e.waitUntil(
   // v16: batch 8 (coach phone notifications). Bumping
@@ -56,7 +56,7 @@ self.addEventListener("push", e => {
   e.waitUntil(Promise.all([
     self.registration.showNotification(d.title || "KFit", {
       body: d.body || "", tag: d.tag || undefined, renotify: !!d.tag, silent: !!d.silent,
-      icon: "/icon-coach-192.png", badge: "/icon-coach-192.png", data: { url: d.url || "/kfit-coach-merged.html" }
+      icon: d.icon || "/icon-coach-192.png", badge: d.icon || "/icon-coach-192.png", data: { url: d.url || "/kfit-coach-merged.html" }
     }),
     kfitBadgeBump()
   ]));
@@ -66,8 +66,9 @@ self.addEventListener("notificationclick", e => {
   const url = (e.notification.data && e.notification.data.url) || "/kfit-coach-merged.html";
   e.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const page = url.split("?")[0].replace(/^\//, "");
     for (const c of all) {
-      if (c.url.indexOf("kfit-coach-merged") >= 0) { c.postMessage({ type: "kfit-open", url }); return c.focus(); }
+      if (page && c.url.indexOf(page) >= 0) { c.postMessage({ type: "kfit-open", url }); return c.focus(); }
     }
     return self.clients.openWindow(url);
   })());

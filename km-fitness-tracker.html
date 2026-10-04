@@ -467,6 +467,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 <script src="./kfit-coach-chat.js"></script>
 <script src="./kfit-join-coach.js"></script>
 <script src="./kfit-steps.js"></script>
+<script src="./kfit-client-push.js"></script>
 <script>
 // Steps today (shared with the nutrition app and Merge)
 (function(){
@@ -476,6 +477,8 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     var m=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
     if(!window.KFitSteps||typeof getSB!=='function'||m.length<8){ if(tries<40) setTimeout(go,1500); return; }
     try{ KFitSteps.mount(document.getElementById('kfStepsBox'),{sb:getSB(),mobile:m}); }catch(e){}
+    try{ if(window.KFitClientPush) KFitClientPush.card(document.getElementById('kfPushBox'),{sb:getSB(),mobile:m,app:'fitness',compact:true}); }catch(e){}
+    try{ if(window.KFitClientPush&&!go._push){ go._push=1; KFitClientPush.onOpen(function(u){ if(/open=chat/.test(u)&&typeof goTab==='function') goTab(6); }); } }catch(e){}
   }
   setTimeout(go,2500);
   document.addEventListener('visibilitychange',function(){ if(!document.hidden){ tries=0; go(); } });
@@ -728,6 +731,7 @@ btn.textContent='Could not copy -- select the address bar manually';
     <input type="hidden" id="clientName">
     <input type="hidden" id="sessDate">
     <div id="kfStepsBox"></div>
+    <div id="kfPushBox"></div>
 
     <div class="card" id="logImportCard" style="display:none;">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">

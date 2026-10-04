@@ -365,7 +365,14 @@
 "Save note": "नोट सेव करें",
 "Save my notes": "मेरे नोट सेव करें",
 "My notes (how it went, what I'll try)…": "मेरे नोट (कैसा रहा, क्या आज़माऊँगी/आज़माऊँगा)…",
-"No consults yet. After each one, your coach's notes appear here, and you can add your own.": "अभी कोई कंसल्ट नहीं। हर कंसल्ट के बाद कोच के नोट यहाँ दिखेंगे, और आप अपने जोड़ सकते हैं।"
+"No consults yet. After each one, your coach's notes appear here, and you can add your own.": "अभी कोई कंसल्ट नहीं। हर कंसल्ट के बाद कोच के नोट यहाँ दिखेंगे, और आप अपने जोड़ सकते हैं।",
+"🔔 Notifications": "🔔 नोटिफ़िकेशन",
+"Turn on": "चालू करें",
+"On ✓": "चालू ✓",
+"Get a buzz when your coach replies or sends you something.": "जब कोच जवाब दे या कुछ भेजे, तो फ़ोन पर सूचना पाएँ।",
+"You'll get a buzz when your coach replies or sends you something.": "जब कोच जवाब देगा या कुछ भेजेगा, आपको सूचना मिलेगी।",
+"Get a buzz when your coach replies or sends you something. On iPhone, open KFit from its home-screen icon first.": "जब कोच जवाब दे या कुछ भेजे, तो सूचना पाएँ। iPhone पर पहले होम स्क्रीन आइकन से KFit खोलें।",
+"Turn off on this phone": "इस फ़ोन पर बंद करें"
 },es:{
 "Welcome to KFit Nutrition.": "Te damos la bienvenida a KFit Nutrición.",
 "A calm, simple coach for everyday eating. One small habit at a time, a two-minute lesson a day, and meals logged with a photo. No strict diets.": "Un coach tranquilo y sencillo para tu comida de cada día. Un pequeño hábito a la vez, una lección de dos minutos al día y tus comidas registradas con una foto. Sin dietas estrictas.",
@@ -722,7 +729,14 @@
 "Save note": "Guardar nota",
 "Save my notes": "Guardar mis notas",
 "My notes (how it went, what I'll try)…": "Mis notas (cómo fue, qué probaré)…",
-"No consults yet. After each one, your coach's notes appear here, and you can add your own.": "Aún no hay consultas. Después de cada una, las notas de tu coach aparecerán aquí y podrás añadir las tuyas."
+"No consults yet. After each one, your coach's notes appear here, and you can add your own.": "Aún no hay consultas. Después de cada una, las notas de tu coach aparecerán aquí y podrás añadir las tuyas.",
+"🔔 Notifications": "🔔 Notificaciones",
+"Turn on": "Activar",
+"On ✓": "Activadas ✓",
+"Get a buzz when your coach replies or sends you something.": "Recibe un aviso cuando tu coach te responda o te envíe algo.",
+"You'll get a buzz when your coach replies or sends you something.": "Recibirás un aviso cuando tu coach te responda o te envíe algo.",
+"Get a buzz when your coach replies or sends you something. On iPhone, open KFit from its home-screen icon first.": "Recibe un aviso cuando tu coach te responda o te envíe algo. En iPhone, abre KFit primero desde su icono en la pantalla de inicio.",
+"Turn off on this phone": "Desactivar en este teléfono"
 }};
   var WD={hi:{Mon:'सोम',Tue:'मंगल',Wed:'बुध',Thu:'गुरु',Fri:'शुक्र',Sat:'शनि',Sun:'रवि'},es:{Mon:'lun',Tue:'mar',Wed:'mié',Thu:'jue',Fri:'vie',Sat:'sáb',Sun:'dom'}};
   var MO={hi:{Jan:'जन',Feb:'फ़र',Mar:'मार्च',Apr:'अप्रै',May:'मई',Jun:'जून',Jul:'जुल',Aug:'अग',Sep:'सित',Oct:'अक्टू',Nov:'नव',Dec:'दिस'},es:{Jan:'ene',Feb:'feb',Mar:'mar',Apr:'abr',May:'may',Jun:'jun',Jul:'jul',Aug:'ago',Sep:'sept',Oct:'oct',Nov:'nov',Dec:'dic'}};
