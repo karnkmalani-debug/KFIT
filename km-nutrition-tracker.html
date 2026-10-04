@@ -440,6 +440,7 @@ function render(){
   if(S.tab==='coach') return renderCoachNotes();
   if(S.tab==='guide') return renderFoodGuide();
   if(S.tab==='consults') return renderConsults();
+  if(S.tab==='week') return renderWeek();
   return renderHome();
 }
 function go(tab){ if(chatUI&&tab!=='chat'){try{chatUI.destroy();}catch(e){} chatUI=null;} S.tab=tab;S.view=null;stopSpeech();render(); }
@@ -543,6 +544,7 @@ async function enter(){
     var q=new URL(u,location.href).searchParams, o=q.get('open'); S.view=null;
     if(o==='meal'){ S._logDay=q.get('day')||null; S._openMeal=q.get('meal')||null; S._fullDay=S._logDay; S.tab='log'; }
     else if(o==='coach') S.tab='coach'; else if(o==='chat') S.tab='chat';
+    else if(o==='week'){ S.week=undefined; S.tab='week'; } else if(o==='log'){ S._logDay=null; S._fullDay=null; S.tab='log'; }
     render(); }); } }catch(e){}
   try{ if(kLang()!=='en'){ if(G_R) trEnsure('reset',G_R); habitOf('start'); if(hasPlan()) habitOf(stepId()); } }catch(e){}
   try{ await syncLegacy(); }catch(e){ console.warn(e); }
@@ -580,6 +582,12 @@ function renderHome(){
   var hl=$('#hmLang'); if(hl) hl.onclick=function(){var bx=$('#hmLangBox');bx.style.display=bx.style.display==='none'?'block':'none';};
   bindLangChips();
   try{ if(window.KFitClientPush) KFitClientPush.card($('#pushCard'),{sb:sb,mobile:S.mobile,app:'nutrition',compact:true}); }catch(e){}
+  (S.week!==undefined?Promise.resolve(S.week):loadWeek()).then(function(w){
+    if(!w||S.tab!=='home'||S.view) return; var we=(w.data&&w.data.week_end)||addDays(w.week_start,6); if(addDays(we,6)<today()) return;
+    var box=document.getElementById('pushCard'); if(!box||document.getElementById('wkCard')) return;
+    var holder=document.createElement('div'); holder.innerHTML=weekCardHtml(w,false); box.parentNode.insertBefore(holder.firstChild,box);
+    var wc=document.getElementById('wkCard'); if(wc) wc.onclick=function(){ go('week'); };
+  });
   document.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){ if(b.dataset.go==='weekly') return openWeekly(); go(b.dataset.go);};});
 }
 // The habit ladder: what a habit is, and where she is on the plan.
@@ -637,6 +645,27 @@ async function renderConsults(){
     var ta=document.querySelector('[data-cn="'+b.dataset.cns+'"]'), t=(ta.value||'').trim().slice(0,4000);
     var r=await sb.from('nutrition_consults').update({client_notes:t||null}).eq('id',+b.dataset.cns);
     toast(r.error?'Not saved. Check your connection.':'Saved'); };});
+}
+// Her week (made every Sunday): days logged, habit, steps, best day, coach's line.
+async function loadWeek(){
+  try{ var r=await sb.from('nutrition_week_summaries').select('*').eq('client_id',S.clientId).order('week_start',{ascending:false}).limit(1);
+    S.week=r.data&&r.data[0]||null; }catch(e){ S.week=null; }
+  return S.week;
+}
+function weekCardHtml(w,full){
+  var d=w.data||{}, ws=parseD(d.week_start||w.week_start), we=parseD(d.week_end||addDays(w.week_start,6));
+  var rng=ws.toLocaleDateString(kLoc(),{day:'numeric',month:'short'})+' – '+we.toLocaleDateString(kLoc(),{day:'numeric',month:'short'});
+  var best=d.best_day?parseD(d.best_day).toLocaleDateString(kLoc(),{weekday:'long'}):null;
+  return '<div class="card" style="border:1px solid var(--gold);gap:8px"'+(full?'':' id="wkCard" role="button"')+'><div class="row" style="justify-content:space-between;align-items:center"><span class="f-meal" style="font-size:20px">Your week ✨</span><span class="meta" style="font-weight:400">'+esc(rng)+'</span></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">'
+    +[[d.days_logged+'/7','days logged','var(--gold)'],[(d.habit_done||0)+'/7','habit done','var(--leaf)'],[d.avg_steps!=null?fmt(d.avg_steps):'–','avg steps','var(--ink)']].map(function(x){return '<div style="border:1px solid var(--line);border-radius:12px;padding:8px;text-align:center"><div class="f-meal" style="font-size:22px;color:'+x[2]+'">'+esc(x[0])+'</div><div class="meta" style="font-weight:400;font-size:11px">'+x[1]+'</div></div>';}).join('')+'</div>'
+    +(best?'<div class="f-food">Best day: '+esc(best)+(d.best_meals?' · '+d.best_meals+' meals logged':'')+' 🏆</div>':'')
+    +(w.coach_line?'<div class="coachbox" style="padding:8px 10px"><b>From your coach:</b> '+esc(w.coach_line)+'</div>':'')+'</div>';
+}
+async function renderWeek(){
+  S.tab='week';
+  var w=S.week||await loadWeek(); if(S.tab!=='week') return;
+  show('<div class="screen">'+head('Your week')+(w?weekCardHtml(w,true):'<div class="card"><div class="body">Your first weekly summary arrives on Sunday.</div></div>')+'</div>');
 }
 function renderFoodGuide(){
   S.tab='guide';
@@ -1565,6 +1594,7 @@ function renderProgress(){
     S.program.settings=Object.assign({},S.program.settings,{goal:b.dataset.goal}); S.program.updated_ms=now();
     write('nutrition_program',programRow()); renderProgress();
   };});
+  try{ if(window.KFitClientPush){ var sc=document.querySelector('.screen'), pc=document.createElement('div'); pc.id='pushCardP'; sc.appendChild(pc); KFitClientPush.card(pc,{sb:sb,mobile:S.mobile,app:'nutrition',nudge:true}); } }catch(e){}
   var sk=$('#pgShowK'); if(sk) sk.onchange=function(){ S.program.settings=Object.assign({},S.program.settings,{showKcal:sk.checked}); S.program.updated_ms=now(); write('nutrition_program',programRow()); renderProgress(); };
 }
 function calorieCard(){

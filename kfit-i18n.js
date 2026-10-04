@@ -372,7 +372,15 @@
 "Get a buzz when your coach replies or sends you something.": "जब कोच जवाब दे या कुछ भेजे, तो फ़ोन पर सूचना पाएँ।",
 "You'll get a buzz when your coach replies or sends you something.": "जब कोच जवाब देगा या कुछ भेजेगा, आपको सूचना मिलेगी।",
 "Get a buzz when your coach replies or sends you something. On iPhone, open KFit from its home-screen icon first.": "जब कोच जवाब दे या कुछ भेजे, तो सूचना पाएँ। iPhone पर पहले होम स्क्रीन आइकन से KFit खोलें।",
-"Turn off on this phone": "इस फ़ोन पर बंद करें"
+"Turn off on this phone": "इस फ़ोन पर बंद करें",
+"Remind me if I haven't logged by": "अगर तब तक कुछ न लिखा हो तो याद दिलाएँ",
+"Your week ✨": "आपका हफ़्ता ✨",
+"Your week": "आपका हफ़्ता",
+"days logged": "दिन लिखे",
+"habit done": "आदत पूरी",
+"avg steps": "औसत कदम",
+"From your coach:": "कोच की ओर से:",
+"Your first weekly summary arrives on Sunday.": "आपका पहला हफ़्ते का सारांश रविवार को आएगा।"
 },es:{
 "Welcome to KFit Nutrition.": "Te damos la bienvenida a KFit Nutrición.",
 "A calm, simple coach for everyday eating. One small habit at a time, a two-minute lesson a day, and meals logged with a photo. No strict diets.": "Un coach tranquilo y sencillo para tu comida de cada día. Un pequeño hábito a la vez, una lección de dos minutos al día y tus comidas registradas con una foto. Sin dietas estrictas.",
@@ -736,7 +744,15 @@
 "Get a buzz when your coach replies or sends you something.": "Recibe un aviso cuando tu coach te responda o te envíe algo.",
 "You'll get a buzz when your coach replies or sends you something.": "Recibirás un aviso cuando tu coach te responda o te envíe algo.",
 "Get a buzz when your coach replies or sends you something. On iPhone, open KFit from its home-screen icon first.": "Recibe un aviso cuando tu coach te responda o te envíe algo. En iPhone, abre KFit primero desde su icono en la pantalla de inicio.",
-"Turn off on this phone": "Desactivar en este teléfono"
+"Turn off on this phone": "Desactivar en este teléfono",
+"Remind me if I haven't logged by": "Recuérdame si no he registrado nada antes de las",
+"Your week ✨": "Tu semana ✨",
+"Your week": "Tu semana",
+"days logged": "días registrados",
+"habit done": "hábito cumplido",
+"avg steps": "pasos de media",
+"From your coach:": "De tu coach:",
+"Your first weekly summary arrives on Sunday.": "Tu primer resumen semanal llega el domingo."
 }};
   var WD={hi:{Mon:'सोम',Tue:'मंगल',Wed:'बुध',Thu:'गुरु',Fri:'शुक्र',Sat:'शनि',Sun:'रवि'},es:{Mon:'lun',Tue:'mar',Wed:'mié',Thu:'jue',Fri:'vie',Sat:'sáb',Sun:'dom'}};
   var MO={hi:{Jan:'जन',Feb:'फ़र',Mar:'मार्च',Apr:'अप्रै',May:'मई',Jun:'जून',Jul:'जुल',Aug:'अग',Sep:'सित',Oct:'अक्टू',Nov:'नव',Dec:'दिस'},es:{Jan:'ene',Feb:'feb',Mar:'mar',Apr:'abr',May:'may',Jun:'jun',Jul:'jul',Aug:'ago',Sep:'sept',Oct:'oct',Nov:'nov',Dec:'dic'}};
@@ -747,7 +763,7 @@
         [/^of ~?([\d,]+) kcal$/i,'~$1 kcal में से'],[/^about ([\d,]+) kcal of ~([\d,]+)$/i,'लगभग $1 / ~$2 kcal'],[/^Today so far: about ([\d,]+) kcal of ~([\d,]+)$/i,'आज अब तक: लगभग $1 / ~$2 kcal'],
         [/^eaten (.+)$/i,'खाया $1'],[/^logged (.+)$/i,'लिखा $1'],[/^(\d+) notes? from your coach$/i,'कोच के $1 नोट'],[/^Habit (done ✓|partly|not done)$/i,function(m,a){return 'आदत '+({'done ✓':'पूरी ✓',partly:'थोड़ी','not done':'नहीं हुई'})[a.toLowerCase()];}],
         [/^💬 (\d+) new$/,'💬 $1 नया'],[/^Day (\d+) · 2 min read$/i,'दिन $1 · 2 मिनट'],[/^Start (.+)$/,function(m,a){var x=tr(a);return x!==a?x+' शुरू करें':m;}],[/^(\d+) weeks?$/i,'$1 हफ़्ते'],
-        [/^That's (.+)\.$/,'यानी $1।'],[/^Welcome to (.+)$/,'$1 में स्वागत है'],[/^goal ([\d,]+)$/i,'लक्ष्य $1'],[/^of ([\d,]+)$/i,'$1 में से'],
+        [/^That's (.+)\.$/,'यानी $1।'],[/^Welcome to (.+)$/,'$1 में स्वागत है'],[/^Best day: (.+)$/,'सबसे अच्छा दिन: $1'],[/^goal ([\d,]+)$/i,'लक्ष्य $1'],[/^of ([\d,]+)$/i,'$1 में से'],
         [/^your (.+)$/,function(m,a){var x=tr(a);return 'आपका '+x;}],[/^([\d,]+) of ([\d,]+) calories$/i,'$1 / $2 कैलोरी'],
         [/^Hands: protein ([\d.]+)$/i,'हाथ: प्रोटीन $1'],[/^veg ([\d.]+)$/i,'सब्ज़ी $1'],[/^carbs ([\d.]+)$/i,'कार्ब्स $1'],[/^fats ([\d.]+)$/i,'फ़ैट $1'],[/^estimate$/i,'अनुमान'],
         [/^Based on your details \((.+)\) and latest weight\. Your habits come first; this number is just a guide\.$/,'आपकी जानकारी ($1) और ताज़ा वज़न के आधार पर। आपकी आदतें पहले आती हैं; यह नंबर बस एक गाइड है।']],
@@ -756,7 +772,7 @@
         [/^of ~?([\d,]+) kcal$/i,'de ~$1 kcal'],[/^about ([\d,]+) kcal of ~([\d,]+)$/i,'unas $1 de ~$2 kcal'],[/^Today so far: about ([\d,]+) kcal of ~([\d,]+)$/i,'Hoy hasta ahora: unas $1 de ~$2 kcal'],
         [/^eaten (.+)$/i,'comido $1'],[/^logged (.+)$/i,'registrado $1'],[/^(\d+) notes? from your coach$/i,'$1 nota(s) de tu coach'],[/^Habit (done ✓|partly|not done)$/i,function(m,a){return 'Hábito '+({'done ✓':'hecho ✓',partly:'en parte','not done':'no hecho'})[a.toLowerCase()];}],
         [/^💬 (\d+) new$/,'💬 $1 nuevo'],[/^Day (\d+) · 2 min read$/i,'Día $1 · 2 min'],[/^Start (.+)$/,function(m,a){var x=tr(a);return x!==a?'Empezar '+x:m;}],[/^(\d+) weeks?$/i,'$1 semanas'],
-        [/^That's (.+)\.$/,'Eso es $1.'],[/^Welcome to (.+)$/,'Bienvenido a $1'],[/^goal ([\d,]+)$/i,'meta $1'],[/^of ([\d,]+)$/i,'de $1'],
+        [/^That's (.+)\.$/,'Eso es $1.'],[/^Welcome to (.+)$/,'Bienvenido a $1'],[/^Best day: (.+)$/,'Mejor día: $1'],[/^goal ([\d,]+)$/i,'meta $1'],[/^of ([\d,]+)$/i,'de $1'],
         [/^your (.+)$/,function(m,a){var x=tr(a);return 'tu '+x;}],[/^([\d,]+) of ([\d,]+) calories$/i,'$1 de $2 calorías'],
         [/^Hands: protein ([\d.]+)$/i,'Manos: proteína $1'],[/^veg ([\d.]+)$/i,'verdura $1'],[/^carbs ([\d.]+)$/i,'carbohidratos $1'],[/^fats ([\d.]+)$/i,'grasas $1'],[/^estimate$/i,'estimación'],
         [/^Based on your details \((.+)\) and latest weight\. Your habits come first; this number is just a guide\.$/,'Según tus datos ($1) y tu último peso. Tus hábitos van primero; este número es solo una guía.']]

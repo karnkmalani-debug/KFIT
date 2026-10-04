@@ -33,8 +33,16 @@
       +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="font-weight:700;font-size:15px">🔔 Notifications</div>'
       +(on?'<span style="color:var(--leaf,#8FD1A2);font-weight:700;font-size:13px">On ✓</span>':'<button class="kcp-on" style="min-height:38px;border-radius:10px;border:none;background:var(--green,#2F6B4A);color:#fff;font-weight:700;padding:0 14px;font-family:inherit">Turn on</button>')+'</div>'
       +'<div style="font-size:13px;color:var(--muted)">'+(on?'You\'ll get a buzz when your coach replies or sends you something.':'Get a buzz when your coach replies or sends you something.'+(iPhone()&&!standalone()?' On iPhone, open KFit from its home-screen icon first.':''))+'</div>'
+      +(on&&opts.nudge?'<div class="kcp-nudge" style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;border-top:1px solid var(--line,var(--border));padding-top:8px"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" class="kcp-nudge-on" style="width:20px;height:20px"> <span>Remind me if I haven\'t logged by</span></label><input type="time" class="kcp-nudge-time" value="14:00" style="min-height:36px;border-radius:8px;border:1px solid var(--line2,var(--border));background:var(--sand,var(--surf2));color:var(--ink,var(--text));padding:0 6px;font-size:15px"></div>':'')
       +(on?'<button class="kcp-off" style="align-self:flex-start;background:none;border:none;color:var(--muted);font-size:13px;padding:0;font-family:inherit;text-decoration:underline">Turn off on this phone</button>'
           :(opts.compact?'<button class="kcp-hide" style="align-self:flex-start;background:none;border:none;color:var(--muted);font-size:13px;padding:0;font-family:inherit">Not now</button>':''))+'</div>';
+    var nb=el.querySelector('.kcp-nudge');
+    if(nb){
+      var m=String(opts.mobile).replace(/\D/g,''), cb=nb.querySelector('.kcp-nudge-on'), tm=nb.querySelector('.kcp-nudge-time');
+      try{ var pr=await opts.sb.from('client_push_prefs').select('nudge_time').eq('mobile',m); var nt=pr.data&&pr.data[0]&&pr.data[0].nudge_time; cb.checked=!!nt; if(nt) tm.value=nt; }catch(e){}
+      var save=async function(){ var v=/^\d{2}:\d{2}$/.test(tm.value)?tm.value:'14:00'; var r=await opts.sb.from('client_push_prefs').upsert({mobile:m,nudge_time:cb.checked?v:null},{onConflict:'mobile'}); if(r.error) alert('Not saved. Check your connection.'); };
+      cb.onchange=save; tm.onchange=function(){ if(cb.checked) save(); };
+    }
     var b=el.querySelector('.kcp-on'); if(b) b.onclick=async function(){ b.disabled=true; if(await turnOn(opts.sb,opts.mobile,opts.app||'nutrition')) card(el,Object.assign({},opts,{compact:false})); else b.disabled=false; };
     var o=el.querySelector('.kcp-off'); if(o) o.onclick=async function(){ await turnOff(opts.sb); card(el,opts); };
     var h=el.querySelector('.kcp-hide'); if(h) h.onclick=function(){ try{ localStorage.setItem('kfit_push_card_hidden','1'); }catch(e){} el.innerHTML=''; };

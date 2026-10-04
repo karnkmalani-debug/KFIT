@@ -7207,6 +7207,8 @@ async function ncEstimateMissing(cid,btn){
   alert('Added estimates for '+done+' meal'+(done===1?'':'s')+(failed?' ('+failed+' could not be estimated)':'')+'.');
   ncDaysRender(cid); ncSnapRender(cid);
 }
+var NC_QR_DEFAULT=['Great protein! 💪','Veg first next time 🥦','Lovely plate 👏','Smaller rice portion?','Well done today ✓'];
+function ncQuickReplies(){ try{ var v=JSON.parse(localStorage.getItem('kfit_quick_replies')||'null'); if(Array.isArray(v)&&v.length) return v; }catch(e){} return NC_QR_DEFAULT; }
 function ncAddMonths(d,k){var p=d.split('-'),y=+p[0],m=+p[1]-1+k,dd=+p[2];y+=Math.floor(m/12);m=((m%12)+12)%12;var last=new Date(y,m+1,0).getDate();var x=new Date(y,m,Math.min(dd,last));return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');}
 function ncNice(d){var p=d.split('-');return new Date(+p[0],+p[1]-1,+p[2]).toDateString().slice(0,10);}
 // A real (see-through) date field over the thing you tap -- iPhones only open
@@ -7378,7 +7380,8 @@ async function ncDaysRender(cid){
       +'<div style="font-size:11px;opacity:.75">'+new Date(c.created_at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase()+' · '+new Date(c.created_at).toDateString().slice(4,10)
       +(c.edited_at?' · edited':'')+(me?(c.read_by_client_at?' <span style="color:#5BB8F5;letter-spacing:-2px" title="Read">✓✓</span>':' <span style="letter-spacing:-2px" title="Sent">✓</span>')+' · <a href="#" data-nce="'+c.id+'" style="color:inherit">edit</a>':'')+'</div></div>';}
   function thread(list,key,ph){
-    return '<div style="display:flex;flex-direction:column;gap:5px;margin-top:6px">'+(list||[]).map(bubble).join('')
+    var qr=key.indexOf('m|')===0||key.indexOf('s|')===0?'<div style="display:flex;gap:6px;flex-wrap:wrap">'+ncQuickReplies().map(function(q,i){return '<button data-qr="'+i+'" data-qrk="'+ncEsc(key)+'" style="border:1px solid var(--border);background:none;color:var(--text);border-radius:16px;padding:5px 10px;font-size:12px;font-family:inherit;cursor:pointer">'+ncEsc(q)+'</button>';}).join('')+'<button data-qredit="1" style="border:none;background:none;color:var(--sage);font-size:12px;font-family:inherit;cursor:pointer">✎ edit</button></div>':'';
+    return '<div style="display:flex;flex-direction:column;gap:5px;margin-top:6px">'+(list||[]).map(bubble).join('')+qr
       +'<div style="display:flex;gap:6px"><input data-ncin="'+key+'" placeholder="'+ph+'" style="flex:1;padding:7px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:13px"><button class="btn-sm" data-ncsend="'+key+'">Send</button></div></div>';}
   var groups=[], gi={};
   dayList.forEach(function(d){var key=d>=monthCut?'w'+ncWeekStart(d):'m'+d.slice(0,7);
@@ -7424,10 +7427,30 @@ async function ncDaysRender(cid){
   });
   if(!groups.length) html+='<div style="font-size:13px;color:var(--muted)">No meals logged yet.</div>';
   el.innerHTML=html+'</div>';
+  // her latest week (made every Sunday), with your line for her
+  try{ var wk=await getSB().from('nutrition_week_summaries').select('*').eq('client_id',cid).order('week_start',{ascending:false}).limit(1); var W=wk.data&&wk.data[0];
+    if(W&&(W.data&&W.data.week_end||ncAddDays(W.week_start,6))>=ncAddDays(ncToday(),-6)){ var D=W.data||{};
+      var wc=document.createElement('div'); wc.className='card'; wc.style.cssText='margin-bottom:12px;gap:8px;border-color:#6B5A2A';
+      wc.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:16px;font-weight:800">✨ Her week</div><span style="font-size:12px;color:var(--muted)">'+ncNice(D.week_start||W.week_start).slice(4)+' – '+ncNice(D.week_end||ncAddDays(W.week_start,6)).slice(4)+'</span></div>'
+        +'<div style="font-size:14px">'+(D.days_logged||0)+'/7 days logged · '+(D.habit_done||0)+'/7 habit done'+(D.avg_steps!=null?' · avg '+Number(D.avg_steps).toLocaleString('en-IN')+' steps':'')+'</div>'
+        +(D.best_day?'<div style="font-size:13px;color:var(--muted)">Best day: '+ncNice(D.best_day).slice(0,3)+' ('+(D.best_meals||0)+' meals)</div>':'')
+        +'<div style="display:flex;gap:6px"><input id="ncWkLine_'+cid+'" value="'+ncEsc(W.coach_line||'')+'" placeholder="Add a line for her (she sees it on her week card)" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:13px"><button class="btn-sm" id="ncWkSave_'+cid+'">Save</button></div>';
+      el.insertBefore(wc,el.firstChild);
+      document.getElementById('ncWkSave_'+cid).onclick=async function(){ var v=(document.getElementById('ncWkLine_'+cid).value||'').trim().slice(0,500);
+        var r=await getSB().from('nutrition_week_summaries').update({coach_line:v||null}).eq('client_id',cid).eq('week_start',W.week_start);
+        this.textContent=r.error?'Not saved':'Saved ✓'; var me=this; setTimeout(function(){me.textContent='Save';},1500); };
+    } }catch(e){}
   // photos (signed links from her private folder)
   el.querySelectorAll('[data-ncph]').forEach(async function(img){
     try{ var u=await getSB().storage.from('kfit-meals').createSignedUrl(img.dataset.ncph,3600); if(u.data&&u.data.signedUrl){ img.src=u.data.signedUrl; img.onclick=function(){window.open(u.data.signedUrl,'_blank');}; } }catch(e){}
   });
+  el.querySelectorAll('[data-qr]').forEach(function(b){b.onclick=function(e){ e.stopPropagation();
+    var inp=el.querySelector('[data-ncin="'+b.dataset.qrk+'"]'), sendB=el.querySelector('[data-ncsend="'+b.dataset.qrk+'"]');
+    if(inp&&sendB){ inp.value=ncQuickReplies()[+b.dataset.qr]||''; sendB.click(); } };});
+  el.querySelectorAll('[data-qredit]').forEach(function(b){b.onclick=function(e){ e.stopPropagation();
+    var cur=ncQuickReplies().join(' | '), v=prompt('Your quick replies, separated by  |  (up to 8):',cur); if(v===null) return;
+    var list=v.split('|').map(function(x){return x.trim();}).filter(Boolean).slice(0,8);
+    try{ localStorage.setItem('kfit_quick_replies',JSON.stringify(list.length?list:NC_QR_DEFAULT)); }catch(e2){} ncDaysRender(cid); };});
   el.querySelectorAll('[data-ncsend]').forEach(function(b){b.onclick=async function(){
     var key=b.dataset.ncsend, inp=el.querySelector('[data-ncin="'+key+'"]'), txt=(inp&&inp.value||'').trim(); if(!txt) return;
     var k=key.split('|'), row={client_id:cid,day:k[2],meal_id:null,author:'coach',body:txt.slice(0,2000)};
@@ -7465,7 +7488,7 @@ async function ncDaysRender(cid){
 try{ if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){}); }catch(e){}
 function kfitB64ToU8(b){var p='='.repeat((4-b.length%4)%4),s=(b+p).replace(/-/g,'+').replace(/_/g,'/'),r=atob(s),o=new Uint8Array(r.length);for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o;}
 function kfitIsStandalone(){return (window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true;}
-var KFIT_PUSH_DEFAULT={meals:true,replies:true,workouts:true,checkins:false,quiet_from:'22:00',quiet_to:'07:00',tz:'Asia/Kolkata'};
+var KFIT_PUSH_DEFAULT={summary:true,meals:true,replies:true,workouts:true,checkins:false,quiet_from:'22:00',quiet_to:'07:00',tz:'Asia/Kolkata'};
 async function kfitPushState(){
   var st={supported:'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window,permission:(window.Notification&&Notification.permission)||'default',subscribed:false,prefs:KFIT_PUSH_DEFAULT};
   try{ if(st.supported){ var reg=await navigator.serviceWorker.ready; var sub=await reg.pushManager.getSubscription(); st.subscribed=!!sub; } }catch(e){}
@@ -7502,7 +7525,7 @@ async function kfitPushCard(el){
     +'<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:800">📱 Phone notifications</div>'
     +(st.subscribed?'<span style="color:var(--sage);font-size:13px;font-weight:700">On for this phone ✓</span>':'<button class="btn-sm" id="kpOn">Turn on</button>')+'</div>'
     +(st.subscribed?'':'<div style="font-size:12px;color:var(--muted)">Get a buzz when tagged clients log something, even when Merge is closed.'+(/iPhone|iPad/.test(navigator.userAgent)&&!kfitIsStandalone()?' <b>On iPhone, open Merge from its home-screen icon first.</b>':'')+'</div>')
-    +tg('meals','Meals logged')+tg('replies','Replies (meal notes and chat)')+tg('workouts','Workouts logged')+tg('checkins','Habit check-ins')
+    +tg('summary','Morning summary at 8 am')+tg('meals','Meals logged')+tg('replies','Replies (meal notes and chat)')+tg('workouts','Workouts logged')+tg('checkins','Habit check-ins')
     +'<div style="display:flex;justify-content:space-between;align-items:center;font-size:14px"><span>Quiet hours (no buzz)</span><span><input type="time" id="kpQf" value="'+(P.quiet_from||'')+'" style="padding:4px"> – <input type="time" id="kpQt" value="'+(P.quiet_to||'')+'" style="padding:4px"></span></div>'
     +(st.subscribed?'<div style="display:flex;gap:8px;margin-top:4px"><button class="btn-sm" id="kpTest">Send a test</button><button class="btn-sm" id="kpOff">Turn off on this phone</button></div>':'')
     +'</div>';
@@ -7528,6 +7551,7 @@ function kfitOpenFromUrl(u){
       var c=roster.find(function(r){return String(r.mobile||'').replace(/\D/g,'')===m;});
       if(!c||!window.currentCoachId){ if(tries<60) setTimeout(wait,500); return; }
       window.ncFocus={m:m,meal_id:q.get('meal')||null,day:q.get('day')||null};
+      try{ kfSide=(q.get('meal')||q.get('day'))?'nut':(c.fit?'fit':null); }catch(e){}
       openUniClient(c.key);
       try{ history.replaceState(null,'',location.pathname); }catch(e){}
     })();
@@ -7727,9 +7751,25 @@ function kfClientsRender(){
   if(!list.length) html+='<div class="kf-row" style="cursor:default;justify-content:center;color:var(--muted)">'+(q?'No one matches that search.':'No clients yet. Tap "+ Invite" to add your first one.')+'</div>';
   el.innerHTML=html;
   var sb=el.querySelector('#kfSearch'); sb.oninput=function(){ var pos=sb.selectionStart; kfClientsRender(); var n=document.getElementById('kfSearch'); n.focus(); try{n.setSelectionRange(pos,pos);}catch(e){} };
-  el.querySelectorAll('[data-kc]').forEach(function(r){r.onclick=function(){ openUniClient(r.dataset.kc); };});
+  el.querySelectorAll('[data-kc]').forEach(function(r){r.onclick=function(){
+    var c=list.find(function(x){return x.key===r.dataset.kc;});
+    if(c&&c.fit&&c.nut) return kfChooseSide(c);
+    kfSide=null; openUniClient(r.dataset.kc); };});
   el.querySelectorAll('[data-all]').forEach(function(b){b.onclick=function(){ kfShowAll=b.dataset.all==='1'; kfClientsRender(); };});
   el.querySelector('#kfInvite').onclick=kfInvite;
+}
+// Fitness + Nutrition clients: choose which side to open
+var kfSide=null;
+function kfChooseSide(c){
+  var ov=document.createElement('div'); ov.id='kfSideSheet'; ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  ov.innerHTML='<div style="background:var(--surf,#1b1b1b);color:var(--text);border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));width:100%;max-width:560px;display:flex;flex-direction:column;gap:10px">'
+    +'<div class="kf-h1" style="font-size:22px">Open '+ncEsc(c.name||'')+'\'s…</div>'
+    +'<button data-side="nut" style="border:none;border-radius:16px;padding:16px;display:flex;gap:12px;align-items:center;background:#23382B;color:#CFEBD8;font-family:inherit;text-align:left;cursor:pointer"><span style="font-size:26px">🥗</span><span><b style="font-size:17px">Nutrition</b><br><span style="font-size:12px;color:#9C978A">meals, habits, consults, billing</span></span></button>'
+    +'<button data-side="fit" style="border:none;border-radius:16px;padding:16px;display:flex;gap:12px;align-items:center;background:#1E2433;color:#C9D7F5;font-family:inherit;text-align:left;cursor:pointer"><span style="font-size:26px">🏋️</span><span><b style="font-size:17px">Fitness</b><br><span style="font-size:12px;color:#9C978A">workouts, sessions, payments</span></span></button>'
+    +'<button id="kfSideCancel" style="background:none;border:none;color:var(--muted);font-family:inherit;font-size:14px;padding:8px;cursor:pointer">Cancel</button></div>';
+  document.body.appendChild(ov);
+  ov.querySelectorAll('[data-side]').forEach(function(b){b.onclick=function(){ kfSide=b.dataset.side; ov.remove(); kfTab='days'; openUniClient(c.key); };});
+  ov.querySelector('#kfSideCancel').onclick=function(){ov.remove();}; ov.onclick=function(e){if(e.target===ov)ov.remove();};
 }
 function kfInvite(){
   var base=location.origin, id=window.currentCoachId||'';
@@ -7764,16 +7804,34 @@ function kfClientTabs(){
 function kfClientTab(t){
   kfTab=t; kfClientTabs(); var v=document.getElementById('uniClientView'); if(!v) return;
   document.querySelectorAll('#kfTabs [data-kt]').forEach(function(b){b.classList.toggle('on',b.dataset.kt===t);});
-  var c=null; try{ c=buildUnifiedRoster().find(function(r){return r.key===uniCurrentKey;}); }catch(e){}
+  var c0=null; try{ c0=buildUnifiedRoster().find(function(r){return r.key===uniCurrentKey;}); }catch(e){}
   var fit=document.getElementById('uniFitDetail'), nc=document.getElementById('uniNutCoach'), nd=document.getElementById('uniNutDetail'), tg=document.getElementById('ncOldToggle');
-  var hasNut=nc&&nc.innerHTML.trim().length>0;
-  if(fit) fit.style.display=(c&&c.fit&&(t==='days'))?'block':'none';
+  var both=!!(c0&&c0.fit&&c0.nut&&nc&&nc.innerHTML.trim().length>0);
+  if(both&&!kfSide) kfSide='nut';
+  if(!both) kfSide=null;
+  // a client with both shows one side at a time
+  var c=c0?Object.assign({},c0):null; if(c&&both&&kfSide==='nut') c.fit=null;
+  var hasNut=nc&&nc.innerHTML.trim().length>0&&!(both&&kfSide==='fit');
+  var sbar=document.getElementById('kfSideBar');
+  if(both){
+    if(!sbar){ sbar=document.createElement('div'); sbar.id='kfSideBar'; var tb=document.getElementById('kfTabs'); tb.parentNode.insertBefore(sbar,tb); }
+    var isN=kfSide==='nut';
+    sbar.style.cssText='display:flex;justify-content:space-between;align-items:center;border-radius:12px;padding:10px 12px;margin-bottom:10px;cursor:pointer;background:'+(isN?'#23382B':'#1E2433');
+    sbar.innerHTML='<span style="font-weight:800;color:'+(isN?'#CFEBD8':'#C9D7F5')+'">'+(isN?'🥗 Nutrition':'🏋️ Fitness')+'</span><span style="font-size:13px;font-weight:800;color:'+(isN?'#9DB7F0':'#8FD1A2')+'">Switch to '+(isN?'Fitness':'Nutrition')+' ⇄</span>';
+    sbar.onclick=function(){ kfSide=isN?'fit':'nut'; kfClientTab(kfTab); window.scrollTo(0,0); };
+  } else if(sbar) sbar.remove();
+  // fitness: clean day cards on "days"; the full workout tools (Assign / Log / Edit) on "Plan"
+  if(fit) fit.style.display=(c&&c.fit&&t==='plan')?'block':'none';
+  var fd=document.getElementById('kfFitDays');
+  if(c&&c.fit&&t==='days'){ if(!fd){ fd=document.createElement('div'); fd.id='kfFitDays'; v.appendChild(fd); } fd.style.display='block'; kfFitDaysRender(c,fd); }
+  else if(fd) fd.style.display='none';
   if(nc) nc.style.display=hasNut?'block':'none';
+  if(both&&kfSide==='fit'&&tg){ tg.style.display='none'; if(nd) nd.style.display='none'; }
   if(nc) nc.querySelectorAll('[data-sec]').forEach(function(d){ var s=d.dataset.sec; d.style.display=(t==='days'&&s==='days')||(t==='plan'&&(s==='plan'||s==='habits'))||(t==='account'&&(s==='billing'||s==='notes'))?'block':'none'; });
   var snap=nc&&nc.querySelector('[id^="ncSnap_"]'); if(snap) snap.style.display=t==='days'?'block':'none';
-  if(tg){ tg.style.display=t==='account'?'':'none'; if(t!=='account'&&nd) nd.style.display='none'; }
+  if(tg&&!(both&&kfSide==='fit')){ tg.style.display=t==='account'?'':'none'; if(t!=='account'&&nd) nd.style.display='none'; }
   var fp=document.getElementById('kfFitPlan');
-  if(t==='plan'&&c&&c.fit){ if(!fp){ fp=document.createElement('div'); fp.id='kfFitPlan'; fp.className='card'; fp.style.cssText='margin-bottom:12px'; fp.innerHTML='<div style="font-size:15px;font-weight:800;margin-bottom:6px">🏋️ Workouts</div><div style="font-size:13px;color:var(--muted);margin-bottom:8px">Assign her next workout in her own tracker.</div><button class="kf-act main" id="kfAssign">📋 Assign a workout</button>'; v.appendChild(fp);
+  if(false&&t==='plan'&&c&&c.fit){ if(!fp){ fp=document.createElement('div'); fp.id='kfFitPlan'; fp.className='card'; fp.style.cssText='margin-bottom:12px'; fp.innerHTML='<div style="font-size:15px;font-weight:800;margin-bottom:6px">🏋️ Workouts</div><div style="font-size:13px;color:var(--muted);margin-bottom:8px">Assign her next workout in her own tracker.</div><button class="kf-act main" id="kfAssign">📋 Assign a workout</button>'; v.appendChild(fp);
       fp.querySelector('#kfAssign').onclick=function(){ kfClientTab('days'); try{ setClientTab('assign'); }catch(e){} }; }
     fp.style.display='block'; } else if(fp) fp.style.display='none';
   var fa=document.getElementById('kfFitAcct');
@@ -7799,6 +7857,39 @@ setUniSubTab=function(){ kfClientTab(kfTab||'days'); };
 ncShowSection=function(cid,sec){ var map={days:'days',plan:'plan',habits:'plan',billing:'account',notes:'account'}; ncSection[cid]=sec; kfClientTab(map[sec]||'days'); };
 var _kfOpenUni=openUniClient;
 openUniClient=async function(key){ kfTab=(window.ncFocus?'days':'days'); kfShowOnly('clientsSection'); document.querySelectorAll('#kfNav [data-kp]').forEach(function(b){b.classList.toggle('on',b.dataset.kp==='clients');}); var r=await _kfOpenUni.apply(this,arguments); kfClientTab(kfTab); setTimeout(function(){kfClientTab(kfTab);},900); return r; };
+// ---------- Fitness: his days as simple cards ----------
+var kfFitCache={};
+async function kfFitDaysRender(c,el){
+  var m=String(c.mobile||'').replace(/\D/g,''), key='kfit__'+m;
+  if(!m){ el.innerHTML=''; return; }
+  if(!kfFitCache[key]) el.innerHTML='<div class="kf-sub">Loading workouts…</div>';
+  var rows=kfFitCache[key];
+  try{ var r=await getSB().from('fitness_sessions').select('session_date,time_of_day,body,deleted').eq('client_id',key).order('session_date',{ascending:false}).limit(150);
+    rows=(r.data||[]).filter(function(x){return !x.deleted&&x.body;}).sort(function(a,b){return String(b.session_date).localeCompare(String(a.session_date));}); kfFitCache[key]=rows; }catch(e){ rows=rows||[]; }
+  var steps={}; try{ var sr=await getSB().from('client_daily_steps').select('day,steps').eq('mobile',m).gte('day',ncAddDays(ncToday(),-120)); (sr.data||[]).forEach(function(x){steps[x.day]=x.steps;}); }catch(e){}
+  function exList(b){ var out=[]; (b.exercises||[]).forEach(function(e){out.push(e);}); (b.supersets||[]).forEach(function(ss){(ss&&ss.exercises||[]).forEach(function(e){out.push(e);});}); return out.filter(function(e){return e&&e.ex;}); }
+  function maxW(e){ return (e.setData||[]).reduce(function(a,sd){var w=parseFloat(sd&&sd.weight);return isFinite(w)&&w>a?w:a;},0); }
+  // personal records: heaviest weight beating every earlier session
+  var best={}, prs={};
+  rows.slice().reverse().forEach(function(rw,i){ exList(rw.body).forEach(function(e){ if(e.type==='cardio') return; var w=maxW(e); if(!w) return;
+    if(best[e.ex]!=null&&w>best[e.ex]) (prs[i]=prs[i]||[]).push(e.ex+' '+w+(rw.body.unit||'kg'));
+    best[e.ex]=Math.max(best[e.ex]||0,w); }); });
+  var n=rows.length;
+  if(!n){ el.innerHTML='<div class="kf-row" style="cursor:default;justify-content:center;color:var(--muted)">No workouts logged yet.</div>'; return; }
+  el.innerHTML='<div style="font-size:16px;font-weight:800;margin:4px 2px 8px">🏋️ His workouts</div>'+rows.slice(0,40).map(function(rw,idx){
+    var b=rw.body, ex=exList(b), bp=(b.bodyParts||[]).join(', '), pr=prs[n-1-idx]||[];
+    var dur=b.duration||b.durationMin||null, st=steps[rw.session_date];
+    var lines=ex.map(function(e){ if(e.type==='cardio') return ncEsc(e.ex)+(e.duration?' · '+ncEsc(e.duration)+' min':'')+(e.distance?' · '+ncEsc(e.distance)+' km':'');
+      var sd=(e.setData||[]).filter(function(x){return x&&(x.reps||x.weight);});
+      return ncEsc(e.ex)+(sd.length?' · '+sd.map(function(x){return (x.reps||'?')+(x.weight?'×'+x.weight:'');}).join(', '):''); });
+    return '<div class="card" style="margin-bottom:8px;gap:4px;cursor:pointer" data-fd="'+idx+'">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center"><b>'+ncNice(rw.session_date)+'</b><span style="font-size:12px;color:var(--muted)">'+[dur?dur+' min':'',st!=null?'👟 '+Number(st).toLocaleString('en-IN'):''].filter(Boolean).join(' · ')+'</span></div>'
+      +'<div style="font-size:14px">'+ncEsc(bp||'Workout')+' · '+ex.length+' exercise'+(ex.length===1?'':'s')+(pr.length?' · <span style="color:#C9A24A">PR: '+ncEsc(pr[0])+' 🏆</span>':'')+'</div>'
+      +'<div class="kf-fd-short" style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+lines.slice(0,3).join(' · ')+(lines.length>3?' … tap for all':'')+'</div>'
+      +'<div class="kf-fd-all" style="display:none;font-size:13px;line-height:1.6;margin-top:4px">'+lines.join('<br>')+(pr.length>1?'<br><span style="color:#C9A24A">PRs: '+ncEsc(pr.join(', '))+' 🏆</span>':'')+'</div></div>';
+  }).join('');
+  el.querySelectorAll('[data-fd]').forEach(function(cd){cd.onclick=function(){ var a=cd.querySelector('.kf-fd-all'), sh=cd.querySelector('.kf-fd-short'); var open=a.style.display==='none'; a.style.display=open?'block':'none'; sh.style.display=open?'none':'block'; };});
+}
 // ---------- Today: only what needs you ----------
 var kfTodayBusy=false;
 async function kfTodayRender(){
@@ -7814,7 +7905,7 @@ async function kfTodayRender(){
       var replies=its.filter(function(i){return i.icon==='💬';}).length, meals=its.filter(function(i){return i.icon==='🥗';}).length, wk=its.filter(function(i){return i.icon==='🏋️';}).length;
       var bits=[]; if(replies) bits.push(replies+' repl'+(replies===1?'y':'ies')); if(meals) bits.push(meals+' meal'+(meals===1?'':'s')); if(wk) bits.push(wk+' workout'+(wk===1?'':'s'));
       var first=its.find(function(i){return i.icon==='💬';})||its[0];
-      items.push({ic:replies?'💬':meals?'🥗':'🏋️',bg:'#23382B',title:nm+(replies?' replied to you':' logged something new'),sub:bits.join(' · ')||'new activity',act:replies?'Reply':'Open',ts:first.ts,fn:function(){ window.ncFocus={m:m,meal_id:first.meal_id||null,day:first.day||null}; kfOpenClientByMobile(m); }});
+      items.push({ic:replies?'💬':meals?'🥗':'🏋️',bg:'#23382B',title:nm+(replies?' replied to you':' logged something new'),sub:bits.join(' · ')||'new activity',act:replies?'Reply':'Open',ts:first.ts,fn:function(){ window.ncFocus={m:m,meal_id:first.meal_id||null,day:first.day||null}; kfOpenClientByMobile(m,'days',(replies||meals)?'nut':'fit'); }});
     });
   }catch(e){}
   try{ // 2) requests waiting
@@ -7826,7 +7917,7 @@ async function kfTodayRender(){
     for(var i=0;i<roster.length&&i<40;i++){
       var c=roster[i], cid='knut__'+String(c.mobile).replace(/\D/g,''), I=await ncBillInfo(cid);
       if(!I.start) continue;
-      if(I.nextC&&I.nextC<=ncToday()) (function(c,cid){ items.push({ic:'🗓️',bg:'#2E2A1A',title:'Consult '+(I.nextC===ncToday()?'today':'due')+': '+(c.name||''),sub:I.prep?'her note: "'+String(I.prep.notes).slice(0,60)+'"':'weekly consult',act:'Log it',ts:Date.now()-1,fn:function(){ window.kfOpenConsult=cid; kfOpenClientByMobile(String(c.mobile).replace(/\D/g,''),'account'); }}); })(c,cid);
+      if(I.nextC&&I.nextC<=ncToday()) (function(c,cid){ items.push({ic:'🗓️',bg:'#2E2A1A',title:'Consult '+(I.nextC===ncToday()?'today':'due')+': '+(c.name||''),sub:I.prep?'her note: "'+String(I.prep.notes).slice(0,60)+'"':'weekly consult',act:'Log it',ts:Date.now()-1,fn:function(){ window.kfOpenConsult=cid; kfOpenClientByMobile(String(c.mobile).replace(/\D/g,''),'account','nut'); }}); })(c,cid);
       var daysLeft=Math.round((new Date(I.renew)-new Date(ncToday()))/864e5);
       if(!I.paid&&daysLeft<=3) (function(c,cid,I){ items.push({ic:'💳',bg:'#3A2A1E',title:(c.name||'')+(daysLeft<0?' renewal overdue':daysLeft===0?' renews today':' renews in '+daysLeft+' day'+(daysLeft===1?'':'s')),sub:'unpaid',act:'Mark paid',ts:Date.now()-2,fn:async function(){ var pm=((I.bill&&I.bill.paid_months)||[]).slice(); if(pm.indexOf(I.cur)<0) pm.push(I.cur); var ok=await ncSaveBill(cid,I,{paid_months:pm}); if(ok) kfTodayRender(); }}); })(c,cid,I);
     }
@@ -7842,7 +7933,8 @@ async function kfTodayRender(){
   el.querySelectorAll('[data-ti]').forEach(function(r){ r.onclick=function(){ var it=items[+r.dataset.ti]; if(it) it.fn(); }; });
   try{ var pc=document.getElementById('kfPushCardToday'); if(pc&&!localStorage.getItem('kfit_push_seen')) { kfitPushState().then(function(st){ if(!st.subscribed){ kfitPushCard(pc); } }); } }catch(e){}
 }
-function kfOpenClientByMobile(m,tab){
+function kfOpenClientByMobile(m,tab,side){
+  kfSide=side||null;
   var c=null; try{ c=buildUnifiedRoster().find(function(r){return String(r.mobile||'').replace(/\D/g,'')===m;}); }catch(e){}
   if(!c){ alert('Open this client from Clients.'); return; }
   kfTab=tab||'days'; openUniClient(c.key).then(function(){ kfClientTab(kfTab); if(window.kfOpenConsult){ setTimeout(function(){ var b=document.getElementById('kfLogConsult_'+window.kfOpenConsult); if(b) b.click(); window.kfOpenConsult=null; },900);} });
@@ -7855,10 +7947,14 @@ kfitBellRefresh=async function(){ await _kfBellRefresh(); if(kfPlace==='today') 
 var KF_HELP=[
   ['☀️','Today','Your starting point. It lists only what needs you: replies, new meals or workouts, consults that are due, renewals coming up unpaid, and requests waiting. Each has one button (Reply, Open, Log it, Mark paid, Review). When the list is empty, you\'re all caught up.'],
   ['👥','Clients','Your clients, grouped as Nutrition, Fitness, or both. "My clients" shows the people you\'ve tagged; "All users" shows everyone who signed up. The dot shows recent activity: green (last 2 days), amber (this week), red (longer). "+ Invite" shares your nutrition or fitness link.'],
+  ['⇄','Fitness + Nutrition clients','Tapping someone you coach for both asks which side to open. Her page then shows only that side; tap "Switch to …" at the top to flip.'],
   ['🍽️','Her days','Tap a client, then Her days: her snapshot at the top, then each day with its ring, steps and meals (and workouts for fitness clients). Tap a meal to see photos and amounts, and write a note under it. It sends straight away; ✓ means sent, blue ✓✓ means she read it.'],
-  ['🗓️','Plan','Plan a day of meals for her (she ticks them off in her app), see her habit plan, and for fitness clients assign a workout.'],
+  ['🏋️','Fitness clients','Her days shows each workout as a card: body parts, exercises, duration, steps and personal records 🏆. Tap a card for every set. Plan has the full workout tools (Assign, Log, Edit).'],
+  ['🗓️','Plan','Plan a day of meals for her (she ticks them off in her app), see her habit plan, and for fitness clients the workout tools.'],
+  ['⚡','Quick replies','Under each meal, tap a ready-made note (like "Great protein! 💪") to send it in one tap. Tap ✎ edit to change your list.'],
+  ['✨','Her week','Every Sunday each nutrition client gets a summary of her week. It appears at the top of Her days; add a line for her and she sees it on her card.'],
   ['💳','Account','Fitness: sessions this month, which are unpaid, and Mark all paid. Nutrition: her month as one timeline: started, each consult (with your notes and hers), next consult, and renewal. Tap "+ Log a consult" after you talk; tap any date to change it; tap Mark paid when she pays. Her settings (show calories, step goal) and your private notes are here too.'],
-  ['🔔','Notifications','Turn on phone notifications from Today (open Merge from its home-screen icon on iPhone). You\'ll get a buzz when a tagged client logs, replies or checks in. Quiet 10 pm to 7 am.'],
+  ['🔔','Notifications','Turn on phone notifications from Today (open Merge from its home-screen icon on iPhone). You\'ll get a buzz when a tagged client logs, replies or checks in, plus a morning summary at 8 am. Quiet 10 pm to 7 am. Clients can turn on their own reminders too.'],
   ['☰','More','Requests, feedback, exercises, your account and invite links, trash, print, help and log out.']
 ];
 showCoachHelp=function(){
