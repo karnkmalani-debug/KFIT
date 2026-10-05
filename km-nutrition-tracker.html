@@ -201,6 +201,7 @@ function saveCache(){try{localStorage.setItem(LS.cache,JSON.stringify({cid:S.cli
 function loadCache(){try{var c=JSON.parse(localStorage.getItem(LS.cache)||'null');if(c&&c.cid===S.clientId){S.program=c.program;S.checkins=c.checkins||{};S.meals=c.meals||{};}}catch(e){}}
 
 // ---------- write queue (works offline, retries later) ----------
+function withTimeout(p,ms){ return Promise.race([p,new Promise(function(r){ setTimeout(function(){ r({error:{message:'timeout'}}); },ms); })]); }
 function queue(){try{return JSON.parse(localStorage.getItem(LS.queue)||'[]');}catch(e){return [];}}
 function setQueue(q){localStorage.setItem(LS.queue,JSON.stringify(q));}
 var KEYS={nutrition_program:'client_id',nutrition_checkins:'client_id,day',nutrition_meals:'client_id,meal_id'};
@@ -727,10 +728,10 @@ function renderCoachNotes(){
 async function logOut(){
   if(!confirm('Log out of KFit on this phone?\n\nYour meals and progress stay saved. To come back, you\'ll confirm your number again (with an email code or your coach).')) return;
   try{ await flush(); }catch(e){}
-  if(queue().length&&!confirm('Some of today\'s entries haven\'t reached the server yet (no internet?). Log out anyway? They\'ll be lost.')) return;
+  if((queue().length||failedQ().length)&&!confirm('Some of your entries haven\'t reached your coach yet. Log out anyway? They\'ll be lost.')) return;
   try{ if(chatUI){chatUI.destroy();chatUI=null;} }catch(e){}
   try{ await sb.auth.signOut(); }catch(e){}
-  [LS.mobile,LS.name,LS.cache,LS.queue,'kfnc_phone_backup'].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
+  [LS.mobile,LS.name,LS.cache,LS.queue,'kfnc_failed','kfnc_phone_backup'].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
   S.mobile='';S.clientId='';S.fitId='';S.program=null;S.checkins={};S.meals={};S.notes=[];S.legacyDays=[];S.loaded=false;S.tab='home';S.view=null;
   renderSignIn();
 }
@@ -1249,7 +1250,7 @@ function addPhotoToMeal(mealId){
     toast('Adding your photo…');
     try{
       var ph=await shrink(file,1024,0.72), path=S.clientId+'/'+mealId+'-'+uid()+'.jpg';
-      var up=await sb.storage.from('kfit-meals').upload(path,ph,{contentType:'image/jpeg',upsert:false});
+      var up=await withTimeout(sb.storage.from('kfit-meals').upload(path,ph,{contentType:'image/jpeg',upsert:false}),25000);
       if(up.error){toast('Photo not saved. Check your connection.');return;}
       var b=m.body||{}, ps=mealPhotos(b);
       if(Array.isArray(b.items)){
@@ -1409,7 +1410,7 @@ function openMealForm(d,forSlot,editId){
     if(!em) body.at=now();
     var ps=em?mealPhotos(eb):[];
     for(var i=0;i<M.photos.length;i++){
-      var pth=S.clientId+'/'+mid+'-'+uid()+'.jpg', up=await sb.storage.from('kfit-meals').upload(pth,M.photos[i],{contentType:'image/jpeg',upsert:false});
+      var pth=S.clientId+'/'+mid+'-'+uid()+'.jpg', up=await withTimeout(sb.storage.from('kfit-meals').upload(pth,M.photos[i],{contentType:'image/jpeg',upsert:false}),25000);
       if(!up.error) ps.push({path:pth,at:now()}); else toast('Photo not saved (connection). Your note is saved.');
     }
     body.photos=ps; delete body.photo;

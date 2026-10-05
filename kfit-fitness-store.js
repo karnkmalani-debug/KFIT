@@ -210,13 +210,41 @@ function upsertRows(db,table,rows,conflict,keyCol){
     var p=parts[i++];
     p.forEach(function(r){ sent.push(String(r[keyCol])); });
     return db.from(table).upsert(p,{onConflict:conflict}).select(keyCol).then(function(res){
-      if(res.error) return {error:res.error,refused:[]};
+      if(res.error){
+        // A connection problem stops here and the whole save retries later.
+        // A row the database REJECTS must not block the others: send this
+        // batch one row at a time, keep going, and report what failed.
+        if(isNetErr(res.error)||p.length<2) return isNetErr(res.error)?{error:res.error,refused:[]}:oneByOne(p);
+        return oneByOne(p);
+      }
       (res.data||[]).forEach(function(r){ got[String(r[keyCol])]=1; });
       return next();
     });
   }
-  return next();
+  var failed=[];
+  function oneByOne(rows){
+    var j=0;
+    function step(){
+      if(j>=rows.length) return next();
+      var r=rows[j++];
+      return db.from(table).upsert(r,{onConflict:conflict}).select(keyCol).then(function(res){
+        if(res.error){ if(isNetErr(res.error)) return {error:res.error,refused:[]}; failed.push({id:String(r[keyCol]),message:res.error.message||String(res.error.code||'rejected')}); return step(); }
+        (res.data||[]).forEach(function(x){ got[String(x[keyCol])]=1; });
+        return step();
+      });
+    }
+    return step();
+  }
+  return next().then(function(out){
+    if(!out.error&&failed.length){
+      // everything else is saved; the save is reported as unfinished so these get retried
+      out.refused=(out.refused||[]).filter(function(k){ return !failed.some(function(f){return f.id===k;}); });
+      out.error={message:failed.length+' item(s) could not be saved: '+failed[0].message,code:'KFIT_PARTIAL',failed:failed};
+    }
+    return out;
+  });
 }
+function isNetErr(e){ var m=String(e&&(e.message||e)||''); return (typeof navigator!=='undefined'&&navigator.onLine===false)||/fetch|network|Load failed|timeout|aborted|offline|Failed to/i.test(m); }
 
 // ---------- blob assembly (compat read) ----------
 // Builds the old tracker_data.data shape for one client from its rows.
