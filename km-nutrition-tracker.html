@@ -210,23 +210,48 @@ function write(table,row){
 }
 function sameKey(t,a,b){return KEYS[t].split(',').every(function(k){return a[k]===b[k];});}
 var flushing=null;
+// A network problem pauses the queue and retries later. A save the database
+// REJECTS is set aside (with the reason) so it can never block the meals
+// behind it; set-aside items are retried on each sync and shown to her.
+function failedQ(){try{return JSON.parse(localStorage.getItem('kfnc_failed')||'[]');}catch(e){return [];}}
+function setFailed(f){try{localStorage.setItem('kfnc_failed',JSON.stringify(f.slice(-50)));}catch(e){}}
+function isNetErr(e){ var m=String(e&&(e.message||e)||''); return !navigator.onLine||/fetch|network|Load failed|timeout|aborted|offline|Failed to/i.test(m)||(e&&(e.status===0||e.code==='')); }
 function flush(){
   if(flushing) return flushing.then(function(){ return queue().length?flush():null; });
   flushing=(async function(){
-    // re-read the queue each time: saves made during a flush are picked up too
+    // give earlier set-aside saves another chance, at the back of the line
+    var f=failedQ(); if(f.length){ setFailed([]); var q0=queue(); f.forEach(function(x){ if(!q0.some(function(y){return y.t===x.t&&sameKey(x.t,y.r,x.r);})) q0.push({t:x.t,r:x.r,tries:(x.tries||0)}); }); setQueue(q0); }
+    var skipped=[];
     for(;;){
-      var q=queue(); if(!q.length) break;
+      var q=queue().filter(function(x){return skipped.indexOf(JSON.stringify(x))<0;}); if(!q.length) break;
       var it=q[0], sent=JSON.stringify(it);
       try{
         var res=await sb.from(it.t).upsert(it.r,{onConflict:KEYS[it.t]});
         if(res.error) throw res.error;
-      }catch(e){ console.warn('KFit: will retry',it.t,e&&e.message); break; }
-      // remove it, unless a newer copy replaced it while it was being sent
+      }catch(e){
+        if(isNetErr(e)){ console.warn('KFit: offline, will retry',it.t,e&&e.message); break; }
+        // rejected: set it aside with the reason, keep going with the rest
+        console.warn('KFit: save rejected, set aside',it.t,e&&e.message);
+        var ff=failedQ(); ff.push({t:it.t,r:it.r,tries:(it.tries||0)+1,why:String(e&&(e.message||e.code)||'rejected').slice(0,200),at:Date.now()}); setFailed(ff);
+        setQueue(queue().filter(function(x){ return JSON.stringify(x)!==sent; }));
+        skipped.push(sent); continue;
+      }
       setQueue(queue().filter(function(x){ return JSON.stringify(x)!==sent; }));
     }
-  })().finally(function(){ flushing=null; });
+  })().finally(function(){ flushing=null; try{ syncBanner(); }catch(e){} });
   return flushing;
 }
+// A small note when something hasn't reached the coach yet
+function syncBanner(){
+  var waiting=queue().length, failed=failedQ().length, el=document.getElementById('syncNote');
+  if(!waiting&&!failed){ if(el) el.remove(); return; }
+  if(!el){ el=document.createElement('button'); el.id='syncNote'; el.style.cssText='position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:50;border:1px solid #6B5A2A;background:#2A2618;color:#E7CF8C;border-radius:14px;padding:10px 14px;font-weight:700;font-size:14px;font-family:inherit;text-align:left'; document.body.appendChild(el);
+    el.onclick=function(){ el.textContent='Sending…'; flush(); }; }
+  var why=failed?(failedQ()[0].why||''):'';
+  el.innerHTML=esc((navigator.onLine?'':'No internet · ')+(waiting+failed)+' item'+((waiting+failed)===1?'':'s')+' not sent to your coach yet · tap to retry')+(why?'<div style="font-weight:400;font-size:11px;opacity:.75;margin-top:2px">'+esc(why)+'</div>':'');
+}
+setInterval(function(){ if(queue().length||failedQ().length) flush(); },60000);
+document.addEventListener('visibilitychange',function(){ if(!document.hidden&&(queue().length||failedQ().length)) flush(); });
 window.addEventListener('online',function(){flush();});
 
 // ---------- lessons & program logic ----------
