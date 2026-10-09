@@ -20,19 +20,28 @@
     }catch(e){}
     var pct=steps?Math.min(100,Math.round(steps/goal*100)):0;
     // collapsed: one quiet line (the fitness LOG screen); tap to open the full card
+    // collapsed (the fitness LOG screen): a big gold "Add today's steps" until
+    // they're in, then the number, large. Tap either to open the box.
     if(opts.collapsed&&!el._kstOpen){
-      el.innerHTML='<button class="kst-line" style="width:100%;background:var(--card,var(--surf));border:1px solid var(--line,var(--border));border-radius:14px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;color:var(--ink,var(--text));font-family:inherit;font-size:15px;cursor:pointer;text-align:left">'
-        +'<span>👟 <b>Steps</b>'+(steps!=null?' · <span style="color:var(--gold,#C9A24A);font-weight:700">'+fmt(steps)+'</span> / '+fmt(goal):'')+'</span><span style="font-size:12px;color:var(--muted)">'+(steps!=null?'change':'add')+' ›</span></button>';
+      var big=steps==null
+        ?'<button class="kst-line" style="width:100%;background:var(--gold,#C9A24A);border:none;border-radius:16px;padding:16px;display:flex;align-items:center;gap:12px;margin-bottom:12px;color:#12130F;font-family:inherit;cursor:pointer;text-align:left">'
+          +'<span style="font-size:30px;line-height:1">👟</span><span style="flex:1"><span style="display:block;font-size:19px;font-weight:800">Add today\'s steps</span><span style="display:block;font-size:13px;font-weight:600">Goal '+fmt(goal)+'</span></span><span style="font-size:26px;font-weight:800">+</span></button>'
+        :'<button class="kst-line" style="width:100%;background:var(--card,var(--surf));border:2px solid var(--gold,#C9A24A);border-radius:16px;padding:14px;display:flex;align-items:center;gap:12px;margin-bottom:12px;color:var(--ink,var(--text));font-family:inherit;cursor:pointer;text-align:left">'
+          +'<span style="font-size:28px;line-height:1">👟</span><span style="flex:1;min-width:0"><span style="display:block;font-family:\'DM Mono\',monospace;font-size:26px;color:var(--gold,#C9A24A)">'+fmt(steps)+'</span>'
+          +'<span style="display:block;height:6px;border-radius:3px;background:var(--line,#2E2F28);margin-top:4px"><span style="display:block;width:'+pct+'%;height:6px;border-radius:3px;background:var(--gold,#C9A24A)"></span></span>'
+          +'<span style="display:block;font-size:12px;color:var(--muted);margin-top:3px">of '+fmt(goal)+' · tap to change</span></span></button>';
+      el.innerHTML=big;
       el.querySelector('.kst-line').onclick=function(){ el._kstOpen=true; mount(el,opts).then(function(){ var i=el.querySelector('.kst-in'); if(i) i.focus(); }); };
       return;
     }
     el.innerHTML='<div style="background:var(--card,var(--surf));border:1px solid var(--line,var(--border));border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700;font-size:15px">👟 Steps '+(day===today()?'today':'')+'</div><span style="font-size:12px;color:var(--muted)">goal '+fmt(goal)+'</span></div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700;font-size:15px">👟 Steps '+(day===today()?'today':'')+'</div><span style="font-size:12px;color:var(--muted)">goal '+fmt(goal)+(opts.collapsed?' <button class="kst-x" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:20px;margin-left:8px;padding:0 4px;cursor:pointer;vertical-align:middle">✕</button>':'')+'</span></div>'
       +'<div style="display:flex;align-items:baseline;gap:8px"><span style="font-family:var(--serif,\'Playfair Display\',Georgia,serif);font-size:28px;color:var(--gold,#C9A24A)">'+(steps!=null?fmt(steps):'–')+'</span><span style="font-size:12px;color:var(--muted)">of '+fmt(goal)+'</span></div>'
       +'<div style="height:8px;border-radius:4px;background:var(--line,#2E2F28)"><div style="width:'+pct+'%;height:8px;border-radius:4px;background:var(--gold,#C9A24A);transition:width .5s"></div></div>'
       +'<div style="display:flex;gap:8px"><input type="number" inputmode="numeric" min="0" max="150000" class="kst-in" placeholder="Type today\'s steps" value="'+(steps!=null?steps:'')+'" style="flex:1;min-height:42px;border-radius:10px;border:1px solid var(--line2,var(--border));background:var(--sand,var(--surf2));color:var(--ink,var(--text));padding:0 10px;font-size:15px;font-family:inherit">'
       +'<button class="kst-save" style="min-height:42px;border-radius:10px;border:none;background:var(--green,#2F6B4A);color:#fff;font-weight:700;padding:0 16px;font-family:inherit">Save</button></div>'
       +'<div style="font-size:12px;color:var(--muted)">Copy the number from your phone\'s Health or Fit app, or your watch.</div></div>';
+    var kx=el.querySelector('.kst-x'); if(kx) kx.onclick=function(){ el._kstOpen=false; mount(el,opts); };
     el.querySelector('.kst-save').onclick=async function(){
       var v=parseInt(el.querySelector('.kst-in').value,10);
       if(!isFinite(v)||v<0||v>150000){ el.querySelector('.kst-in').focus(); return; }
