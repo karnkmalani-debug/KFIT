@@ -1331,7 +1331,7 @@ function renderLog(){
   };});
   document.querySelectorAll('img[data-path]').forEach(loadPhoto);
   bindThreads(renderLog);
-  try{ if(window.KFitSteps) KFitSteps.mount($('#stepsBox'),{sb:sb,mobile:S.mobile,day:d}); }catch(e){}
+  try{ if(window.KFitSteps) KFitSteps.mount($('#stepsBox'),{sb:sb,mobile:S.mobile,day:d,collapsed:true}); }catch(e){}
   // swipe left/right to change day
   var sc=document.querySelector('.screen'), x0=null;
   if(sc){ sc.addEventListener('touchstart',function(e){x0=e.touches[0].clientX;},{passive:true});
