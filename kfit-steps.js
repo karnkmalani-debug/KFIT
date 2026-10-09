@@ -35,12 +35,20 @@
       return;
     }
     el.innerHTML='<div style="background:var(--card,var(--surf));border:1px solid var(--line,var(--border));border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700;font-size:15px">👟 Steps '+(day===today()?'today':'')+'</div><span style="font-size:12px;color:var(--muted)">goal '+fmt(goal)+(opts.collapsed?' <button class="kst-x" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:20px;margin-left:8px;padding:0 4px;cursor:pointer;vertical-align:middle">✕</button>':'')+'</span></div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700;font-size:15px">👟 Steps '+(day===today()?'today':'')+'</div><span style="font-size:12px;color:var(--muted)"><button class="kst-goal" title="Change your daily goal" style="background:none;border:none;padding:0;color:var(--muted);font-family:inherit;font-size:12px;text-decoration:underline;cursor:pointer">goal '+fmt(goal)+' ✎</button>'+(opts.collapsed?' <button class="kst-x" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:20px;margin-left:8px;padding:0 4px;cursor:pointer;vertical-align:middle">✕</button>':'')+'</span></div>'
       +'<div style="display:flex;align-items:baseline;gap:8px"><span style="font-family:var(--serif,\'Playfair Display\',Georgia,serif);font-size:28px;color:var(--gold,#C9A24A)">'+(steps!=null?fmt(steps):'–')+'</span><span style="font-size:12px;color:var(--muted)">of '+fmt(goal)+'</span></div>'
       +'<div style="height:8px;border-radius:4px;background:var(--line,#2E2F28)"><div style="width:'+pct+'%;height:8px;border-radius:4px;background:var(--gold,#C9A24A);transition:width .5s"></div></div>'
       +'<div style="display:flex;gap:8px"><input type="number" inputmode="numeric" min="0" max="150000" class="kst-in" placeholder="Type today\'s steps" value="'+(steps!=null?steps:'')+'" style="flex:1;min-height:42px;border-radius:10px;border:1px solid var(--line2,var(--border));background:var(--sand,var(--surf2));color:var(--ink,var(--text));padding:0 10px;font-size:15px;font-family:inherit">'
       +'<button class="kst-save" style="min-height:42px;border-radius:10px;border:none;background:var(--green,#2F6B4A);color:#fff;font-weight:700;padding:0 16px;font-family:inherit">Save</button></div>'
       +'<div style="font-size:12px;color:var(--muted)">Copy the number from your phone\'s Health or Fit app, or your watch.</div></div>';
+    // anyone can change their own daily goal (the coach can too, in Merge)
+    var kg=el.querySelector('.kst-goal'); if(kg) kg.onclick=async function(){
+      var v=prompt('Your daily step goal (1,000 to 50,000):',String(goal)); if(v===null) return;
+      var g=parseInt(String(v).replace(/\D/g,''),10); if(!(g>=1000&&g<=50000)){ alert('Please enter a number between 1,000 and 50,000.'); return; }
+      var r=await opts.sb.from('client_step_goals').upsert({mobile:m,goal:g},{onConflict:'mobile'});
+      if(r.error){ alert('Goal not saved. Check your connection and try again.'); return; }
+      mount(el,opts);
+    };
     var kx=el.querySelector('.kst-x'); if(kx) kx.onclick=function(){ el._kstOpen=false; mount(el,opts); };
     el.querySelector('.kst-save').onclick=async function(){
       var v=parseInt(el.querySelector('.kst-in').value,10);

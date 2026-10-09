@@ -443,7 +443,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 #kfPartBar{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:12px}
 #kfPartBar button{border:none;background:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:800;padding:9px 0;border-radius:9px;cursor:pointer}
 #kfPartBar button.on{background:var(--gold);color:#12130F}
-#kfPartBar button i{font-style:normal;font-size:12px;opacity:.85;margin-left:3px}
+#kfPartBar button i{font-style:normal;font-size:13px;opacity:.85}
 .kf-t-ss{display:none}
 #panel0[data-part="cardio"] #kfCardFunc,#panel0[data-part="func"] #kfCardCardio,#panel0[data-part="strength"] #kfCardCardio,#panel0[data-part="strength"] #kfCardFunc{display:none}
 #panel0[data-part="cardio"] #kfCardStrength>:not(.card-title):not(#exBody):not(.kf-ss-add),#panel0[data-part="func"] #kfCardStrength>:not(.card-title):not(#exBody):not(.kf-ss-add){display:none!important}
@@ -556,7 +556,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     if(p0.dataset.part!==part) p0.dataset.part=part;
     var c=counts();
     bar.querySelectorAll('[data-part]').forEach(function(b){ var k=b.dataset.part, lab={strength:'Strength',cardio:'Cardio',func:'Functional'}[k];
-      var h=lab+(c[k]?'<i>'+c[k]+'</i>':''); if(b.innerHTML!==h) b.innerHTML=h; b.classList.toggle('on',k===part); b.setAttribute('aria-selected',k===part?'true':'false'); });
+      var h=lab+(c[k]?' <i>('+c[k]+')</i>':''); if(b.innerHTML!==h) b.innerHTML=h; b.classList.toggle('on',k===part); b.setAttribute('aria-selected',k===part?'true':'false'); });
   }
   function setPart(k){ part=k; try{ sessionStorage.setItem('kf_part',k); }catch(e){} paint(); place(); }
   window.kfSetPart=setPart;
@@ -674,6 +674,22 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
   }
   setInterval(function(){ try{ scan(); lists(); }catch(e){} },700);
 })();
+</script>
+
+<script>
+// "Who was this session with?" -- only for clients a coach has marked as theirs.
+function kfAskWho(done){
+  var ov=document.createElement('div'); ov.id='kfWho';
+  ov.style.cssText='position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.7);display:flex;align-items:flex-end;justify-content:center';
+  ov.innerHTML='<div role="dialog" aria-modal="true" aria-label="Who was this session with?" style="background:var(--surf);border-top:1px solid var(--border);border-radius:18px 18px 0 0;width:100%;max-width:520px;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px">'
+    +'<div style="font-size:19px;font-weight:800;color:var(--text)">Who was this session with?</div>'
+    +'<div style="font-size:13px;color:var(--muted);margin-top:-4px">Sessions with your coach count towards your billing. Workouts on your own don\'t.</div>'
+    +'<button type="button" data-w="1" style="padding:14px;border:none;border-radius:12px;background:var(--sage);color:#fff;font-family:\'DM Sans\',sans-serif;font-size:16px;font-weight:800;cursor:pointer">With my coach</button>'
+    +'<button type="button" data-w="0" style="padding:14px;border:1px solid var(--border);border-radius:12px;background:none;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:16px;font-weight:800;cursor:pointer">On my own</button>'
+    +'<button type="button" data-w="x" style="padding:8px;border:none;background:none;color:var(--muted);font-family:\'DM Sans\',sans-serif;font-size:14px;cursor:pointer">Back to the workout</button></div>';
+  document.body.appendChild(ov);
+  ov.querySelectorAll('[data-w]').forEach(function(b){ b.onclick=function(){ var w=b.dataset.w; ov.remove(); if(w==='x') return; done(w==='1'); }; });
+}
 </script>
 <script>
 // Steps today (shared with the nutrition app and Merge)
@@ -5090,6 +5106,11 @@ const _newId=window._editingSessionId||Date.now();
 const _isEditing=!!window._editingSessionId;
 const _timeWasOverridden=!!window._sessTimeManual;
 const _gate=needsCoachApproval();
+if(_gate&&!window._editingSessionId&&typeof window._kfWithCoach!=='boolean'){
+if(saveBtn) saveBtn.disabled=false;
+kfAskWho(function(v){ window._kfWithCoach=v; window._skipMissingPrompt=true; saveSession(); });
+return;
+}
 var _orig=null;
 
 if(_isEditing){
@@ -5129,6 +5150,8 @@ notes:document.getElementById('sessNotes').value,
 estCalories:_estCal,
 updatedAt: Date.now()
 };
+if(_gate&&!_isEditing&&typeof window._kfWithCoach==='boolean') _newSess.withCoach=window._kfWithCoach;
+else if(_isEditing&&_orig&&typeof _orig.withCoach==='boolean') _newSess.withCoach=_orig.withCoach;
 // 'live' = what happens without approval. For a gated client this is only a
 // brand-new log for today with the automatic time.
 var _approvalMode='live';
@@ -5139,10 +5162,9 @@ _newSess.approval={status:'pending',type:'new',requestedAt:Date.now()};
 _approvalMode='pendingNew';
 } else if(_isEditing&&_orig){
 _approvalMode='pendingEdit';
-} else if(!_isEditing&&(date!==localDateStr()||_timeWasOverridden)){
-_newSess.approval={status:'pending',type:'new',requestedAt:Date.now()};
-_approvalMode='pendingNew';
 }
+// A session the client forgot to log (any date, any time) saves straight
+// away -- it only needs "with my coach" or "on my own" (asked above).
 }
 var _noChangeMsg=null;
 if(_approvalMode==='pendingEdit'){
@@ -5179,8 +5201,10 @@ date, time: _timeStr,
 duration: finalDur||null,
 workoutType: detectWorkoutType(exercises, collectSupersets(_exOrder), cardioBlocks),
 bodyParts: _newSess.bodyParts,
-activity: cardioBlocks.length?cardioBlocks.map(c=>c.ex).filter(Boolean).join(', '):''
+activity: cardioBlocks.length?cardioBlocks.map(c=>c.ex).filter(Boolean).join(', '):'',
+withCoach: _newSess.withCoach
 };
+window._kfWithCoach=undefined;
 if(_approvalMode!=='live'){
 // No attendance/billing change until the coach approves -- Merge writes it.
 window._editingOrigDate=null;
@@ -6086,6 +6110,8 @@ body_parts: record.bodyParts&&record.bodyParts.length?record.bodyParts.join(', '
 activity: record.activity||'',
 logged_at: new Date().toISOString()
 };
+// with my coach (billed) or on my own (never billed); the coach can change it in Merge
+if(typeof record.withCoach==='boolean'&&!window._kfNoWithCoachCol) payload.with_coach=record.withCoach;
 // ignoreDuplicates = "insert if new, do nothing if this check-in already
 // exists". Before, a plain upsert turned into an UPDATE whenever the row was
 // already there (a re-save, or the automatic retry of a check-in that had in
@@ -6094,6 +6120,7 @@ logged_at: new Date().toISOString()
 // "couldn't confirm it with your coach's dashboard (connection issue)" alert
 // even on perfect internet. Time/duration edits go through updateAttendance.
 getSBScoped().from('attendance').upsert(payload,{onConflict:'coach_id,client_mobile,session_date,session_time',ignoreDuplicates:true}).then(function(res){
+if(res.error&&payload.with_coach!==undefined&&/with_coach/i.test(res.error.message||'')){ window._kfNoWithCoachCol=true; setTimeout(function(){logAttendance(record,attempt);},10); return; }
 if(res.error){
 console.warn('Attendance log error (attempt '+attempt+'):',res.error.message);
 if(attempt<3){
@@ -6283,7 +6310,7 @@ return;
 }
 var el=document.getElementById('sessDate');
 var d=el&&el.value;
-btn.textContent=((d&&d!==localDateStr())||window._sessTimeManual)?'Send to Coach for Approval':'Save Session';
+btn.textContent='Save Session';
 }catch(e){}
 }
 // Stable snapshot of the parts of a session that matter, for spotting a
@@ -7061,7 +7088,7 @@ const rangeLabel=histFilterMode==='week'?'This Week':histFilterMode==='month'?'T
 const daysTrained=new Set(filteredRecords.map(function(r){return r.session_date;})).size;
 // Same eligibility as the per-row pill (active tagged client, on/after the
 // tag date) -- so the count only includes records that actually show a pill.
-const payTrackedRecords=_isActiveTaggedClient?filteredRecords.filter(function(r){return !_activeTaggedSinceDate||r.session_date>=_activeTaggedSinceDate;}):[];
+const payTrackedRecords=_isActiveTaggedClient?filteredRecords.filter(function(r){return (!_activeTaggedSinceDate||r.session_date>=_activeTaggedSinceDate)&&r.with_coach!==false;}):[];
 const paidCount=payTrackedRecords.filter(function(r){return r.paid===true;}).length;
 const dueCount=payTrackedRecords.length-paidCount;
 
@@ -7095,7 +7122,7 @@ const orphanDelete=(!sessId&&!needsCoachApproval())?`<span onclick="event.stopPr
 // editable by them. Emoji-only (no "Unpaid" text) so a due session reads
 // as a quiet status note, not a confrontational alert.
 const showPaidPill=_isActiveTaggedClient&&(!_activeTaggedSinceDate||r.session_date>=_activeTaggedSinceDate);
-const paidPill=showPaidPill?(r.paid===true?`<span title="Paid" style="font-size:15px;">✅</span>`:`<span title="Due" style="font-size:15px;">🔴</span>`):'';
+const paidPill=showPaidPill&&r.with_coach===false?`<span title="On my own -- not billed" style="font-size:11px;color:var(--muted);font-weight:700">on my own</span>`:showPaidPill?(r.paid===true?`<span title="Paid" style="font-size:15px;">✅</span>`:`<span title="Due" style="font-size:15px;">🔴</span>`):'';
 return`<div onclick="${sessId?`openDetail(${sessId})`:`toast('No workout details linked to this attendance record')`}" style="background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:border-color .18s;" onmouseenter="this.style.borderColor='var(--sage)'" onmouseleave="this.style.borderColor='var(--border)'">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
 <span style="font-size:15px;font-weight:700;color:var(--text);">${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}</span>
@@ -8664,7 +8691,7 @@ const HELP_TEXT=[
 '<b>9. Timing the whole workout</b><br>At the top of the screen, next to Help and Feedback, there\'s a timer with Start/Stop -- tap Start when you begin your session. It stays visible even if you switch to another tab, and its total gets saved with the session. Made a mistake or want to start over? Tap Reset to clear it back to 00:00. Prefer to just type the total afterwards instead? Scroll down to Session Duration and enter it manually there.<br><br>'+
 '<b>10. Notes, your coach, and importing</b><br>Session Notes is for writing how the workout felt. To send your coach a photo or a video, use the 💬 chat. Coming from another app or a spreadsheet? "Import data" is at the top of History.<br><br>'+
 '<b>11. You can\'t lose your work</b><br>Everything you type is saved as a draft automatically, even if you close the app halfway through a workout and come back later. It only becomes a real, permanent entry in your History once you tap "Save Session" at the bottom. This also covers editing a past session from History mid-workout: your in-progress session is safely tucked away while you edit, and comes right back once you\'re done.<br><br>'+
-'<b>11b. Training with a coach? Changes go to them for approval</b><br>If your coach has marked you as their client, they keep the official record. Editing or deleting a saved session, or logging for a past date or with a changed time, sends a request to your coach instead of changing your history straight away -- you\'ll see a ⏳ tag on it until they approve or decline. Logging today\'s workout as you do it still saves instantly.<br><br>'+
+'<b>11b. Training with a coach?</b><br>If your coach has marked you as their client, saving a session asks who it was with: <b>With my coach</b> (it counts towards your billing) or <b>On my own</b> (it never does). Forgot to log one? Add it for any date and it saves straight away. Editing or deleting a saved session still sends a request to your coach -- you\'ll see a ⏳ tag until they approve or decline. Your coach can correct "with coach / on my own" if it was picked by mistake.<br><br>'+
 '<b>12. Logging a workout from a past day</b><br>Forgot to log yesterday? Tap the date at the very top of the screen (next to the KFit logo) -- it opens your phone\'s own calendar so you can pick any earlier date and log for that day instead of today. If that day already has a workout logged, you\'ll get asked whether to edit it or add another one -- useful if you train twice in a day.<br><br>'+
 '<b>13. Exercise isn\'t in the list?</b><br>Scroll to the bottom of the exercise list and tap "Suggest a new exercise to your coach." It gets sent to your coach, who can add it permanently so it shows up for everyone next time.'},
 {title:'History',body:

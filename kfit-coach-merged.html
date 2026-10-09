@@ -2243,16 +2243,26 @@ async function mirrorActiveStatusToClientRecord(name,mobile,isActive){
   await getSBScoped().from('tracker_data').update({data:newData}).eq('client_id',fitId).eq('tracker','fitness');
 }
 
+// A session the client did on their own (not with you) is never billed.
+function kfBilled(r){ return !r||r.with_coach!==false; }
+async function kfSetWithCoach(mobile,date,time,v){
+  const res=await getSBScoped().from('attendance').update({with_coach:v}).eq('client_mobile',mobile||'').eq('session_date',date||'').eq('session_time',time||'');
+  if(res.error){ alert('Not changed -- '+res.error.message+(/with_coach/i.test(res.error.message)?' (run the batch 28 SQL first)':'')); return false; }
+  allRecords.forEach(function(r){ if((r.client_mobile||'')===(mobile||'')&&r.session_date===date&&(r.session_time||'')===(time||'')) r.with_coach=v; });
+  kfLog(v?'🏋️':'🧍',v?'Marked a session as with you':'Marked a session as on their own','kfit__'+String(mobile||'').replace(/\D/g,''));
+  try{ refreshPaidUI(mobile||''); }catch(e){}
+  return true;
+}
 async function markClientPaidInFull(mobile,name,count){
   const ok=await showConfirm('Mark all as paid?','This marks all '+count+' unpaid session'+(count===1?'':'s')+' for '+name+' as paid. This can\'t be undone in bulk -- you\'d need to toggle each one back individually.');
   if(!ok) return;
-  const res=await getSBScoped().from('attendance').update({paid:true}).eq('client_mobile',mobile||'').eq('paid',false);
+  const res=await getSBScoped().from('attendance').update({paid:true}).eq('client_mobile',mobile||'').eq('paid',false).or('with_coach.is.null,with_coach.eq.true');
   if(res.error){
     alert('Could not update payment status: '+res.error.message);
     return;
   }
   allRecords.forEach(function(r){
-    if((r.client_mobile||'')===(mobile||'')&&!r.paid) r.paid=true;
+    if((r.client_mobile||'')===(mobile||'')&&!r.paid&&kfBilled(r)) r.paid=true;
   });
   toast('Marked '+count+' session'+(count===1?'':'s')+' as paid for '+name+' \u2713');
   refreshPaidUI(mobile||'');
@@ -2282,7 +2292,7 @@ function refreshPaidUI(mobile){
   // Header "Unpaid" stat box, if this client's page is the one open.
   const statEl=document.getElementById('clientUnpaidStatVal');
   if(statEl&&currentClientKey===mobile){
-    const unpaidCount=allRecords.filter(function(r){return (r.client_mobile||'')===mobile&&!r.paid;}).length;
+    const unpaidCount=allRecords.filter(function(r){return (r.client_mobile||'')===mobile&&!r.paid&&kfBilled(r);}).length;
     statEl.textContent=unpaidCount;
     statEl.style.color=unpaidCount?'var(--terra)':'var(--sage)';
   }
@@ -2353,7 +2363,7 @@ function buildUnifiedRoster(){
         if(days.length&&(!lastDate||days[0].date>lastDate)) lastDate=days[0].date;
       }catch(e){}
     }
-    const unpaidN=f?f.records.filter(function(r){return !r.paid;}).length:0;
+    const unpaidN=f?f.records.filter(function(r){return !r.paid&&kfBilled(r);}).length:0;
     merged.push({key:key,name:name,mobile:mobile,fit:f,nut:n,isTagged:isTagged,isBlocked:isBlocked,lastDate:lastDate,unpaidN:unpaidN});
   });
   merged.sort(function(a,b){
@@ -2584,7 +2594,7 @@ function showClient(key,targetContainer){
   const thisMonth=localDateStr(now).slice(0,7);
   const monthSessions=c.records.filter(r=>r.session_date&&r.session_date.slice(0,7)===thisMonth).length;
   const isTaggedClient=!!taggedClients.fitness[canonicalClientKey(c.name,c.mobile)];
-  const unpaidCount=isTaggedClient?c.records.filter(r=>!r.paid).length:0;
+  const unpaidCount=isTaggedClient?c.records.filter(r=>!r.paid&&kfBilled(r)).length:0;
   const fitClientId=buildClientId(c.name,c.mobile).replace(/'/g,"\\'");
   const histRange=getCoachHistRange();
   const filteredRecords=histRange?c.records.filter(function(r){
@@ -2592,11 +2602,11 @@ function showClient(key,targetContainer){
     return d>=histRange.start&&d<=histRange.end;
   }):c.records;
   const filteredPaidCount=isTaggedClient?filteredRecords.filter(r=>r.paid).length:0;
-  const filteredUnpaidCount=isTaggedClient?filteredRecords.filter(r=>!r.paid).length:0;
+  const filteredUnpaidCount=isTaggedClient?filteredRecords.filter(r=>!r.paid&&kfBilled(r)).length:0;
   const rows=filteredRecords.map(r=>{
     const d=new Date(r.session_date+'T12:00:00');
     const label=r.activity&&r.activity.trim()?r.activity:r.body_parts&&r.body_parts.trim()?r.body_parts:r.workout_type||'Session';
-    const paidBtn=isTaggedClient?`<button onclick="event.stopPropagation();togglePaid('${(c.mobile||'').replace(/'/g,"\\'")}','${r.session_date}','${(r.session_time||'').replace(/'/g,"\\'")}',${!!r.paid})" style="padding:4px 10px;border-radius:12px;border:1px solid ${r.paid?'var(--sage)':'var(--terra)'};background:${r.paid?'var(--sage)':'transparent'};color:${r.paid?'#fff':'var(--terra)'};font-family:'DM Sans',sans-serif;font-size:10px;font-weight:800;letter-spacing:0.5px;cursor:pointer;white-space:nowrap;">${r.paid?'PAID':'UNPAID'}</button>`:'';
+    const paidBtn=isTaggedClient&&!kfBilled(r)?`<span style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.5px">ON THEIR OWN</span>`:isTaggedClient?`<button onclick="event.stopPropagation();togglePaid('${(c.mobile||'').replace(/'/g,"\\'")}','${r.session_date}','${(r.session_time||'').replace(/'/g,"\\'")}',${!!r.paid})" style="padding:4px 10px;border-radius:12px;border:1px solid ${r.paid?'var(--sage)':'var(--terra)'};background:${r.paid?'var(--sage)':'transparent'};color:${r.paid?'#fff':'var(--terra)'};font-family:'DM Sans',sans-serif;font-size:10px;font-weight:800;letter-spacing:0.5px;cursor:pointer;white-space:nowrap;">${r.paid?'PAID':'UNPAID'}</button>`:'';
     return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
       <div onclick="openCoachSession('${(c.mobile||c.name).replace(/'/g,"\\'")}','${r.session_date}','${(r.session_time||'').replace(/'/g,"\\'")}')" style="cursor:pointer;flex:1;">
         <div style="font-size:15px;font-weight:600;">${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}</div>
@@ -7944,7 +7954,7 @@ function kfClientTab(t){
   if(t==='account'&&c&&c.fit){
     if(!fa){ fa=document.createElement('div'); fa.id='kfFitAcct'; fa.className='card'; fa.style.cssText='margin-bottom:12px'; var hdr2=document.getElementById('kfTabs'); hdr2.parentNode.insertBefore(fa,hdr2.nextSibling); }
     var recs=(c.fit.records||[]).slice().sort(function(a,b){return String(b.session_date||b.date||'').localeCompare(String(a.session_date||a.date||''));});
-    var unpaid=recs.filter(function(r){return !r.paid;});
+    var unpaid=recs.filter(function(r){return !r.paid&&kfBilled(r);});
     var mStart=ncToday().slice(0,7), thisMonth=recs.filter(function(r){return String(r.session_date||r.date||'').slice(0,7)===mStart;}).length;
     fa.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:16px;font-weight:800">🏋️ Fitness sessions</div>'
       +(unpaid.length?'<span style="color:var(--terra);font-weight:800;font-size:13px">'+unpaid.length+' unpaid</span>':'<span style="color:var(--sage);font-weight:800;font-size:13px">all paid ✓</span>')+'</div>'
@@ -8006,7 +8016,7 @@ async function kfFitDaysRender(c,el){
     var same=rows.map(function(x,i){return {x:x,i:i};}).filter(function(o){return o.x.session_date===r.session_date&&!used[o.i];});
     var hit=same.filter(function(o){return (o.x.time_of_day||'')===(r.session_time||'');})[0]||(same.length===1?same[0]:null);
     if(hit) used[hit.i]=1;
-    entries.push({date:r.session_date,time:r.session_time||'',label:(r.activity&&r.activity.trim())||(r.body_parts&&r.body_parts.trim())||r.workout_type||'',paid:!!r.paid,row:hit?hit.x:null,ri:hit?hit.i:-1});
+    entries.push({rec:r,date:r.session_date,time:r.session_time||'',label:(r.activity&&r.activity.trim())||(r.body_parts&&r.body_parts.trim())||r.workout_type||'',paid:kfBilled(r)?!!r.paid:null,row:hit?hit.x:null,ri:hit?hit.i:-1});
   });
   rows.forEach(function(x,i){ if(!used[i]) entries.push({date:x.session_date,time:x.time_of_day||'',label:'',paid:null,row:x,ri:i}); });
   entries.sort(function(a,b){ return (b.date+b.time).localeCompare(a.date+a.time); });
@@ -8027,8 +8037,12 @@ async function kfFitDaysRender(c,el){
       +'<div style="font-size:15px"><b>'+ncEsc(title)+'</b>'+(sub?' · '+sub:'')+(pr.length?' · <span style="color:#C9A24A">PR: '+ncEsc(pr[0])+' 🏆</span>':'')+'</div>'
       +(en.label&&bp&&en.label!==bp?'<div style="font-size:12px;color:var(--muted)">'+ncEsc(bp)+'</div>':'')
       +(lines.length?'<div class="kf-fd-short" style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+lines.slice(0,3).join(' · ')+(lines.length>3?' … tap for all':'')+'</div>'
-        +'<div class="kf-fd-all" style="display:none;font-size:13px;line-height:1.6;margin-top:4px">'+lines.join('<br>')+(pr.length>1?'<br><span style="color:#C9A24A">PRs: '+ncEsc(pr.join(', '))+' 🏆</span>':'')+'</div>':'')+'</div>';
+        +'<div class="kf-fd-all" style="display:none;font-size:13px;line-height:1.6;margin-top:4px">'+lines.join('<br>')+(pr.length>1?'<br><span style="color:#C9A24A">PRs: '+ncEsc(pr.join(', '))+' 🏆</span>':'')+'</div>':'')
+      +(en.rec?'<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);border-top:1px solid var(--border);padding-top:6px;margin-top:4px">'
+        +'<span>'+(kfBilled(en.rec)?'With you':'On their own · not billed')+'</span><button class="kf-act" data-wc="'+idx+'" style="padding:4px 10px;font-size:12px">'+(kfBilled(en.rec)?'Mark on their own':'Mark with you')+'</button></div>':'')+'</div>';
   }).join('');
+  el.querySelectorAll('[data-wc]').forEach(function(b){ b.onclick=async function(e){ e.stopPropagation(); var en=entries[+b.dataset.wc]; if(!en||!en.rec) return; b.disabled=true;
+    var ok=await kfSetWithCoach(en.rec.client_mobile||c.mobile,en.rec.session_date,en.rec.session_time||'',!kfBilled(en.rec)); b.disabled=false; if(ok) kfFitDaysRender(c,el); }; });
   el.querySelectorAll('[data-fd]').forEach(function(cd){cd.onclick=function(){ var a=cd.querySelector('.kf-fd-all'), sh=cd.querySelector('.kf-fd-short'); if(!a) return; var open=a.style.display==='none'; a.style.display=open?'block':'none'; sh.style.display=open?'none':'block'; };});
 }
 // ---------- Today: only what needs you ----------
@@ -8178,7 +8192,7 @@ var KF_HELP=[
   ['⇄','Fitness + Nutrition clients','Tapping someone you coach for both asks which side to open. Their page then shows only that side; tap "Switch to …" at the top to flip.'],
   ['💬','Chat','Every client\'s page has 💬 Chat next to their name, with a red count when they\'ve written. Use it for anything that isn\'t about one meal, like a nudge when they haven\'t logged.'],
   ['🍽️','Days','Tap a client, then Days: one "This week" card (days logged, habit, calories, steps, how they\'re feeling and the Sunday summary), then each day with its ring, steps and meals. Tap a meal to see amounts, and tap a photo to see it full size: swipe for the next, ✕ brings you back to the meal. Write a note under any meal; ✓ means sent, blue ✓✓ means they read it. Links show as short tappable chips. ⋯ at the top has Estimate missing calories, Import screenshots and the earlier app\'s tools.'],
-  ['🏋️','Fitness clients','Days shows each workout as a card: body parts, exercises, duration, steps and personal records 🏆. Tap a card for every set. Plan has just the workout tools: Assign, Log and Edit.'],
+  ['🏋️','Fitness clients','Days shows each workout as a card: body parts, exercises, duration, steps and personal records 🏆. Tap a card for every set. Clients say whether each session was with you or on their own; only sessions with you count as unpaid. Got it wrong? Tap "Mark on their own" or "Mark with you" on the card. Plan has just the workout tools: Assign, Log and Edit.'],
   ['🗓️','Plan','Plan a day of meals for them (they tick them off in their app), see their habit plan, and for fitness clients the workout tools.'],
   ['⚡','Quick replies','Under each meal, tap a ready-made note (like "Great protein! 💪") to send it in one tap. Tap ✎ edit to change your list.'],
   ['💚','How they\'re feeling','Clients can tap one face when they log dinner ("How do you feel today?") and say at breakfast if they had late-night cravings. The weekly check-in, the day before the consult, adds fullness, cravings, stress, waist, weight, one win and one struggle. You see it all at the top of Days and under Next consult, plus how dinner time lines up with cravings.'],
