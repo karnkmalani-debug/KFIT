@@ -21,8 +21,12 @@ function when(iso){
   var t=h+':'+String(d.getMinutes()).padStart(2,'0')+' '+ap;
   return d.toDateString()===now.toDateString()?t:(d.getDate()+' '+M[d.getMonth()]+', '+t);
 }
-function fetchThread(sb,clientId,limit){
-  return sb.from(T).select('*').eq('client_id',clientId).order('created_at',{ascending:false}).limit(limit||200)
+// coachId (optional): only this coach's part of the thread, so a client who
+// moves to a new coach starts a fresh chat with them.
+function fetchThread(sb,clientId,limit,coachId){
+  var q=sb.from(T).select('*').eq('client_id',clientId);
+  if(coachId&&/^[0-9a-f-]{36}$/i.test(coachId)&&q.or) q=q.or('coach_id.eq.'+coachId+',coach_id.is.null');
+  return q.order('created_at',{ascending:false}).limit(limit||200)
     .then(function(r){ return {data:(r.data||[]).reverse(),error:r.error||null}; });
 }
 // Unread for the given side. Client: messages/cards from the coach side.
@@ -143,12 +147,13 @@ function cleanupExpired(sb,folders){
   },Promise.resolve()).then(function(){ return removed; });
 }
 function linkify(t){
+  if(global.KFitUI&&global.KFitUI.linkify) return global.KFitUI.linkify(t);
   return esc(t).replace(/(https?:\/\/[^\s<]+)/g,function(u){ return '<a href="'+u+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;word-break:break-all;">'+u+'</a>'; });
 }
 
 var CSS='.kc-wrap{display:flex;flex-direction:column;height:100%;min-height:0;font-family:"DM Sans",sans-serif;}'
 +'.kc-list{flex:1;overflow-y:auto;padding:12px 4px;display:flex;flex-direction:column;gap:10px;}'
-+'.kc-b{max-width:80%;padding:9px 12px;border-radius:14px;font-size:15px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word;}'
++'.kc-b{max-width:80%;padding:9px 12px;border-radius:14px;font-size:15px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere;min-width:0;}'
 +'.kc-them{align-self:flex-start;background:var(--surf2,#26241f);color:var(--text,#f2efe8);border:1px solid var(--border,#3a372f);}'
 +'.kc-me{align-self:flex-end;background:var(--sage,#3a6e40);color:#fff;}'
 +'.kc-t{font-size:11px;opacity:.7;margin-top:3px;}.kc-tick{margin-left:4px;opacity:.8;letter-spacing:-2px}.kc-tick.kc-read{color:#5BB8F5;opacity:1}'
@@ -221,6 +226,13 @@ function mount(el,o){
       // (a video only downloads when someone taps play: preload="none")
       fileUrl(sb,p).then(function(u){ if(!u) return; if(node.tagName==='IMG'||node.tagName==='VIDEO') node.src=u; else node.href=u; });
     });
+    // photos open inside the app; swipe through every photo in the chat
+    list.querySelectorAll('img.kc-img').forEach(function(img){
+      img.style.cursor='zoom-in';
+      img.onclick=function(){ if(!global.KFitUI||!img.src) return;
+        var all=Array.prototype.slice.call(list.querySelectorAll('img.kc-img')).filter(function(x){return x.src;});
+        global.KFitUI.viewer(all.map(function(x){return x.src;}),all.indexOf(img),'Chat photos'); };
+    });
     list.querySelectorAll('.kc-act').forEach(function(btn){
       btn.onclick=function(){
         var id=btn.getAttribute('data-mid'), m=msgs.find(function(x){return String(x.id)===id;});
@@ -240,7 +252,7 @@ function mount(el,o){
   }
   function refresh(){
     if(!alive) return Promise.resolve();
-    return fetchThread(sb,clientId).then(function(r){
+    return fetchThread(sb,clientId,null,o.coachId).then(function(r){
       if(!alive) return;
       if(r.error){ showErr('Could not load messages ('+(r.error.message||'connection issue')+').'); return; }
       showErr(''); render(r.data);

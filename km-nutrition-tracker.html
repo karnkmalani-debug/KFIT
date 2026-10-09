@@ -16,6 +16,7 @@
 <script src="./kfit-exercise-library.js"></script>
 <script src="./kfit-nutrition-lessons.js"></script>
 <script src="./kfit-i18n.js"></script>
+<script src="./kfit-ui.js"></script>
 <script src="./kfit-steps.js"></script>
 <script src="./kfit-client-push.js"></script>
 <script src="./kfit-coach-chat.js"></script>
@@ -119,6 +120,11 @@ h2{margin:0;font-family:var(--serif);font-weight:500;font-size:22px;line-height:
 .mcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;text-align:left;width:100%;color:var(--ink)}
 .mcard .sum{display:flex;gap:10px;align-items:center}
 .mthumb{width:52px;height:52px;border-radius:12px;object-fit:cover;background:var(--sand);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px}
+.mcard.slot{border-left:4px solid var(--sc,var(--line));}
+.mcard.slot .f-meal{color:var(--sc,var(--ink));}
+.mcard.slot .mthumb:not(img){background:var(--sb,var(--sand));}
+.addgrid button[data-add]{border-color:var(--sc,var(--line2));color:var(--sc,var(--leaf));background:var(--sb,none);}
+.wantcoach{background:linear-gradient(135deg,#1E2B22,#1C1D18);border:1px solid #3D6B4F;border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:8px}
 .addgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .addgrid button{border:1px dashed var(--line2);background:none;border-radius:12px;min-height:44px;color:var(--leaf);font-weight:700;font-size:14px}
 .hbtn{border:1px solid var(--line2);background:none;border-radius:10px;min-height:40px;color:var(--ink);font-weight:700;font-size:14px}
@@ -182,6 +188,8 @@ var sb=null, S={notes:[],
 function $(s){return document.querySelector(s);}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function pad(n){return (n<10?'0':'')+n;}
+// a note's text, with any web link shown as a short tappable chip
+function txt(t){ return window.KFitUI?KFitUI.linkify(t):esc(t); }
 function dstr(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
 function today(){return dstr(new Date());}
 function parseD(s){var p=String(s||'').split('-');return new Date(+p[0],(+p[1]||1)-1,+p[2]||1);}
@@ -366,6 +374,26 @@ async function ensureAuth(){
   if(!s){ var a=await sb.auth.signInAnonymously(); if(a.error) throw a.error; s=a.data.session; }
   S.uid=s.user.id; return S.uid;
 }
+// Is a coach looking after this person? Chat, consults and coach notes only
+// show when their coach has added them as a client. Unknown = show as before.
+function hasCoach(){ return !(S.coach&&S.coach.tagged===false); }
+async function loadCoaching(){
+  try{ var c0=JSON.parse(localStorage.getItem('kfnc_coaching_'+S.mobile)||'null'); if(c0&&S.coach===undefined) S.coach=c0; }catch(e){}
+  try{ var r=await sb.rpc('kfit_my_coaching',{p_mobile:String(S.mobile)}); var d=r&&r.data;
+    if(d&&d.status==='ok'){ var was=hasCoach(); S.coach={coach:d.coach||null,name:d.coach_name||'',tagged:d.tagged!==false};
+      try{ localStorage.setItem('kfnc_coaching_'+S.mobile,JSON.stringify(S.coach)); }catch(e){}
+      if(was!==hasCoach()&&S.loaded&&!S.view) render(); } }catch(e){}
+}
+function wantCoachCard(){
+  return '<div class="wantcoach"><b style="font-size:17px">Want a coach?</b><div class="meta" style="font-weight:400;font-size:14px;line-height:1.5">Chat, consults and notes on your meals switch on when a coach adds you as their client. Everything you log now stays with you.</div>'
+    +'<button class="btn" id="hmJoin" style="min-height:46px">I have a coach\'s link</button></div>';
+}
+function openCoachLink(){
+  var v=prompt('Paste the KFit link your coach sent you:'); if(!v) return;
+  var m=String(v).match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if(!m){ toast('That doesn\'t look like a coach\'s link. Ask them to send it again.'); return; }
+  location.href=location.pathname+'?coach='+m[0];
+}
 async function checkLinked(){
   var m=S.mobile, a=await sb.from('fitness_client_devices').select('client_id').eq('client_id','kfit__'+m);
   var b=await sb.from('nutrition_client_devices').select('client_id').eq('client_id','knut__'+m);
@@ -406,15 +434,15 @@ function markThreadRead(list){
 }
 function whenShort(iso){var d=new Date(iso);return d.toLocaleTimeString(kLoc(), {hour:'numeric',minute:'2-digit'}).toLowerCase()+(dstr(d)!==today()?' · '+d.toDateString().slice(4,10):'');}
 function threadHtml(day,mealId){
-  var list=commentsFor(day,mealId); if(!list.length&&!mealId) return '';
+  var list=commentsFor(day,mealId); if(!list.length&&(!mealId||!hasCoach())) return '';
   var key=day+'|'+(mealId||'');
   return '<div class="thread" data-thread="'+esc(key)+'" style="display:flex;flex-direction:column;gap:6px;margin-top:4px">'
     +list.map(function(c){var me=c.author==='client';
-      return '<div style="align-self:'+(me?'flex-end':'flex-start')+';max-width:88%;background:'+(me?'#23382B':'#2A2618')+';border:1px solid '+(me?'#3D6B4F':'#6B5A2A')+';color:'+(me?'#CFEBD8':'#E7CF8C')+';border-radius:'+(me?'12px 12px 4px 12px':'12px 12px 12px 4px')+';padding:7px 10px;font-size:14px;line-height:1.45">'
-        +(me?'':'<b>Coach:</b> ')+esc(c.body)+'<div style="font-size:11px;opacity:.75;margin-top:2px">'+esc(whenShort(c.created_at))+(c.edited_at?' · edited':'')+(me?(c.read_by_coach_at?' <span style="color:#5BB8F5;letter-spacing:-2px" title="Read">✓✓</span>':' <span style="letter-spacing:-2px" title="Sent">✓</span>'):'')
+      return '<div style="align-self:'+(me?'flex-end':'flex-start')+';max-width:88%;background:'+(me?'#23382B':'#2A2618')+';border:1px solid '+(me?'#3D6B4F':'#6B5A2A')+';color:'+(me?'#CFEBD8':'#E7CF8C')+';border-radius:'+(me?'12px 12px 4px 12px':'12px 12px 12px 4px')+';padding:7px 10px;font-size:14px;line-height:1.45;overflow-wrap:anywhere;min-width:0">'
+        +(me?'':'<b>Coach:</b> ')+txt(c.body)+'<div style="font-size:11px;opacity:.75;margin-top:2px">'+esc(whenShort(c.created_at))+(c.edited_at?' · edited':'')+(me?(c.read_by_coach_at?' <span style="color:#5BB8F5;letter-spacing:-2px" title="Read">✓✓</span>':' <span style="letter-spacing:-2px" title="Sent">✓</span>'):'')
         +(me?' · <a href="#" data-editc="'+c.id+'" style="color:inherit">edit</a>':'')+'</div></div>';}).join('')
-    +'<div class="row" style="gap:6px"><input data-reply="'+esc(key)+'" placeholder="'+(list.length?'Reply…':'Ask your coach about this meal…')+'" style="flex:1;min-height:40px;border-radius:10px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);padding:0 10px;font-size:14px">'
-    +'<button data-send="'+esc(key)+'" style="min-height:40px;border-radius:10px;border:none;background:var(--green);color:#fff;font-weight:700;padding:0 12px">Send</button></div></div>';
+    +(hasCoach()?'':'<div style="display:none">')+'<div class="row" style="gap:6px"><input data-reply="'+esc(key)+'" placeholder="'+(list.length?'Reply…':'Ask your coach about this meal…')+'" style="flex:1;min-height:40px;border-radius:10px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);padding:0 10px;font-size:14px">'
+    +'<button data-send="'+esc(key)+'" style="min-height:40px;border-radius:10px;border:none;background:var(--green);color:#fff;font-weight:700;padding:0 12px">Send</button></div>'+(hasCoach()?'':'</div>')+'</div>';
 }
 function bindThreads(after){
   document.querySelectorAll('[data-send]').forEach(function(b){b.onclick=async function(){
@@ -460,6 +488,7 @@ function render(){
   if(S.tab==='log') return renderLog();
   if(S.tab==='progress') return renderProgress();
   if(S.tab==='earlier') return renderEarlier();
+  if(!hasCoach()&&(S.tab==='chat'||S.tab==='consults'||S.tab==='coach')) return renderHome();
   if(S.tab==='chat') return renderChat();
   if(S.tab==='journey') return hasPlan()?renderJourney():renderChooser(true);
   if(S.tab==='plan') return hasPlan()?renderToday():renderChooser(true);
@@ -565,7 +594,7 @@ function renderCode(email){
 async function enter(){
   S.view=null; loadCache(); render();
   try{ await flush(); await loadAll(); await loadNotes(); }catch(e){}
-  startLive(); updateBadge();
+  startLive(); updateBadge(); loadCoaching();
   try{ sb.rpc('kfit_my_next_consult',{p_client:S.clientId}).then(function(r){ var v=r&&r.data||null; if(v!==S.nextConsult){ S.nextConsult=v; if(S.tab==='home'&&!S.view) render(); } },function(){}); }catch(e){}
   try{ if(window.KFitClientPush&&!enter._push){ enter._push=1; KFitClientPush.onOpen(function(u){
     var q=new URL(u,location.href).searchParams, o=q.get('open'); S.view=null;
@@ -597,11 +626,12 @@ function renderHome(){
     +hint('home')
     +'<button class="tile main" id="hmLog"><div class="ic" style="background:#23382B;color:var(--leaf)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div><div style="flex:1"><h2>Log a meal</h2><div class="meta" style="font-weight:400">'+(todays.length?todays.length+' logged today':'Your day, meal by meal')+'</div>'+kcalBar(today())+'</div></button>'
     +'<button class="tile" id="hmPlan"><div class="ic" style="background:#3A2A1E;color:var(--terra)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M6 20c0-5 12-3 12-9S9 6 9 3"/><circle cx="9" cy="3" r="1"/><circle cx="6" cy="20" r="1"/></svg></div><div><h2>My plan</h2><div class="meta" style="font-weight:400">'+esc(planSub)+'</div></div></button>';
-  if(anyNotes) html+='<button class="tile" id="hmCoach" style="border-color:#6B5A2A;padding:13px 16px"><div style="font-size:15px">'+(unread?'<b style="color:var(--gold)">'+unread+' new note'+(unread===1?'':'s')+' from your coach</b>':'<b style="color:var(--gold)">From your coach</b>')+' <span style="color:var(--muted)">· tap to read</span></div></button>';
+  if(anyNotes&&hasCoach()) html+='<button class="tile" id="hmCoach" style="border-color:#6B5A2A;padding:13px 16px"><div style="font-size:15px">'+(unread?'<b style="color:var(--gold)">'+unread+' new note'+(unread===1?'':'s')+' from your coach</b>':'<b style="color:var(--gold)">From your coach</b>')+' <span style="color:var(--muted)">· tap to read</span></div></button>';
   html+='<div id="pushCard"></div><div class="links">'+(dueWeekly()?'<button data-go="weekly" style="border-color:#6B5A2A;color:var(--gold)">'+(consultSoon()?'Before your consult ✨':'Weekly check-in')+'</button>':'')
-    +'<button data-go="consults">Consults</button><button data-go="guide">Food guide</button><button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')
-    +'<button data-go="chat">'+(S.unread?'Chat ('+S.unread+' new)':'Chat')+'</button></div></div>';
+    +(hasCoach()?'<button data-go="consults">Consults</button>':'')+'<button data-go="guide">Food guide</button><button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')
+    +(hasCoach()?'<button data-go="chat">'+(S.unread?'Chat ('+S.unread+' new)':'Chat')+'</button>':'')+'</div>'+(hasCoach()?'':wantCoachCard())+'</div>';
   show(html);
+  var hj=$('#hmJoin'); if(hj) hj.onclick=openCoachLink;
   $('#hmLog').onclick=function(){go('log');};
   $('#hmPlan').onclick=function(){go('plan');};
   var hc=$('#hmCoach'); if(hc) hc.onclick=function(){go('coach');};
@@ -781,13 +811,13 @@ function coachBox(){
     var p=byDay[d]; if(!p) return;
     html+='<div class="coachbox" style="border-color:#2C4234"><div class="steplbl" style="color:var(--leaf)">'+(d===today()?'TODAY\'S':'TOMORROW\'S')+' MEAL PLAN</div>'
       +(p.items||[]).map(function(it){return '<div style="font-size:15px"><span class="tm">'+esc(it.time||'')+'</span> '+(it.slot?esc(it.slot)+' · ':'')+esc(it.text||'')+(it.note?'<br><span class="cnote">'+esc(it.note)+'</span>':'')+'</div>';}).join('')
-      +(p.message?'<div class="meta" style="font-weight:400">'+esc(p.message)+'</div>':'')+'</div>';
+      +(p.message?'<div class="meta" style="font-weight:400">'+txt(p.message)+'</div>':'')+'</div>';
   });
   if(advice){
     var its=(advice.items||[]).filter(function(it){return it.note;});
     html+='<div class="coachbox"><div class="steplbl">SUGGESTIONS FROM YOUR COACH</div>'
       +its.map(function(it){return '<div style="font-size:15px"><b>'+esc(it.dayLabel||it.day||'')+(it.slot?' '+esc(it.slot.toLowerCase()):'')+'</b> · '+esc(it.text||'')+'<br><span class="cnote">'+esc(it.note)+'</span></div>';}).join('')
-      +(advice.message?'<div style="font-size:15px;color:var(--soft)">'+esc(advice.message)+'</div>':'')
+      +(advice.message?'<div style="font-size:15px;color:var(--soft)">'+txt(advice.message)+'</div>':'')
       +'<div class="meta" style="font-weight:400">Sent '+esc(new Date(advice.created_at).toDateString().slice(0,10))+'</div></div>';
   }
   return html+'</div>';
@@ -1113,6 +1143,9 @@ function openPast(id){
 }
 
 // ---------- Log (meals + photo feedback in hands, never calories) ----------
+// one colour per meal of the day: its card edge, its name and its "+" button
+var SLOT_COL={'Breakfast':['#E8B04A','#2A2416'],'Morning snack':['#E39A6E','#2B2019'],'Lunch':['#8FD1A2','#1A251D'],'Evening snack':['#C7A5E8','#241F2B'],'Dinner':['#8FB4F0','#19202B'],'Late snack':['#9C978A','#1F1F1B']};
+function slotStyle(sl){ var c=SLOT_COL[sl]||SLOT_COL['Late snack']; return '--sc:'+c[0]+';--sb:'+c[1]; }
 var DAY_SLOTS=[['Breakfast','08:00'],['Morning snack','11:00'],['Lunch','13:30'],['Evening snack','17:00'],['Dinner','20:00']];
 // Photos: a meal can hold several, added over time (a long meal, drinks...).
 function mealPhotos(b){ b=b||{}; var ps=Array.isArray(b.photos)?b.photos.slice():[]; if(b.photo&&!ps.some(function(x){return x.path===b.photo;})) ps.unshift({path:b.photo,at:b.at,feedback:b.feedback}); return ps; }
@@ -1182,7 +1215,7 @@ function renderLog(){
   var open=S._openMeal;
   function card(m){
     var b=m.body||{}, f=aggFeedback(b), ps=mealPhotos(b), th=commentsFor(d,m.meal_id), unread=th.filter(function(c){return c.author==='coach'&&!c.read_by_client_at;}).length, isOpen=open===m.meal_id;
-    var html2='<div class="mcard"><button class="sum" data-open="'+esc(m.meal_id)+'" style="background:none;border:none;color:inherit;padding:0;text-align:left;width:100%">'
+    var html2='<div class="mcard slot" style="'+slotStyle(b.slot||'Late snack')+'"><button class="sum" data-open="'+esc(m.meal_id)+'" style="background:none;border:none;color:inherit;padding:0;text-align:left;width:100%">'
       +(ps.length?'<img class="mthumb" data-path="'+esc(ps[0].path)+'" alt="">':'<span class="mthumb">🍽️</span>')
       +'<div style="flex:1;min-width:0"><div><span class="f-time">'+esc(mealTime(m))+'</span> <span class="f-meal" style="font-size:16px">'+esc(b.slot||'Meal')+'</span>'+(th.length?' <span class="meta">💬 '+th.length+(unread?' new':'')+'</span>':'')+'</div>'
       +'<div class="f-food" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(b.text||'Photo')+'</div>'
@@ -1206,13 +1239,13 @@ function renderLog(){
   var cards='';
   list.forEach(function(m){ cards+=card(m); });
   planned.filter(function(it){return !ticked[it.key];}).forEach(function(it){
-    cards+='<div class="mcard" style="border-style:dashed"><div class="sum"><span class="mthumb" style="background:none;border:1px dashed var(--line2)">🗓️</span><div style="flex:1;min-width:0"><div><span class="f-time">'+esc(it.time||'')+'</span> <span class="f-meal" style="font-size:16px">'+esc(it.slot||'Meal')+'</span> <span class="meta">· from your coach</span></div><div class="f-food">'+esc(it.text||'')+'</div>'+(it.note?'<span class="cnote">'+esc(it.note)+'</span>':'')+'</div>'
+    cards+='<div class="mcard slot" style="border-style:dashed;'+slotStyle(it.slot||'Late snack')+'"><div class="sum"><span class="mthumb" style="background:none;border:1px dashed var(--line2)">🗓️</span><div style="flex:1;min-width:0"><div><span class="f-time">'+esc(it.time||'')+'</span> <span class="f-meal" style="font-size:16px">'+esc(it.slot||'Meal')+'</span> <span class="meta">· from your coach</span></div><div class="f-food">'+esc(it.text||'')+'</div>'+(it.note?'<span class="cnote">'+esc(it.note)+'</span>':'')+'</div>'
       +'<button data-tick="'+esc(it.key)+'" aria-label="I ate this" style="width:34px;height:34px;border-radius:9px;border:1.5px solid var(--line2);background:none;flex-shrink:0"></button></div></div>';
   });
   html+=cards||'<div class="meta" style="font-weight:400;text-align:center;padding:6px 0">Nothing logged '+(isToday?'yet today':'on this day')+'.</div>';
   var missing=DAY_SLOTS.map(function(x){return x[0];}).filter(function(sl){return !bySlot[sl];});
   var SHORT={'Morning snack':'AM snack','Evening snack':'PM snack'};
-  html+='<div class="steplbl" style="margin-top:4px">LOG A MEAL</div><div class="addgrid">'+missing.map(function(sl){return '<button data-add="'+sl+'">+ '+(SHORT[sl]||sl)+'</button>';}).join('')+'<button data-add="Late snack">+ Other</button></div>';
+  html+='<div class="steplbl" style="margin-top:4px">LOG A MEAL</div><div class="addgrid">'+missing.map(function(sl){return '<button data-add="'+sl+'" style="'+slotStyle(sl)+'">+ '+(SHORT[sl]||sl)+'</button>';}).join('')+'<button data-add="Late snack">+ Other</button></div>';
   html+='<div class="links"><button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')+'</div></div>';
   show(html);
   document.querySelectorAll('[data-day]').forEach(function(b){b.onclick=function(){S._logDay=b.dataset.day;S._openMeal=null;S._fullDay=null;renderLog();};});
@@ -1326,6 +1359,22 @@ function itemsFeedback(items,tip){
   ['protein','veg','carbs','fats'].forEach(function(k){f[k]=Math.round(f[k]*2)/2;}); f.kcal=f.kcal?Math.round(f.kcal/10)*10:null;
   return f;
 }
+// After the photo: how this plate compares with her own hands (palms, fists,
+// cupped hands, thumbs), sized for her plan. Men's portions are about double.
+function handGuide(f,slot){
+  if(!f||!((f.protein||0)+(f.veg||0)+(f.carbs||0)+(f.fats||0))) return '';
+  var p=profile()||{}, men=String(p.sex||'').toLowerCase().indexOf('m')===0, snack=/snack/i.test(slot||'');
+  var loss=((S.program&&S.program.settings&&S.program.settings.goal)||'lose')!=='maintain';
+  var base=men?2:1; if(snack) base=base/2;
+  var T={protein:base,veg:base,carbs:base,fats:base};
+  var L=[['protein','✋','Protein','palm','add egg, dal or paneer'],['veg','✊','Veg','fist','add a salad or sabzi'],['carbs','🤲','Carbs','cupped hand','less roti or rice'],['fats','👍','Fats','thumb','less oil or ghee']];
+  function n(x){ return x===0.5?'½':x===0.25?'¼':x===1.5?'1½':String(x); }
+  var rows=L.map(function(r){ var have=Number(f[r[0]])||0, want=T[r[0]], low=have<want*0.75, high=have>want*1.6;
+    var say=low&&(r[0]==='protein'||r[0]==='veg')?'<span style="color:var(--gold)">'+r[4]+'</span>':high&&(r[0]==='carbs'||r[0]==='fats')?'<span style="color:var(--gold)">'+r[4]+'</span>':'<span style="color:var(--leaf)">good</span>';
+    return '<div class="row" style="gap:8px;font-size:14px;align-items:baseline"><span style="width:84px;flex-shrink:0">'+r[1]+' '+r[2]+'</span><span class="f-time" style="flex-shrink:0">'+n(have)+' of '+n(want)+'</span><span style="flex:1;text-align:right">'+say+'</span></div>'; }).join('');
+  return '<div class="card" style="border:1px solid #3D6B4F;gap:6px"><div class="steplbl" style="color:var(--leaf)">YOUR PLATE, BY YOUR HANDS</div>'+rows
+    +'<div class="meta" style="font-weight:400">Use your own hand: palm for protein, fist for veg, cupped hand for carbs, thumb for fats.</div></div>';
+}
 function itemsText(items){return (items||[]).map(function(it){return it.name+' '+amtTxt(it.amount)+(it.unit?' '+it.unit:'');}).join(', ');}
 function openMealForm(d,forSlot,editId){
   var em=editId&&S.meals[editId], eb=em&&em.body||{};
@@ -1343,7 +1392,7 @@ function openMealForm(d,forSlot,editId){
   if(M.time){ var mt=M.time.split(':'); hh=+mt[0]; mm=+mt[1]; } if(M.slot) slot=M.slot; if(M.day) d=M.day;
   var top='<div class="top"><button class="round" id="mfBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><span></span></div>';
   function back(){ S._mf=null; S.view=null; S.tab='log'; render(); }
-  function pickPhoto(then){ var inp=$('#photoInput'); inp.value=''; inp.setAttribute('capture','environment'); inp.onchange=async function(){
+  function pickPhoto(then,fromGallery){ var inp=$('#photoInput'); inp.value=''; if(fromGallery) inp.removeAttribute('capture'); else inp.setAttribute('capture','environment'); inp.onchange=async function(){
       var f=inp.files&&inp.files[0]; inp.removeAttribute('capture'); if(!f) return;
       if(f.size>G_MAX){toast('That photo is too large');return;}
       try{ var ph=await shrink(f,1024,0.72); then(ph); }catch(e){ toast('Could not read that photo'); }
@@ -1360,10 +1409,12 @@ function openMealForm(d,forSlot,editId){
     show('<div class="screen full">'+top+'<h1>Log a meal</h1>'
       +'<button id="mfCam" style="border:2px dashed var(--line2);background:var(--card);border-radius:20px;min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--ink)">'
       +'<span style="font-size:46px">📷</span><span class="f-meal" style="font-size:20px">Take a photo of your meal</span><span class="meta" style="font-weight:400">The app works out what\'s on your plate and how much</span></button>'
+      +'<button id="mfGal" style="border:1px solid var(--line2);background:var(--card);border-radius:16px;min-height:54px;color:var(--ink);font-weight:700;font-size:16px">🖼️ Choose from your photos</button>'
       +'<button class="btn link" id="mfNoPhoto" style="align-self:center;min-height:40px">Forgot to take one? Log it without a photo</button>'
       +'<button class="btn link" id="mfGuide" style="align-self:center;min-height:32px;font-size:14px">What\'s protein, carbs or fat? See the food guide</button></div>');
     $('#mfBack').onclick=back; $('#mfGuide').onclick=function(){S._mf=null;S.view=null;go('guide');};
     $('#mfCam').onclick=function(){ pickPhoto(function(ph){ M.photos.push(ph); analyse(ph,'',false); }); };
+    $('#mfGal').onclick=function(){ pickPhoto(function(ph){ M.photos.push(ph); analyse(ph,'',false); },true); };
     $('#mfNoPhoto').onclick=function(){ M.stage='text'; M.noPhoto=true; openMealForm(d,forSlot,editId); };
     return;
   }
@@ -1397,6 +1448,7 @@ function openMealForm(d,forSlot,editId){
       +'<div class="f-time" style="min-width:74px;text-align:center">'+esc(amtTxt(it.amount)+(it.unit?' '+it.unit:''))+'</div>'
       +'<button class="round" data-up="'+i+'" aria-label="More" style="width:34px;height:34px">+</button>'
       +'<button data-rm="'+i+'" aria-label="Remove" style="background:none;border:none;color:var(--muted);font-size:18px;padding:0 4px">✕</button></div>';}).join('')
+    +handGuide(fb,slot)
     +'<div class="row" style="gap:14px;flex-wrap:wrap"><button class="btn link" id="mfMissing" style="min-height:36px">+ Something\'s missing</button><button class="btn link" id="mfMorePhoto" style="min-height:36px">+ Another photo</button></div>'
     +'<div class="card" style="border:1px solid var(--line);flex-direction:row;justify-content:space-between;align-items:center">'
     +(kOn?'<span class="meta" style="font-weight:400">Total, estimate</span><span class="f-meal" style="font-size:24px;color:var(--gold)">~'+fmt(fb.kcal||0)+' kcal</span>'
@@ -1923,12 +1975,17 @@ function renderChat(){
   show('<div class="screen full" style="min-height:100vh">'+head('Chat','Your coach')+hint('chat')+'<div id="chatBox" style="flex:1;min-height:60vh;display:flex;flex-direction:column"></div></div>');
   if(typeof KFitChat==='undefined'){ $('#chatBox').innerHTML='<div class="card"><div class="body">Chat couldn\'t load. Check your connection and try again.</div></div>'; return; }
   if(chatUI){ try{chatUI.destroy();}catch(e){} }
-  chatUI=KFitChat.mount($('#chatBox'),{sb:sb,clientId:S.fitId,role:'client',emptyText:'Say hi to your coach! You can send messages, photos, short videos or files.',onRead:function(){S.unread=0;}});
+  chatUI=KFitChat.mount($('#chatBox'),{sb:sb,clientId:S.fitId,role:'client',coachId:(S.coach&&S.coach.coach)||null,emptyText:'Say hi to your coach! You can send messages, photos, short videos or files.',onRead:function(){S.unread=0;}});
   try{ var day=today(); if(localStorage.getItem('kfnc_chat_cleanup')!==day){ KFitChat.cleanupExpired(sb,[S.fitId]); localStorage.setItem('kfnc_chat_cleanup',day);} }catch(e){}
 }
 function boot(){
   app=$('#app');
   document.querySelectorAll('#tabs button').forEach(function(b){b.onclick=function(){go(b.dataset.tab);};});
+  // tap any meal photo: it opens here in the app, swipe for the next, ✕ returns to this spot
+  document.addEventListener('click',function(e){ var t=e.target;
+    if(!t||t.tagName!=='IMG'||!window.KFitUI||!t.src||t.classList.contains('mthumb')) return;
+    if(!(t.dataset&&t.dataset.path)&&t.src.indexOf('blob:')!==0) return;
+    e.preventDefault(); e.stopPropagation(); KFitUI.gallery(t,'Meal photos'); },true);
   if(!window.supabase||!G_URL){ show('<div class="screen"><h1>Can\'t connect</h1><div class="body">Please check your internet connection and reopen the app.</div></div>'); return; }
   initSB();
   var m=(localStorage.getItem(LS.mobile)||'').replace(/\D/g,'');

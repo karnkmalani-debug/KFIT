@@ -118,8 +118,10 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .ex-block{margin-bottom:9px;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
 .ex-top-row{display:flex;align-items:center;gap:6px;padding:8px;background:var(--surf2);}
 .ex-top-row .ex-select{flex:1;min-width:0;}
-.kf-sel{position:relative;flex:1;min-width:0;}
-.kf-sel-lab{background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 28px 8px 8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:17px;line-height:1.3;white-space:normal;overflow-wrap:anywhere;min-height:40px;display:flex;align-items:center;position:relative;}
+.kf-sel{position:relative;flex:1 1 100%;min-width:0;order:-1;}
+.ex-top-row{flex-wrap:wrap;}
+.ex-top-row>.action-group{margin-left:auto;}
+.kf-sel-lab{background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 28px 8px 8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:17px;line-height:1.3;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none;min-height:40px;display:flex;align-items:center;position:relative;}
 .kf-sel-lab::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;}
 .kf-sel-lab.kf-empty{color:var(--muted);}
 .kf-sel>select.ex-select,.kf-sel>select.ss-ex-select{position:absolute!important;inset:0;width:100%!important;height:100%!important;opacity:0.011;margin:0;cursor:pointer;font-size:16px;}
@@ -434,6 +436,23 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
   body.printing-report .panel.active{display:none!important;}
   body.printing-report #printReportArea{display:block!important;}
 }
+
+/* batch 28: full exercise names, Strength / Cardio / Functional, a clean Log */
+.ex-block[data-collapsed="1"] .kf-sel,.superset-ex-block[data-collapsed="1"] .kf-sel{display:none}
+.ex-collapsed-summary{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:break-word;color:var(--text)!important;font-size:15px!important;min-width:0}
+#kfPartBar{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:12px}
+#kfPartBar button{border:none;background:none;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:800;padding:9px 0;border-radius:9px;cursor:pointer}
+#kfPartBar button.on{background:var(--gold);color:#12130F}
+#kfPartBar button i{font-style:normal;font-size:12px;opacity:.85;margin-left:3px}
+.kf-t-ss{display:none}
+#panel0[data-part="cardio"] #kfCardFunc,#panel0[data-part="func"] #kfCardCardio,#panel0[data-part="strength"] #kfCardCardio,#panel0[data-part="strength"] #kfCardFunc{display:none}
+#panel0[data-part="cardio"] #kfCardStrength>:not(.card-title):not(#exBody):not(.kf-ss-add),#panel0[data-part="func"] #kfCardStrength>:not(.card-title):not(#exBody):not(.kf-ss-add){display:none!important}
+#panel0[data-part="cardio"] #exBody>:not(.superset-block),#panel0[data-part="func"] #exBody>:not(.superset-block){display:none!important}
+#panel0[data-part="cardio"] .kf-t-main,#panel0[data-part="func"] .kf-t-main{display:none}
+#panel0[data-part="cardio"] .kf-t-ss,#panel0[data-part="func"] .kf-t-ss{display:inline}
+#logImportCard{display:none!important}
+#kfPrintBtn{background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-size:.8rem;color:var(--muted);cursor:pointer;flex-shrink:0}
+@media print{#kfPrintBtn,#kfPartBar,#kfSaveSheet{display:none!important}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -471,6 +490,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 <script src="./kfit-fitness-store.js"></script>
 <script src="./kfit-coach-chat.js"></script>
 <script src="./kfit-join-coach.js"></script>
+<script src="./kfit-ui.js"></script>
 <script src="./kfit-steps.js"></script>
 <script src="./kfit-client-push.js"></script>
 <script>
@@ -493,6 +513,82 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',scan); else scan();
 })();
 </script>
+
+<script>
+// Batch 28: Strength / Cardio / Functional switch (supersets and circuits show in all three),
+// one Print button up top, and a Log page without the details Save asks for anyway.
+(function(){
+  function $(id){ return document.getElementById(id); }
+  var part='strength'; try{ part=sessionStorage.getItem('kf_part')||'strength'; }catch(e){}
+  function counts(){
+    var st=0, ss=0; document.querySelectorAll('#exBody>.ex-block').forEach(function(b){ var x=b.querySelector('.ex-select'); if(x&&x.value) st++; });
+    ss=document.querySelectorAll('#exBody>.superset-block').length;
+    var cd=(typeof cardioBlocks!=='undefined'&&cardioBlocks)?cardioBlocks.length:0, fn=(typeof functionalBlocks!=='undefined'&&functionalBlocks)?functionalBlocks.length:0;
+    return {strength:st+ss,cardio:cd,func:fn};
+  }
+  function paint(){
+    var p0=$('panel0'), bar=$('kfPartBar'); if(!p0||!bar) return;
+    if(p0.dataset.part!==part) p0.dataset.part=part;
+    var c=counts();
+    bar.querySelectorAll('[data-part]').forEach(function(b){ var k=b.dataset.part, lab={strength:'Strength',cardio:'Cardio',func:'Functional'}[k];
+      var h=lab+(c[k]?'<i>'+c[k]+'</i>':''); if(b.innerHTML!==h) b.innerHTML=h; b.classList.toggle('on',k===part); b.setAttribute('aria-selected',k===part?'true':'false'); });
+  }
+  function setPart(k){ part=k; try{ sessionStorage.setItem('kf_part',k); }catch(e){} paint(); place(); }
+  window.kfSetPart=setPart;
+  function initBar(){ var bar=$('kfPartBar'); if(!bar) return; bar.querySelectorAll('[data-part]').forEach(function(b){ b.onclick=function(){ setPart(b.dataset.part); }; }); paint(); setInterval(paint,800); }
+  // one Print button, in the header
+  function initPrint(){ var home=$('homeBtn'); if(!home||$('kfPrintBtn')) return; var b=document.createElement('button'); b.id='kfPrintBtn'; b.type='button'; b.title='Print this screen'; b.setAttribute('aria-label','Print this screen'); b.innerHTML='&#128424;'; b.onclick=function(){ window.print(); }; home.parentNode.insertBefore(b,home); }
+  // Duration, rest and calories leave the page. Save already asks for a
+  // missing duration or rest (with the timer filling it in when it ran).
+  function initSheet(){
+    if(document.getElementById('kfSaveExtras')) return;
+    var h=document.createElement('div'); h.id='kfSaveExtras'; h.hidden=true; h.style.display='none';
+    ['kfDurCard','sessionRestCard','kfRestCard','calBurnCard'].forEach(function(id){ var c=$(id); if(c) h.appendChild(c); });
+    document.body.appendChild(h);
+  }
+  // Cardio or Functional open: their list comes first, circuits below it
+  var placed='';
+  function place(){ var st=$('kfCardStrength'), cd=$('kfCardCardio'), fn=$('kfCardFunc'); if(!st||!cd||!fn||placed===part) return; placed=part;
+    if(part==='strength'){ st.parentNode.insertBefore(cd,st.nextSibling); cd.parentNode.insertBefore(fn,cd.nextSibling); }
+    else { var mine=part==='cardio'?cd:fn; st.parentNode.insertBefore(mine,st); } }
+  function boot(){ initBar(); initPrint(); initSheet(); place(); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+// Coming up: workouts your coach planned, each one can go into the phone's calendar with a reminder
+(function(){
+  function pad(n){ return (n<10?'0':'')+n; }
+  function today(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function esc(t){ return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function what(w){ var b=(w.bodyParts||[]).join(', '); var c=(w.cardio||[]).map(function(x){return x.ex;}).filter(Boolean).join(', '); return b||c||((w.functional||[]).length?'Functional':'Workout'); }
+  function ics(day,time,title,detail){
+    var p=day.split('-'), t=(time||'07:00').split(':'), st=new Date(+p[0],+p[1]-1,+p[2],+t[0]||7,+t[1]||0), en=new Date(st.getTime()+3600000);
+    function f(d){ return d.getUTCFullYear()+pad(d.getUTCMonth()+1)+pad(d.getUTCDate())+'T'+pad(d.getUTCHours())+pad(d.getUTCMinutes())+'00Z'; }
+    return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//KFit//Workouts//EN','BEGIN:VEVENT','UID:kfit-'+day+'-'+Date.now()+'@kfit.pages.dev','DTSTAMP:'+f(new Date()),'DTSTART:'+f(st),'DTEND:'+f(en),
+      'SUMMARY:KFit: '+title.replace(/[,;]/g,' '),'DESCRIPTION:'+detail.replace(/[,;]/g,' ').replace(/\n/g,'\\n'),'BEGIN:VALARM','TRIGGER:-PT1H','ACTION:DISPLAY','DESCRIPTION:KFit workout in 1 hour','END:VALARM','END:VEVENT','END:VCALENDAR'].join('\r\n');
+  }
+  async function addToCalendar(day,time,w){
+    var title=what(w), detail=(w.exercises||[]).map(function(e){return e.ex+(e.sets?' x'+e.sets:'');}).concat((w.cardio||[]).map(function(c){return c.ex+(c.duration?' '+c.duration+' min':'');})).join('\n');
+    var txt=ics(day,time,title,detail||title), name='kfit-workout-'+day+'.ics';
+    try{ var file=new File([txt],name,{type:'text/calendar'}); if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'KFit workout'}); return; } }catch(e){ if(e&&e.name==='AbortError') return; }
+    var a=document.createElement('a'); a.href='data:text/calendar;charset=utf-8,'+encodeURIComponent(txt); a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  }
+  function render(){
+    var box=document.getElementById('kfUpcoming'); if(!box||typeof assignedWorkouts==='undefined'||!assignedWorkouts) return;
+    var t=today(), days=Object.keys(assignedWorkouts).filter(function(d){return d>t;}).sort().slice(0,6);
+    var sig=days.join(',')+JSON.stringify(days.map(function(d){return what(assignedWorkouts[d]);})); if(box._sig===sig) return; box._sig=sig;
+    if(!days.length){ box.innerHTML=''; return; }
+    box.innerHTML='<div class="card" style="padding:12px 14px"><div class="card-title" style="margin-bottom:6px">Coming up from your coach</div>'
+      +days.map(function(d){ var dt=new Date(d+'T12:00:00'); return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border)"><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--text)">'+dt.toDateString().slice(0,10)+' · '+esc(what(assignedWorkouts[d]))+'</div></div>'
+        +'<input type="time" value="07:00" data-ct="'+d+'" aria-label="Time" style="width:92px;padding:6px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;color-scheme:dark">'
+        +'<button type="button" data-cal="'+d+'" style="padding:7px 10px;background:none;border:1px solid var(--sage);border-radius:8px;color:var(--sage);font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">📅 Add</button></div>'; }).join('')
+      +'<div style="font-size:12px;color:var(--muted);margin-top:6px">Adds it to your phone\'s calendar with a reminder 1 hour before.</div></div>';
+    box.querySelectorAll('[data-cal]').forEach(function(b){ b.onclick=function(){ var d=b.dataset.cal, tm=box.querySelector('[data-ct="'+d+'"]'); addToCalendar(d,tm&&tm.value,assignedWorkouts[d]); }; });
+  }
+  window.kfCalendarIcs=ics;
+  function boot(){ var bp=document.getElementById('bpCard'); if(bp&&!document.getElementById('kfUpcoming')){ var d=document.createElement('div'); d.id='kfUpcoming'; bp.parentNode.insertBefore(d,bp); } render(); setInterval(render,3000); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
 <script>
 // Steps today (shared with the nutrition app and Merge)
 (function(){
@@ -501,8 +597,10 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     tries++;
     var m=(localStorage.getItem('kmfit_mobile')||'').replace(/\D/g,'');
     if(!window.KFitSteps||typeof getSB!=='function'||m.length<8){ if(tries<40) setTimeout(go,1500); return; }
-    try{ KFitSteps.mount(document.getElementById('kfStepsBox'),{sb:getSB(),mobile:m}); }catch(e){}
-    try{ if(window.KFitClientPush) KFitClientPush.card(document.getElementById('kfPushBox'),{sb:getSB(),mobile:m,app:'fitness',compact:true}); }catch(e){}
+    // which coach this person is with now (their chat starts fresh with a new coach)
+    try{ if(!window.kfCoachId) getSB().rpc('kfit_my_coaching',{p_mobile:m}).then(function(r){ if(r&&r.data&&r.data.status==='ok') window.kfCoachId=r.data.coach||null; },function(){}); }catch(e){}
+    try{ KFitSteps.mount(document.getElementById('kfStepsBox'),{sb:getSB(),mobile:m,collapsed:true}); }catch(e){}
+    try{ if(window.KFitClientPush) KFitClientPush.card(document.getElementById('kfPushBox'),{sb:getSB(),mobile:m,app:'fitness',compact:true,line:true}); }catch(e){}
     try{ if(window.KFitClientPush&&!go._push){ go._push=1; KFitClientPush.onOpen(function(u){ if(/open=chat/.test(u)&&typeof goTab==='function') goTab(6); }); } }catch(e){}
   }
   setTimeout(go,2500);
@@ -755,31 +853,11 @@ btn.textContent='Could not copy -- select the address bar manually';
   <div class="panel active" id="panel0">
     <input type="hidden" id="clientName">
     <input type="hidden" id="sessDate">
-    <div id="kfStepsBox"></div>
-    <div id="kfPushBox"></div>
 
     <div class="card" id="logImportCard" style="display:none;">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
         <div style="font-size:13px;color:var(--muted);line-height:1.5;">Coming from another app or a spreadsheet? Bring your history in.</div>
         <button onclick="openImportModal()" style="padding:9px 14px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">Import Data</button>
-      </div>
-    </div>
-
-    <div class="card" style="padding:0;overflow:hidden;">
-      <div onclick="togglePhilosophyCardFit()" style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:var(--sage);">
-        <div style="font-size:12px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#fff;">Train Smart. Age Well.</div>
-        <span id="philoChevronFit" style="color:#fff;font-size:15px;">&#9660;</span>
-      </div>
-      <div id="philoBodyFit" style="padding:18px 16px;display:none;">
-        <div style="font-size:16px;font-weight:800;color:var(--text);font-style:italic;line-height:1.6;margin-bottom:18px;">"The goal is not just to look good -- it is to stay vertical and upright at every age."</div>
-        <div style="font-size:13px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;">How to Train Every Rep</div>
-        <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px;">
-          <div style="display:flex;gap:10px;"><div style="color:var(--gold);font-weight:900;font-size:16px;flex-shrink:0;">01</div><div><div style="font-size:15px;font-weight:900;color:var(--text);">Slow Eccentric</div><div style="font-size:14px;font-weight:800;color:var(--text);line-height:1.5;">Control the descent -- 2 to 4 seconds, every rep.</div></div></div>
-          <div style="display:flex;gap:10px;"><div style="color:var(--gold);font-weight:900;font-size:16px;flex-shrink:0;">02</div><div><div style="font-size:15px;font-weight:900;color:var(--text);">Pause at Full Range</div><div style="font-size:14px;font-weight:800;color:var(--text);line-height:1.5;">A brief pause at the stretched position -- no bouncing out of it.</div></div></div>
-          <div style="display:flex;gap:10px;"><div style="color:var(--gold);font-weight:900;font-size:16px;flex-shrink:0;">03</div><div><div style="font-size:15px;font-weight:900;color:var(--text);">Fast Concentric</div><div style="font-size:14px;font-weight:800;color:var(--text);line-height:1.5;">Maximum intent lifting the weight -- explosive, not rushed.</div></div></div>
-          <div style="display:flex;gap:10px;"><div style="color:var(--gold);font-weight:900;font-size:16px;flex-shrink:0;">04</div><div><div style="font-size:15px;font-weight:900;color:var(--text);">Full Range of Motion, Always</div><div style="font-size:14px;font-weight:800;color:var(--text);line-height:1.5;">If you can't complete full range with a weight, reduce the load.</div></div></div>
-        </div>
-        <a href="/km-fitness-docket" target="_blank" style="display:block;text-align:center;padding:11px;background:var(--sage);color:#fff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:.02em;">Read the Full Guide &rarr;</a>
       </div>
     </div>
 
@@ -834,9 +912,31 @@ btn.textContent='Could not copy -- select the address bar manually';
       </div>
     </div>
 
-    <div class="card">
+    <div id="kfStepsBox"></div>
+    <div id="kfPushBox"></div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div onclick="togglePhilosophyCardFit()" style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:var(--sage);">
+        <div style="font-size:12px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#fff;">Train Smart. Age Well.</div>
+        <span id="philoChevronFit" style="color:#fff;font-size:15px;">&#9660;</span>
+      </div>
+      <div id="philoBodyFit" style="padding:18px 16px;display:none;">
+        <div style="font-size:16px;font-weight:800;color:var(--text);font-style:italic;line-height:1.6;margin-bottom:18px;">"The goal is not just to look good -- it is to stay vertical and upright at every age."</div>
+        <div style="font-size:13px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;">How to Train Every Rep</div>
+        <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px;">
+          <div style="display:flex;gap:10px;"><div style="color:var(--gold);font-weight:900;font-size:16px;flex-shrink:0;">01</div><div><div style="font-size:15px;font-weight:900;color:var(--text);">Slow Eccentric</div><div style="font-size:14px;font-weight:800;color:var(--text);line-height:1.5;">Control the descent -- 2 to 4 seconds, every rep.</div></div></div>
+          <div style="display:flex;gap:10px;"><div style="color:var(--gold);font-weight:900;font-size:16px;flex-shrink:0;">02</div><div><div style="font-size:15px;font-weight:900;color:var(--text);">Pause at Full Range</div><div style="font-size:14px;font-weight:800;color:var(--text);line-height:1.5;">A brief pause at the stretched position -- no bouncing out of it.</div></div></div>
+          <div style="display:flex;gap:10px;"><div style="color:var(--gold);font-weight:900;font-size:16px;flex-shrink:0;">03</div><div><div style="font-size:15px;font-weight:900;color:var(--text);">Fast Concentric</div><div style="font-size:14px;font-weight:800;color:var(--text);line-height:1.5;">Maximum intent lifting the weight -- explosive, not rushed.</div></div></div>
+          <div style="display:flex;gap:10px;"><div style="color:var(--gold);font-weight:900;font-size:16px;flex-shrink:0;">04</div><div><div style="font-size:15px;font-weight:900;color:var(--text);">Full Range of Motion, Always</div><div style="font-size:14px;font-weight:800;color:var(--text);line-height:1.5;">If you can't complete full range with a weight, reduce the load.</div></div></div>
+        </div>
+        <a href="/km-fitness-docket" target="_blank" style="display:block;text-align:center;padding:11px;background:var(--sage);color:#fff;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:.02em;">Read the Full Guide &rarr;</a>
+      </div>
+    </div>
+
+    <div id="kfPartBar" role="tablist" aria-label="Part of the workout"><button data-part="strength" role="tab">Strength</button><button data-part="cardio" role="tab">Cardio</button><button data-part="func" role="tab">Functional</button></div>
+    <div class="card" id="kfCardStrength">
       <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
-        <span>Exercises<span class="autosave-dot" id="autosaveDot" title="Draft auto-saved"></span></span>
+        <span><span class="kf-t-main">Exercises</span><span class="kf-t-ss">Supersets &amp; circuits</span><span class="autosave-dot" id="autosaveDot" title="Draft auto-saved"></span></span>
         <div class="unit-toggle">
           <button class="unit-opt active" id="unitKg" onclick="setUnit('kg')">kg</button>
           <button class="unit-opt" id="unitLbs" onclick="setUnit('lbs')">lbs</button>
@@ -852,7 +952,7 @@ btn.textContent='Could not copy -- select the address bar manually';
         <div id="exSearchSuggestions" style="display:none;position:absolute;left:0;right:0;bottom:calc(100% + 4px);background:var(--surf3);border:1px solid var(--border);border-radius:10px;overflow:hidden;z-index:60;max-height:260px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4);"></div>
       </div>
       <div class="add-row" onclick="addExRow()" style="background:var(--flame);border-style:solid;border-color:var(--flame);color:#1a0d05;font-weight:800;">+ Add Exercise</div>
-      <div class="add-row" onclick="addSupersetBlock()" style="color:var(--sage);border-color:var(--sage);margin-top:6px;">+ Superset / Circuit</div>
+      <div class="add-row kf-ss-add" onclick="addSupersetBlock()" style="color:var(--sage);border-color:var(--sage);margin-top:6px;">+ Superset / Circuit</div>
       <div class="add-row" onclick="window.location.href='https://kfit.pages.dev/kfit-voice'" style="color:var(--gold);border-color:var(--gold);margin-top:6px;">&#127897; Voice Log Session</div>
       <div style="margin-top:10px;">
         <div class="quick-add-header" onclick="toggleExChips()" style="padding:8px 0;cursor:pointer;">
@@ -871,7 +971,7 @@ btn.textContent='Could not copy -- select the address bar manually';
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="kfCardCardio">
       <div class="card-title">Cardio 🏃</div>
       <div class="quick-add-section">
         <div class="quick-add-header" onclick="toggleCardioChips()">
@@ -889,7 +989,7 @@ btn.textContent='Could not copy -- select the address bar manually';
       <div id="cardioBlocks"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="kfCardFunc">
       <div class="card-title">Functional / Isometric 🧘</div>
       <div class="quick-add-section">
         <div class="quick-add-header" onclick="toggleFunctionalChips()">
@@ -917,7 +1017,7 @@ btn.textContent='Could not copy -- select the address bar manually';
       <div id="functionalBlocksList"></div>
     </div>
 
-    <div class="card" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+    <div class="card" id="kfDurCard" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
       <span style="font-size:14px;font-weight:700;color:var(--text);">Session Duration</span>
       <span style="font-size:13px;font-weight:600;color:var(--muted);">Timer at top, or <input class="dur-manual-input" type="text" id="durManual" placeholder="45" inputmode="text" style="width:44px;padding:4px 8px;margin-left:4px;" oninput="estimateSessionCalories()"> min</span>
     </div>
@@ -926,7 +1026,7 @@ btn.textContent='Could not copy -- select the address bar manually';
       <div id="sessionRestSummary"></div>
     </div>
 
-    <div class="card" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+    <div class="card" id="kfRestCard" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
       <span style="font-size:14px;font-weight:700;color:var(--text);">Average Rest Time</span>
       <span style="display:flex;align-items:center;gap:6px;">
         <input type="number" id="avgRestInput" placeholder="e.g. 90" min="0" max="600" inputmode="numeric" style="width:70px;padding:6px 8px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
@@ -938,27 +1038,6 @@ btn.textContent='Could not copy -- select the address bar manually';
       <div class="card-title">Session Notes</div>
       <div id="bpNotesStack" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
       <textarea class="notes-ta" id="sessNotes" rows="3" placeholder="How did it go?"></textarea>
-    </div>
-
-    <div class="card">
-      <div class="quick-add-header" onclick="toggleSendToCoach()" style="cursor:pointer;">
-        <span class="card-title" style="margin-bottom:0;">📷 Send to Coach</span>
-        <span class="quick-add-toggle" id="sendToCoachToggle">⌄</span>
-      </div>
-      <div class="quick-add-body" id="sendToCoachBody">
-      <p style="font-size:16px;color:var(--muted);margin-bottom:12px;">Send your coach a progress pic or record your form.</p>
-      <div style="display:flex;gap:8px;">
-        <button onclick="openSnap('progress')" style="flex:1;padding:12px;background:var(--gold-d);border:1px solid var(--gold);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;color:var(--gold);cursor:pointer;">💪 Progress Pic</button>
-        <button onclick="openSnap('video')" style="flex:1;padding:12px;background:var(--sage-d);border:1px solid var(--sage);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;color:var(--sage);cursor:pointer;">🎥 Record Video</button>
-      </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
-        <div style="font-size:13px;color:var(--muted);line-height:1.5;">Coming from another app or a spreadsheet? Bring your history in.</div>
-        <button onclick="openImportModal()" style="padding:9px 14px;background:var(--sage);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;">Import Data</button>
-      </div>
     </div>
 
     <div class="card" id="calBurnCard" style="padding:10px 14px;">
@@ -994,13 +1073,15 @@ btn.textContent='Could not copy -- select the address bar manually';
       <button class="btn btn-ghost btn-sm" onclick="clearLog()">Clear</button>
       <button class="btn btn-accent" id="saveSessionBtn" onclick="saveSession()">Save Session</button>
     </div>
-    <div style="padding:0 14px 90px;">
-      <button class="print-inline" onclick="window.print()">&#128424; Print This Screen</button>
-    </div>
+    <div style="padding:0 0 90px;"></div>
   </div>
 
   <!-- HISTORY -->
   <div class="panel" id="panel1">
+    <div class="kf-hist-import" style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 10px;padding:10px 14px;border:1px dashed var(--border);border-radius:12px">
+      <span style="font-size:13px;color:var(--muted)">Coming from another app or a spreadsheet?</span>
+      <button onclick="openImportModal()" style="padding:7px 12px;background:none;border:1px solid var(--sage);border-radius:8px;color:var(--sage);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">Import data</button>
+    </div>
     <div class="card" id="histFilterCard">
       <div id="histFilterPills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
       <div class="quick-add-header" onclick="toggleHistFilters()" style="cursor:pointer;">
@@ -1055,7 +1136,6 @@ btn.textContent='Could not copy -- select the address bar manually';
     </div>
     <div style="padding:0 14px 16px;">
       <button onclick="shareAllSessions()" style="width:100%;padding:13px;background:var(--sage);color:#0c0c0a;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:.3px;">📤 Share Progress Report</button>
-      <button class="print-inline" onclick="window.print()">&#128424; Print This Screen</button>
     </div>
   </div>
 
@@ -1096,7 +1176,6 @@ btn.textContent='Could not copy -- select the address bar manually';
       </div>
     </div>
     <div style="padding:0 14px 16px;">
-      <button class="print-inline" onclick="window.print()">&#128424; Print This Screen</button>
     </div>
   </div>
 
@@ -1110,7 +1189,6 @@ btn.textContent='Could not copy -- select the address bar manually';
       <div id="prResult" style="font-size:15px;color:var(--muted);"></div>
     </div>
     <div style="padding:0 14px 16px;">
-      <button class="print-inline" onclick="window.print()">&#128424; Print This Screen</button>
     </div>
   </div>
 
@@ -1138,7 +1216,6 @@ btn.textContent='Could not copy -- select the address bar manually';
       <div id="measHistList"></div>
     </div>
     <div style="padding:0 14px 16px;">
-      <button class="print-inline" onclick="window.print()">&#128424; Print This Screen</button>
     </div>
     <div style="text-align:center;padding:8px 14px 20px;font-size:12px;color:var(--muted);">&copy; <span id="copyrightYear"></span> KFit by Karan KM Malani. All rights reserved.</div>
   </div>
@@ -8180,14 +8257,9 @@ const _sessCal=getSessionCalorieEstimate(s);
 const _calBadge=_sessCal?`<span style="color:var(--flame);font-size:16px;font-weight:800;">&#128293; ${_sessCal.isRange?(_sessCal.low+'-'+_sessCal.high):_sessCal.value} kcal</span>`:'';
 document.getElementById('dBody').innerHTML=`
 ${_effectiveTags.length?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">${_effectiveTags.map(b=>`<span class="sess-tag${_prInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')}${_prPillHtml}${_exCount?`<span style="color:var(--muted);font-size:16px;font-weight:700;">(${_exCount} exercise${_exCount!==1?'s':''}${_totalSets?' \u00d7 '+_totalSets+' set'+(_totalSets!==1?'s':''):''}${_totalReps?' \u00d7 '+_totalReps+' reps':''})</span>`:''}${_calBadge}</div>`:''}
-${durLine}${_timeSplitCard(s)}
-${cardioSection}
-${functionalSection}
-${_hasRealOrder?_interleavedSection:ssSection+exSection}
-${restSec}
+${durLine}
 ${s.notes?`<div class="card"><div class="card-title">Notes</div><p style="font-size:17px;line-height:1.65;color:var(--muted)">${s.notes}</p></div>`:''}
-<div style="display:flex;gap:8px;margin-top:12px;">
-<button class="btn btn-accent btn-sm" onclick="shareSession(${id})" style="flex:1;">Send to Coach</button>
+<div style="display:flex;gap:8px;margin:0 0 12px;">
 ${s.pendingDelete
 ?`<button class="btn btn-ghost btn-sm" disabled style="flex:1;opacity:.55;">⏳ Delete requested</button>
 <button class="btn btn-ghost btn-sm" onclick="withdrawRequest(${id})" style="flex:1;">Withdraw request</button>`
@@ -8195,6 +8267,11 @@ ${s.pendingDelete
 ${s.pendingEdit?`<button class="btn btn-ghost btn-sm" onclick="withdrawRequest(${id})" style="flex:1;">Withdraw edit</button>`:''}
 <button class="btn btn-danger btn-sm" onclick="deleteSession(${id})" style="flex:1;">${needsCoachApproval()&&!s.approval?'Request Delete':'Delete Session'}</button>`}
 </div>
+${_timeSplitCard(s)}
+${cardioSection}
+${functionalSection}
+${_hasRealOrder?_interleavedSection:ssSection+exSection}
+${restSec}
 ${sessionApprovalBadge(s)?`<div style="margin-top:10px;">${sessionApprovalBadge(s)}</div>`:''}`;
 document.getElementById('detailPanel').classList.add('open');
 }
@@ -8487,6 +8564,7 @@ const HELP_TEXT=[
 '<b>3. The H button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "H" (for Help). Tap it once for every rep in that set where someone helped you finish (a spot) -- it\'ll show a number like "H 2". Tapped it by mistake, or want to lower the count? Press and hold the button to subtract one. Didn\'t need help at all? Just leave it alone.<br><br>'+
 '<b>3b. The LP button (lengthened partials)</b><br>Works exactly the same way as H, right next to it. Tap "LP" once for every rep in that set done as a lengthened partial -- a shorter rep performed in the stretched position of the movement (e.g. the bottom half of a leg extension or bicep curl), a technique some research suggests builds muscle as well as full-range reps for certain exercises. Same as H: tap to add one, press and hold to subtract one. Like H and drop sets, LP reps are excluded from your Personal Records, since a partial-range rep isn\'t really the same lift as a full-range one.<br><br>'+
 '<b>3c. The RP button (rest-pause)</b><br>Did you pause briefly mid-set and squeeze out more reps? Tap RP once for each of those extra reps (hold to take one off). They count towards the set\'s volume, but -- like H and LP -- rest-pause sets don\'t count towards personal records.<br><br>'+
+'<b>3a. Strength, Cardio, Functional</b><br>Above your exercises, switch between Strength, Cardio and Functional to see one part at a time; the number shows how many you\'ve added to each. Supersets and circuits show in all three, and "+ Superset / Circuit" is in each.<br><br>'+
 '<b>3e. Rest and working time</b><br>Use the rest timer (1m / 90s / 2m / 3m) between sets, or tap <b>&#9998;</b> to log a rest that already happened -- even a long one. Each rest is saved with the set it followed. Every session is then split into <b>working time</b> and <b>rest</b>, shown in History. The more you use the rest timer, the better KFit learns your own pace.<br><br>'+
 '<b>3d. The RIR button (reps in reserve)</b><br>How many more reps you could have done at the end of the set. Tap it to cycle 0, 1, 2, 3, 4+ (tap again to clear). It helps your coach judge how hard each set was.<br><br>'+
 '<b>Not sure what a button means?</b> Tap the small <b>i</b> above the four buttons on any exercise for a one-line reminder.<br><br>'+
@@ -8495,10 +8573,10 @@ const HELP_TEXT=[
 '<b>6. Doing two exercises back-to-back with no rest? Use Superset</b><br>Tap "+ Add Superset" instead of logging them as two separate exercises. This links them together properly in your history.<br><br>'+
 '<b>7. Just doing cardio?</b><br>Tap the Cardio body part instead. You\'ll log duration and how hard it felt, not sets and reps.<br><br>'+
 '<b>7b. Planks, wall sits, or other holds? Use the Functional / Isometric box</b><br>Scroll down past Cardio to find it -- tap a movement (Plank, Wall Sit, Dead Hang, Jumping Jacks, and more), and log how long you held or did it, one row per round. Putting weight on your back for a loaded plank or carry? There\'s an optional weight field for exactly that. Don\'t see the movement you want? Type it into "Add movement" at the bottom of that box. These are also selectable inside a Superset if you\'re circuiting them with regular exercises.<br><br>'+
-'<b>7c. Estimated calories burned</b><br>Near the top of the page, a card shows roughly how many calories that session burned -- based on your session time, your logged rest between sets, and (for cardio/functional work) the specific activity. This needs your age, sex, height, and weight filled in once (at setup, or in that card directly) to work -- without all four, it won\'t show a number rather than guess at one. Tap the small ⓘ next to it for exactly how it\'s calculated.<br><br>'+
+'<b>7c. Estimated calories burned</b><br>Each saved session shows roughly how many calories it burned in History -- based on your session time, your logged rest between sets, and (for cardio/functional work) the specific activity. This needs your age, sex, height and weight filled in on the Body tab.<br><br>'+
 '<b>8. Resting between sets</b><br>Use the REST bar at the bottom of the screen -- tap 1m / 90s / 2m / 3m, or type your own time, and it counts down for you. This also automatically fills in your average rest time, so you don\'t need to type that in separately. Didn\'t use the timer? There\'s a separate Average Rest Time section further down to enter it by hand.<br><br>'+
 '<b>9. Timing the whole workout</b><br>At the top of the screen, next to Help and Feedback, there\'s a timer with Start/Stop -- tap Start when you begin your session. It stays visible even if you switch to another tab, and its total gets saved with the session. Made a mistake or want to start over? Tap Reset to clear it back to 00:00. Prefer to just type the total afterwards instead? Scroll down to Session Duration and enter it manually there.<br><br>'+
-'<b>10. Notes and sending things to your coach</b><br>Session Notes is just for writing how the workout felt. Progress Pic and Record Video are separate buttons that send a photo or video straight to your coach -- they don\'t affect your sets/reps data at all. Coming from another app or your own spreadsheet? "Import Data" further down lets you bring in your past workout history as a CSV file -- it always shows you exactly what it found before anything is actually added, so nothing gets imported without your confirmation.<br><br>'+
+'<b>10. Notes, your coach, and importing</b><br>Session Notes is for writing how the workout felt. To send your coach a photo or a video, use the 💬 chat. Coming from another app or a spreadsheet? "Import data" is at the top of History.<br><br>'+
 '<b>11. You can\'t lose your work</b><br>Everything you type is saved as a draft automatically, even if you close the app halfway through a workout and come back later. It only becomes a real, permanent entry in your History once you tap "Save Session" at the bottom. This also covers editing a past session from History mid-workout: your in-progress session is safely tucked away while you edit, and comes right back once you\'re done.<br><br>'+
 '<b>11b. Training with a coach? Changes go to them for approval</b><br>If your coach has marked you as their client, they keep the official record. Editing or deleting a saved session, or logging for a past date or with a changed time, sends a request to your coach instead of changing your history straight away -- you\'ll see a ⏳ tag on it until they approve or decline. Logging today\'s workout as you do it still saves instantly.<br><br>'+
 '<b>12. Logging a workout from a past day</b><br>Forgot to log yesterday? Tap the date at the very top of the screen (next to the KFit logo) -- it opens your phone\'s own calendar so you can pick any earlier date and log for that day instead of today. If that day already has a workout logged, you\'ll get asked whether to edit it or add another one -- useful if you train twice in a day.<br><br>'+
@@ -9483,7 +9561,7 @@ var key=_coachKey(), box=document.getElementById('coachChatBox');
 if(!key||!box) return;
 if(_coachChat&&_coachChat.key===key){ _coachChat.ui.refresh(); return; }
 if(_coachChat) _coachChat.ui.destroy();
-_coachChat={key:key,ui:KFitChat.mount(box,{sb:getSB(),clientId:key,role:'client',actionsFor:_coachCardActions,
+_coachChat={key:key,ui:KFitChat.mount(box,{sb:getSB(),clientId:key,role:'client',coachId:window.kfCoachId||null,actionsFor:_coachCardActions,
 emptyText:'Say hi to your coach! Messages, photos and updates from your coach show up here.',
 onRead:function(){ _coachBadge(0); }})};
 }

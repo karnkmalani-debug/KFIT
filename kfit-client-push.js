@@ -29,6 +29,15 @@
     var sub=await current(), on=!!sub&&Notification.permission==='granted';
     var hidden=false; try{ hidden=localStorage.getItem('kfit_push_card_hidden')==='1'; }catch(e){}
     if(opts.compact&&(on||hidden)){ el.innerHTML=''; return; }
+    // line: a single quiet row (the fitness LOG screen) instead of the full card
+    if(opts.line){
+      el.innerHTML='<div style="background:var(--card,var(--surf));border:1px solid var(--line,var(--border));border-radius:14px;padding:4px 6px 4px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;font-size:15px">'
+        +'<button class="kcp-on" style="flex:1;text-align:left;background:none;border:none;color:var(--ink,var(--text));font-family:inherit;font-size:15px;padding:8px 0;cursor:pointer">🔔 <b>Turn on notifications</b></button>'
+        +'<button class="kcp-hide" aria-label="Not now" style="background:none;border:none;color:var(--muted);font-size:16px;padding:8px 10px;cursor:pointer">✕</button></div>';
+      el.querySelector('.kcp-on').onclick=async function(){ this.disabled=true; if(await turnOn(opts.sb,opts.mobile,opts.app||'nutrition')) el.innerHTML=''; else this.disabled=false; };
+      el.querySelector('.kcp-hide').onclick=function(){ try{ localStorage.setItem('kfit_push_card_hidden','1'); }catch(e){} el.innerHTML=''; };
+      return;
+    }
     el.innerHTML='<div style="background:var(--card,var(--surf));border:1px solid var(--line,var(--border));border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px">'
       +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="font-weight:700;font-size:15px">🔔 Notifications</div>'
       +(on?'<span style="color:var(--leaf,#8FD1A2);font-weight:700;font-size:13px">On ✓</span>':'<button class="kcp-on" style="min-height:38px;border-radius:10px;border:none;background:var(--green,#2F6B4A);color:#fff;font-weight:700;padding:0 14px;font-family:inherit">Turn on</button>')+'</div>'

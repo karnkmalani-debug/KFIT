@@ -1,7 +1,7 @@
-const V = "kfit-v38";
+const V = "kfit-v39";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => e.waitUntil(
-  // v16: batch 8 (coach phone notifications). Bumping
+  // v39: batch 28. Bumping
   // the version wipes every old cache so no phone keeps an old app copy.
   caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())
 ));

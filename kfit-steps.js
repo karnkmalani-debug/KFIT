@@ -19,6 +19,13 @@
       if(g.data&&g.data[0]) goal=g.data[0].goal;
     }catch(e){}
     var pct=steps?Math.min(100,Math.round(steps/goal*100)):0;
+    // collapsed: one quiet line (the fitness LOG screen); tap to open the full card
+    if(opts.collapsed&&!el._kstOpen){
+      el.innerHTML='<button class="kst-line" style="width:100%;background:var(--card,var(--surf));border:1px solid var(--line,var(--border));border-radius:14px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;color:var(--ink,var(--text));font-family:inherit;font-size:15px;cursor:pointer;text-align:left">'
+        +'<span>👟 <b>Steps</b>'+(steps!=null?' · <span style="color:var(--gold,#C9A24A);font-weight:700">'+fmt(steps)+'</span> / '+fmt(goal):'')+'</span><span style="font-size:12px;color:var(--muted)">'+(steps!=null?'change':'add')+' ›</span></button>';
+      el.querySelector('.kst-line').onclick=function(){ el._kstOpen=true; mount(el,opts).then(function(){ var i=el.querySelector('.kst-in'); if(i) i.focus(); }); };
+      return;
+    }
     el.innerHTML='<div style="background:var(--card,var(--surf));border:1px solid var(--line,var(--border));border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;margin-bottom:12px">'
       +'<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:700;font-size:15px">👟 Steps '+(day===today()?'today':'')+'</div><span style="font-size:12px;color:var(--muted)">goal '+fmt(goal)+'</span></div>'
       +'<div style="display:flex;align-items:baseline;gap:8px"><span style="font-family:var(--serif,\'Playfair Display\',Georgia,serif);font-size:28px;color:var(--gold,#C9A24A)">'+(steps!=null?fmt(steps):'–')+'</span><span style="font-size:12px;color:var(--muted)">of '+fmt(goal)+'</span></div>'
@@ -34,6 +41,7 @@
       this.disabled=false;
       if(res.error){ alert('Steps not saved. Check your connection.'); return; }
       if(opts.onSaved) opts.onSaved(v);
+      el._kstOpen=false;
       mount(el,opts);
     };
   }
