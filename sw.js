@@ -1,7 +1,7 @@
-const V = "kfit-v39";
+const V = "kfit-v40";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => e.waitUntil(
-  // v39: batch 28. Bumping
+  // v40: batch 28b (supersets from any exercise). Bumping
   // the version wipes every old cache so no phone keeps an old app copy.
   caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())
 ));

@@ -453,6 +453,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 #logImportCard{display:none!important}
 #kfPrintBtn{background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;font-size:.8rem;color:var(--muted);cursor:pointer;flex-shrink:0}
 @media print{#kfPrintBtn,#kfPartBar,#kfSaveSheet{display:none!important}}
+.kf-ss-link{display:block;width:100%;background:none;border:none;border-top:1px dashed var(--border);color:var(--sage);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:800;text-align:left;padding:10px 10px;cursor:pointer}
+.kf-ss-flash{box-shadow:0 0 0 2px var(--gold);transition:box-shadow .4s}
+@media print{.kf-ss-link{display:none!important}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -587,6 +590,62 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
   window.kfCalendarIcs=ics;
   function boot(){ var bp=document.getElementById('bpCard'); if(bp&&!document.getElementById('kfUpcoming')){ var d=document.createElement('div'); d.id='kfUpcoming'; bp.parentNode.insertBefore(d,bp); } render(); setInterval(render,3000); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
+})();
+</script>
+<script>
+// "⇄ Superset with another exercise" under every exercise, cardio activity and
+// functional movement: it becomes a superset right there (sets already typed
+// are kept), with a second slot that can be any body part, cardio or functional.
+(function(){
+  function bpOf(ex){ try{ var cu=getCustomEx(); return Object.keys(EX_LIB).filter(function(k){ return k!=='Cardio'&&((EX_LIB[k]||[]).indexOf(ex)>=0||(cu[k]||[]).indexOf(ex)>=0); })[0]||null; }catch(e){ return null; } }
+  function flash(el){ if(!el) return; el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('kf-ss-flash'); setTimeout(function(){ el.classList.remove('kf-ss-flash'); },1800); }
+  function makeSS(exName,sets,vals,after){
+    var body=document.getElementById('exBody'); if(!body||typeof addSupersetBlock!=='function') return;
+    addSupersetBlock();
+    var all=body.querySelectorAll(':scope>.superset-block'), ss=all[all.length-1], id=ss.dataset.ssid;
+    if(after&&after.parentNode===body) body.insertBefore(ss,after.nextSibling);
+    var bp=bpOf(exName); if(bp){ var chip=ss.querySelector('.ss-bp-btn[data-bp="'+bp+'"]'); if(chip) toggleSupersetBP(id,chip); }
+    var a=ss.querySelector('.superset-ex-block'), sel=a.querySelector('.ss-ex-select'), ssel=a.querySelector('.sets-select');
+    if(![].some.call(sel.options,function(o){return o.value===exName;})) sel.add(new Option(exName,exName));
+    sel.value=exName;
+    if(sets&&ssel){ if(![].some.call(ssel.options,function(o){return o.value===String(sets);})) ssel.add(new Option(String(sets),String(sets))); ssel.value=String(sets); }
+    onSupersetExChange(sel);
+    (vals||[]).forEach(function(v,i){ var r=a.querySelectorAll('.set-row')[i]; if(!r) return; var re=r.querySelector('.reps-input'), we=r.querySelector('.weight-input'); if(re&&v.reps) re.value=v.reps; if(we&&v.weight) we.value=v.weight; });
+    addSupersetEx(id);
+    try{ renumberSupersets(); }catch(e){}
+    var b=ss.querySelectorAll('.superset-ex-block')[1]; flash(b||ss);
+    try{ if(typeof draftSave==='function') draftSave(); }catch(e){}
+  }
+  window.kfSupersetFrom=makeSS;
+  function link(onTap){ var b=document.createElement('button'); b.type='button'; b.className='kf-ss-link'; b.textContent='⇄ Superset with another exercise'; b.onclick=function(e){ e.stopPropagation(); onTap(); }; return b; }
+  // plain exercises (Strength)
+  function scan(){
+    document.querySelectorAll('#exBody>.ex-block').forEach(function(bl){
+      var sel=bl.querySelector('.ex-select'), has=!!(sel&&sel.value), l=bl.querySelector(':scope>.kf-ss-link');
+      if(!l){ l=link(function(){
+          var s2=bl.querySelector('.ex-select'), name=s2&&s2.value; if(!name) return;
+          var sets=+((bl.querySelector('.sets-select')||{}).value)||3, vals=[].map.call(bl.querySelectorAll('.set-row'),function(r){ return {reps:((r.querySelector('.reps-input')||{}).value||'').trim(),weight:((r.querySelector('.weight-input')||{}).value||'').trim()}; });
+          makeSS(name,sets,vals,bl); bl.remove(); });
+        bl.appendChild(l); }
+      else if(l!==bl.lastElementChild) bl.appendChild(l);
+      l.style.display=has?'':'none';
+    });
+  }
+  // cardio activities and functional movements
+  function lists(){
+    [['cardioBlocks','cardioBlocks','removeCardioBlock'],['functionalBlocksList','functionalBlocks','removeFunctionalBlock']].forEach(function(t){
+      var cont=document.getElementById(t[0]); if(!cont) return;
+      var arr; try{ arr=t[1]==='cardioBlocks'?cardioBlocks:functionalBlocks; }catch(e){ return; }
+      [].forEach.call(cont.querySelectorAll(':scope>.cardio-log-block'),function(el,i){
+        if(el.querySelector('.kf-ss-link')) return; var item=arr[i]; if(!item) return;
+        el.appendChild(link(function(){
+          var typed=(item.duration||item.distance||item.reps||item.weight);
+          if(typed&&!confirm('Move '+item.ex+' into a superset? Type its time again for each round there.')) return;
+          var name=item.ex; window[t[2]](item.id); makeSS(name,null,null,null); }));
+      });
+    });
+  }
+  setInterval(function(){ try{ scan(); lists(); }catch(e){} },700);
 })();
 </script>
 <script>
@@ -8570,9 +8629,9 @@ const HELP_TEXT=[
 '<b>Not sure what a button means?</b> Tap the small <b>i</b> above the four buttons on any exercise for a one-line reminder.<br><br>'+
 '<b>4. Drop sets</b><br>Right after a set, you\'ll see a small "+ Drop set" link. Tap it if you dropped the weight and kept going with no rest (a classic drop set) -- it adds a new row marked "D" underneath that set.<br><br>'+
 '<b>5. How to actually do each rep</b><br>This matters as much as the numbers you log: lower the weight slowly (2-4 seconds), pause for a second at the bottom, then lift back up fast and with intent. Always use the full range of motion -- never half-reps. If you can\'t do this with control, the weight is too heavy; use less weight, not less range.<br><br>'+
-'<b>6. Doing two exercises back-to-back with no rest? Use Superset</b><br>Tap "+ Add Superset" instead of logging them as two separate exercises. This links them together properly in your history.<br><br>'+
+'<b>6. Doing two exercises back-to-back with no rest? Make it a superset</b><br>Under any exercise, tap <b>⇄ Superset with another exercise</b>. That exercise becomes a superset right where it is, keeping any sets you\'ve typed, and a second slot opens below it. Pick the second exercise from any body part (tap the body-part buttons in the superset), a functional movement or cardio. Add a third and it becomes a circuit. Cardio activities and functional movements have the same link. You can still start an empty one with "+ Superset / Circuit".<br><br>'+
 '<b>7. Just doing cardio?</b><br>Tap the Cardio body part instead. You\'ll log duration and how hard it felt, not sets and reps.<br><br>'+
-'<b>7b. Planks, wall sits, or other holds? Use the Functional / Isometric box</b><br>Scroll down past Cardio to find it -- tap a movement (Plank, Wall Sit, Dead Hang, Jumping Jacks, and more), and log how long you held or did it, one row per round. Putting weight on your back for a loaded plank or carry? There\'s an optional weight field for exactly that. Don\'t see the movement you want? Type it into "Add movement" at the bottom of that box. These are also selectable inside a Superset if you\'re circuiting them with regular exercises.<br><br>'+
+'<b>7b. Planks, wall sits, or other holds? Use Functional</b><br>Tap <b>Functional</b> above your exercises, then tap a movement (Plank, Wall Sit, Dead Hang, Jumping Jacks, and more) and log how long you held or did it. Putting weight on your back for a loaded plank or carry? There\'s an optional weight field for exactly that. Don\'t see the movement you want? Type it into "Add movement". To do it back-to-back with other exercises, tap ⇄ Superset under it.<br><br>'+
 '<b>7c. Estimated calories burned</b><br>Each saved session shows roughly how many calories it burned in History -- based on your session time, your logged rest between sets, and (for cardio/functional work) the specific activity. This needs your age, sex, height and weight filled in on the Body tab.<br><br>'+
 '<b>8. Resting between sets</b><br>Use the REST bar at the bottom of the screen -- tap 1m / 90s / 2m / 3m, or type your own time, and it counts down for you. This also automatically fills in your average rest time, so you don\'t need to type that in separately. Didn\'t use the timer? There\'s a separate Average Rest Time section further down to enter it by hand.<br><br>'+
 '<b>9. Timing the whole workout</b><br>At the top of the screen, next to Help and Feedback, there\'s a timer with Start/Stop -- tap Start when you begin your session. It stays visible even if you switch to another tab, and its total gets saved with the session. Made a mistake or want to start over? Tap Reset to clear it back to 00:00. Prefer to just type the total afterwards instead? Scroll down to Session Duration and enter it manually there.<br><br>'+
@@ -8584,11 +8643,13 @@ const HELP_TEXT=[
 {title:'History',body:
 '<b>What this page is</b><br>Every workout you\'ve saved, newest first.<br><br>'+
 '<b>Narrowing it down</b><br>All Time, This Month, This Week, or Custom (pick your own two dates) -- the list updates instantly.<br><br>'+
-'<b>Printing</b><br>"Print Summary View" prints the on-screen list. "Print Full Report" prints full detail -- every exercise, set, rep -- for whatever range you\'ve selected, one workout per page.<br><br>'+
+'<b>Printing</b><br>"Print Summary View" prints the on-screen list. "Print Full Report" prints full detail -- every exercise, set, rep -- for whatever range you\'ve selected, one workout per page. The 🖨 at the top prints whatever screen you\'re on.<br><br>'+
+'<b>Opening a workout</b><br>Tap any workout: your notes and the Edit / Delete buttons are at the top, then every exercise and set.<br><br>'+
+'<b>Import data</b><br>Coming from another app or a spreadsheet? Tap "Import data" at the top of History. It always shows you what it found before anything is added.<br><br>'+
 '<b>⏳ tags</b><br>If you train with a coach, a session marked ⏳ has an edit, delete, or back-dated log waiting for their approval. Until then your history shows the approved version.<br><br>'+
 '<b>My Attendance</b><br>Below that: your total sessions, days trained, and current streak. If your coach has marked you an active client, a ✅ / 🔴 count shows above the list (paid vs due), and each record below carries the same ✅ or 🔴 -- a status note for you to see, not something you can change.'},
 {title:'Stats',body:'A look at how your training is trending over time -- how your rest times between sets have changed, which exercises you do most, and total calories burned (this week, this month, all time -- needs your age/sex/height/weight filled in to show up). Below that, the Training FAQ has common questions (total reps, hours, cardio vs strength, heaviest lifts, and more) -- pick a time range and tap one to see the answer instantly, computed from your own logged sessions with nothing sent anywhere. Underneath it, type a specific exercise name to ask about that exercise alone. Tap "Share Progress Report" to send a summary of this straight to your coach.'},
-{title:'Notes',body:'A simple text box to write how a week or month of training went, in your own words -- how you felt, what was hard, anything you want your coach to know. Your coach reads these alongside your actual numbers to understand the full picture. Further down, "Import Data" lets you bring in past workout history from another app or your own spreadsheet as a CSV file -- it always shows you exactly what it found before anything is actually added, so nothing gets imported without your confirmation.'},
+{title:'Notes',body:'A simple text box to write how a week or month of training went, in your own words -- how you felt, what was hard, anything you want your coach to know. Your coach reads these alongside your actual numbers to understand the full picture. To bring in past workouts from another app or a spreadsheet, use "Import data" at the top of History.'},
 {title:'Personal Records (PR)',body:'Pick any exercise from the dropdown list to see the best set you\'ve ever logged for it -- your heaviest weight, or the most reps at a given weight. This updates by itself the moment you beat your own record in a future session -- you don\'t have to do anything for it to update.'},
 {title:'Body Measurements',body:
 '<b>What to log</b><br>Weight, height, age, and sex -- age/sex/height/weight together are what let calorie estimates work. Also chest, waist, arms and other measurements, plus Body Fat % and Muscle Mass if you know them (e.g. from a DEXA or InBody scan).<br><br>'+
