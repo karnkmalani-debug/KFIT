@@ -657,6 +657,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 <script src="./kfit-exercise-library-extra.js"></script>
 <script src="./kfit-fitness-store.js"></script>
 <script src="./kfit-ui.js"></script>
+<script src="./kfit-habit-score.js"></script>
 <script src="./kfit-coach-chat.js"></script>
 <script src="./kfit-nutrition-lessons.js"></script>
 <script>
@@ -6927,14 +6928,41 @@ async function ncNotesRender(cid){
 async function nutCoachPanel(cid,box,p){
   var since=ncAddDays(ncToday(),-27);
   var ck=await getSB().from('nutrition_checkins').select('*').eq('client_id',cid).gte('day',since);
-  var ml=await getSB().from('nutrition_meals').select('day,deleted,body').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-6));
+  var ml28=await getSB().from('nutrition_meals').select('day,deleted,body').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-27));
+  var ml={data:(ml28.data||[]).filter(function(x){return x.day>=ncAddDays(ncToday(),-6);}),error:ml28.error};
   var kByDay={}; (ml.data||[]).forEach(function(x){var k=x.body&&x.body.feedback&&x.body.feedback.kcal; if(!x.deleted&&k){kByDay[x.day]=(kByDay[x.day]||0)+k;}});
   var kDays=Object.keys(kByDay), kAvg=kDays.length?Math.round(kDays.reduce(function(a,d){return a+kByDay[d];},0)/kDays.length/10)*10:null;
   var byDay={}; (ck.data||[]).forEach(function(x){byDay[x.day]=x;});
   var cells='', refl='';
-  for(var i=27;i>=0;i--){var d=ncAddDays(ncToday(),-i), x=byDay[d]||{};
-    var col=x.answer==='done'?'var(--sage)':x.answer==='partly'?'#9DBDAF':x.answer==='not'?'#E6DFD3':'transparent';
-    cells+='<div title="'+d+'" style="height:18px;border-radius:5px;border:1px solid #E6DFD3;background:'+col+'"></div>';}
+  // Habit grid: 4 weeks, Monday to Sunday. Each day: your mark, else their
+  // tap, else what their logged meals show for the habit they're on now.
+  var hid=(p&&p.template_id&&NC_T[p.template_id])?NC_T[p.template_id].path[p.step_index]:null, marks=(p&&p.settings&&p.settings.habitMarks)||{};
+  var mealsBy={}; (ml28.data||[]).forEach(function(x){ if(!x.deleted) (mealsBy[x.day]=mealsBy[x.day]||[]).push(x.body||{}); });
+  var stStart=(p&&p.step_started_on)||null, planStart=(p&&p.started_on)||null;
+  var hctx=(function(){ try{ var pr=p&&p.settings&&p.settings.profile, tg0=pr?ncTargets(pr):null; return {target:tg0&&tg0.maint?((p.settings.goal==='maintain')?tg0.maint:tg0.loss):null}; }catch(e){ return {}; } })();
+  function eff(d){ var auto=(window.KFitHabit&&hid&&(!stStart||d>=stStart))?KFitHabit.score(hid,mealsBy[d]||[],hctx):null;
+    var a=window.KFitHabit?KFitHabit.answer((byDay[d]||{}).answer,marks[d],auto):(byDay[d]||{}).answer; return {a:a||null,src:marks[d]?'coach':(byDay[d]||{}).answer?'tap':auto&&auto!=='wait'?'meals':null,auto:auto}; }
+  var mon0=(function(){ var t=ncToday().split('-'), x=new Date(+t[0],+t[1]-1,+t[2]); return ncAddDays(ncToday(),-((x.getDay()+6)%7)); })();
+  var g0=ncAddDays(mon0,-21);
+  cells='<span></span>'+['M','T','W','T','F','S','S'].map(function(w){return '<span style="font-size:11px;color:var(--muted);text-align:center">'+w+'</span>';}).join('');
+  for(var wk=0;wk<4;wk++){ var ws=ncAddDays(g0,wk*7); cells+='<span style="font-size:11px;color:var(--muted)">'+ncNice(ws).slice(4)+'</span>';
+    for(var dd=0;dd<7;dd++){ var d=ncAddDays(ws,dd);
+      if(d>ncToday()||(planStart&&d<planStart)){ cells+='<span style="height:26px;border-radius:6px;border:1px dashed #3E3F36;opacity:.5"></span>'; continue; }
+      var e=eff(d), sym=e.a==='done'?'✓':e.a==='partly'?'½':e.a==='not'?'✕':(e.auto==='wait'?'…':(mealsBy[d]?'':'·'));
+      var bg=e.a==='done'?'#6E9E7A':e.a==='partly'?'#3D5A45':e.a==='not'?'#3A2E22':'transparent', fg=e.a==='done'?'#12130F':'var(--text)';
+      cells+='<button data-hday="'+d+'" title="'+ncNice(d)+(e.src==='coach'?' · your mark':e.src==='tap'?' · their tap':e.src==='meals'?' · from their meals':'')+'" style="height:26px;border-radius:6px;border:1px solid '+(e.a?bg:'#3E3F36')+';background:'+bg+';color:'+fg+';font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;padding:0'+(e.src==='coach'?';box-shadow:inset 0 0 0 2px #C9A24A':'')+'">'+sym+'</button>'; } }
+  // plain words for the habit they're on now
+  var habSum='';
+  if(hid&&stStart){ var n=0,dn=0,pt=0,no=0,nl=0, miss={Breakfast:0,Lunch:0,Dinner:0};
+    for(var d2=stStart; d2<=ncToday(); d2=ncAddDays(d2,1)){ n++; var e2=eff(d2); if(e2.a==='done') dn++; else if(e2.a==='partly') pt++; else if(e2.a==='not') no++; else nl++;
+      if(hid==='protein-first') (mealsBy[d2]||[]).forEach(function(b){ var h=KFitHabit.hands(b); if(h&&miss[b.slot]!=null&&h.protein<0.5) miss[b.slot]++; }); }
+    var hname=(NC_H[hid]&&NC_H[hid].title)||hid, len=(NC_T[p.template_id]&&NC_T[p.template_id].pace)||(NC_H[hid]&&NC_H[hid].days&&NC_H[hid].days.length)||7;
+    var worst=Object.keys(miss).sort(function(a,b){return miss[b]-miss[a];})[0];
+    habSum='<div style="background:#1E2B22;border:1px solid #3D6B4F;border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.5;margin-top:8px"><b>'+ncEsc(hname)+'</b> · day '+n+' of about '+len+'<br>'
+      +'Done '+dn+' · partly '+pt+' · not '+no+(nl?' · nothing logged '+nl:'')
+      +(hid==='protein-first'&&miss[worst]>0?'<br>Most often missing protein: <b>'+worst.toLowerCase()+'</b> ('+miss[worst]+' day'+(miss[worst]===1?'':'s')+')':'')
+      +(window.KFitHabit?(function(){ var days=[]; for(var d3=stStart; d3<=ncToday(); d3=ncAddDays(d3,1)) days.push(mealsBy[d3]||[]); var tp=KFitHabit.tip(hid,days,hctx); return tp?'<br>💡 '+ncEsc(tp):''; })():'')
+      +(window.KFitHabit&&KFitHabit.estimated(hid)?'<br><span style="color:var(--muted)">For this habit the score is a good guess from the plate.</span>':'')+'</div>'; }
   function qs(x){return Object.keys(x.reflection||{}).filter(function(k){return /^q\d+$/.test(k);});}
   (ck.data||[]).filter(function(x){return qs(x).length;}).sort(function(a,b){return a.day<b.day?1:-1;}).slice(0,4).forEach(function(x){
     refl+='<div style="margin-top:8px;font-size:13px;line-height:1.5"><b>'+ncEsc(x.day)+'</b> · '+qs(x).map(function(k){return ncEsc(x.reflection[k]);}).join(' / ')+'</div>';});
@@ -6944,7 +6972,7 @@ async function nutCoachPanel(cid,box,p){
     +(ms[1]&&ms[0].reflection.measure.waist&&ms[1].reflection.measure.waist?' · waist change '+(Math.round((ms[0].reflection.measure.waist-ms[1].reflection.measure.waist)*10)/10)+' cm':'')+'</div>':'';
   var meals=(ml.data||[]).filter(function(x){return !x.deleted;}).length;
   var recent=(ml.data||[]).filter(function(x){return !x.deleted;}).sort(function(a,b){return ((b.body||{}).at||0)-((a.body||{}).at||0);}).slice(0,8)
-    .map(function(x){var b=x.body||{},f=b.feedback;return '<div style="font-size:13px;line-height:1.5;margin-top:6px"><b>'+ncEsc(x.day)+' · '+ncEsc(b.slot||'Meal')+'</b>'+(b.text?' — '+ncEsc(b.text):'')
+    .map(function(x){var b=x.body||{},f=(window.KFitHabit&&KFitHabit.hands(b))||b.feedback;return '<div style="font-size:13px;line-height:1.5;margin-top:6px"><b>'+ncEsc(x.day)+' · '+ncEsc(b.slot||'Meal')+'</b>'+(b.text?' — '+ncEsc(b.text):'')
       +(f?'<br><span style="color:var(--muted)">protein '+ncEsc(f.protein)+' palm · veg '+ncEsc(f.veg)+' fist · carbs '+ncEsc(f.carbs)+' · fats '+ncEsc(f.fats)+'</span>':'')+'</div>';}).join('');
   var prof=p&&p.settings&&p.settings.profile, lastW=null;
   (ck.data||[]).filter(function(x){return x.reflection&&x.reflection.measure&&x.reflection.measure.weight;}).sort(function(a,b){return a.day<b.day?1:-1;}).slice(0,1).forEach(function(x){lastW=x.reflection.measure.weight;});
@@ -6965,14 +6993,26 @@ async function nutCoachPanel(cid,box,p){
   box.innerHTML='<div class="card" style="margin-bottom:12px"><div style="font-size:16px;font-weight:800;margin-bottom:6px">🌱 Nutrition</div>'
     +'<div style="font-size:14px;line-height:1.6">'+ncEsc(t?t.name:p.template_id)+' · <b>'+ncEsc(ncStepName(p))+'</b>'+ncDayTxt(p)+(hold?' · <span style="color:var(--terra)">on hold</span>':'')+'</div>'
     +ncLadderHtml(p)
-    +'<div style="font-size:12px;color:var(--muted);margin:8px 0 4px">Last 4 weeks (dark = done, light = partly, beige = not today, empty = no check-in)</div>'
-    +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">'+cells+'</div>'
+    +habSum
+    +'<div style="display:grid;grid-template-columns:44px repeat(7,1fr);gap:4px;align-items:center;margin-top:8px">'+cells+'</div>'
+    +'<div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5">✓ done · ½ partly · ✕ not · · nothing logged · … waiting for an estimate. Worked out from their meals for the habit they\'re on now; their own Done/Partly tap wins, and yours wins over both (gold edge). Tap a day to mark it.</div>'
     +'<div style="font-size:13px;color:var(--muted);margin-top:8px">Meals logged in the last 7 days: '+meals+'</div>'+calHtml+recent+meas+refl
     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'
     +'<button class="btn-sm" onclick="ncHold(\''+cid+'\','+(!hold)+')">'+(hold?'Release hold':'Hold on this habit')+'</button>'
     +'<button class="btn-sm" onclick="ncAdvance(\''+cid+'\')">Move to next habit</button>'
     +'<select id="ncTpl_'+cid+'" style="padding:6px;border-radius:8px">'+opts+'</select>'
     +'<button class="btn-sm" onclick="ncChangePlan(\''+cid+'\')">Change plan</button></div></div>';
+  box.querySelectorAll('[data-hday]').forEach(function(b){ b.onclick=function(){ ncMarkDay(cid,b.dataset.hday); }; });
+}
+async function ncMarkDay(cid,d){
+  var v=prompt('Mark '+ncNice(d)+': type done, partly or not (leave empty to clear your mark)','');
+  if(v===null) return; v=String(v).trim().toLowerCase(); var map={done:'done',d:'done',partly:'partly',p:'partly',not:'not',n:'not','':null}; if(!(v in map)){ alert('Type done, partly or not.'); return; }
+  var p=await ncLoad(cid); if(!p) return; p.settings=Object.assign({},p.settings); var hm=Object.assign({},p.settings.habitMarks||{});
+  if(map[v]) hm[d]=map[v]; else delete hm[d]; p.settings.habitMarks=hm;
+  var r=await getSB().from('nutrition_program').update({settings:p.settings,updated_ms:Date.now()}).eq('client_id',cid);
+  if(r.error){ alert('Not saved -- '+r.error.message); return; }
+  kfLog('🌱',map[v]?'Marked a habit day '+map[v]:'Cleared a habit mark',cid,null,d);
+  var box=document.getElementById('ncPlanBox_'+cid); if(box) nutCoachPanel(cid,box,p);
 }
 async function ncLoad(cid){var r=await getSB().from('nutrition_program').select('*').eq('client_id',cid);if(r.error||!r.data||!r.data[0]){alert('Could not load this program.');return null;}return r.data[0];}
 async function ncSave(cid,p,note,extra){
@@ -8194,6 +8234,7 @@ var KF_HELP=[
   ['🍽️','Days','Tap a client, then Days: one "This week" card (days logged, habit, calories, steps, how they\'re feeling and the Sunday summary), then each day with its ring, steps and meals. Tap a meal to see amounts, and tap a photo to see it full size: swipe for the next, ✕ brings you back to the meal. Write a note under any meal; ✓ means sent, blue ✓✓ means they read it. Links show as short tappable chips. ⋯ at the top has Estimate missing calories, Import screenshots and the earlier app\'s tools.'],
   ['🏋️','Fitness clients','Days shows each workout as a card: body parts, exercises, duration, steps and personal records 🏆. Tap a card for every set. Clients say whether each session was with you or on their own; only sessions with you count as unpaid. Got it wrong? Tap "Mark on their own" or "Mark with you" on the card. Plan has just the workout tools: Assign, Log and Edit.'],
   ['🗓️','Plan','Plan a day of meals for them (they tick them off in their app), see their habit plan, and for fitness clients the workout tools.'],
+  ['🌱','Habit progress','Plan shows the habit they\'re on, "day 12 of about 7", and a 4-week grid (Monday to Sunday). Each day is worked out from their logged meals, photos or typed: for Protein First, ✓ means every main meal had a palm of protein, ½ some did, ✕ none, · nothing logged. If they tap Done/Partly themselves, that wins; tap a day to set your own mark, which wins over both (gold edge). Every habit is read from meals; Eating Order, More-same-less and Sip smarter are good guesses from the plate. The same tip they see in their app shows here. When a habit\'s days are up their app moves them on by itself (they can choose to stay 7 more days); "Hold on this habit" stops that.'],
   ['⚡','Quick replies','Under each meal, tap a ready-made note (like "Great protein! 💪") to send it in one tap. Tap ✎ edit to change your list.'],
   ['💚','How they\'re feeling','Clients can tap one face when they log dinner ("How do you feel today?") and say at breakfast if they had late-night cravings. The weekly check-in, the day before the consult, adds fullness, cravings, stress, waist, weight, one win and one struggle. You see it all at the top of Days and under Next consult, plus how dinner time lines up with cravings.'],
   ['✨','Week summary','Every Sunday each nutrition client gets a summary of their week. It appears at the top of Days; add a line and they see it on their card.'],
