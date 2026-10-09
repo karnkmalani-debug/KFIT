@@ -456,6 +456,14 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .kf-ss-link{display:block;width:100%;background:none;border:none;border-top:1px dashed var(--border);color:var(--sage);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:800;text-align:left;padding:10px 10px;cursor:pointer}
 .kf-ss-flash{box-shadow:0 0 0 2px var(--gold);transition:box-shadow .4s}
 @media print{.kf-ss-link{display:none!important}}
+
+.ex-top-row .collapse-btn,.ex-top-row .del-btn{width:32px!important;height:32px!important;min-width:32px!important;border:1px solid var(--border)!important;background:none!important;color:var(--muted)!important;font-size:14px!important;font-weight:600!important;border-radius:8px!important}
+.ex-top-row .action-group{border-left:none!important;padding-left:0!important}
+.kf-sel-lab .kf-bp{color:var(--muted);font-size:.85em;margin-left:5px}
+#bpGrid .bp-btn.kf-cardio-bp{display:none!important}
+#panel0[data-part="cardio"] #bpCard,#panel0[data-part="func"] #bpCard{display:none!important}
+#panel0 #exBody>.superset-block.kf-hide-part{display:none!important}
+.kf-last-cardio{display:block;width:100%;margin:0 0 10px;padding:9px;background:none;border:1px solid var(--sage);border-radius:8px;color:var(--sage);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:800;cursor:pointer}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
@@ -509,7 +517,10 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     sel._kflab=lab; upd(sel);
     sel.addEventListener('change',function(){ upd(sel); });
   }
-  function upd(sel){ var t=label(sel), lab=sel._kflab; if(!lab) return; if(lab._t===t) return; lab._t=t; lab.textContent=t||'Choose exercise'; lab.classList.toggle('kf-empty',!t); }
+  function bpOf(ex){ try{ var cu=getCustomEx(); return Object.keys(EX_LIB).filter(function(k){ return (EX_LIB[k]||[]).indexOf(ex)>=0||(cu[k]||[]).indexOf(ex)>=0; })[0]||''; }catch(e){ return ''; } }
+  function chosenBps(sel){ var ss=sel.closest('.superset-block'); if(ss) return [].map.call(ss.querySelectorAll('.ss-bp-btn.ss-bp-active'),function(b){return b.dataset.bp;}); try{ return (selectedBP||[]).filter(function(b){return b!=='Cardio';}); }catch(e){ return []; } }
+  function upd(sel){ var t=label(sel), lab=sel._kflab; if(!lab) return; var bp=t?bpOf(t):chosenBps(sel).join(', '); var key=t+'|'+bp; if(lab._t===key) return; lab._t=key;
+    lab.textContent=t||'Choose exercise'; if(bp){ var s2=document.createElement('span'); s2.className='kf-bp'; s2.textContent='('+bp+')'; lab.appendChild(s2); } lab.classList.toggle('kf-empty',!t); }
   function scan(){ document.querySelectorAll('select.ex-select, select.ss-ex-select').forEach(function(s){ if(!s._kfw) wrap(s); else upd(s); }); }
   try{ new MutationObserver(function(){ scan(); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
   setInterval(scan,600);   // also catches names set by code (routines, edits)
@@ -523,11 +534,22 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 (function(){
   function $(id){ return document.getElementById(id); }
   var part='strength'; try{ part=sessionStorage.getItem('kf_part')||'strength'; }catch(e){}
+  // Each part is its own workout. A superset belongs to the part it was made
+  // in (cardio with weights stays in Cardio); one loaded from a routine or
+  // history goes by its exercises: all cardio -> Cardio, functional only -> Functional.
+  function ssPart(b){
+    if(b.dataset.kfPart) return b.dataset.kfPart;
+    var ex=[].map.call(b.querySelectorAll('.ss-ex-select'),function(x){return x.value;}).filter(Boolean); if(!ex.length) return 'strength';
+    var c=0,f=0; ex.forEach(function(e){ try{ if(isCardio(e)) c++; else if(isFunctional(e)) f++; }catch(er){} });
+    return c===ex.length?'cardio':(f&&c+f===ex.length?(c?'cardio':'func'):'strength');
+  }
+  window.kfAddSS=function(){ addSupersetBlock(); var a=document.querySelectorAll('#exBody>.superset-block'), b=a[a.length-1]; if(b){ b.dataset.kfPart=part; paint(); b.scrollIntoView({block:'nearest'}); } };
+  window.kfPartNow=function(){ return part; };
   function counts(){
-    var st=0, ss=0; document.querySelectorAll('#exBody>.ex-block').forEach(function(b){ var x=b.querySelector('.ex-select'); if(x&&x.value) st++; });
-    ss=document.querySelectorAll('#exBody>.superset-block').length;
-    var cd=(typeof cardioBlocks!=='undefined'&&cardioBlocks)?cardioBlocks.length:0, fn=(typeof functionalBlocks!=='undefined'&&functionalBlocks)?functionalBlocks.length:0;
-    return {strength:st+ss,cardio:cd,func:fn};
+    var o={strength:0,cardio:0,func:0}; document.querySelectorAll('#exBody>.ex-block').forEach(function(b){ var x=b.querySelector('.ex-select'); if(x&&x.value) o.strength++; });
+    document.querySelectorAll('#exBody>.superset-block').forEach(function(b){ var p=ssPart(b); o[p]++; b.classList.toggle('kf-hide-part',p!==part); });
+    o.cardio+=(typeof cardioBlocks!=='undefined'&&cardioBlocks)?cardioBlocks.length:0; o.func+=(typeof functionalBlocks!=='undefined'&&functionalBlocks)?functionalBlocks.length:0;
+    return o;
   }
   function paint(){
     var p0=$('panel0'), bar=$('kfPartBar'); if(!p0||!bar) return;
@@ -554,7 +576,11 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
   function place(){ var st=$('kfCardStrength'), cd=$('kfCardCardio'), fn=$('kfCardFunc'); if(!st||!cd||!fn||placed===part) return; placed=part;
     if(part==='strength'){ st.parentNode.insertBefore(cd,st.nextSibling); cd.parentNode.insertBefore(fn,cd.nextSibling); }
     else { var mine=part==='cardio'?cd:fn; st.parentNode.insertBefore(mine,st); } }
-  function boot(){ initBar(); initPrint(); initSheet(); place(); }
+  function cardioBits(){
+    document.querySelectorAll('#bpGrid .bp-btn').forEach(function(b){ if(b.textContent.trim()==='Cardio') b.classList.add('kf-cardio-bp'); });
+    var cc=$('kfCardCardio'); if(cc&&!cc.querySelector('.kf-last-cardio')){ var t=cc.querySelector('.card-title'); var b=document.createElement('button'); b.type='button'; b.className='kf-last-cardio'; b.textContent='↺ Load my last cardio'; b.onclick=function(){ var n=(typeof cardioBlocks!=='undefined'&&cardioBlocks)?cardioBlocks.length:0; try{ autoFillCardioIfAny(); }catch(e){} setTimeout(function(){ if(((typeof cardioBlocks!=='undefined'&&cardioBlocks)?cardioBlocks.length:0)===n&&typeof toast==='function') toast('No earlier cardio to load yet'); },300); }; t.parentNode.insertBefore(b,t.nextSibling); }
+  }
+  function boot(){ initBar(); initPrint(); initSheet(); place(); cardioBits(); setInterval(cardioBits,1500); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot); else boot();
 })();
 // Coming up: workouts your coach planned, each one can go into the phone's calendar with a reminder
@@ -603,7 +629,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
   function makeSS(exName,sets,vals,after,y){
     var body=document.getElementById('exBody'); if(!body||typeof addSupersetBlock!=='function') return;
     addSupersetBlock();
-    var all=body.querySelectorAll(':scope>.superset-block'), ss=all[all.length-1], id=ss.dataset.ssid;
+    var all=body.querySelectorAll(':scope>.superset-block'), ss=all[all.length-1], id=ss.dataset.ssid; try{ ss.dataset.kfPart=window.kfPartNow?kfPartNow():'strength'; }catch(e){}
     if(after&&after.parentNode===body) body.insertBefore(ss,after.nextSibling);
     var bp=bpOf(exName); if(bp){ var chip=ss.querySelector('.ss-bp-btn[data-bp="'+bp+'"]'); if(chip) toggleSupersetBP(id,chip); }
     var a=ss.querySelector('.superset-ex-block'), sel=a.querySelector('.ss-ex-select'), ssel=a.querySelector('.sets-select');
@@ -929,6 +955,7 @@ btn.textContent='Could not copy -- select the address bar manually';
       <div id="newCoachRoutineBannerList"></div>
     </div>
 
+    <div id="kfPartBar" role="tablist" aria-label="Part of the workout"><button data-part="strength" role="tab">Strength</button><button data-part="cardio" role="tab">Cardio</button><button data-part="func" role="tab">Functional</button></div>
     <div class="card" id="bpCard">
       <div class="card-title">Select Body Part to Train</div>
       <div class="bp-grid" id="bpGrid"></div>
@@ -993,7 +1020,6 @@ btn.textContent='Could not copy -- select the address bar manually';
       </div>
     </div>
 
-    <div id="kfPartBar" role="tablist" aria-label="Part of the workout"><button data-part="strength" role="tab">Strength</button><button data-part="cardio" role="tab">Cardio</button><button data-part="func" role="tab">Functional</button></div>
     <div class="card" id="kfCardStrength">
       <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
         <span><span class="kf-t-main">Exercises</span><span class="kf-t-ss">Supersets &amp; circuits</span><span class="autosave-dot" id="autosaveDot" title="Draft auto-saved"></span></span>
@@ -1012,7 +1038,7 @@ btn.textContent='Could not copy -- select the address bar manually';
         <div id="exSearchSuggestions" style="display:none;position:absolute;left:0;right:0;bottom:calc(100% + 4px);background:var(--surf3);border:1px solid var(--border);border-radius:10px;overflow:hidden;z-index:60;max-height:260px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4);"></div>
       </div>
       <div class="add-row" onclick="addExRow()" style="background:var(--flame);border-style:solid;border-color:var(--flame);color:#1a0d05;font-weight:800;">+ Add Exercise</div>
-      <div class="add-row kf-ss-add" onclick="addSupersetBlock()" style="color:var(--sage);border-color:var(--sage);margin-top:6px;">+ Superset / Circuit</div>
+      <div class="add-row kf-ss-add" onclick="kfAddSS()" style="color:var(--sage);border-color:var(--sage);margin-top:6px;">+ Superset / Circuit</div>
       <div class="add-row" onclick="window.location.href='https://kfit.pages.dev/kfit-voice'" style="color:var(--gold);border-color:var(--gold);margin-top:6px;">&#127897; Voice Log Session</div>
       <div style="margin-top:10px;">
         <div class="quick-add-header" onclick="toggleExChips()" style="padding:8px 0;cursor:pointer;">
@@ -8624,7 +8650,7 @@ const HELP_TEXT=[
 '<b>3. The H button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "H" (for Help). Tap it once for every rep in that set where someone helped you finish (a spot) -- it\'ll show a number like "H 2". Tapped it by mistake, or want to lower the count? Press and hold the button to subtract one. Didn\'t need help at all? Just leave it alone.<br><br>'+
 '<b>3b. The LP button (lengthened partials)</b><br>Works exactly the same way as H, right next to it. Tap "LP" once for every rep in that set done as a lengthened partial -- a shorter rep performed in the stretched position of the movement (e.g. the bottom half of a leg extension or bicep curl), a technique some research suggests builds muscle as well as full-range reps for certain exercises. Same as H: tap to add one, press and hold to subtract one. Like H and drop sets, LP reps are excluded from your Personal Records, since a partial-range rep isn\'t really the same lift as a full-range one.<br><br>'+
 '<b>3c. The RP button (rest-pause)</b><br>Did you pause briefly mid-set and squeeze out more reps? Tap RP once for each of those extra reps (hold to take one off). They count towards the set\'s volume, but -- like H and LP -- rest-pause sets don\'t count towards personal records.<br><br>'+
-'<b>3a. Strength, Cardio, Functional</b><br>Above your exercises, switch between Strength, Cardio and Functional to see one part at a time; the number shows how many you\'ve added to each. Supersets and circuits show in all three, and "+ Superset / Circuit" is in each.<br><br>'+
+'<b>3a. Strength, Cardio, Functional</b><br>At the top of the Log, pick Strength, Cardio or Functional. Each is its own workout. Body parts belong to Strength. Cardio has your activities and "↺ Load my last cardio". A superset stays in the part you made it in, so a cardio-with-weights circuit made in Cardio stays in Cardio. The number on each shows how much you\'ve added there. Every exercise name shows its body part in brackets.<br><br>'+
 '<b>3e. Rest and working time</b><br>Use the rest timer (1m / 90s / 2m / 3m) between sets, or tap <b>&#9998;</b> to log a rest that already happened -- even a long one. Each rest is saved with the set it followed. Every session is then split into <b>working time</b> and <b>rest</b>, shown in History. The more you use the rest timer, the better KFit learns your own pace.<br><br>'+
 '<b>3d. The RIR button (reps in reserve)</b><br>How many more reps you could have done at the end of the set. Tap it to cycle 0, 1, 2, 3, 4+ (tap again to clear). It helps your coach judge how hard each set was.<br><br>'+
 '<b>Not sure what a button means?</b> Tap the small <b>i</b> above the four buttons on any exercise for a one-line reminder.<br><br>'+

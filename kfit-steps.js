@@ -23,12 +23,12 @@
     // collapsed (the fitness LOG screen): a big gold "Add today's steps" until
     // they're in, then the number, large. Tap either to open the box.
     if(opts.collapsed&&!el._kstOpen){
+      // a quiet box; only the words are big and bold
+      var box='width:100%;background:var(--card,var(--surf));border:1px solid var(--line,var(--border));border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:12px;color:var(--ink,var(--text));font-family:inherit;cursor:pointer;text-align:left';
       var big=steps==null
-        ?'<button class="kst-line" style="width:100%;background:var(--gold,#C9A24A);border:none;border-radius:16px;padding:16px;display:flex;align-items:center;gap:12px;margin-bottom:12px;color:#12130F;font-family:inherit;cursor:pointer;text-align:left">'
-          +'<span style="font-size:30px;line-height:1">👟</span><span style="flex:1"><span style="display:block;font-size:19px;font-weight:800">Add today\'s steps</span><span style="display:block;font-size:13px;font-weight:600">Goal '+fmt(goal)+'</span></span><span style="font-size:26px;font-weight:800">+</span></button>'
-        :'<button class="kst-line" style="width:100%;background:var(--card,var(--surf));border:2px solid var(--gold,#C9A24A);border-radius:16px;padding:14px;display:flex;align-items:center;gap:12px;margin-bottom:12px;color:var(--ink,var(--text));font-family:inherit;cursor:pointer;text-align:left">'
-          +'<span style="font-size:28px;line-height:1">👟</span><span style="flex:1;min-width:0"><span style="display:block;font-family:\'DM Mono\',monospace;font-size:26px;color:var(--gold,#C9A24A)">'+fmt(steps)+'</span>'
-          +'<span style="display:block;height:6px;border-radius:3px;background:var(--line,#2E2F28);margin-top:4px"><span style="display:block;width:'+pct+'%;height:6px;border-radius:3px;background:var(--gold,#C9A24A)"></span></span>'
+        ?'<button class="kst-line" style="'+box+'"><span style="font-size:26px;line-height:1">👟</span><span style="flex:1"><span style="display:block;font-size:20px;font-weight:900;letter-spacing:.01em">Add today\'s steps</span><span style="display:block;font-size:13px;color:var(--muted)">Goal '+fmt(goal)+'</span></span><span style="font-size:24px;font-weight:900;color:var(--muted)">+</span></button>'
+        :'<button class="kst-line" style="'+box+'"><span style="font-size:26px;line-height:1">👟</span><span style="flex:1;min-width:0"><span style="display:block;font-size:24px;font-weight:900">'+fmt(steps)+' <span style="font-size:14px;font-weight:600;color:var(--muted)">steps</span></span>'
+          +'<span style="display:block;height:5px;border-radius:3px;background:var(--line,#2E2F28);margin-top:5px"><span style="display:block;width:'+pct+'%;height:5px;border-radius:3px;background:var(--muted)"></span></span>'
           +'<span style="display:block;font-size:12px;color:var(--muted);margin-top:3px">of '+fmt(goal)+' · tap to change</span></span></button>';
       el.innerHTML=big;
       el.querySelector('.kst-line').onclick=function(){ el._kstOpen=true; mount(el,opts).then(function(){ var i=el.querySelector('.kst-in'); if(i) i.focus(); }); };
