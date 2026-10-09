@@ -1459,7 +1459,9 @@ function openMealForm(d,forSlot,editId){
   if(forSlot){
     slot=forSlot;
     var usual=(DAY_SLOTS.filter(function(x){return x[0]===forSlot;})[0]||[null,'21:30'])[1].split(':');
-    if(!(isToday&&slotFor(hh)===forSlot)){ hh=+usual[0]; mm=+usual[1]; if(isToday&&hh*60+mm>nowD.getHours()*60+nowD.getMinutes()){hh=nowD.getHours();mm=nowD.getMinutes();} }
+    // today: use the time now unless it's 3+ hours after this meal's usual time (logging breakfast at night)
+    var nowMin=nowD.getHours()*60+nowD.getMinutes(), usualMin=(+usual[0])*60+(+usual[1]);
+    if(!(isToday&&slotFor(hh)===forSlot)&&!(isToday&&nowMin-usualMin<=180)){ hh=+usual[0]; mm=+usual[1]; }
   }
   if(em){ var et=String(eb.time||'').split(':'); if(et.length===2){hh=+et[0];mm=+et[1];} slot=eb.slot||slot; }
   if(M.time){ var mt=M.time.split(':'); hh=+mt[0]; mm=+mt[1]; } if(M.slot) slot=M.slot; if(M.day) d=M.day;
@@ -1539,8 +1541,9 @@ function openMealForm(d,forSlot,editId){
   document.querySelectorAll('img[data-path]').forEach(loadPhoto);
   function keep(){ M.day=$('#mfDay').value; M.time=$('#mfTime').value; M.slot=$('#mfSlot').value; }
   $('#mfBack').onclick=back;
-  $('#mfTime').onchange=function(){var h=parseInt(String(this.value).split(':')[0],10);if(isFinite(h)){ var was=$('#mfSlot').value; $('#mfSlot').value=slotFor(h); if(was!==$('#mfSlot').value){ keep(); openMealForm(d,forSlot,editId); } }};
-  $('#mfSlot').onchange=function(){ keep(); openMealForm(d,forSlot,editId); };
+  // a meal they picked (+ Dinner, the dropdown, or an edit) keeps its name when the time changes
+  $('#mfTime').onchange=function(){var h=parseInt(String(this.value).split(':')[0],10); if(M.slotPicked||em||(forSlot&&forSlot!=='Late snack')){ keep(); return; } if(isFinite(h)){ var was=$('#mfSlot').value; $('#mfSlot').value=slotFor(h); if(was!==$('#mfSlot').value){ keep(); openMealForm(d,forSlot,editId); } }};
+  $('#mfSlot').onchange=function(){ M.slotPicked=true; keep(); openMealForm(d,forSlot,editId); };
   document.querySelectorAll('[data-dn],[data-up]').forEach(function(b){b.onclick=function(){
     keep(); var i=+(b.dataset.dn||b.dataset.up), it=M.items[i], k=AMT_STEPS.indexOf(it.amount), up=!!b.dataset.up;
     var next; if(k<0){ next=up?AMT_STEPS.filter(function(x){return x>it.amount;})[0]:AMT_STEPS.filter(function(x){return x<it.amount;}).slice(-1)[0]; } else next=AMT_STEPS[k+(up?1:-1)];
