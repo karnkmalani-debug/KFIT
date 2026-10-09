@@ -598,8 +598,9 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 // are kept), with a second slot that can be any body part, cardio or functional.
 (function(){
   function bpOf(ex){ try{ var cu=getCustomEx(); return Object.keys(EX_LIB).filter(function(k){ return k!=='Cardio'&&((EX_LIB[k]||[]).indexOf(ex)>=0||(cu[k]||[]).indexOf(ex)>=0); })[0]||null; }catch(e){ return null; } }
-  function flash(el){ if(!el) return; el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('kf-ss-flash'); setTimeout(function(){ el.classList.remove('kf-ss-flash'); },1800); }
-  function makeSS(exName,sets,vals,after){
+  // the screen stays put: the new slot appears right where you tapped
+  function flash(el,y){ if(!el) return; if(y!=null){ var d=el.getBoundingClientRect().top-y; if(Math.abs(d)>1) window.scrollBy(0,d); } el.classList.add('kf-ss-flash'); setTimeout(function(){ el.classList.remove('kf-ss-flash'); },1800); }
+  function makeSS(exName,sets,vals,after,y){
     var body=document.getElementById('exBody'); if(!body||typeof addSupersetBlock!=='function') return;
     addSupersetBlock();
     var all=body.querySelectorAll(':scope>.superset-block'), ss=all[all.length-1], id=ss.dataset.ssid;
@@ -613,19 +614,19 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
     (vals||[]).forEach(function(v,i){ var r=a.querySelectorAll('.set-row')[i]; if(!r) return; var re=r.querySelector('.reps-input'), we=r.querySelector('.weight-input'); if(re&&v.reps) re.value=v.reps; if(we&&v.weight) we.value=v.weight; });
     addSupersetEx(id);
     try{ renumberSupersets(); }catch(e){}
-    var b=ss.querySelectorAll('.superset-ex-block')[1]; flash(b||ss);
+    var b=ss.querySelectorAll('.superset-ex-block')[1]; flash(b||ss,y);
     try{ if(typeof draftSave==='function') draftSave(); }catch(e){}
   }
   window.kfSupersetFrom=makeSS;
-  function link(onTap){ var b=document.createElement('button'); b.type='button'; b.className='kf-ss-link'; b.textContent='⇄ Superset with another exercise'; b.onclick=function(e){ e.stopPropagation(); onTap(); }; return b; }
+  function link(onTap){ var b=document.createElement('button'); b.type='button'; b.className='kf-ss-link'; b.textContent='⇄ Superset with another exercise'; b.onclick=function(e){ e.stopPropagation(); onTap(b.getBoundingClientRect().top); }; return b; }
   // plain exercises (Strength)
   function scan(){
     document.querySelectorAll('#exBody>.ex-block').forEach(function(bl){
       var sel=bl.querySelector('.ex-select'), has=!!(sel&&sel.value), l=bl.querySelector(':scope>.kf-ss-link');
-      if(!l){ l=link(function(){
+      if(!l){ l=link(function(y){
           var s2=bl.querySelector('.ex-select'), name=s2&&s2.value; if(!name) return;
           var sets=+((bl.querySelector('.sets-select')||{}).value)||3, vals=[].map.call(bl.querySelectorAll('.set-row'),function(r){ return {reps:((r.querySelector('.reps-input')||{}).value||'').trim(),weight:((r.querySelector('.weight-input')||{}).value||'').trim()}; });
-          makeSS(name,sets,vals,bl); bl.remove(); });
+          var nx=bl.nextSibling; bl.remove(); makeSS(name,sets,vals,null,y); var ss2=document.querySelectorAll('#exBody>.superset-block'); ss2=ss2[ss2.length-1]; if(nx&&nx.parentNode&&ss2&&ss2!==nx){ nx.parentNode.insertBefore(ss2,nx); try{ renumberSupersets(); }catch(e){} var b2=ss2.querySelectorAll('.superset-ex-block')[1]; if(b2) flash(b2,y); } });
         bl.appendChild(l); }
       else if(l!==bl.lastElementChild) bl.appendChild(l);
       l.style.display=has?'':'none';
@@ -638,10 +639,10 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
       var arr; try{ arr=t[1]==='cardioBlocks'?cardioBlocks:functionalBlocks; }catch(e){ return; }
       [].forEach.call(cont.querySelectorAll(':scope>.cardio-log-block'),function(el,i){
         if(el.querySelector('.kf-ss-link')) return; var item=arr[i]; if(!item) return;
-        el.appendChild(link(function(){
+        el.appendChild(link(function(y){
           var typed=(item.duration||item.distance||item.reps||item.weight);
           if(typed&&!confirm('Move '+item.ex+' into a superset? Type its time again for each round there.')) return;
-          var name=item.ex; window[t[2]](item.id); makeSS(name,null,null,null); }));
+          var name=item.ex; window[t[2]](item.id); makeSS(name,null,null,null,null); var all2=document.querySelectorAll('#exBody>.superset-block'), last=all2[all2.length-1]; if(last) last.scrollIntoView({block:'nearest'}); }));
       });
     });
   }
