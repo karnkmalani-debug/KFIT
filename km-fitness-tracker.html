@@ -710,6 +710,8 @@ function kfAskWho(done){
     // which coach this person is with now (their chat starts fresh with a new coach)
     try{ if(!window.kfCoachId) getSB().rpc('kfit_my_coaching',{p_mobile:m}).then(function(r){ if(r&&r.data&&r.data.status==='ok') window.kfCoachId=r.data.coach||null; },function(){}); }catch(e){}
     try{ KFitSteps.mount(document.getElementById('kfStepsBox'),{sb:getSB(),mobile:m,collapsed:true}); }catch(e){}
+    // her details from the nutrition app too (age, sex, height, latest weigh-in), so she enters them once
+    try{ getSB().rpc('kfit_my_body',{p_mobile:m}).then(function(r){ if(r&&r.data&&r.data.status==='ok'){ window.kfBody=r.data; try{ localStorage.setItem('kmfit_body',JSON.stringify(r.data)); }catch(e){} if(typeof estimateSessionCalories==='function') try{ estimateSessionCalories(); }catch(e){} } },function(){}); }catch(e){}
     try{ if(window.KFitClientPush) KFitClientPush.card(document.getElementById('kfPushBox'),{sb:getSB(),mobile:m,app:'fitness',compact:true,line:true}); }catch(e){}
     try{ if(window.KFitClientPush&&!go._push){ go._push=1; KFitClientPush.onOpen(function(u){ if(/open=chat/.test(u)&&typeof goTab==='function') goTab(6); }); } }catch(e){}
   }
@@ -6860,11 +6862,18 @@ if(measurements[i].height!=null && !isNaN(measurements[i].height)) return measur
 }
 return null;
 }
+// Linked with the nutrition app: anything missing here is taken from there, and
+// the weight is the newest weigh-in from either app.
+function kfNutBody(){ var b=window.kfBody; if(!b){ try{ b=window.kfBody=JSON.parse(localStorage.getItem('kmfit_body')||'null'); }catch(e){} } return (b&&b.nut)||{}; }
 function getClientProfile(){
-var age=parseInt(localStorage.getItem('kmfit_age'))||null;
-var gender=localStorage.getItem('kmfit_gender')||null;
-var weight=latestClientWeightKg();
-var height=latestClientHeightCm();
+var nb=kfNutBody();
+var age=parseInt(localStorage.getItem('kmfit_age'))||parseInt(nb.age)||null;
+var gender=localStorage.getItem('kmfit_gender')||(nb.sex==='female'||nb.sex==='male'?nb.sex:null);
+var weight=latestClientWeightKg(), wDay='';
+for(var i=0;i<measurements.length;i++){ if(measurements[i].weight!=null&&!isNaN(measurements[i].weight)){ wDay=String(measurements[i].date||'').slice(0,10); break; } }
+if(+nb.weigh>=25&&(!weight||String(nb.weigh_day||'')>wDay)) weight=+nb.weigh;
+else if(!weight&&+nb.weight>=25) weight=+nb.weight;
+var height=latestClientHeightCm()||(+nb.height>=100?+nb.height:null);
 return {
 age:age, gender:gender, weight:weight, height:height,
 isComplete: !!(age&&gender&&weight&&height)

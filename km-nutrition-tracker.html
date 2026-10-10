@@ -484,8 +484,27 @@ async function loadAll(){
   var m=await sb.from('nutrition_meals').select('*').eq('client_id',cid).gte('day',addDays(today(),-30));
   if(!m.error)(m.data||[]).forEach(function(r){S.meals[r.meal_id]=pickNewer(S.meals[r.meal_id],r);});
   await loadComments();
+  await loadBody();
+  S._loadedAt=Date.now();
   saveCache();
 }
+// Her details from BOTH apps (age, sex, height, latest weight), so she enters
+// them once. Read through a locked-down database function that only ever
+// returns the caller's own details. Kept on the phone for offline use.
+async function loadBody(){
+  try{ var r=await sb.rpc('kfit_my_body',{p_mobile:S.mobile});
+    if(r&&r.data&&r.data.status==='ok'){ S.body=r.data; try{ localStorage.setItem('kfnc_body',JSON.stringify(r.data)); }catch(e){} } }catch(e){}
+  if(!S.body){ try{ S.body=JSON.parse(localStorage.getItem('kfnc_body')||'null'); }catch(e){} }
+}
+function fitBody(){ var f=S.body&&S.body.fit; return f&&typeof f==='object'?f:{}; }
+function fitLinked(){ var f=fitBody(); return !!(f.age||f.sex||f.height||f.weight); }
+// Back in the app after a while: fetch again, so a weigh-in your coach added
+// (or anything changed in the fitness app) shows, and is never written over.
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden||!S.clientId||!S._loadedAt||Date.now()-S._loadedAt<120000) return;
+  S._loadedAt=Date.now();
+  loadAll().then(function(){ if(!S.view&&(S.tab==='log'||S.tab==='progress'||S.tab==='today')) render(); },function(){});
+});
 // ---------- Conversations under meals (and on whole days) ----------
 async function loadComments(){
   try{
@@ -1889,16 +1908,28 @@ var ACTIVITY=[['sitting','Mostly sitting',1.2,'Desk job, little exercise'],['lig
   ['active','Active',1.55,'Exercise 3–5 days a week'],['very','Very active',1.725,'Hard exercise most days, or a physical job']];
 function profile(){return (S.program&&S.program.settings&&S.program.settings.profile)||null;}
 function profileComplete(){var p=profile();return !!(p&&p.age&&p.sex&&p.height&&p.weight&&p.activity);}
-function latestWeight(){var p=profile();var m=measures().filter(function(x){return x.m.weight;})[0];return m&&(!p||!p.updated||m.day>=p.updated)?m.m.weight:(p&&p.weight);}
+function latestWeight(){ var o=latestWeightInfo(); return o?o.w:null; }
+// newest of: her weekly weigh-ins here, her details, and the fitness app's body log
+function latestWeightInfo(){
+  var p=profile(), c=[], m=measures().filter(function(x){return x.m.weight;})[0], f=fitBody();
+  if(m) c.push({w:+m.m.weight,day:m.day,src:'here'});
+  if(p&&p.weight) c.push({w:+p.weight,day:p.updated||'0000',src:'details'});
+  if(f.weight&&f.weight_day) c.push({w:+f.weight,day:String(f.weight_day).slice(0,10),src:'fitness'});
+  c.sort(function(a,b){ return a.day<b.day?1:a.day>b.day?-1:(a.src==='here'?-1:1); });
+  return c[0]||null;
+}
+function latestHeight(){ var p=profile(), f=fitBody();
+  if(f.height&&f.height_day&&(!p||!p.height||String(f.height_day).slice(0,10)>(p.updated||'0000'))) return +f.height;
+  return p&&p.height?+p.height:(f.height?+f.height:null); }
 // Mifflin-St Jeor resting energy x activity; fat loss ~18% below, never under a safe floor.
 function targets(){
   var p=profile(); if(!profileComplete()) return null;
   if(p.age<18||p.pregnant) return {none:true};
-  var w=latestWeight()||p.weight, base=10*w+6.25*p.height-5*p.age+(p.sex==='male'?5:p.sex==='female'?-161:-78);
+  var w=latestWeight()||p.weight, base=10*w+6.25*(latestHeight()||p.height)-5*p.age+(p.sex==='male'?5:p.sex==='female'?-161:-78);
   var act=ACTIVITY.filter(function(a){return a[0]===p.activity;})[0]; var mult=act?act[2]:1.2;
   var maint=Math.round(base*mult/50)*50, floor=p.sex==='male'?1500:p.sex==='female'?1200:1350;
   var loss=Math.max(floor,Math.round(maint*0.82/50)*50);
-  return {maint:maint,loss:Math.min(loss,maint),gain:Math.round(maint*1.1/50)*50,floor:floor};
+  return {maint:maint,loss:Math.min(loss,maint),gain:Math.round(maint*1.1/50)*50,floor:floor,rest:Math.round(base/10)*10,mult:mult,w:w};
 }
 // Goal: lose / maintain / gain. Clients set it themselves; once their coach
 // sets it in Merge it's locked for them (the coach's choice counts).
@@ -2013,14 +2044,34 @@ function renderProgress(){
       +'<div class="row" style="gap:10px;align-items:center"><label for="pgGoalW" style="font-size:15px;flex:1">Goal weight</label><input id="pgGoalW" inputmode="decimal" placeholder="kg" value="'+(w.goal!=null?w.goal:'')+'" style="width:110px;text-align:center;min-height:44px;border-radius:12px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);font-size:16px;font-family:inherit"></div>'
       +(g==='gain'?'<div class="meta" style="font-weight:400">Gaining: a small surplus (about 10% over maintenance), a palm of protein at every meal, and strength training 2–4 times a week. Aim for about ¼–½ kg a month.</div>':'');
   }
-  html+='<details><summary class="meta" style="cursor:pointer;font-weight:700">Your details</summary><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">'
-    +(p?'<div class="meta" style="font-weight:400">'+esc(heightText(p.height))+' · '+esc(latestWeight()||p.weight)+' kg'+(t&&t.maint?' · maintenance ~'+fmt(t.maint)+' cal':'')+'</div>':'')
-    +'<label class="row" style="justify-content:space-between;align-items:center;font-size:15px"><span>Show calories in the app</span><input type="checkbox" id="pgShowK"'+(showK()?' checked':'')+' style="width:22px;height:22px"></label>'
-    +'<button class="btn link" id="pgProfile" style="align-self:flex-start">Edit your details</button></div></details></div>';
+  // Your details: all five things the calorie guide uses, always on show
+  html+=(function(){
+    var t2=targets(), act=ACTIVITY.filter(function(a){return a[0]===(p&&p.activity);})[0], hc=latestHeight(), wt=latestWeight();
+    function cell(l,v,wide){ return '<div style="border:1px solid var(--line);border-radius:12px;padding:8px 10px'+(wide?';grid-column:1/-1':'')+'"><div class="meta" style="font-weight:400;font-size:12px">'+l+'</div><div style="font-weight:800;font-size:16px;margin-top:2px">'+esc(v||'–')+'</div></div>'; }
+    var ft=hc?cmToFtIn(hc):null;
+    var o='</div><div class="card" style="border:1px solid var(--line);gap:10px"><div class="row" style="justify-content:space-between;align-items:center;gap:8px"><b style="font-size:17px">👤 Your details</b>'
+      +(fitLinked()?'<span style="background:#1E2B22;color:var(--leaf);border-radius:10px;padding:3px 9px;font-size:12px;font-weight:700;white-space:nowrap">🔗 shared with fitness app</span>':'')+'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+      +cell('Age',p&&p.age?p.age+'':'')+cell('Sex',p&&p.sex?({female:'Female',male:'Male'}[p.sex]||'Prefer not to say'):'')
+      +cell('Height',ft?ft.ft+' ft '+ft.inch+' in':'')+cell('Weight',wt?wt+' kg':'')+cell('How active',act?act[1]:'',true)+'</div>';
+    if(t2&&t2.none) o+='<div class="meta" style="font-weight:400">No calorie guide while you\'re pregnant or breastfeeding, or under 18. Your coach will guide you.</div>';
+    else if(t2&&t2.maint){
+      o+=(showK()?'<div class="row" style="justify-content:space-between;align-items:baseline"><span class="meta" style="font-weight:400">Your maintenance</span><span><span class="f-meal" style="font-size:28px;color:var(--gold)">'+fmt(t2.maint)+'</span> <span class="meta" style="font-weight:400">calories a day</span></span></div>'
+        +'<div class="meta" style="font-weight:400;margin-top:-6px">To lose: about '+fmt(t2.loss)+' a day · to gain: about '+fmt(t2.gain)+'</div>':'')
+        +'<details><summary class="meta" style="cursor:pointer;font-weight:700">How is this worked out?</summary><div style="font-size:14px;line-height:1.55;margin-top:8px">'
+        +'1. <b>Your body at rest</b> uses about <b>'+fmt(t2.rest)+'</b> calories a day. That comes from your age, sex, height and weight (the Mifflin-St Jeor formula).<br>'
+        +'2. <b>Moving about</b> adds to that: “'+esc(act?act[1]:'')+'” × '+t2.mult+' = <b>'+fmt(t2.maint)+'</b>. That\'s your maintenance.<br>'
+        +'3. <b>To lose</b>, eat about 18% less: <b>'+fmt(t2.loss)+'</b>. It never goes below '+fmt(t2.floor)+'.</div>'
+        +'<div class="meta" style="font-weight:400;margin-top:6px">It\'s an estimate. Your weekly weigh-ins show whether it\'s right for you.</div></details>';
+    }
+    o+='<label class="row" style="justify-content:space-between;align-items:center;font-size:15px"><span>Show calories in the app</span><input type="checkbox" id="pgShowK"'+(showK()?' checked':'')+' style="width:22px;height:22px"></label>'
+      +'<button class="btn out" id="pgProfile" style="min-height:44px">Edit details</button></div>';
+    return o;
+  })();
   if(w.list&&w.list.length){
     var ms=measures();
     html+='<details class="card"><summary style="cursor:pointer;font-weight:700">All weigh-ins ('+ms.length+')</summary>'
-      +ms.map(function(x){ return '<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><b>'+esc(parseD(x.day).toDateString().slice(4,10))+'</b><span class="meta" style="font-weight:400">'+(x.m.weight?x.m.weight+' kg':'')+(x.m.weight&&x.m.waist?' · ':'')+(x.m.waist?x.m.waist+' cm':'')+'</span></div>'; }).join('')+'</details>';
+      +ms.map(function(x){ return '<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><b>'+esc(parseD(x.day).toDateString().slice(4,10))+'</b><span class="meta" style="font-weight:400">'+(x.m.weight?x.m.weight+' kg':'')+(x.m.weight&&x.m.waist?' · ':'')+(x.m.waist?x.m.waist+' cm':'')+(x.m.by==='coach'?' · <span style="color:var(--gold)">added by your coach</span>':'')+'</span></div>'; }).join('')+'</details>';
   }
   if(hasCoach()) html+='<button class="card" data-go="consults" style="flex-direction:row;justify-content:space-between;text-align:left;font-weight:700;font-size:16px;color:var(--ink);border:1px solid var(--line);width:100%">Consults <span class="meta">›</span></button>';
   html+='</div>';
@@ -2053,13 +2104,20 @@ function kLang(){return window.KFitI18n?KFitI18n.lang():'en';}
 function cmToFtIn(cm){var t=Math.round(cm/2.54);return {ft:Math.floor(t/12),inch:t%12};}
 function heightText(cm){if(!cm)return '';var f=cmToFtIn(cm);return cm+' cm ('+f.ft+'′'+f.inch+'″)';}
 function renderProfile(required){
-  var p=profile()||{}, unit=localStorage.getItem('kfnc_height_unit')||'ftin', fi=p.height?cmToFtIn(p.height):{ft:'',inch:''};
+  var p=Object.assign({},profile()||{}), f=fitBody(), filled=false;
+  // anything she already gave the fitness app is filled in, so she only checks it
+  if(!p.age&&+f.age>=10){ p.age=parseInt(f.age,10); filled=true; }
+  if(!p.sex&&(f.sex==='female'||f.sex==='male')){ p.sex=f.sex; filled=true; }
+  if(!p.height&&+f.height>=100){ p.height=Math.round(+f.height); filled=true; }
+  if(!p.weight&&+f.weight>=25){ p.weight=+f.weight; filled=true; }
+  var unit=localStorage.getItem('kfnc_height_unit')||'ftin', fi=p.height?cmToFtIn(p.height):{ft:'',inch:''};
   S.view=required?null:function(){renderProfile(false);};
   var act=ACTIVITY.map(function(a){return '<option value="'+a[0]+'"'+(p.activity===a[0]?' selected':'')+'>'+a[1]+' — '+a[3]+'</option>';}).join('');
   show('<div class="screen full">'+(required?'<div style="height:12px"></div>':'<div class="top"><button class="round" id="pfBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><span></span></div>')
     +'<h1>A little about you</h1>'
+    +(filled?'<div class="card" style="border:1px solid #3D6B4F;background:#1A251D;padding:10px 14px;font-size:14px">🔗 Filled in from your fitness app. Check them, then pick how active you are.</div>':'')
     +'<div class="body" style="font-size:16px"><p>Five quick questions, asked once. They let the app estimate how much energy your body uses in a day, so you can see your meals in context.</p>'
-    +'<p style="margin:0">Calories stay in the background, as a guide. Your habits come first. Only you and your coach can see these details, and you can change them any time under Log, then Progress.</p></div>'
+    +'<p style="margin:0">Calories stay in the background, as a guide. Your habits come first. Only you and your coach can see these details, and you can change them any time in My progress.</p></div>'
     +'<div class="field"><label for="pfAge">Age</label><input id="pfAge" inputmode="numeric" value="'+esc(p.age||'')+'"><div class="fhelp">Our energy needs change with age.</div></div>'
     +'<div class="field"><label for="pfSex">Sex</label><select id="pfSex"><option value="">Choose</option><option value="female"'+(p.sex==='female'?' selected':'')+'>Female</option><option value="male"'+(p.sex==='male'?' selected':'')+'>Male</option><option value="other"'+(p.sex==='other'?' selected':'')+'>Other / prefer not to say</option></select><div class="fhelp">Bodies use energy a little differently.</div></div>'
     +'<div class="field"><div style="display:flex;justify-content:space-between;align-items:center"><label>Height</label><div class="unit"><button id="pfUnitFt" class="'+(unit==='ftin'?'on':'')+'">feet + inches</button><button id="pfUnitCm" class="'+(unit==='cm'?'on':'')+'">cm</button></div></div>'

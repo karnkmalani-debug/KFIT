@@ -6884,7 +6884,7 @@ async function ncSnapRender(cid){
   var avgK=logged?Math.round(meals.reduce(function(a,x){return a+kc(x.body);},0)/logged/10)*10:0;
   function stat(lbl,val,sub,col){return '<div style="background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:8px 10px;min-width:0"><div style="font-size:10px;letter-spacing:.1em;color:var(--muted)">'+lbl+'</div><div style="font-family:\'Playfair Display\',Georgia,serif;font-size:18px;color:'+(col||'var(--text)')+'">'+val+'</div><div style="font-size:11px;color:var(--muted)">'+sub+'</div></div>';}
   // One card for the whole week: how it's going, how they feel, and their Sunday summary.
-  el.innerHTML='<div class="card" style="margin-bottom:10px;gap:8px">'
+  el.innerHTML='<div id="ncWgt_'+cid+'"></div><div class="card" style="margin-bottom:10px;gap:8px">'
     +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div style="font-size:16px;font-weight:800">This week</div>'
     +(reasons.length?'<div style="background:#3A2A1E;color:#E39A6E;border-radius:10px;padding:3px 9px;font-size:12px;font-weight:700">Needs attention · '+ncEsc(reasons.join(' · '))+'</div>':'<div style="background:#1E2B22;color:#8FD1A2;border-radius:10px;padding:3px 9px;font-size:12px;font-weight:700">On track</div>')+'</div>'
     +'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">'
@@ -6893,53 +6893,114 @@ async function ncSnapRender(cid){
     +stat('CALORIES',avgK?'~'+avgK:'–',target?'a day · goal '+target:'a day','#C9A24A')
     +'</div>'
     +(stepsAvg!=null?'<div style="font-size:13px;color:var(--muted)">👟 '+stepsAvg.toLocaleString('en-IN')+' steps a day · goal '+stepGoal.toLocaleString('en-IN')+'</div>':'')
-    +'<button id="ncWkMore_'+cid+'" style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;background:none;border:none;border-top:1px solid var(--border);padding:8px 0 0;color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;text-align:left"><span id="ncWkWl_'+cid+'" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">⚖️ Weight, goal and feelings</span><span style="color:var(--muted);flex-shrink:0">'+(window['ncWkOpen_'+cid]?'less ▴':'more ▾')+'</span></button>'
-    +'<div id="ncWkMoreBox_'+cid+'" style="display:'+(window['ncWkOpen_'+cid]?'block':'none')+'"><div id="ncWkWeight_'+cid+'"></div><div id="ncWkFeel_'+cid+'"></div><div id="ncWkSum_'+cid+'"></div></div></div>';
+    +'<button id="ncWkMore_'+cid+'" style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;background:none;border:none;border-top:1px solid var(--border);padding:8px 0 0;color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;text-align:left"><span id="ncWkWl_'+cid+'" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">💬 How they feel · their week summary</span><span style="color:var(--muted);flex-shrink:0">'+(window['ncWkOpen_'+cid]?'less ▴':'more ▾')+'</span></button>'
+    +'<div id="ncWkMoreBox_'+cid+'" style="display:'+(window['ncWkOpen_'+cid]?'block':'none')+'"><div id="ncWkFeel_'+cid+'"></div><div id="ncWkSum_'+cid+'"></div></div></div>';
   (function(){ var mb=document.getElementById('ncWkMore_'+cid); if(mb) mb.onclick=function(){ var bx=document.getElementById('ncWkMoreBox_'+cid), o=bx.style.display==='none'; bx.style.display=o?'block':'none'; window['ncWkOpen_'+cid]=o; mb.lastChild.textContent=o?'less ▴':'more ▾'; }; })();
   ncWeekExtras(cid);
   ncWeightRender(cid,p0);
 }
-// Weight: their weekly weigh-ins, a small graph, and their goal (yours once you set it).
+// Weight progress: one small card at the top of a nutrition client's Days.
+// Shut: weight, change since start, and a bar to the goal. Tap to open the
+// graph (each dot shows its weight and date), waist, and three small links:
+// add a weigh-in (e.g. at a session), all entries (fix a typo), goal.
 async function ncWeightRender(cid,p0){
-  var el=document.getElementById('ncWkWeight_'+cid); if(!el) return;
-  var r=await getSB().from('nutrition_checkins').select('day,reflection').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-365));
-  var ws=(r.data||[]).filter(function(x){return x.reflection&&x.reflection.measure&&x.reflection.measure.weight;}).sort(function(a,b){return a.day<b.day?-1:1;})
-    .map(function(x){return {day:x.day,w:+x.reflection.measure.weight,waist:x.reflection.measure.waist};});
+  var el=document.getElementById('ncWgt_'+cid); if(!el) return;
+  var r=await getSB().from('nutrition_checkins').select('day,reflection').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-730));
+  var rows=(r.data||[]).filter(function(x){return x.reflection&&x.reflection.measure&&(x.reflection.measure.weight||x.reflection.measure.waist);}).sort(function(a,b){return a.day<b.day?-1:1;});
+  var ws=rows.filter(function(x){return +x.reflection.measure.weight;}).map(function(x){return {day:x.day,w:+x.reflection.measure.weight};});
+  var wa=rows.filter(function(x){return +x.reflection.measure.waist;}).map(function(x){return {day:x.day,c:+x.reflection.measure.waist};});
   var st=(p0&&p0.settings)||{}, goal=st.goal==='lose'?'loss':(st.goal||'loss'), gw=st.goalWeight?+st.goalWeight:null, mine=st.goalBy==='coach';
   var start=st.startWeight?+st.startWeight:ws.length?ws[0].w:(st.profile&&st.profile.weight?+st.profile.weight:null), cur=ws.length?ws[ws.length-1].w:null;
-  var ch=cur!=null&&start!=null?Math.round((cur-start)*10)/10:null, prev=ws.length>1?ws[ws.length-2].w:null, wk=cur!=null&&prev!=null?Math.round((cur-prev)*10)/10:null;
+  var ch=cur!=null&&start!=null?Math.round((cur-start)*10)/10:null;
   function good(d){ return goal==='gain'?d>0:goal==='maintain'?Math.abs(d)<=1:d<0; }
   function arr(d){ return (d<0?'▼ ':d>0?'▲ ':'')+Math.abs(d); }
-  var graph='';
-  if(ws.length>=2){ var pts=ws.slice(-12), vals=pts.map(function(x){return x.w;}); if(gw!=null) vals.push(gw);
-    var lo=Math.min.apply(null,vals)-0.5, hi=Math.max.apply(null,vals)+0.5, n=pts.length;
-    function X(i){return 10+i*300/Math.max(1,n-1);} function Y(v){return 8+(hi-v)/(hi-lo)*54;}
-    graph='<svg width="100%" viewBox="0 0 320 70" style="display:block">'+(gw!=null?'<line x1="0" y1="'+Y(gw)+'" x2="320" y2="'+Y(gw)+'" stroke="#8FD1A2" stroke-dasharray="4 5" opacity=".6"/>':'')
-      +'<polyline points="'+pts.map(function(x,i){return X(i)+','+Y(x.w);}).join(' ')+'" fill="none" stroke="#C9A24A" stroke-width="3"/>'
-      +pts.map(function(x,i){return '<circle cx="'+X(i)+'" cy="'+Y(x.w)+'" r="'+(i===n-1?5:3.5)+'" fill="#C9A24A"/>';}).join('')+'</svg>'; }
-  var last=ws[ws.length-1];
-  el.innerHTML='<div style="border-top:1px solid var(--border);padding-top:8px;display:flex;flex-direction:column;gap:6px">'
-    +'<div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:14px;font-weight:800">⚖️ Weight</div>'
-    +(cur!=null?'<div style="font-size:14px"><b>'+cur+' kg</b>'+(ch?' <span style="color:'+(good(ch)?'#8FD1A2':'#C9A24A')+';font-weight:800">'+arr(ch)+'</span> <span style="color:var(--muted);font-size:12px">since start</span>':'')+'</div>':'<div style="font-size:13px;color:var(--muted)">No weigh-ins yet</div>')+'</div>'
-    +graph
-    +(last?'<div style="font-size:12px;color:var(--muted)">Last weigh-in '+ncNice(last.day)+(wk!=null?' · '+(wk>0?'+':'')+wk+' kg that week':'')+(last.waist?' · waist '+last.waist+' cm':'')+'</div>':'')
-    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:13px"><span style="color:var(--muted)">Goal:</span>'
-    +['loss','maintain','gain'].map(function(g){return '<button class="kf-act'+(goal===g?' main':'')+'" data-ncgoal="'+g+'" style="padding:4px 10px;font-size:13px">'+ncGoalName(g)+'</button>';}).join('')
-    +'<button class="kf-act" id="ncGoalW_'+cid+'" style="padding:4px 10px;font-size:13px">goal weight '+(gw!=null?gw+' kg':'–')+' ✎</button></div>'
-    +'<div style="font-size:12px;color:var(--muted)">'+(mine?'You set this, so it\'s locked for them. <a href="#" id="ncGoalFree_'+cid+'" style="color:inherit">Let them choose</a>':'They can change this themselves until you set it.')+'</div></div>';
+  function dm(d){ var x=new Date(d+'T00:00:00'); return x.getDate()+' '+'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split(' ')[x.getMonth()]; }
+  var open=!!window['ncWgtOpen_'+cid], pane=window['ncWgtPane_'+cid]||'';
+  // the bar: how far from start to goal
+  var pct=null, toGo=null, reached=false;
+  if(cur!=null&&start!=null&&gw!=null&&goal!=='maintain'&&Math.abs(start-gw)>=0.1){
+    pct=Math.max(0,Math.min(1,(start-cur)/(start-gw))); toGo=Math.round(Math.abs(cur-gw)*10)/10; reached=pct>=1||(goal==='loss'?cur<=gw:cur>=gw); }
+  var barTxt=cur==null?'No weigh-ins yet':reached?'Goal reached 🎉':pct!=null?Math.round(pct*100)+'% of the way · '+toGo+' kg to go'
+    :goal==='maintain'?(ch!=null&&Math.abs(ch)<=1?'Holding steady':'Maintaining')+(start!=null?' · start '+start+' kg':''):gw==null?'No goal weight set':'';
+  var col=ch!=null&&ch!==0?(good(ch)?'#8FD1A2':'#C9A24A'):'var(--muted)';
+  var h='<div class="card" style="margin-bottom:10px;gap:6px">'
+    +'<div id="ncWgtHd_'+cid+'" role="button" aria-expanded="'+open+'" style="display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer">'
+    +'<b style="font-size:16px">⚖️ '+(cur!=null?cur+' kg'+(ch?' <span style="color:'+col+'">'+arr(ch)+'</span>':''):'Weight')+'</b>'
+    +'<span style="font-size:13px;color:var(--muted);white-space:nowrap">'+(gw!=null?'goal '+gw:ncGoalName(goal))+' '+(open?'▴':'▾')+'</span></div>'
+    +(pct!=null?'<div style="height:8px;border-radius:4px;background:var(--border);overflow:hidden"><div style="width:'+Math.round(pct*100)+'%;height:8px;border-radius:4px;background:#8FD1A2"></div></div>':'')
+    +'<div style="font-size:13px;color:'+(reached?'#8FD1A2':'var(--muted)')+'">'+barTxt+'</div>';
+  if(open){
+    if(ws.length>=2){
+      var pts=ws.slice(-8), vals=pts.map(function(x){return x.w;}); if(gw!=null) vals.push(gw);
+      var lo=Math.min.apply(null,vals)-0.4, hi=Math.max.apply(null,vals)+0.4, n=pts.length;
+      function X(i){return 20+i*280/Math.max(1,n-1);} function Y(v){return 22+(hi-v)/(hi-lo)*56;}
+      h+='<svg width="100%" viewBox="0 0 320 102" style="display:block;margin-top:6px" role="img" aria-label="Weight over time">'
+        +(gw!=null?'<line x1="0" y1="'+Y(gw)+'" x2="320" y2="'+Y(gw)+'" stroke="#8FD1A2" stroke-dasharray="4 5" opacity=".6"/>':'')
+        +'<polyline points="'+pts.map(function(x,i){return X(i)+','+Y(x.w);}).join(' ')+'" fill="none" stroke="#C9A24A" stroke-width="3" stroke-linejoin="round"/>'
+        +pts.map(function(x,i){ var last=i===n-1; return '<circle cx="'+X(i)+'" cy="'+Y(x.w)+'" r="'+(last?5.5:4)+'" fill="#C9A24A"/>'
+          +'<text x="'+X(i)+'" y="'+(Y(x.w)-9)+'" text-anchor="middle" font-size="11" fill="#F2EFE8"'+(last?' font-weight="800"':'')+'>'+x.w+'</text>'
+          +'<text x="'+X(i)+'" y="100" text-anchor="middle" font-size="9" fill="#9C978A">'+dm(x.day)+'</text>'; }).join('')+'</svg>';
+    } else if(cur!=null) h+='<div style="font-size:13px;color:var(--muted)">One weigh-in so far ('+dm(ws[0].day)+'). The graph starts after the second.</div>';
+    if(wa.length) h+='<div style="font-size:13px;color:var(--muted)">Waist '+wa[wa.length-1].c+' cm'+(wa.length>1&&wa[wa.length-1].c!==wa[0].c?' · '+arr(Math.round((wa[wa.length-1].c-wa[0].c)*10)/10)+' since start':'')+'</div>';
+    var lk='background:none;border:none;color:#C9A24A;font-weight:700;font-size:13px;padding:6px 0;font-family:inherit;cursor:pointer';
+    h+='<div style="display:flex;justify-content:space-between;gap:8px;margin-top:2px">'
+      +'<button data-ncbp="add" style="'+lk+'">+ Add weigh-in</button><button data-ncbp="list" style="'+lk+'">All entries'+(pane==='list'?' ▴':'')+'</button><button data-ncbp="goal" style="'+lk+'">Goal ✎'+(pane==='goal'?' ▴':'')+'</button></div>';
+    if(pane==='add'){
+      var inp='width:100%;box-sizing:border-box;min-height:42px;border-radius:10px;border:1px solid var(--border);background:var(--surf2);color:var(--text);padding:0 10px;font-size:15px;font-family:inherit';
+      h+='<div style="border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:8px">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:14px">Add a weigh-in</b><button data-ncbp="" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button></div>'
+        +'<input type="date" id="ncBwD_'+cid+'" value="'+ncToday()+'" max="'+ncToday()+'" style="'+inp+'">'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input type="number" inputmode="decimal" step="0.1" id="ncBwW_'+cid+'" placeholder="Weight · kg" style="'+inp+'"><input type="number" inputmode="decimal" step="0.5" id="ncBwC_'+cid+'" placeholder="Waist · cm (optional)" style="'+inp+'"></div>'
+        +'<button class="kf-act main" id="ncBwSave_'+cid+'" style="padding:10px">Save</button>'
+        +'<div style="font-size:12px;color:var(--muted)">Shows in their app as a weigh-in added by you.</div></div>';
+    } else if(pane==='list'){
+      h+='<div style="border-top:1px solid var(--border);padding-top:6px">'+(rows.length?rows.slice().reverse().map(function(x){ var m=x.reflection.measure;
+          return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:14px"><span style="flex:1">'+dm(x.day)+(m.by==='coach'?' 👤':'')+'</span><span style="width:70px;text-align:right">'+(m.weight?m.weight+' kg':'–')+'</span><span style="width:64px;text-align:right;color:var(--muted)">'+(m.waist?m.waist+' cm':'')+'</span><button data-ncbe="'+x.day+'" aria-label="Edit" style="background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;padding:0 4px">✎</button></div>'; }).join('')
+          :'<div style="font-size:13px;color:var(--muted);padding:6px 0">No weigh-ins yet.</div>')
+        +'<div style="display:flex;justify-content:space-between;align-items:center;padding-top:6px"><span style="font-size:12px;color:var(--muted)">👤 added by you · ✎ to fix a number</span><button data-ncbp="" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer">Close ▴</button></div></div>';
+    } else if(pane==='goal'){
+      h+='<div style="border-top:1px solid var(--border);padding-top:10px;display:flex;flex-direction:column;gap:8px">'
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:13px">'
+        +['loss','maintain','gain'].map(function(g){return '<button class="kf-act'+(goal===g?' main':'')+'" data-ncgoal="'+g+'" style="padding:5px 10px;font-size:13px">'+ncGoalName(g)+'</button>';}).join('')
+        +'<button class="kf-act" id="ncGoalW_'+cid+'" style="padding:5px 10px;font-size:13px">goal weight '+(gw!=null?gw+' kg':'–')+' ✎</button></div>'
+        +'<div style="font-size:12px;color:var(--muted)">'+(mine?'You set this, so it\'s locked for them. <a href="#" id="ncGoalFree_'+cid+'" style="color:inherit">Let them choose</a>':'They can change this themselves until you set it.')+'</div>'
+        +'<button data-ncbp="" style="align-self:flex-end;background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer">Close ▴</button></div>';
+    }
+  }
+  el.innerHTML=h+'</div>';
+  function redraw(){ ncWeightRender(cid,p0); }
+  document.getElementById('ncWgtHd_'+cid).onclick=function(){ window['ncWgtOpen_'+cid]=!open; if(open) window['ncWgtPane_'+cid]=''; redraw(); };
+  el.querySelectorAll('[data-ncbp]').forEach(function(b){ b.onclick=function(){ var p=b.dataset.ncbp; window['ncWgtPane_'+cid]=pane===p?'':p; redraw(); }; });
+  // save one day's weigh-in through the locked-down database function: it checks
+  // you coach this client and changes only the weigh-in, nothing else on that day
+  async function putMeasure(day,m){
+    var res=await getSB().rpc('kfit_coach_weighin',{p_client_id:cid,p_day:day,p_weight:m&&m.weight!=null?m.weight:null,p_waist:m&&m.waist!=null?m.waist:null});
+    if(res.error){ var msg=String(res.error.message||''); alert('Not saved. '+(/kfit_coach_weighin|function|schema cache/i.test(msg)?'Run the batch 37 SQL in Supabase once, then try again.':/Not your client/i.test(msg)?'This client isn\'t tagged to you for nutrition.':msg)); return false; }
+    return true;
+  }
+  function num(v,lo,hi){ var n2=parseFloat(String(v||'').replace(',','.')); return isFinite(n2)&&n2>=lo&&n2<=hi?Math.round(n2*10)/10:null; }
+  var sv=document.getElementById('ncBwSave_'+cid); if(sv) sv.onclick=async function(){
+    var day=document.getElementById('ncBwD_'+cid).value||ncToday(), w=num(document.getElementById('ncBwW_'+cid).value,25,300), c=num(document.getElementById('ncBwC_'+cid).value,40,200);
+    if(w==null&&c==null){ document.getElementById('ncBwW_'+cid).focus(); return; }
+    if(day>ncToday()) day=ncToday();
+    sv.disabled=true; var m={}; if(w!=null) m.weight=w; if(c!=null) m.waist=c;
+    var ok=await putMeasure(day,m); sv.disabled=false; if(!ok) return;
+    kfLog('⚖️','Added a weigh-in'+(w!=null?': '+w+' kg':''),cid); window['ncWgtPane_'+cid]=''; redraw(); };
+  el.querySelectorAll('[data-ncbe]').forEach(function(b){ b.onclick=async function(){
+    var day=b.dataset.ncbe, row=rows.filter(function(x){return x.day===day;})[0]; if(!row) return; var m=Object.assign({},row.reflection.measure);
+    var v=prompt('Weight in kg on '+dm(day)+' (leave empty to remove it):',m.weight!=null?m.weight:''); if(v===null) return;
+    var c=prompt('Waist in cm (leave empty if none):',m.waist!=null?m.waist:''); if(c===null) return;
+    var w=num(v,25,300), cc=num(c,40,200); if(w!=null) m.weight=w; else delete m.weight; if(cc!=null) m.waist=cc; else delete m.waist;
+    if(m.weight==null&&m.waist==null){ if(!confirm('Remove the weigh-in on '+dm(day)+'?')) return; m=null; }
+    if(await putMeasure(day,m)){ kfLog('✎','Fixed a weigh-in ('+dm(day)+')',cid); redraw(); } }; });
   async function save(ch2){ var pr=await getSB().from('nutrition_program').select('settings').eq('client_id',cid); var cur0=pr.data&&pr.data[0]; if(!cur0){ alert('They haven\'t set up the nutrition app yet.'); return; }
     var ns=Object.assign({},cur0.settings||{},ch2); var u=await getSB().from('nutrition_program').update({settings:ns,updated_ms:Date.now()}).eq('client_id',cid);
     if(u.error){ alert('Not saved: '+u.error.message); return; } kfLog('🎯','Set their goal: '+ncGoalName(ns.goal)+(ns.goalWeight?' · '+ns.goalWeight+' kg':''),cid); ncSnapRender(cid); }
   el.querySelectorAll('[data-ncgoal]').forEach(function(b){ b.onclick=function(){ save({goal:b.dataset.ncgoal,goalBy:'coach'}); }; });
-  var gb=document.getElementById('ncGoalW_'+cid); if(gb) gb.onclick=function(){ var v=prompt('Goal weight in kg (leave empty to clear):',gw!=null?gw:''); if(v===null) return; var n2=parseFloat(String(v).replace(',','.')); save({goalWeight:isFinite(n2)&&n2>=25&&n2<=350?Math.round(n2*10)/10:null,goalBy:'coach'}); };
+  var gb=document.getElementById('ncGoalW_'+cid); if(gb) gb.onclick=function(){ var v=prompt('Goal weight in kg (leave empty to clear):',gw!=null?gw:''); if(v===null) return; var n2=parseFloat(String(v).replace(',','.')); save({goalWeight:isFinite(n2)&&n2>=25&&n2<=300?Math.round(n2*10)/10:null,goalBy:'coach'}); };
   var fr=document.getElementById('ncGoalFree_'+cid); if(fr) fr.onclick=function(e){ e.preventDefault(); save({goalBy:'client'}); };
-  // one line on the folded "This week" card
-  try{ var wl=document.getElementById('ncWkWl_'+cid); if(wl) wl.textContent=cur!=null?'⚖️ '+cur+' kg'+(ch?' '+arr(ch):'')+' · '+ncGoalName(goal)+(gw!=null?' to '+gw:'')+(st.goalBy==='coach'?' 🔒':''):'⚖️ No weigh-ins yet · goal '+ncGoalName(goal); }catch(e){}
-  // their weight on the client header too
-  try{ var h=document.querySelector('#uniClientHeader .card'), box=h&&(h.querySelector('div')||h), line=document.getElementById('kfHdrWt');
-    if(box&&cur!=null){ if(!line){ line=document.createElement('div'); line.id='kfHdrWt'; line.style.cssText='font-size:14px;margin-top:4px'; box.appendChild(line); }
-      line.innerHTML='<b>'+cur+' kg</b>'+(ch?' <span style="color:'+(good(ch)?'#8FD1A2':'#C9A24A')+';font-weight:800">'+arr(ch)+'</span>':'')+' <span style="color:var(--muted)">· '+(gw!=null?'goal '+gw+' · ':'')+ncGoalName(goal)+'</span>'; }
-    else if(line) line.remove(); }catch(e){}
+  // (the weight card itself is the only place it shows; no copy in the header)
+  try{ var oldHdr=document.getElementById('kfHdrWt'); if(oldHdr) oldHdr.remove(); }catch(e){}
 }
 // The feelings and week-summary parts of the "This week" card (filled by the Days loader).
 function ncWeekExtras(cid){
@@ -6947,6 +7008,8 @@ function ncWeekExtras(cid){
   var sep='border-top:1px solid var(--border);padding-top:8px;display:flex;flex-direction:column;gap:6px';
   if(a) a.innerHTML=st.feelHtml?'<div style="'+sep+'">'+st.feelHtml+'</div>':'';
   if(b) b.innerHTML=st.sumHtml?'<div style="'+sep+'">'+st.sumHtml+'</div>':'';
+  // nothing to show under "more" (no feelings, no summary yet): hide the line
+  var mb=document.getElementById('ncWkMore_'+cid); if(mb) mb.style.display=(st.feelHtml||st.sumHtml)?'flex':'none';
   var sv=document.getElementById('ncWkSave_'+cid);
   if(sv&&st.sumW) sv.onclick=async function(){ var v=(document.getElementById('ncWkLine_'+cid).value||'').trim().slice(0,500);
     var r=await getSB().from('nutrition_week_summaries').update({coach_line:v||null}).eq('client_id',cid).eq('week_start',st.sumW.week_start);
