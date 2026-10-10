@@ -2831,6 +2831,8 @@ function openLiveTracker(mobile,name,intent,targetDate){
 function closeLiveTracker(){
   document.getElementById('liveTrackerModal').style.display='none';
   document.getElementById('liveTrackerFrame').src='';
+  // show what was just logged or changed
+  try{ var v=document.getElementById('uniClientView'); if(v&&v.style.display==='block'&&uniCurrentKey){ kfFitCache={}; setTimeout(function(){ openUniClient(uniCurrentKey).then(function(){ kfClientTab(kfTab); }); },300); } }catch(e){}
 }
 
 async function loadClientRoutinesList(clientKey){
@@ -3363,8 +3365,8 @@ function reqSessLines(s){
     else lines.push(e.ex+': '+(setStr(e.setData)||'no sets'));
   });
   (s.supersets||[]).forEach(function(ss){(ss.exercises||[]).forEach(function(e){lines.push('SS'+(ss.num||'')+' '+e.ex+': '+(setStr(e.setData)||(e.duration?e.duration:'')));});});
-  (s.cardio||[]).forEach(function(c){lines.push(c.ex+': '+(c.duration||'-')+' min'+(c.intensity?' '+c.intensity:''));});
-  (s.functional||[]).forEach(function(f){lines.push(f.ex+': '+(f.duration||'-')+'s'+(f.weight?' @'+f.weight:''));});
+  (s.cardio||[]).forEach(function(c){lines.push(kfitEmoji(c.ex,'cardio')+' '+c.ex+(kfitCardioLine(c)?': '+kfitCardioLine(c):''));});
+  (s.functional||[]).forEach(function(f){lines.push(kfitEmoji(f.ex,'functional')+' '+f.ex+(kfitFuncLine(f,s.unit)?': '+kfitFuncLine(f,s.unit):''));});
   if(s.notes) lines.push('📝 '+s.notes);
   return lines;
 }
@@ -3594,8 +3596,8 @@ function renderRequests(){
   }).join('');
 }
 function reqWorkoutType(s){
-  const w=(s.exercises||[]).some(function(e){return e.type!=='cardio';}), ss=(s.supersets||[]).length>0, c=(s.cardio||[]).length>0||(s.exercises||[]).some(function(e){return e.type==='cardio';});
-  if(ss&&c) return 'Superset + Cardio'; if(ss) return 'Superset'; if(w&&c) return 'Strength + Cardio'; if(w) return 'Strength'; if(c) return 'Cardio'; return 'Session';
+  const w=(s.exercises||[]).some(function(e){return e.type!=='cardio';}), ss=(s.supersets||[]).length>0, c=(s.cardio||[]).length>0||(s.exercises||[]).some(function(e){return e.type==='cardio';}), f=(s.functional||[]).length>0;
+  return kfitWorkoutType(w,ss,c,f);
 }
 let _reqBusy=false;
 async function decideRequest(i,approve){
@@ -3645,7 +3647,7 @@ async function decideRequest(i,approve){
         const att=await getSBScoped().from('attendance').upsert({
           client_name:cur.client||d.name||'', client_mobile:mobile, session_date:cur.date, session_time:cur.timeOfDay||'',
           duration_secs:cur.duration||null, workout_type:reqWorkoutType(cur),
-          body_parts:(cur.bodyParts||[]).join(', '), activity:(cur.cardio||[]).map(function(c){return c.ex;}).filter(Boolean).join(', '),
+          body_parts:(cur.bodyParts||[]).join(', '), activity:(cur.cardio||[]).concat(cur.functional||[]).map(function(c){return c.ex;}).filter(function(x,i,a){return x&&a.indexOf(x)===i;}).join(', '),
           logged_at:new Date().toISOString()
         },{onConflict:'coach_id,client_mobile,session_date,session_time'});
         if(att.error) throw new Error('Could not create the attendance record: '+att.error.message);
@@ -3964,7 +3966,7 @@ function renderCoachSession(s,allSessions,full){
   const cardioHtml=(s.cardio&&s.cardio.length)?`<div class="card">
     <div class="card-title">Cardio</div>
     ${s.cardio.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
-      <div style="font-size:16px;font-weight:700;">${c.ex}</div>
+      <div style="font-size:16px;font-weight:700;">${kfitEmoji(c.ex,'cardio')} ${c.ex}</div>
       <div style="text-align:right;font-family:'DM Mono',monospace;font-size:14px;">
         ${c.duration?`<span style="color:var(--sage);">${c.duration} min</span> `:''}
         ${c.distance?`<span style="color:var(--gold);">${c.distance}km</span> `:''}
@@ -3977,9 +3979,10 @@ function renderCoachSession(s,allSessions,full){
   const functionalHtml=(s.functional&&s.functional.length)?`<div class="card">
     <div class="card-title">Functional / Isometric</div>
     ${s.functional.map(f=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
-      <div style="font-size:16px;font-weight:700;">${f.ex}</div>
+      <div style="font-size:16px;font-weight:700;">${kfitEmoji(f.ex,'functional')} ${f.ex}</div>
       <div style="text-align:right;font-family:'DM Mono',monospace;font-size:14px;">
-        ${f.duration?`<span style="color:var(--terra);">${f.duration}s</span> `:''}
+        ${f.duration?`<span style="color:var(--terra);">${kfitSecs(f.duration)}</span> `:''}
+        ${f.reps?`<span style="color:var(--sage);">${f.reps} reps</span> `:''}
         ${f.weight?`<span style="color:var(--gold);">${f.weight}${asUnit||'kg'}</span>`:''}
       </div>
     </div>`).join('')}
@@ -4352,10 +4355,11 @@ function renderRecentSessionsPage(listElId,clientKey){
     const exCount=(s.exercises&&s.exercises.length?s.exercises.length:0)
       +(s.supersets||[]).reduce(function(a,ss){return a+((ss.exercises||[]).length);},0);
     const cardioCount=s.cardio&&s.cardio.length?s.cardio.length:0;
-    const metaStr=exCount?(exCount+' ex'):(cardioCount?(cardioCount+' cardio'):'');
+    const funcCount=(s.functional||[]).length;
+    const metaStr=[exCount?exCount+' ex':'',cardioCount?cardioCount+' cardio':'',funcCount?funcCount+' functional':''].filter(Boolean).join(' · ');
     const prInfo=getSessionPRInfoCoach(s,prMap,sessions);
     const prBadge=prInfo.count?(' <span style="color:var(--gold);font-weight:800;">🏆'+prInfo.count+'</span>'):'';
-    const bp=(s.bodyParts||[]).join(', ')||mergeDerivedBodyParts(s).join(', ')||(cardioCount?(s.cardio.map(function(c){return c.ex;}).filter(Boolean).join(', ')):'');
+    const bp=(s.bodyParts||[]).join(', ')||mergeDerivedBodyParts(s).join(', ')||(s.cardio||[]).concat(s.functional||[]).map(function(c){return c.ex;}).filter(Boolean).join(', ');
     const paidBtn=s._paid!==undefined?('<button onclick="event.stopPropagation();togglePaid(\''+clientKey.replace(/'/g,"\\'")+'\',\''+s.date+'\',\''+(s.timeOfDay||'').replace(/'/g,"\\'")+'\','+(!!s._paid)+')" style="padding:3px 8px;border-radius:10px;border:1px solid '+(s._paid?'var(--sage)':'var(--terra)')+';background:'+(s._paid?'var(--sage)':'transparent')+';color:'+(s._paid?'#fff':'var(--terra)')+';font-family:\'DM Sans\',sans-serif;font-size:9px;font-weight:800;letter-spacing:0.4px;cursor:pointer;white-space:nowrap;flex-shrink:0;">'+(s._paid?'PAID':'UNPAID')+'</button>'):'';
     return '<div onclick="openCoachSession(\''+clientKey.replace(/'/g,"\\'")+'\',\''+s.date+'\',\''+(s.timeOfDay||'').replace(/'/g,"\\'")+'\')" '
       +'style="padding:8px 4px;border-top:1px solid rgba(255,255,255,.08);font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;">'
@@ -7901,12 +7905,13 @@ function kfNavBuild(){
 function kfShowOnly(id){
   ['clientsSection','exSection','fbSection','accSection','adminSection','kfTodaySection','kfMoreSection'].forEach(function(x){var e=document.getElementById(x);if(e)e.style.display=x===id?'block':'none';});
 }
-function kfGo(place){
+function kfGo(place,fromBack){
+  if(!fromBack){ kfNavClearAll(); kfClientFrom=null; }
   kfPlace=place; var bb=document.getElementById('kfBackBar'); if(bb) bb.remove();
   document.querySelectorAll('#kfNav [data-kp]').forEach(function(b){b.classList.toggle('on',b.dataset.kp===place);});
   var pt=document.getElementById('pageTitle');
   if(place==='today'){ kfShowOnly('kfTodaySection'); if(pt) pt.textContent='Coach'; kfDay=null; kfTodayRender(); }
-  else if(place==='clients'){ switchMode('clients'); kfShowOnly('clientsSection'); if(pt) pt.textContent='Coach'; }
+  else if(place==='clients'){ switchMode('clients'); kfShowOnly('clientsSection'); if(pt) pt.textContent='Coach'; try{ showUniLanding(); kfClientsRender(); }catch(e){} }
   else if(place==='more'){ kfShowOnly('kfMoreSection'); if(pt) pt.textContent='Coach'; kfMoreRender(); }
   window.scrollTo(0,0);
 }
@@ -7928,17 +7933,68 @@ function kfMode(m){
   var sec={feedback:'fbSection',exercises:'exSection',account:'accSection',admin:'adminSection'}[m], se=sec&&document.getElementById(sec); if(!se) return;
   var bk=document.getElementById('kfBackBar');
   if(!bk){ bk=document.createElement('div'); bk.id='kfBackBar'; bk.style.cssText='position:sticky;top:0;z-index:50;background:var(--bg,#0e0e0c);padding:10px 16px;border-bottom:1px solid var(--border)';
-    bk.innerHTML='<button class="kf-act" style="font-size:15px;padding:8px 14px">← Back</button>'; bk.querySelector('button').onclick=function(){ bk.remove(); kfGo('more'); }; }
+    bk.innerHTML='<button class="kf-act" style="font-size:15px;padding:8px 14px">← Back</button>'; bk.querySelector('button').onclick=function(){ if(!kfNavBackTo('more-sub')){ bk.remove(); kfGo('more'); } }; }
   se.insertBefore(bk,se.firstChild);
+  kfNavDrop('more-sub'); kfNavPush('more-sub',function(){ kfGo('more',true); });
   window.scrollTo(0,0);
 }
 function kfNotifPage(){
   var el=document.getElementById('kfMoreBody'); if(!el) return;
   el.innerHTML='<button class="kf-act" id="kfNotifBack" style="font-size:15px;padding:8px 14px;margin-bottom:10px">← Back</button><div class="kf-h1">Notifications</div><div class="kf-sub">A buzz on this phone when your clients log, reply or check in.</div><div id="kfNotifBox"></div>';
-  el.querySelector('#kfNotifBack').onclick=function(){ kfGo('more'); };
+  el.querySelector('#kfNotifBack').onclick=function(){ if(!kfNavBackTo('more-sub')) kfGo('more'); };
+  kfNavPush('more-sub',function(){ kfGo('more',true); });
   try{ kfitPushCard(document.getElementById('kfNotifBox')); }catch(e){}
   window.scrollTo(0,0);
 }
+
+// ---------- Back: the phone's Back (or swipe) steps back one screen ----------
+// Every screen or pop-up that opens adds one step; Back closes the top one.
+// Closing something with its own button marks its step as used, and Back
+// skips used steps, so one press always does something visible.
+var kfNav=[];
+function kfNavPush(name,onBack){ kfNav.push({name:name,onBack:onBack}); try{ history.pushState({kfNav:kfNav.length},''); }catch(e){} }
+function kfNavLive(){ for(var i=kfNav.length-1;i>=0;i--) if(!kfNav[i].dead) return kfNav[i]; return null; }
+function kfNavDrop(name){ for(var i=kfNav.length-1;i>=0;i--) if(kfNav[i].name===name&&!kfNav[i].dead){ kfNav[i].dead=true; return true; } return false; }
+function kfNavBack(){ try{ history.back(); }catch(e){} }
+// go back down to (and including) the step called name
+function kfNavBackTo(name){ var k=0; for(var i=kfNav.length-1;i>=0;i--){ k++; if(kfNav[i].name===name&&!kfNav[i].dead){ try{ history.go(-k); }catch(e){} return true; } } return false; }
+function kfNavClearAll(){ kfNav.forEach(function(x){ x.dead=true; }); }
+window.addEventListener('popstate',function(e){
+  var d=(e.state&&e.state.kfNav)||0, acted=false;
+  while(kfNav.length>d){ var t=kfNav.pop(); if(!t.dead){ acted=true; try{ t.onBack(); }catch(err){ console.warn('back',err); } } }
+  // only used steps went: keep going back to the next real one
+  if(!acted&&kfNavLive()){ try{ history.back(); }catch(err){} }
+});
+// pop-ups and panels register themselves, so every one closes with Back
+(function(){
+  var CLOSE={liveTrackerModal:function(){ closeLiveTracker(); },coachChatPanel:function(){ closeCoachChat(); },requestsPanel:function(){ closeRequests(); },trashPanel:function(){ closeTrash(); }};
+  var WATCH=['liveTrackerModal','coachChatPanel','requestsPanel','trashPanel','coachSessionPanel','nutDayPanel','addSessionModal','coachHelpModal','dietTemplateModal','mealPlanModal','measModal','planCompareModal','routinePreviewModal'];
+  function shown(el){ return el&&el.isConnected&&el.style.display!=='none'&&getComputedStyle(el).display!=='none'; }
+  function sync(el){ var nm='w:'+el.id, on=shown(el), has=kfNav.some(function(x){return x.name===nm&&!x.dead;});
+    if(on&&!has) kfNavPush(nm,function(){ (CLOSE[el.id]||function(){ el.style.display='none'; })(); });
+    else if(!on&&has) kfNavDrop(nm); }
+  var watched={};
+  function watch(){ WATCH.forEach(function(id){ var el=document.getElementById(id); if(el&&!watched[id]){ watched[id]=1; new MutationObserver(function(){ sync(el); }).observe(el,{attributes:true,attributeFilter:['style','class']}); sync(el); } }); }
+  function isOverlay(n){ if(!n||n.nodeType!==1||!n.id||/^(kfNav|kfViewer|kfitUiCss)$/.test(n.id)||WATCH.indexOf(n.id)>=0) return false; var st=n.style||{}; return st.position==='fixed'&&(+st.zIndex||0)>=100; }
+  function start(){
+    watch();
+    new MutationObserver(function(muts){ watch(); muts.forEach(function(m){
+      Array.prototype.forEach.call(m.addedNodes,function(n){ if(isOverlay(n)&&!n._kfNav){ n._kfNav='o:'+n.id+':'+Date.now(); kfNavPush(n._kfNav,function(){ n._kfNavBack=1; n.remove(); }); } });
+      Array.prototype.forEach.call(m.removedNodes,function(n){ if(n&&n._kfNav&&!n._kfNavBack) kfNavDrop(n._kfNav); }); }); }).observe(document.body,{childList:true});
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
+})();
+// Back from a client goes to where you came from (Today or Clients), to the same spot
+var kfClientFrom=null;
+function kfEnterClient(){
+  var v=document.getElementById('uniClientView'); if(v&&v.style.display==='block'&&kfClientFrom) return; // switching sides, same page
+  var from={place:kfPlace,y:window.scrollY,day:kfDay}; kfClientFrom=from;
+  kfNavPush('client',function(){ kfClientFrom=null;
+    if(from.place==='today'){ kfGo('today',true); kfDay=from.day||null; kfTodayRender(); }
+    else { kfGo(from.place==='more'?'more':'clients',true); }
+    setTimeout(function(){ window.scrollTo(0,from.y||0); },60); setTimeout(function(){ window.scrollTo(0,from.y||0); },700); });
+}
+function kfClientBack(){ if(!kfNavBackTo('client')){ kfGo('clients'); } }
 // ---------- Clients: one simple list ----------
 var kfShowAll=false, kfAttn=false;
 // needs attention: nothing logged for 3+ days, or sessions unpaid
@@ -7979,7 +8035,7 @@ function kfClientsRender(){
   el.querySelectorAll('[data-kc]').forEach(function(r){r.onclick=function(){
     var c=list.find(function(x){return x.key===r.dataset.kc;});
     if(c&&c.fit&&c.nut) return kfChooseSide(c);
-    kfSide=null; openUniClient(r.dataset.kc); };});
+    kfSide=null; kfEnterClient(); openUniClient(r.dataset.kc); };});
   el.querySelectorAll('[data-all]').forEach(function(b){b.onclick=function(){ kfShowAll=b.dataset.all==='1'; kfAttn=b.dataset.all==='2'; kfClientsRender(); };});
   el.querySelector('#kfInvite').onclick=kfInvite;
 }
@@ -7993,7 +8049,7 @@ function kfChooseSide(c){
     +'<button data-side="fit" style="border:none;border-radius:16px;padding:16px;display:flex;gap:12px;align-items:center;background:#1E2433;color:#C9D7F5;font-family:inherit;text-align:left;cursor:pointer"><span style="font-size:26px">🏋️</span><span><b style="font-size:17px">Fitness</b><br><span style="font-size:12px;color:#9C978A">workouts, sessions, payments</span></span></button>'
     +'<button id="kfSideCancel" style="background:none;border:none;color:var(--muted);font-family:inherit;font-size:14px;padding:8px;cursor:pointer">Cancel</button></div>';
   document.body.appendChild(ov);
-  ov.querySelectorAll('[data-side]').forEach(function(b){b.onclick=function(){ kfSide=b.dataset.side; ov.remove(); kfTab='days'; openUniClient(c.key); };});
+  ov.querySelectorAll('[data-side]').forEach(function(b){b.onclick=function(){ kfSide=b.dataset.side; ov.remove(); kfTab='days'; setTimeout(function(){ kfEnterClient(); openUniClient(c.key); },0); };});
   ov.querySelector('#kfSideCancel').onclick=function(){ov.remove();}; ov.onclick=function(e){if(e.target===ov)ov.remove();};
 }
 function kfInvite(){
@@ -8024,7 +8080,7 @@ function kfClientTabs(){
     bar.innerHTML='<button data-kt="days">Days</button><button data-kt="plan">Plan</button><button data-kt="account">Account</button>';
     var hdr=document.getElementById('uniClientHeader'); hdr.parentNode.insertBefore(bar,hdr.nextSibling);
     bar.querySelectorAll('[data-kt]').forEach(function(b){b.onclick=function(){kfClientTab(b.dataset.kt);};}); }
-  var back=v.querySelector('.back-btn'); if(back) back.innerHTML='<span style="font-size:16px;font-weight:900;">←</span> Clients';
+  var back=v.querySelector('.back-btn'); if(back){ back.innerHTML='<span style="font-size:16px;font-weight:900;">←</span> '+(kfClientFrom&&kfClientFrom.place==='today'?'Today':'Clients'); back.onclick=function(e){ e.preventDefault(); kfClientBack(); }; back.removeAttribute('onclick'); }
 }
 function kfClientTab(t){
   kfTab=t; kfClientTabs(); var v=document.getElementById('uniClientView'); if(!v) return;
@@ -8134,29 +8190,88 @@ async function kfFitDaysRender(c,el){
   rows.forEach(function(x,i){ if(!used[i]) entries.push({date:x.session_date,time:x.time_of_day||'',label:'',paid:null,row:x,ri:i}); });
   entries.sort(function(a,b){ return (b.date+b.time).localeCompare(a.date+a.time); });
   if(!entries.length){ el.innerHTML='<div class="kf-row" style="cursor:default;justify-content:center;color:var(--muted)">No workouts logged yet.</div>'; return; }
-  el.innerHTML='<div style="font-size:16px;font-weight:800;margin:4px 2px 8px">🏋️ Workouts</div>'+entries.slice(0,60).map(function(en,idx){
+  // ---- the pieces each session needs, worked out once ----
+  function info(en){
     var b=(en.row&&en.row.body)||{}, ex=en.row?exList(b):[], pr=en.ri>=0?(prs[n-1-en.ri]||[]):[];
     var bp=(b.bodyParts||[]).join(', ');
-    var kind=ex.some(function(e){return e.type==='cardio';})?'Cardio':ex.some(function(e){return e.type==='functional';})?'Functional':'Workout';
-    var title=en.label||bp||(ex.length===1&&ex[0].type==='cardio'?ex[0].ex:kind);
-    var dur=b.duration?durTxt(b.duration):(b.durationMin?b.durationMin+' min':''), st=steps[en.date];
-    var lines=ex.map(function(e){ if(e.type==='cardio') return '🏃 '+ncEsc(e.ex)+(e.duration?' · '+ncEsc(e.duration)+' min':'')+(e.distance?' · '+ncEsc(e.distance)+' km':'')+(e.intensity?' · '+ncEsc(e.intensity):'');
-      if(e.type==='functional'&&!(e.setData||[]).length) return '⚡ '+ncEsc(e.ex)+(e.duration?' · '+(e.fsecs&&Number(e.duration)>=60?Math.round(e.duration/60)+' min':ncEsc(e.duration)+(e.fsecs?' sec':'')):'')+(e.weight?' · '+ncEsc(e.weight)+' kg':'');
-      var sd=(e.setData||[]).filter(function(x){return x&&(x.reps||x.weight);});
-      return ncEsc(e.ex)+(sd.length?' · '+sd.map(function(x){return (x.reps||'?')+(x.weight?'×'+x.weight:'');}).join(', '):''); });
-    var sub=ex.length?ex.length+' exercise'+(ex.length===1?'':'s'):(en.row?'':'class attended');
-    return '<div class="card" style="margin-bottom:8px;gap:4px;cursor:pointer" data-fd="'+idx+'">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center"><b>'+ncNice(en.date)+'</b><span style="font-size:12px;color:var(--muted)">'+[en.time?String(en.time).slice(0,5):'',dur,st!=null?'👟 '+Number(st).toLocaleString('en-IN'):'',en.paid===false?'<span style="color:var(--terra)">unpaid</span>':''].filter(Boolean).join(' · ')+'</span></div>'
-      +'<div style="font-size:15px"><b>'+ncEsc(title)+'</b>'+(sub?' · '+sub:'')+(pr.length?' · <span style="color:#C9A24A">PR: '+ncEsc(pr[0])+' 🏆</span>':'')+'</div>'
-      +(en.label&&bp&&en.label!==bp?'<div style="font-size:12px;color:var(--muted)">'+ncEsc(bp)+'</div>':'')
-      +(lines.length?'<div class="kf-fd-short" style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+lines.slice(0,3).join(' · ')+(lines.length>3?' … tap for all':'')+'</div>'
-        +'<div class="kf-fd-all" style="display:none;font-size:13px;line-height:1.6;margin-top:4px">'+lines.join('<br>')+(pr.length>1?'<br><span style="color:#C9A24A">PRs: '+ncEsc(pr.join(', '))+' 🏆</span>':'')+'</div>':'')
-      +(en.rec?'<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);border-top:1px solid var(--border);padding-top:6px;margin-top:4px">'
-        +'<span>'+(kfBilled(en.rec)?'With you':'On their own · not billed')+'</span><button class="kf-act" data-wc="'+idx+'" style="padding:4px 10px;font-size:12px">'+(kfBilled(en.rec)?'Mark on their own':'Mark with you')+'</button></div>':'')+'</div>';
-  }).join('');
-  el.querySelectorAll('[data-wc]').forEach(function(b){ b.onclick=async function(e){ e.stopPropagation(); var en=entries[+b.dataset.wc]; if(!en||!en.rec) return; b.disabled=true;
-    var ok=await kfSetWithCoach(en.rec.client_mobile||c.mobile,en.rec.session_date,en.rec.session_time||'',!kfBilled(en.rec)); b.disabled=false; if(ok) kfFitDaysRender(c,el); }; });
-  el.querySelectorAll('[data-fd]').forEach(function(cd){cd.onclick=function(){ var a=cd.querySelector('.kf-fd-all'), sh=cd.querySelector('.kf-fd-short'); if(!a) return; var open=a.style.display==='none'; a.style.display=open?'block':'none'; sh.style.display=open?'none':'block'; };});
+    var nStr=ex.filter(function(e){return e.type!=='cardio'&&e.type!=='functional';}).length, nC=ex.filter(function(e){return e.type==='cardio';}).length, nF=ex.filter(function(e){return e.type==='functional';}).length;
+    var acts=ex.filter(function(e){return e.type==='cardio'||e.type==='functional';}).map(function(e){return e.ex;}).filter(function(x,i,a){return a.indexOf(x)===i;});
+    var label0=en.label&&!/^(session|cardio|functional|strength|workout)$/i.test(en.label)?en.label:'';
+    // same rule as the tracker: body parts trained (+ activities), else the activities; a class with no workout keeps its name
+    var title=en.row&&ex.length?(bp?bp+(acts.length?' + '+acts.join(', '):''):acts.join(', ')||label0||'Workout'):(label0||bp||en.label||'Workout');
+    var tEmoji=nStr?'🏋️':kfitEmoji(label0||acts[0]||'',nC?'cardio':nF?'functional':'');
+    function itemLine(e){ return e.type==='cardio'?kfitCardioLine(e):kfitFuncLine(e,b.unit); }
+    var single=ex.length===1&&(ex[0].type==='cardio'||(ex[0].type==='functional'&&!(ex[0].setData||[]).length))&&title===ex[0].ex;
+    var sub=single?itemLine(ex[0]):ex.length?[nStr?nStr+' exercise'+(nStr===1?'':'s'):'',nC?nC+' cardio':'',nF?nF+' functional':''].filter(Boolean).join(' · '):(en.row?'':'class');
+    var dur=b.duration?durTxt(b.duration):(b.durationMin?b.durationMin+' min':'');
+    var kind=nStr?'strength':nC?'cardio':nF?'functional':(en.row?'strength':'class');
+    return {b:b,ex:ex,pr:pr,bp:bp,title:title,emoji:tEmoji,sub:sub,dur:dur,kind:kind,itemLine:itemLine,billed:en.rec?kfBilled(en.rec):null};
+  }
+  function time12(t){ t=String(t||'').slice(0,5); if(!/^\d{1,2}:\d{2}$/.test(t)) return t; var h=+t.split(':')[0], m=t.split(':')[1]; return (h%12||12)+':'+m+(h<12?' am':' pm'); }
+  function niceDay(d){ var x=new Date(d+'T12:00:00'); return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][x.getDay()]+' '+x.getDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][x.getMonth()]; }
+  var H=window.kfFitHist=window.kfFitHist||{mode:'month'};
+  function range(){ var t=ncToday(); if(H.mode==='week'){ var x=new Date(t+'T12:00:00'); return [ncAddDays(t,-((x.getDay()+6)%7)),t]; }
+    if(H.mode==='month') return [t.slice(0,8)+'01',t]; if(H.mode==='custom'&&H.from&&H.to) return [H.from,H.to]; return null; }
+  function draw(){
+    var rg=range(), list=entries.filter(function(en){ return !rg||(en.date>=rg[0]&&en.date<=rg[1]); });
+    var I=list.map(info), wc=I.filter(function(x){return x.billed===true;}).length, own=I.filter(function(x){return x.billed===false;}).length, unpaid=list.filter(function(en){return en.paid===false;}).length;
+    var nS=I.filter(function(x){return x.kind==='strength';}).length, nC=I.filter(function(x){return x.kind==='cardio';}).length, nF=I.filter(function(x){return x.kind==='functional';}).length, nK=I.filter(function(x){return x.kind==='class';}).length;
+    var nPR=I.reduce(function(a,x){return a+x.pr.length;},0), rl={week:'this week',month:'this month',all:'in all',custom:'in this range'}[H.mode];
+    var pill=function(k,l){ return '<button class="kf-act'+(H.mode===k?' main':'')+'" data-fh="'+k+'" style="padding:6px 12px;font-size:13px">'+l+'</button>'; };
+    var h='<div style="display:flex;justify-content:space-between;align-items:center;margin:4px 2px 6px"><div style="font-size:16px;font-weight:800">🏋️ Workout history</div><button class="kf-act" id="kfFhPrint" style="padding:4px 10px;font-size:13px">🖨 Print</button></div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">'+pill('week','This week')+pill('month','This month')+pill('all','All')+pill('custom','Custom')+'</div>'
+      +(H.mode==='custom'?'<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><input type="date" id="kfFhFrom" value="'+(H.from||'')+'" style="flex:1;min-width:0;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text)"><span>–</span><input type="date" id="kfFhTo" value="'+(H.to||'')+'" style="flex:1;min-width:0;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text)"></div>':'')
+      +'<div class="card" style="margin-bottom:8px;background:#1E2B22;border-color:#3D6B4F;gap:4px"><div style="font-size:14px"><b>'+list.length+' session'+(list.length===1?'':'s')+'</b> '+rl+(wc||own?' · '+wc+' with you · '+own+' on their own':'')+'</div>'
+      +'<div style="font-size:12px;color:var(--muted)">'+[nS?'🏋️ '+nS+' strength':'',nC?'🏃 '+nC+' cardio':'',nF?'⏱️ '+nF+' functional':'',nK?'💃 '+nK+' class'+(nK===1?'':'es'):'',nPR?'🏆 '+nPR+' PR'+(nPR===1?'':'s'):'',unpaid?'<span style="color:var(--terra)">'+unpaid+' unpaid</span>':''].filter(Boolean).join(' · ')+'</div></div>';
+    h+=list.length?list.map(function(en,k){ var x=I[k];
+      return '<div class="card" data-fh-open="'+entries.indexOf(en)+'" style="margin-bottom:8px;gap:3px;cursor:pointer">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b>'+niceDay(en.date)+(en.time?' · '+time12(en.time):'')+'</b><span style="font-size:12px;color:var(--muted);white-space:nowrap">'+[x.dur,steps[en.date]!=null?'👟 '+Number(steps[en.date]).toLocaleString('en-IN'):'',en.paid===false?'<span style="color:var(--terra)">unpaid</span>':''].filter(Boolean).join(' · ')+'</span></div>'
+        +'<div style="font-size:15px">'+x.emoji+' <b>'+ncEsc(x.title)+'</b>'+(x.pr.length?' <span style="color:#C9A24A">🏆 '+x.pr.length+'</span>':'')+(x.sub&&x.sub.indexOf('·')<0&&x.ex.length===1?' · '+ncEsc(x.sub):'')+'</div>'
+        +((x.sub&&!(x.sub.indexOf('·')<0&&x.ex.length===1))||x.billed===false?'<div style="font-size:12px;color:var(--muted)">'+[x.ex.length===1&&x.sub.indexOf('·')<0?'':ncEsc(x.sub),x.billed===false?'on their own':''].filter(Boolean).join(' · ')+'</div>':'')+'</div>'; }).join('')
+      +'<div style="font-size:12px;color:var(--muted);text-align:center">Tap any session for the full workout</div>'
+      :'<div class="kf-row" style="cursor:default;justify-content:center;color:var(--muted)">No workouts '+rl+'.</div>';
+    el.innerHTML=h;
+    el.querySelectorAll('[data-fh]').forEach(function(bt){ bt.onclick=function(){ H.mode=bt.dataset.fh; if(H.mode==='custom'&&!H.from){ H.to=ncToday(); H.from=ncAddDays(H.to,-30); } draw(); }; });
+    ['kfFhFrom','kfFhTo'].forEach(function(id){ var inp=document.getElementById(id); if(inp) inp.onchange=function(){ H[id==='kfFhFrom'?'from':'to']=inp.value; draw(); }; });
+    el.querySelectorAll('[data-fh-open]').forEach(function(cd){ cd.onclick=function(){ H.y=window.scrollY; openOne(entries[+cd.dataset.fhOpen]); }; });
+    var pb=document.getElementById('kfFhPrint'); if(pb) pb.onclick=function(){ printList(list,I,rl); };
+  }
+  function strengthHtml(e,unit){
+    var sd=(e.setData||[]).filter(function(x){return x&&(String(x.reps||'').trim()||String(x.weight||'').trim());}); if(!sd.length) return '';
+    var hasW=sd.some(function(x){return x.weight;});
+    return '<div style="margin-bottom:10px"><div style="font-weight:700;margin-bottom:4px">'+ncEsc(e.ex)+'</div><table style="width:100%;border-collapse:collapse;font-family:\'DM Mono\',monospace;font-size:14px"><tr style="font-size:11px;color:var(--muted)"><td style="padding:4px;text-align:center">SET</td><td style="text-align:center">REPS</td>'+(hasW?'<td style="text-align:center">'+(unit||'kg').toUpperCase()+'</td>':'')+'</tr>'
+      +sd.map(function(x,i){ return '<tr style="border-top:1px solid var(--border)"><td style="padding:5px;text-align:center">'+(x.dropset?'D':'S'+(x.set||i+1))+'</td><td style="text-align:center">'+ncEsc(x.reps||'--')+'</td>'+(hasW?'<td style="text-align:center;color:#C9A24A">'+ncEsc(x.weight||'--')+'</td>':'')+'</tr>'; }).join('')+'</table></div>';
+  }
+  function openOne(en){
+    var x=info(en), b=x.b, unit=b.unit||'kg';
+    var chips=(b.bodyParts||[]).map(function(p){return p.toUpperCase();}); if(x.ex.some(function(e){return e.type==='cardio';})) chips.push('CARDIO'); if(x.ex.some(function(e){return e.type==='functional';})) chips.push('FUNCTIONAL');
+    var str=(b.exercises||[]).filter(function(e){return e.type!=='cardio'&&e.type!=='functional';}).map(function(e){return strengthHtml(e,unit);}).join('');
+    var ss=(b.supersets||[]).map(function(s2,i){ return '<div style="font-size:12px;font-weight:800;letter-spacing:.1em;color:#8FD1A2;margin:6px 0">SUPERSET '+(s2.num||i+1)+'</div>'+(s2.exercises||[]).map(function(e){ return e.type==='cardio'||e.type==='functional'?'<div style="margin-bottom:6px">'+kfitEmoji(e.ex,e.type)+' <b>'+ncEsc(e.ex)+'</b>'+(x.itemLine(e)?' · '+ncEsc(x.itemLine(e)):'')+'</div>':strengthHtml(e,unit); }).join(''); }).join('');
+    var other=x.ex.filter(function(e){return (e.type==='cardio'||e.type==='functional')&&!(e.setData||[]).length;}).map(function(e){ return '<div style="margin:3px 0">'+kfitEmoji(e.ex,e.type)+' <b>'+ncEsc(e.ex)+'</b>'+(x.itemLine(e)?' · '+ncEsc(x.itemLine(e)):'')+'</div>'; }).join('');
+    var h='<button class="kf-act" id="kfFhBack" style="font-size:15px;padding:8px 14px;margin-bottom:10px">← Workout history</button>'
+      +'<div style="font-size:21px;font-weight:800">'+x.emoji+' '+ncEsc(x.title)+'</div>'
+      +'<div style="font-size:13px;color:var(--muted);margin:2px 0 6px">'+[niceDay(en.date)+' '+en.date.slice(0,4),en.time?time12(en.time):'',x.dur,x.billed===true?'with you':x.billed===false?'on their own':'',en.paid===false?'<span style="color:var(--terra)">unpaid</span>':''].filter(Boolean).join(' · ')+'</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'+chips.map(function(c){return '<span style="border:1px solid var(--border);border-radius:10px;padding:2px 8px;font-size:12px">'+ncEsc(c)+'</span>';}).join('')+(x.pr.length?'<span style="border:1px solid #C9A24A;color:#C9A24A;border-radius:10px;padding:2px 8px;font-size:12px">🏆 '+ncEsc(x.pr.join(', '))+'</span>':'')+'</div>'
+      +(str||ss?'<div class="card" style="margin-bottom:8px">'+str+ss+'</div>':'')
+      +(other?'<div class="card" style="margin-bottom:8px">'+other+'</div>':'')
+      +(!x.ex.length?'<div class="card" style="margin-bottom:8px;color:var(--muted)">'+(en.row?'No details were logged.':'Class attended. No workout details were logged.')+'</div>':'')
+      +(b.notes?'<div class="card" style="margin-bottom:8px"><span style="font-size:12px;color:var(--muted)">Their note:</span> '+ncEsc(b.notes)+'</div>':'')
+      +'<div style="display:flex;gap:8px">'+(en.row&&b.id!=null?'<button class="kf-act" id="kfFhEdit" style="flex:1;padding:10px">✎ Edit</button>':'')+(en.rec?'<button class="kf-act" id="kfFhWc" style="flex:1;padding:10px">'+(x.billed?'Mark on their own':'Mark with you')+'</button>':'')+'</div>';
+    el.innerHTML=h; window.scrollTo(0,Math.max(0,el.getBoundingClientRect().top+window.scrollY-70));
+    kfNavPush('fitdetail',function(){ draw(); window.scrollTo(0,H.y||0); });
+    document.getElementById('kfFhBack').onclick=function(){ kfNavBack(); };
+    var ed=document.getElementById('kfFhEdit'); if(ed) ed.onclick=function(){
+      var url='./km-fitness-tracker.html?coach_preview_mobile='+encodeURIComponent(c.mobile||'')+'&coach_preview_name='+encodeURIComponent(c.name||'')+'&coach_intent=edit&coach_edit_session_id='+encodeURIComponent(b.id);
+      document.getElementById('liveTrackerFrame').src=url; document.getElementById('liveTrackerModal').style.display='block'; };
+    var wb=document.getElementById('kfFhWc'); if(wb) wb.onclick=async function(){ wb.disabled=true; var ok=await kfSetWithCoach(en.rec.client_mobile||c.mobile,en.rec.session_date,en.rec.session_time||'',!kfBilled(en.rec)); wb.disabled=false; if(ok){ kfNavDrop('fitdetail'); kfFitDaysRender(c,el); } };
+  }
+  function printList(list,I,rl){
+    var w=window.open('','_blank'); if(!w){ alert('Allow pop-ups to print.'); return; }
+    var rows=list.map(function(en,k){ var x=I[k]; var lines=x.ex.map(function(e){ if(e.type==='cardio'||e.type==='functional') return x.itemLine(e)?e.ex+': '+x.itemLine(e):e.ex; var sd=(e.setData||[]).filter(function(q){return q&&(q.reps||q.weight);}); return e.ex+(sd.length?': '+sd.map(function(q){return (q.reps||'?')+(q.weight?'×'+q.weight:'');}).join(', '):''); });
+      return '<div style="border-bottom:1px solid #999;padding:8px 0"><b>'+niceDay(en.date)+(en.time?' · '+time12(en.time):'')+'</b> — '+ncEsc(x.title)+(x.dur?' · '+x.dur:'')+(lines.length?'<div style="font-size:12px">'+lines.map(ncEsc).join('<br>')+'</div>':'')+'</div>'; }).join('');
+    w.document.write('<html><head><title>'+ncEsc(c.name||'Client')+' · workouts</title></head><body style="font-family:sans-serif"><h2>'+ncEsc(c.name||'Client')+' · workouts '+rl+'</h2>'+rows+'</body></html>'); w.document.close(); w.print();
+  }
+  draw();
 }
 // ---------- Today: only what needs you ----------
 // a short preview of a note: web links become "🔗 link"
@@ -8199,8 +8314,10 @@ async function kfActivity(sd,ed){
     (fs.data||[]).forEach(function(x){ var m=String(x.client_id).slice(6); if(x.deleted||!tagged[m]) return; var ts=new Date(x.created_at).getTime(), tm=String(x.time_of_day||'').slice(0,5);
       function names(a){ return (Array.isArray(a)?a:[]).map(function(e){return e&&e.ex;}).filter(Boolean); }
       var act=acts[m+'|'+x.session_date+'|'+tm]||acts[m+'|'+x.session_date], bp=Array.isArray(x.bp)?x.bp:[], cd=names(x.cd), fn=names(x.fn);
-      var label=act||(bp.length?bp.join(', '):cd.length?cd.join(', '):fn.length?fn.join(', '):'Workout');
-      var icon=/zumba|bolly|dance/i.test(label)?'💃':(!bp.length&&cd.length?'🏃':'🏋️');
+      var act0=act&&!/^(session|cardio|functional|strength|workout)$/i.test(act)?act:'';
+      var ac=cd.concat(fn).filter(function(x,i,a){return a.indexOf(x)===i;}).join(', ');
+      var label=bp.length?bp.join(', ')+(ac?' + '+ac:''):(ac||act0||'Workout');
+      var icon=bp.length?'🏋️':kfitEmoji(act0||cd[0]||fn[0]||'',cd.length?'cardio':fn.length?'functional':'');
       C(m,ts,tm||hm(ts),icon,label,{m:m,side:'fit'}); }); }catch(e){}
   try{ var stp=await sb.from('client_daily_steps').select('mobile,day,steps').gte('day',sd).lte('day',ed); (stp.data||[]).forEach(function(x){ if(tagged[x.mobile]) C(x.mobile,new Date(kfDayStartIso(x.day)).getTime()+3,'','👟',Number(x.steps).toLocaleString('en-IN')+' steps',{m:x.mobile,side:'nut'},x.day); }); }catch(e){}
   try{ var cn=await sb.from('nutrition_coach_notes').select('client_id,kind,created_at').gte('created_at',from).lt('created_at',to).limit(500);
@@ -8271,7 +8388,7 @@ async function kfTodayRender(){
   }
   html+='<div class="kf-sec came">CAME IN'+(isToday?' TODAY':'')+' · '+act.came.length+'</div>'
     +(people.length?people.map(function(m){ var L=came[m].slice().sort(function(a,b){return a.ts-b.ts;}), cnt={}; L.forEach(function(x){cnt[x.icon]=(cnt[x.icon]||0)+1;});
-      var wk=(cnt['🏋️']||0)+(cnt['💃']||0)+(cnt['🏃']||0);
+      var wk=L.filter(function(x){return x.open&&x.open.side==='fit';}).length;
       var sum=[cnt['🥗']?cnt['🥗']+' meal'+(cnt['🥗']===1?'':'s'):'',cnt['💬']?cnt['💬']+' repl'+(cnt['💬']===1?'y':'ies'):'',wk?wk+' workout'+(wk===1?'':'s'):'',cnt['⚖️']?'⚖️ '+(L.filter(function(x){return x.icon==='⚖️';})[0].text.replace('Weighed in: ','').split(' · ')[0]):'',cnt['📝']?'check-in':'',cnt['✅']?'habit':''].filter(Boolean).join(' · ');
       return '<div class="kf-row came" style="flex-direction:column;align-items:stretch;gap:2px;cursor:default"><div'+kfOpenAttr({m:m,side:L[0].open&&L[0].open.side})+' style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:16px">'+ncEsc(nm(m))+'</b><span style="font-size:12px;color:var(--muted)">'+ncEsc(sum)+' ›</span></div>'
         +L.map(function(x){return kfLine(x.time,x.icon,x.text,x.open);}).join('')+'</div>'; }).join('')
@@ -8292,7 +8409,7 @@ function kfOpenClientByMobile(m,tab,side){
   kfSide=side||null;
   var c=null; try{ c=buildUnifiedRoster().find(function(r){return String(r.mobile||'').replace(/\D/g,'')===m;}); }catch(e){}
   if(!c){ alert('Open this client from Clients.'); return; }
-  kfTab=tab||'days'; openUniClient(c.key).then(function(){ kfClientTab(kfTab); if(window.kfOpenConsult){ setTimeout(function(){ var b=document.getElementById('kfLogConsult_'+window.kfOpenConsult); if(b) b.click(); window.kfOpenConsult=null; },900);} });
+  kfTab=tab||'days'; kfEnterClient(); openUniClient(c.key).then(function(){ kfClientTab(kfTab); if(window.kfOpenConsult){ setTimeout(function(){ var b=document.getElementById('kfLogConsult_'+window.kfOpenConsult); if(b) b.click(); window.kfOpenConsult=null; },900);} });
 }
 // the bell's count lives on Today now
 var _kfBellRefresh=kfitBellRefresh;
@@ -8308,6 +8425,8 @@ var KF_HELP=[
   ['🍽️','Days','Tap a client, then Days: one "This week" card (days logged, habit, calories, steps, how they\'re feeling and the Sunday summary), then each day with its ring, steps and meals. Tap a meal to see amounts, and tap a photo to see it full size: swipe for the next, ✕ brings you back to the meal. Tap a day\'s heading to fold it away, and again to open it. Write a note under any meal or day: the box grows for more lines, Enter starts a new line and Send sends; unsent words are kept. ✓ means sent, blue ✓✓ means they read it. Links show as short tappable chips. ⋯ at the top has Estimate missing calories, Import screenshots and the earlier app\'s tools.'],
   ['🏋️','Fitness clients','Days shows each workout as a card: body parts, exercises, duration, steps and personal records 🏆. Tap a card for every set. Clients say whether each session was with you or on their own; only sessions with you count as unpaid. Got it wrong? Tap "Mark on their own" or "Mark with you" on the card. Plan has just the workout tools: Assign, Log and Edit.'],
   ['🗓️','Plan','Plan a day of meals for them (they tick them off in their app), see their habit plan, and for fitness clients the workout tools.'],
+  ['🏋️','Workout history','On a fitness client\'s Days: This week, This month, All or Custom, with a summary (sessions, with you or on their own, strength, cardio, functional, classes, PRs, unpaid). Tap a session for the full workout: sets, PRs, cardio and functional, their note, ✎ Edit and with you or on their own. 🖨 prints the range.'],
+  ['↩️','Back','The phone\'s Back (or swipe back) steps back one screen: a workout to the list, a client to where you came from (Today or Clients, same spot), and closes chat, the tracker and pop-ups.'],
   ['⚖️','Weight and goals','Clients weigh in once a week from My progress in their app. Their page shows their weight and change since they started (header and "This week"), a small graph, and their goal: Lose, Maintain or Gain, plus a goal weight. They set it themselves; once you tap a goal or ✎ the goal weight, yours counts and it\'s locked for them ("Let them choose" unlocks it). Gain is about 10% over maintenance. Weigh-ins also show in Today.'],
   ['🌱','Habit progress','Plan shows the habit they\'re on, "day 12 of about 7", and a 4-week grid (Monday to Sunday). Each day is worked out from their logged meals, photos or typed: for Protein First, ✓ means every main meal had a palm of protein, ½ some did, ✕ none, · nothing logged. If they tap Done/Partly themselves, that wins; tap a day to set your own mark, which wins over both (gold edge). Every habit is read from meals; Eating Order, More-same-less and Sip smarter are good guesses from the plate. The same tip they see in their app shows here. When a habit\'s days are up their app moves them on by itself (they can choose to stay 7 more days); "Hold on this habit" stops that.'],
   ['⚡','Quick replies','Under each meal, tap a ready-made note (like "Great protein! 💪") to send it in one tap. Tap ✎ edit to change your list.'],

@@ -172,3 +172,33 @@ const COACH_SCOPED_TABLES_BASE=['tracker_data','app_feedback','client_name_histo
 // Max upload size (20MB) for any file attachment (measurement scans,
 // feedback attachments, meal photos) across all three files.
 const MAX_BYTES=20*1024*1024;
+
+// ---------- One way to name and show cardio and functional work ----------
+// Shared by the fitness tracker and Merge so both show the same words,
+// emojis and times for every activity.
+const KFIT_EMOJI=[
+  [/zumba|bolly|dance|aerobic/i,'💃'],[/yoga|pilates|stretch|mobility|meditat/i,'🧘'],[/walk/i,'🚶'],
+  [/cycl|bike|spin/i,'🚴'],[/row/i,'🚣'],[/swim/i,'🏊'],[/stair/i,'🪜'],[/jump rope|skipping|battle rope/i,'🪢'],
+  [/hiit|tabata|circuit/i,'🔥'],[/ski/i,'⛷️'],[/box|kick|punch/i,'🥊'],[/hike|trek/i,'🥾'],[/badminton|tennis|squash|pickle/i,'🏸'],
+  [/football|soccer/i,'⚽'],[/cricket/i,'🏏'],[/basket/i,'🏀'],[/run|jog|sprint|treadmill|elliptical/i,'🏃'],
+  [/carry/i,'🧳'],[/bear crawl/i,'🐻'],[/burpee|jack|climber|high knee|skater/i,'🤸'],[/plank|hold|hang|wall sit/i,'⏱️']
+];
+function kfitEmoji(name,type){
+  if(type==='strength') return '🏋️';
+  var n=String(name||''); for(var i=0;i<KFIT_EMOJI.length;i++) if(KFIT_EMOJI[i][0].test(n)) return KFIT_EMOJI[i][1];
+  return type==='functional'?'🤸':type==='cardio'?'🏃':'🏋️';
+}
+// functional times are kept in seconds: under a minute in seconds, else minutes
+function kfitSecs(sec){
+  var n=Math.round(Number(sec)||0); if(!n) return '';
+  if(n<60) return n+' sec'; var m=Math.floor(n/60), s=n%60; return m+' min'+(s?' '+s+' sec':'');
+}
+// one line of detail, the same order everywhere: time · distance · effort · reps · weight
+function kfitCardioLine(c){ c=c||{}; return [c.duration?c.duration+' min':'',c.distance?c.distance+' km':'',c.intensity||''].filter(Boolean).join(' · '); }
+function kfitFuncLine(f,unit){ f=f||{}; return [f.duration?kfitSecs(f.duration):'',f.reps?f.reps+' reps':'',f.weight?f.weight+' '+(unit||'kg'):''].filter(Boolean).join(' · '); }
+// what kind of session it was, from what's in it
+function kfitWorkoutType(hasStrength,hasSuperset,hasCardio,hasFunctional){
+  var p=[]; if(hasSuperset) p.push('Superset'); else if(hasStrength) p.push('Strength');
+  if(hasCardio) p.push('Cardio'); if(hasFunctional) p.push('Functional');
+  return p.length?p.join(' + '):'Session';
+}

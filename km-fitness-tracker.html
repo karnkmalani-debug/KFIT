@@ -588,7 +588,7 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
   function pad(n){ return (n<10?'0':'')+n; }
   function today(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
   function esc(t){ return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
-  function what(w){ var b=(w.bodyParts||[]).join(', '); var c=(w.cardio||[]).map(function(x){return x.ex;}).filter(Boolean).join(', '); return b||c||((w.functional||[]).length?'Functional':'Workout'); }
+  function what(w){ var b=(w.bodyParts||[]).join(', '); var c=(w.cardio||[]).concat(w.functional||[]).map(function(x){return x.ex;}).filter(Boolean).join(', '); return b||c||'Workout'; }
   function ics(day,time,title,detail){
     var p=day.split('-'), t=(time||'07:00').split(':'), st=new Date(+p[0],+p[1]-1,+p[2],+t[0]||7,+t[1]||0), en=new Date(st.getTime()+3600000);
     function f(d){ return d.getUTCFullYear()+pad(d.getUTCMonth()+1)+pad(d.getUTCDate())+'T'+pad(d.getUTCHours())+pad(d.getUTCMinutes())+'00Z'; }
@@ -2810,7 +2810,7 @@ renderCardioBlocks();
 
 if(w.functional&&w.functional.length){
 w.functional.forEach(f=>{
-functionalBlocks.push({id:Date.now()+Math.random(),ex:f.ex,duration:f.duration||'',weight:f.weight||''});
+functionalBlocks.push({id:Date.now()+Math.random(),ex:f.ex,duration:f.duration||'',reps:f.reps||'',weight:f.weight||''});
 });
 renderFunctionalBlocks();
 }
@@ -3609,6 +3609,8 @@ return {work:work,rest:rest,source:source,pace:pace,learned:pp.learned,measuredS
 }
 function _timeSplitCard(s){
 try{
+// only for strength work; a class, a run or a plank has no "rest between sets"
+if(typeof kfSessKind==='function'&&kfSessKind(s)!=='strength') return '';
 var t=computeTimeSplit(s);
 if(!t.work&&!t.rest) return '';
 var m=function(x){ return Math.round(x/60); };
@@ -4978,7 +4980,7 @@ assignedWorkouts[dateStr]={
 bodyParts:[...selectedBP],
 exercises:exList,
 cardio:cardioBlocks.map(function(c){return {ex:c.ex,duration:c.duration,intensity:c.intensity};}),
-functional:functionalBlocks.map(function(f){return {ex:f.ex,duration:f.duration,weight:f.weight};})
+functional:functionalBlocks.map(function(f){return {ex:f.ex,duration:f.duration,reps:f.reps,weight:f.weight};})
 };
 syncFitnessToSupabase();
 if(typeof KFitChat!=='undefined'&&window.__KFIT_COACH_PREVIEW__) KFitChat.postEvent(getSB(),getFitClientKey(),{type:'workout',title:'A workout assigned',detail:dateStr,dates:[dateStr]});
@@ -5199,9 +5201,9 @@ client: _newSess.client,
 mobile: localStorage.getItem('kmfit_mobile')||'',
 date, time: _timeStr,
 duration: finalDur||null,
-workoutType: detectWorkoutType(exercises, collectSupersets(_exOrder), cardioBlocks),
+workoutType: detectWorkoutType(exercises, collectSupersets(_exOrder), cardioBlocks, functionalBlocks),
 bodyParts: _newSess.bodyParts,
-activity: cardioBlocks.length?cardioBlocks.map(c=>c.ex).filter(Boolean).join(', '):'',
+activity: cardioBlocks.map(c=>c.ex).concat(functionalBlocks.map(f=>f.ex)).filter(function(x,i,a){return x&&a.indexOf(x)===i;}).join(', '),
 withCoach: _newSess.withCoach
 };
 window._kfWithCoach=undefined;
@@ -6082,7 +6084,18 @@ function shownBodyParts(s){
 if(s&&s.bodyParts&&s.bodyParts.length) return s.bodyParts;
 return s?sessionBodyParts([],s.exercises,s.supersets):[];
 }
-function detectWorkoutType(exercises, supersets, cardio){
+// What a session was, in a few words: body parts trained, else the
+// cardio and functional activities (same rule as Merge).
+function kfSessKind(s){ var st=(s.exercises||[]).some(function(e){return e.type!=='cardio';})||(s.supersets||[]).length>0; return st?'strength':(s.cardio||[]).length?'cardio':(s.functional||[]).length?'functional':'strength'; }
+function kfSessLabel(s){
+  var bp=shownBodyParts(s), acts=(s.cardio||[]).map(function(c){return c.ex;}).concat((s.functional||[]).map(function(f){return f.ex;})).filter(Boolean);
+  acts=acts.filter(function(a,i){return acts.indexOf(a)===i;});
+  if(bp.length) return bp.join(', ')+(acts.length?' + '+acts.join(', '):'');
+  return acts.join(', ')||'Workout';
+}
+function kfSessEmoji(s){ var k=kfSessKind(s); if(k==='strength') return '🏋️'; var first=k==='cardio'?s.cardio[0]:s.functional[0]; return kfitEmoji(first&&first.ex,k); }
+function detectWorkoutType(exercises, supersets, cardio, functional){
+if(typeof kfitWorkoutType==='function') return kfitWorkoutType(!!(exercises&&exercises.length),!!(supersets&&supersets.length),!!(cardio&&cardio.length),!!(functional&&functional.length));
 const hasWeights=exercises&&exercises.length>0;
 const hasSupersets=supersets&&supersets.length>0;
 const hasCardio=cardio&&cardio.length>0;
@@ -7454,7 +7467,7 @@ return null;
 return {start:start,end:end};
 }
 function getFilteredHistSessions(){
-const validSessions=sessions.filter(s=>(s.exercises&&s.exercises.length>0)||(s.cardio&&s.cardio.length>0)||(s.supersets&&s.supersets.length>0));
+const validSessions=sessions.filter(s=>(s.exercises&&s.exercises.length>0)||(s.cardio&&s.cardio.length>0)||(s.functional&&s.functional.length>0)||(s.supersets&&s.supersets.length>0));
 var range=getHistFilterRange();
 if(!range) return validSessions;
 return validSessions.filter(function(s){var d=new Date(s.date+'T12:00:00');return d>=range.start&&d<=range.end;});
@@ -7510,28 +7523,26 @@ const _histPrMap=sessions.length>=8?calcPersonalRecords():{};
 el.innerHTML=validSessions.map(s=>{
 const d=new Date(s.date+'T12:00:00');
 const avg=sessRestAvg(s);
-const exCount=s.exercises&&s.exercises.length?s.exercises.length:0;
+const exCount=(s.exercises||[]).filter(e=>e.type!=='cardio').length+(s.supersets||[]).reduce((a,ss)=>a+(ss.exercises||[]).length,0);
 const cardioCount=s.cardio&&s.cardio.length?s.cardio.length:0;
-const metaStr=exCount?(exCount+' exercise'+(exCount!==1?'s':'')):(cardioCount?cardioCount+' cardio session'+(cardioCount!==1?'s':''):'');
-
+const funcCount=s.functional&&s.functional.length?s.functional.length:0;
+const metaStr=[exCount?exCount+' exercise'+(exCount!==1?'s':''):'',cardioCount?cardioCount+' cardio':'',funcCount?funcCount+' functional':''].filter(Boolean).join(' · ');
 const cardioDurSecs=s.duration||null;
-const cardioDurMins=!cardioDurSecs&&cardioCount?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0):0;
-
+const cardioDurMins=!cardioDurSecs&&(cardioCount||funcCount)?Math.round(((s.cardio||[]).reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60+(s.functional||[]).reduce((a,f)=>a+(parseInt(f.duration)||0),0))/60):0;
 const cardioIntensities=cardioCount?s.cardio.filter(c=>c.intensity).map(c=>c.intensity).filter((v,i,a)=>a.indexOf(v)===i):[];
-
-const cardioPills=cardioCount?s.cardio.map(c=>`<span class="sess-tag">${c.ex.toUpperCase()}</span>`).join(''):'';
+const cardioPills=(s.cardio||[]).map(c=>`<span class="sess-tag">${kfitEmoji(c.ex,'cardio')} ${c.ex}</span>`).join('')+(s.functional||[]).map(f=>`<span class="sess-tag">${kfitEmoji(f.ex,'functional')} ${f.ex}</span>`).join('');
 const _histPrInfo=getSessionPRInfo(s,_histPrMap);
-const bpPills=shownBodyParts(s).map(b=>`<span class="sess-tag${_histPrInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')+(!cardioCount&&_histPrInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_histPrInfo.count} P.R.</span>`:'');
+const bpPills=shownBodyParts(s).map(b=>`<span class="sess-tag${_histPrInfo.bodyParts.has(b)?' sess-tag-pr':''}">${b}</span>`).join('')+(_histPrInfo.count?`<span class="sess-tag sess-tag-pr">🏆 ${_histPrInfo.count} P.R.</span>`:'');
 return`<div class="sess-card">
 <div onclick="openDetail(${s.id})" style="flex:1;cursor:pointer;">
 <div class="sess-date">${D[d.getDay()]} . ${d.getDate()} ${M[d.getMonth()]} ${d.getFullYear()}${s.timeOfDay?' - '+s.timeOfDay:''}</div>
-<div class="sess-name">${s.client}</div>
+<div class="sess-name">${kfSessEmoji(s)} ${kfSessLabel(s)}</div>
 <div class="sess-meta">${metaStr}</div>
 ${sessionApprovalBadge(s)}
 ${(cardioDurSecs||cardioDurMins)?`<div class="sess-dur">&#128336; ${cardioDurSecs?fmtDur(cardioDurSecs):cardioDurMins+'m'}</div>`:(s.duration?`<div class="sess-dur">&#128336; ${fmtDur(s.duration)}</div>`:'')}
 ${cardioIntensities.length?`<div class="sess-rest">Intensity: ${cardioIntensities.join(', ')}</div>`:''}
-${!cardioCount&&avg?`<div class="sess-rest">Avg Rest ${fmtSecs(avg)}</div>`:''}
-<div class="sess-tags">${cardioPills||bpPills}</div>
+${!cardioCount&&!funcCount&&avg?`<div class="sess-rest">Avg Rest ${fmtSecs(avg)}</div>`:''}
+<div class="sess-tags">${exCount?bpPills:''}${cardioPills}</div>
 </div>
 ${s.pendingDelete?`<button onclick="withdrawRequest(${s.id})" style="background:transparent;border:1px solid var(--terra);border-radius:8px;padding:6px 10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;color:var(--terra);cursor:pointer;white-space:nowrap;align-self:flex-start;margin-top:4px;">⏳ Withdraw</button>`:`<button onclick="editSession(${s.id})" style="background:transparent;border:1px solid ${s.pendingEdit?'var(--gold)':'var(--border)'};border-radius:8px;padding:6px 12px;font-family:'DM Sans',sans-serif;font-size:${s.pendingEdit?14:17}px;font-weight:600;color:${s.pendingEdit?'var(--gold)':'var(--text)'};cursor:pointer;white-space:nowrap;align-self:flex-start;margin-top:4px;">${s.pendingEdit?'⏳ Re-edit':'Edit'}</button>`}
 </div>`;
@@ -7583,6 +7594,8 @@ var cardioHtml=(s.cardio||[]).map(function(c){
 return '<div style="font-size:14px;font-weight:700;margin-bottom:4px;">'+c.ex+(c.duration?' — '+c.duration+' min':'')+(c.intensity?' — Intensity: '+c.intensity:'')+(c.distance?' — '+c.distance+'km':'')+'</div>';
 }).join('');
 if(cardioHtml) out+='<div style="margin-bottom:10px;">'+cardioHtml+'</div>';
+var funcHtml=(s.functional||[]).map(function(f){ var l=kfitFuncLine(f,s.unit); return '<div style="font-size:14px;font-weight:700;margin-bottom:4px;">'+f.ex+(l?' — '+l:'')+'</div>'; }).join('');
+if(funcHtml) out+='<div style="margin-bottom:10px;"><div style="font-size:12px;font-weight:800;letter-spacing:1px;">FUNCTIONAL</div>'+funcHtml+'</div>';
 if(s.notes) out+='<div style="font-size:13px;margin-top:10px;border-top:1px solid #ccc;padding-top:8px;"><b>Notes:</b> '+s.notes+'</div>';
 return out;
 }
@@ -7917,7 +7930,7 @@ const arW=wkS.length?(function(){var vals=wkS.map(s=>sessRestAvg(s)).filter(v=>v
 const arM=moS.length?(function(){var vals=moS.map(s=>sessRestAvg(s)).filter(v=>v!==null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;})():null;
 const arA=total?(function(){var vals=sessions.map(s=>sessRestAvg(s)).filter(v=>v!==null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;})():null;
 
-const getSessDur=s=>s.duration||(s.cardio&&s.cardio.length?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60:0);
+const getSessDur=s=>s.duration||((s.cardio||[]).reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60+(s.functional||[]).reduce((a,f)=>a+(parseInt(f.duration)||0),0));
 const durAvg=arr=>{ const f=arr.filter(n=>n>0); return f.length?Math.round(f.reduce((a,b)=>a+b,0)/f.length):null; };
 const adL=last?getSessDur(last):null;
 const adW=durAvg(wkS.map(getSessDur));
@@ -8115,7 +8128,7 @@ return {id:Date.now()+Math.random(), ex:c.ex||'', duration:c.duration||'', dista
 renderCardioBlocks();
 
 functionalBlocks=(s.functional||[]).map(function(f){
-return {id:Date.now()+Math.random(), ex:f.ex||'', duration:f.duration||'', weight:f.weight||''};
+return {id:Date.now()+Math.random(), ex:f.ex||'', duration:f.duration||'', reps:f.reps||'', weight:f.weight||''};
 });
 renderFunctionalBlocks();
 
@@ -8217,7 +8230,7 @@ const s=sessions.find(s=>String(s.id)===String(id));
 if(!s)return;
 const d=new Date(s.date+'T12:00:00');
 const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-document.getElementById('dTitle').textContent=s.client;
+document.getElementById('dTitle').textContent=kfSessEmoji(s)+' '+kfSessLabel(s);
 document.getElementById('dSub').textContent=d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear()+(s.timeOfDay?' - '+s.timeOfDay:'');
 const _sessDur=s.duration||(s.cardio&&s.cardio.length?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60:0);
 const _exCount=(s.exercises?s.exercises.length:0)+(s.supersets?s.supersets.reduce((a,ss)=>a+(ss.exercises?ss.exercises.length:0),0):0);
@@ -8250,7 +8263,7 @@ ${_sessDur?`<div class="rst-row" style="margin-bottom:14px;"><span class="rst-la
 ${s.cardio.map(c=>`
 <div style="margin-bottom:6px;">
 ${c.intensity?`<div class="rst-row"><span class="rst-label" style="color:var(--text);font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.03em;">Intensity</span><span style="color:var(--terra);font-size:19px;font-weight:800;font-family:'DM Mono',monospace;">${c.intensity.toUpperCase()}</span></div>`:''}
-<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);color:var(--text);font-size:22px;font-weight:800;letter-spacing:.02em;">${c.ex}</div>
+<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);color:var(--text);font-size:22px;font-weight:800;letter-spacing:.02em;">${kfitEmoji(c.ex,'cardio')} ${c.ex}${c.duration?` <span style="color:var(--gold);font-size:17px;font-family:'DM Mono',monospace;">${c.duration} min</span>`:''}</div>
 ${c.distance?`<div style="margin-top:6px;color:var(--gold);font-size:16px;font-weight:700;font-family:'DM Mono',monospace;">${c.distance}km</div>`:''}
 </div>`).join('')}
 </div>`:'';
@@ -8260,10 +8273,10 @@ const functionalSection=(s.functional&&s.functional.length)?`
 <div class="card-title" style="color:var(--text);font-size:13px;font-weight:800;">FUNCTIONAL / ISOMETRIC</div>
 ${s.functional.map(f=>`
 <div style="margin-bottom:10px;padding-top:10px;border-top:1px solid var(--border);">
-<div style="color:var(--text);font-size:20px;font-weight:800;">${f.ex}</div>
+<div style="color:var(--text);font-size:20px;font-weight:800;">${kfitEmoji(f.ex,'functional')} ${f.ex}</div>
 <div style="display:flex;gap:16px;margin-top:6px;font-family:'DM Mono',monospace;">
+${f.duration?`<span style="color:var(--flame);font-size:18px;font-weight:700;">${kfitSecs(f.duration)}</span>`:''}
 ${f.reps?`<span style="color:var(--sage);font-size:18px;font-weight:700;">${f.reps} reps</span>`:''}
-${f.duration?`<span style="color:var(--flame);font-size:18px;font-weight:700;">${f.duration}s</span>`:''}
 ${f.weight?`<span style="color:var(--gold);font-size:16px;font-weight:700;">${f.weight}${s.unit||'kg'}</span>`:''}
 </div>
 </div>`).join('')}
@@ -9132,6 +9145,10 @@ if(c.distance)p.push(c.distance+' km');
 if(c.intensity)p.push(c.intensity);
 text+=c.ex+': '+p.join(' . ')+'\n';
 });
+}
+if(s.functional&&s.functional.length){
+text+='\n-- Functional --\n';
+s.functional.forEach(f=>{ text+=f.ex+(kfitFuncLine(f,s.unit)?': '+kfitFuncLine(f,s.unit).replace(/ · /g,' . '):'')+'\n'; });
 }
 const rt=s.restTimes||[];
 if(rt.length){const avg=Math.round(rt.reduce((a,b)=>a+b,0)/rt.length);text+='\nAvg Rest: '+fmtSecs(avg)+'\n';}
