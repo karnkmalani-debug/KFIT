@@ -5305,6 +5305,10 @@ function kfitClientAuthMigrate(url){
 function getSB(){
 // Fitness reads/writes go to the per-row tables (kfit-fitness-store.js);
 // everything else is the plain Supabase client.
+// Opened inside Merge (coach preview): act as the coach, with Merge's own
+// sign-in, so what the coach logs reaches the dashboard. Never the phone's
+// client sign-in, which belongs to whoever uses the tracker on this phone.
+if(!sbClient&&window.__KFIT_COACH_PREVIEW__){ sbClient=KFitStore.wrapClient(supabase.createClient(SB_URL,SB_KEY),{coachId:function(){ try{ return window.parent&&window.parent.currentCoachId||null; }catch(e){ return null; } }}); }
 if(!sbClient){ kfitClientAuthMigrate(SB_URL); sbClient=KFitStore.wrapClient(supabase.createClient(SB_URL,SB_KEY,{auth:{storageKey:KFIT_CLIENT_AUTH,persistSession:true,autoRefreshToken:true}}),{claim:true,coachId:function(){return getClientCoachId();}}); }
 return sbClient;
 }
@@ -5317,6 +5321,7 @@ return sbClient;
 // it. Until then, this safely defaults to null so saves still work.
 /* KFIT_DEFAULT_COACH_ID now loaded from kfit-exercise-library.js */
 function getClientCoachId(){
+  if(window.__KFIT_COACH_PREVIEW__){ try{ if(window.parent&&window.parent.currentCoachId) return window.parent.currentCoachId; }catch(e){} }
   var stored=localStorage.getItem('kmfit_coach_id');
   if(stored) return stored;
   var params=new URLSearchParams(window.location.search);
@@ -5440,6 +5445,9 @@ var session=res.data&&res.data.session;
 if(session&&session.user){
 localStorage.setItem('kmfit_uid',session.user.id);
 if(!done){done=true;clearTimeout(safety);callback(session.user.id);}
+} else if(window.__KFIT_COACH_PREVIEW__){
+// inside Merge with no coach sign-in: never sign in as someone else here
+if(!done){done=true;clearTimeout(safety);callback(null);}
 } else {
 sb.auth.signInAnonymously().then(function(r){
 if(r.error||!r.data||!r.data.user){if(!done){done=true;clearTimeout(safety);callback(null);}return;}
