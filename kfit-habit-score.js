@@ -15,7 +15,14 @@
   'use strict';
   var MAIN={Breakfast:1,Lunch:1,Dinner:1};
   // sweet drinks and desserts (English and common Indian names)
-  var SWEET=/\b(juice|cola|coke|pepsi|soda|soft drink|sprite|fanta|frooti|maaza|energy drink|milkshake|shake with sugar|sweet lassi|mango lassi|sweet chai|chai with sugar|tea with sugar|coffee with sugar|frappe|iced tea|sharbat|sherbet|rooh afza|mocktail|beer|wine|cocktail|whisky|vodka|rum)\b/i;
+  var SWEET=/\b(juice|cola|coke|pepsi|soft drink|sprite|fanta|frooti|maaza|thums ?up|limca|mountain dew|7 ?up|mirinda|appy|sting|red bull|monster|gatorade|glucon|rasna|energy drink|milkshake|shake with sugar|sweet lassi|mango lassi|sweet chai|chai with sugar|tea with sugar|coffee with sugar|frappe|frappuccino|iced tea|sharbat|sherbet|rooh afza|mocktail|sugarcane|falooda|thandai|beer|wine|cocktail|whisky|whiskey|vodka|rum|gin|breezer|kingfisher|bira|budweiser|tuborg|heineken|corona)\b/i;
+  // diet / zero-sugar drinks and plain soda never count as sweet
+  var ZERO=/\b(diet|zero|sugar ?free|no sugar|unsweetened|without sugar|black|soda water|club soda|sparkling water)\b/i;
+  // sweet drinks in one meal: from the drink type when the app knows it, else from the words
+  function sweetCount(b){ var its=Array.isArray(b.items)?b.items:[];
+    if(its.some(function(it){return it&&it.drink;})) return its.filter(function(it){return it&&(it.drink==='sugary'||it.drink==='alcohol'||((it.drink==='cafe'||it.drink==='home'||it.drink==='dairy')&&+it.sugar>=12));}).length;
+    var parts=[b.text||''].concat(its.map(function(it){return it&&it.name||'';})).join(', ').split(/[,\n]/);
+    return parts.filter(function(p){return SWEET.test(p)&&!ZERO.test(p);}).length?1:0; }
   function hands(b){
     b=b||{};
     if(Array.isArray(b.items)&&b.items.length){
@@ -43,7 +50,7 @@
     'eating-order':function(ms){ return judge(ms.filter(function(m){return MAIN[m.slot];}),function(m){return m.h.protein>=0.5&&m.h.veg>=0.5;},function(m){return m.h.protein>=0.5||m.h.veg>=0.5;}); },
     'more-same-less':function(ms,ctx){ var t=ctx&&ctx.target; if(!t) return null; var known=ms.filter(function(m){return m.k!=null;}); if(!known.length) return ms.length?'wait':null;
       var k=known.reduce(function(a,m){return a+m.k;},0); var r=k/t; return r>=0.8&&r<=1.1?'done':r>=0.65&&r<=1.25?'partly':'not'; },
-    'sip-smarter':function(ms){ if(!ms.length) return null; var sweet=ms.filter(function(m){return SWEET.test(m.text);}).length; return sweet===0?'done':sweet===1?'partly':'not'; },
+    'sip-smarter':function(ms){ if(!ms.length) return null; var sweet=ms.reduce(function(a,m){return a+(m.sw||0);},0); return sweet===0?'done':sweet===1?'partly':'not'; },
     'out-and-about':function(ms,ctx){ return RULES['protein-first'](ms,ctx); },
     'weekends':function(ms,ctx){ return RULES['protein-first'](ms,ctx); },
     'own-it':function(ms,ctx){ return RULES['plate-by-hand'](ms,ctx); },
@@ -54,7 +61,7 @@
     return b.feedback&&Number(b.feedback.kcal)||null; }
   function score(id,meals,ctx){
     var r=RULES[id]; if(!r||!meals||!meals.length) return null;
-    var ms=meals.map(function(b){ b=b||{}; var k=kcal(b); return {slot:b.slot||'',time:b.time||'',h:hands(b),k:k,text:[b.text||''].concat((b.items||[]).map(function(i){return i&&i.name||'';})).join(' ')}; });
+    var ms=meals.map(function(b){ b=b||{}; var k=kcal(b); return {slot:b.slot||'',time:b.time||'',h:hands(b),k:k,sw:sweetCount(b),text:[b.text||''].concat((b.items||[]).map(function(i){return i&&i.name||'';})).join(' ')}; });
     return r(ms,ctx);
   }
   // One gentle, specific tip from their own meals over the habit's days so far.
@@ -72,7 +79,7 @@
     if(id==='snack-upgrade'){ var sn=all.filter(function(m){return /snack/i.test(m.slot)&&m.h&&m.h.protein<0.5;}).length; return sn?'Swap one snack for curd, roasted chana, nuts or a boiled egg.':'Your snacks are protein-led. Nice.'; }
     if(id==='early-dinner'){ var t=all.filter(function(m){return m.slot==='Dinner'&&/^\d{1,2}:\d{2}/.test(m.time);}).map(function(m){var p=m.time.split(':');return (+p[0])*60+(+p[1]);}); if(!t.length) return 'Log dinner with its time and you\'ll see how early you\'re finishing.';
       var avg=Math.round(t.reduce(function(a,b){return a+b;},0)/t.length); var hh=Math.floor(avg/60), mm=avg%60; return 'Dinner averages '+(hh>12?hh-12:hh)+':'+(mm<10?'0':'')+mm+(hh>=12?' pm':' am')+'. Aim to finish 2 to 3 hours before bed.'; }
-    if(id==='sip-smarter'){ var sw=all.filter(function(m){return SWEET.test(m.text);}); return sw.length?'Sweet drinks showed up '+sw.length+' time'+(sw.length===1?'':'s')+'. Try water, buttermilk or unsweetened chai instead.':'No sweet drinks logged. Lovely.'; }
+    if(id==='sip-smarter'){ var swn=0; (days||[]).forEach(function(ms){ (ms||[]).forEach(function(b){ swn+=sweetCount(b||{}); }); }); return swn?'Sweet drinks or alcohol showed up '+swn+' time'+(swn===1?'':'s')+'. Try water, chaas, nimbu pani without sugar or sparkling water instead.':'No sweet drinks logged. Lovely.'; }
     if(id==='more-same-less') return 'Eat slowly and stop at satisfied, not stuffed. Your daily total tells the story.';
     return '';
   }

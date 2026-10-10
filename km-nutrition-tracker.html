@@ -14,6 +14,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=DM+Sans:wght@400;500;700&family=DM+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Serif+Devanagari:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./kfit-exercise-library.js"></script>
+<script src="./kfit-drinks.js"></script>
 <script src="./kfit-nutrition-lessons.js"></script>
 <script src="./kfit-i18n.js"></script>
 <script src="./kfit-ui.js"></script>
@@ -1282,7 +1283,7 @@ function renderLog(){
       sc0.addEventListener('touchend',function(e){ if(x00==null) return; var dx=e.changedTouches[0].clientX-x00; x00=null; if(Math.abs(dx)<70) return; var nd=addDays(d,dx<0?1:-1); if(nd>today()) return; S._logDay=nd; S._fullDay=null; renderLog(); },{passive:true}); }
     return;
   }
-  html+='<div id="stepsBox"></div>';
+  html+='<div id="stepsBox"></div><div id="waterBox"></div>';
   if(dayNotes.length) html+='<div class="coachbox"><div class="steplbl">NOTE FROM YOUR COACH</div>'+threadHtml(d,null)+'</div>';
   var planned=plannedFor(d), ticked={}; list.forEach(function(m){if(m.body&&m.body.planKey)ticked[m.body.planKey]=1;});
   var open=S._openMeal;
@@ -1348,6 +1349,7 @@ function renderLog(){
   document.querySelectorAll('img[data-path]').forEach(loadPhoto);
   bindThreads(renderLog);
   try{ if(window.KFitSteps) KFitSteps.mount($('#stepsBox'),{sb:sb,mobile:S.mobile,day:d,collapsed:true}); }catch(e){}
+  waterCard($('#waterBox'),d);
   // swipe left/right to change day
   var sc=document.querySelector('.screen'), x0=null;
   if(sc){ sc.addEventListener('touchstart',function(e){x0=e.touches[0].clientX;},{passive:true});
@@ -1426,12 +1428,16 @@ function itemScale(it,amt){
 function amtTxt(a){return a===0.25?'¼':a===0.5?'½':a===0.75?'¾':a===1.5?'1½':a===2.5?'2½':String(a);}
 async function aiItems(blob,text){
   var prompt='You are a nutrition coach. List each separate food or drink '+(blob?'in this meal photo':'in this meal')+(text?(blob?' (the person adds: "':' : "')+String(text).replace(/"/g,"'").slice(0,400)+'"'+(blob?')':''):'')+'. '
-    +'For each item give: name (short, plain English), amount (a number) and unit in everyday household measures (cup, bowl, piece, slice, roti, glass, tbsp, tsp, plate), '
+    +'For each item give: name (short, plain English), amount (a number) and unit in everyday household measures (cup, bowl, piece, slice, roti, glass, tbsp, tsp, plate; for drinks also ml, can, bottle, pint, peg, shot, or a cafe cup size like tall, grande, venti, small, regular, large), '
     +'its calories for that amount, and its hand portions: protein palms, vegetable fists, carb cupped hands, fat thumbs (0, 0.25, 0.5, 1...). '
+    +'Drinks: give "drink" as one of zero (water, soda water, black coffee, plain tea, diet or zero-sugar soft drinks), light (coconut water, chaas, jaljeera, unsweetened nimbu pani), home (homemade chai or coffee with milk), cafe (coffee-shop drinks), dairy (milk, lassi, milkshakes, protein shakes), sugary (soft drinks, juices, energy drinks, sharbat, sweetened drinks), alcohol (beer, wine, spirits, cocktails, breezers); for food use null. '
+    +'For drinks give sugar in grams. Give hand portions of 0 for all drinks except dairy drinks (their protein as palms, about 25 g of protein = 1 palm). '
+    +'Alcohol calories include the alcohol itself (about 7 kcal per gram) plus any sugar; list a mixer (cola, soda, tonic, juice) as its own item. A peg is 30 ml (small) or 60 ml (large). '
+    +'If a cafe chain or brand is named (for example Starbucks, Cafe Coffee Day, Third Wave, Chaayos, McCafe, Coca-Cola, Thums Up, Frooti, Amul, Kingfisher), use that brand\'s own published nutrition for that size if you know it. '
     +(blob?'Judge the amounts from the photo. ':'If no amount is said, assume a typical home portion. ')
-    +'Also one short, kind, practical tip (max 25 words) based on: protein first, a fist of vegetables, carbs last. Never shame. '
+    +'Also one short, kind, practical tip (max 25 words) based on: protein first, a fist of vegetables, carbs last; if there is alcohol, suggest water between drinks and protein with them; if there is a sugary drink, suggest one simple swap (nimbu pani without sugar, chaas, sparkling water). Never shame. '
     +(kLang()!=='en'?'Write the tip in '+KFitI18n.aiName()+'. ':'')
-    +'Reply ONLY with JSON: {"items":[{"name":"","amount":1,"unit":"","kcal":0,"protein":0,"veg":0,"carbs":0,"fats":0}],"tip":""}';
+    +'Reply ONLY with JSON: {"items":[{"name":"","amount":1,"unit":"","kcal":0,"protein":0,"veg":0,"carbs":0,"fats":0,"drink":null,"sugar":0}],"tip":""}';
   var parts=[{text:prompt}]; if(blob) parts.push({inline_data:{mime_type:'image/jpeg',data:await b64(blob)}});
   var r=await fetch(GEMINI_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:parts}],generationConfig:{temperature:0.2,maxOutputTokens:2048,responseMimeType:'application/json',thinkingConfig:{thinkingBudget:0}}})});
   var j=await r.json(); var t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&(j.candidates[0].content.parts||[]).map(function(q){return q.text||'';}).join('');
@@ -1439,12 +1445,71 @@ async function aiItems(blob,text){
   function n(x,max){x=Number(x);return isFinite(x)&&x>=0&&x<=max?x:0;}
   var items=(o.items||[]).filter(function(x){return x&&x.name;}).slice(0,15).map(function(x){
     var it={name:String(x.name).slice(0,60),amount:n(x.amount,50)||1,unit:String(x.unit||'').slice(0,20),kcal:Math.round(n(x.kcal,3000)),protein:n(x.protein,10),veg:n(x.veg,10),carbs:n(x.carbs,10),fats:n(x.fats,10)};
+    if(x.drink&&DRINK_EMOJI[x.drink]){ it.drink=x.drink; if(x.sugar!=null&&isFinite(+x.sugar)) it.sugar=Math.round(n(x.sugar,500)); if(x.drink!=='dairy'){ it.protein=0; it.veg=0; it.carbs=0; it.fats=0; } }
     it.base={amount:it.amount,kcal:it.kcal,protein:it.protein,veg:it.veg,carbs:it.carbs,fats:it.fats}; return it;});
   return {items:items,tip:String(o.tip||'').slice(0,200)};
 }
+// Type a drink from a chain or brand: matches appear; pick one and its size, and
+// the calories fill in from the brand's published figures (no AI needed).
+function drinkMatches(q){
+  var L=window.KFIT_DRINKS||[]; q=String(q||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').trim(); if(q.length<3) return [];
+  var words=q.split(/\s+/).filter(Boolean);
+  return L.map(function(x){ var hay=((x.brand||'')+' '+x.name+' '+(x.aliases||[]).join(' ')).toLowerCase(); var sc=0;
+      words.forEach(function(w){ if(hay.indexOf(w)>=0) sc+=w.length; }); if((x.name||'').toLowerCase().indexOf(q)===0) sc+=5; return {x:x,sc:sc,all:words.every(function(w){return hay.indexOf(w)>=0;})}; })
+    .filter(function(o){return o.all;}).sort(function(a,b){return b.sc-a.sc;}).slice(0,5).map(function(o){return o.x;});
+}
+function drinkItem(x,sz){
+  var pal=x.type==='dairy'&&sz.protein?Math.round(sz.protein/25*4)/4:0;
+  var it={name:(x.brand&&x.name.indexOf(x.brand)<0?x.brand+' ':'')+x.name,amount:1,unit:sz.label||(sz.ml?sz.ml+' ml':''),kcal:Math.round(Number(sz.kcal)||0),protein:pal,veg:0,carbs:0,fats:0,drink:x.type,from:'list'};
+  if(sz.sugar!=null) it.sugar=sz.sugar; if(x.src) it.src=x.src; it.base={amount:1,kcal:it.kcal,protein:it.protein,veg:0,carbs:0,fats:0}; return it;
+}
+function bindDrinkSearch(ta,box,onPick){
+  if(!ta||!box) return;
+  function seg(){ var v=ta.value, i=Math.max(v.lastIndexOf(','),v.lastIndexOf('\n')); return {start:i+1,text:v.slice(i+1)}; }
+  function draw(){ var sg=seg(), ms=drinkMatches(sg.text); if(!ms.length){ box.innerHTML=''; return; }
+    box.innerHTML='<div class="card" style="padding:4px 0;gap:0;border:1px solid var(--line2)">'+ms.map(function(x,i){ var lo=Math.min.apply(null,x.sizes.map(function(z){return z.kcal;}));
+      return '<button data-dk="'+i+'" style="display:flex;justify-content:space-between;gap:8px;width:100%;background:none;border:none;border-bottom:1px solid var(--line);padding:11px 12px;color:var(--ink);text-align:left;font-size:15px"><span>'+DRINK_EMOJI[x.type]+' <b>'+esc(x.name)+'</b>'+(x.brand?' <span class="meta" style="font-weight:400">· '+esc(x.brand)+'</span>':'')+'</span><span class="meta" style="font-weight:400;white-space:nowrap">'+(x.sizes.length>1?'from ':'')+fmt(lo)+' kcal</span></button>'; }).join('')
+      +'<div class="meta" style="font-weight:400;padding:8px 12px">Not here? Keep typing and tap Next; we\'ll estimate it.</div></div>';
+    box.querySelectorAll('[data-dk]').forEach(function(b){ b.onclick=function(){ var x=ms[+b.dataset.dk]; pickSize(x,sg); }; }); }
+  function pickSize(x,sg){
+    function done(sz){ ta.value=(ta.value.slice(0,sg.start)).replace(/[,\s]+$/,''); onPick(drinkItem(x,sz)); }
+    if(x.sizes.length===1) return done(x.sizes[0]);
+    box.innerHTML='<div class="card" style="gap:8px;border:1px solid var(--line2)"><div><b>'+DRINK_EMOJI[x.type]+' '+esc(x.name)+'</b>'+(x.brand?' <span class="meta" style="font-weight:400">· '+esc(x.brand)+'</span>':'')+'</div><div class="meta" style="font-weight:400">Which size?</div>'
+      +'<div class="row" style="gap:6px;flex-wrap:wrap">'+x.sizes.map(function(z,i){return '<button class="pill" data-sz="'+i+'" style="flex:1;min-width:30%;padding:8px 6px;font-size:14px">'+esc(z.label||z.ml+' ml')+(showK()?'<br><span style="font-weight:400;font-size:12px">'+fmt(z.kcal)+' kcal</span>':'')+'</button>';}).join('')+'</div>'
+      +(x.note?'<div class="meta" style="font-weight:400;font-size:12px">'+esc(x.note)+'</div>':'')+'</div>';
+    box.querySelectorAll('[data-sz]').forEach(function(b){ b.onclick=function(){ done(x.sizes[+b.dataset.sz]); }; });
+  }
+  ta.addEventListener('input',draw); draw();
+}
+// ---------- Water: glasses a day, kept on that day's check-in ----------
+function waterOf(d){ var c=S.checkins[d]; return (c&&c.reflection&&+c.reflection.water)||0; }
+function waterGoal(){ return +(S.program&&S.program.settings&&S.program.settings.waterGoal)||8; }
+function setWater(d,n){ n=Math.max(0,Math.min(30,n)); var p=S.checkins[d]||{}, r=Object.assign({},p.reflection||{}); r.water=n;
+  var row={client_id:S.clientId,day:d,step_id:p.step_id||(hasPlan()?stepId():null),lesson_day:p.lesson_day||(hasPlan()?dayIndex()+1:null),answer:p.answer||null,lesson_read:!!p.lesson_read,reflection:r,updated_ms:now()};
+  S.checkins[d]=Object.assign({},p,row); write('nutrition_checkins',row); }
+function waterCard(el,d){
+  if(!el) return; var n=waterOf(d), g=waterGoal(), open=!!S._waterOpen||n>0;
+  var box='width:100%;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;color:var(--ink);text-align:left';
+  if(!open){ el.innerHTML='<button id="wtOpen" style="'+box+'"><span style="font-size:26px;line-height:1">💧</span><span style="flex:1"><span style="display:block;font-size:20px;font-weight:900">Add water</span><span class="meta" style="font-weight:400">Goal '+g+' glasses</span></span><span style="font-size:24px;font-weight:900;color:var(--muted)">+</span></button>';
+    $('#wtOpen').onclick=function(){ S._waterOpen=true; setWater(d,1); waterCard(el,d); }; return; }
+  var cups=''; for(var i=0;i<Math.max(g,n);i++) cups+='<button data-wg="'+i+'" aria-label="Glass '+(i+1)+'" style="width:26px;height:34px;border-radius:4px 4px 9px 9px;border:2px solid #5FA8D3;padding:0;background:'+(i<n?'linear-gradient(#5FA8D3,#3C7FA8)':'transparent')+'"></button>';
+  el.innerHTML='<div class="card" style="gap:10px;border:1px solid var(--line)"><div class="row" style="justify-content:space-between;align-items:center"><b>💧 Water'+(d===today()?' today':'')+'</b><button id="wtGoal" class="meta" style="background:none;border:none;font-weight:400;text-decoration:underline;padding:0">goal '+g+' ✎</button></div>'
+    +'<div class="row" style="gap:6px;flex-wrap:wrap">'+cups+'</div>'
+    +'<div class="row" style="justify-content:space-between;align-items:center"><span style="font-size:20px;font-weight:800">'+n+' <span class="meta" style="font-weight:400">of '+g+' glasses'+(n>=g?' 🎉':'')+'</span></span><button id="wtAdd" style="border:1px solid #5FA8D3;color:#8EC9EA;background:none;border-radius:12px;padding:9px 14px;font-weight:800;font-size:15px">+ 1 glass</button></div>'
+    +'<div class="meta" style="font-weight:400;font-size:12px">1 glass = 250 ml. Tap a glass to set the count.</div></div>';
+  $('#wtAdd').onclick=function(){ setWater(d,n+1); waterCard(el,d); };
+  el.querySelectorAll('[data-wg]').forEach(function(b){ b.onclick=function(){ var k=+b.dataset.wg; setWater(d,k+1===n?k:k+1); waterCard(el,d); }; });
+  $('#wtGoal').onclick=function(){ if(!S.program){ toast('Set up your plan first'); return; } var v=prompt('Glasses of water a day:',g); if(v===null) return; var x=parseInt(v,10); if(!(x>=1&&x<=20)) return; S.program.settings=Object.assign({},S.program.settings,{waterGoal:x}); S.program.updated_ms=now(); write('nutrition_program',programRow()); waterCard(el,d); };
+}
+// ---------- Drinks: their own line; only milk and protein drinks count on the hands card ----------
+var DRINK_EMOJI={zero:'💧',light:'🥥',home:'☕',cafe:'☕',dairy:'🥛',sugary:'🥤',alcohol:'🍷'};
+function isDrink(it){ return !!(it&&it.drink&&DRINK_EMOJI[it.drink]); }
+function drinkIcon(items){ var ds=(items||[]).filter(isDrink).map(function(it){return it.drink;}); return ds.indexOf('alcohol')>=0?'🍷':ds.indexOf('sugary')>=0?'🥤':(ds.indexOf('cafe')>=0||ds.indexOf('home')>=0)?'☕':ds.indexOf('dairy')>=0?'🥛':ds.length?'💧':''; }
+function drinksLine(items){ var dr=(items||[]).filter(isDrink); if(!dr.length) return ''; var k=dr.reduce(function(a,it){return a+(Number(it.kcal)||0);},0);
+  return drinkIcon(items)+' Drinks'+(showK()?' ~'+fmt(Math.round(k/5)*5)+' kcal':'')+' · '+dr.map(function(it){return it.name;}).join(', '); }
 function itemsFeedback(items,tip){
   var f={protein:0,veg:0,carbs:0,fats:0,kcal:0,tip:tip||''};
-  (items||[]).forEach(function(it){['protein','veg','carbs','fats'].forEach(function(k){f[k]+=Number(it[k])||0;});f.kcal+=Number(it.kcal)||0;});
+  (items||[]).forEach(function(it){ var onPlate=!isDrink(it)||it.drink==='dairy'; if(onPlate) ['protein','veg','carbs','fats'].forEach(function(k){f[k]+=Number(it[k])||0;}); f.kcal+=Number(it.kcal)||0;});
   ['protein','veg','carbs','fats'].forEach(function(k){f[k]=Math.round(f[k]*2)/2;}); f.kcal=f.kcal?Math.round(f.kcal/10)*10:null;
   return f;
 }
@@ -1464,7 +1529,7 @@ function handGuide(f,slot){
   return '<div class="card" style="border:1px solid #3D6B4F;gap:6px"><div class="steplbl" style="color:var(--leaf)">YOUR PLATE, BY YOUR HANDS</div>'+rows
     +'<div class="meta" style="font-weight:400">Use your own hand: palm for protein, fist for veg, cupped hand for carbs, thumb for fats.</div></div>';
 }
-function itemsText(items){return (items||[]).map(function(it){return it.name+' '+amtTxt(it.amount)+(it.unit?' '+it.unit:'');}).join(', ');}
+function itemsText(items){return (items||[]).map(function(it){return (isDrink(it)?DRINK_EMOJI[it.drink]+' ':'')+it.name+' '+amtTxt(it.amount)+(it.unit?' '+it.unit:'');}).join(', ');}
 function openMealForm(d,forSlot,editId){
   var em=editId&&S.meals[editId], eb=em&&em.body||{};
   var M=S._mf&&S._mf.key===(editId||'new')+d+(forSlot||'')?S._mf:{key:(editId||'new')+d+(forSlot||''),stage:em?'review':'photo',photos:[],items:em?(Array.isArray(eb.items)?JSON.parse(JSON.stringify(eb.items)):(eb.text?[(function(){var f=aggFeedback(eb)||{};var it={name:String(eb.text).slice(0,60),amount:1,unit:'',kcal:f.kcal||0,protein:f.protein||0,veg:f.veg||0,carbs:f.carbs||0,fats:f.fats||0};it.base=Object.assign({},it);return it;})()]:[])):[],tip:em?((eb.feedback||{}).tip||''):'',noPhoto:!!(em&&eb.noPhoto),edited:!!(em&&eb.edited),busy:false};
@@ -1513,11 +1578,17 @@ function openMealForm(d,forSlot,editId){
   if(M.busy){ show('<div class="screen full">'+top+'<h1>Log a meal</h1><div class="card" style="border:1px solid var(--line);align-items:center;gap:10px;padding:30px 16px"><span style="font-size:34px">🍽️</span><div class="f-meal" style="font-size:18px">Looking at your plate…</div><div class="meta" style="font-weight:400">A few seconds</div></div></div>'); return; }
   // ---- stage: no photo, type it ----
   if(M.stage==='text'){
-    show('<div class="screen full">'+top+'<h1>Log a meal</h1><div class="field"><label for="mfText">What did you have? Add amounts if you can.</label><textarea id="mfText" placeholder="2 rotis, 1 bowl dal, salad"></textarea></div>'
-      +'<button class="btn" id="mfEst">Next</button><button class="btn link" id="mfToCam" style="align-self:center">Take a photo instead</button></div>');
+    var added=M.items.filter(isDrink);
+    show('<div class="screen full">'+top+'<h1>Log a meal</h1><div class="field"><label for="mfText">What did you have? Add amounts if you can.</label><textarea id="mfText" placeholder="2 rotis, 1 bowl dal, salad · or a drink: starbucks latte, thums up, kingfisher">'+esc(M.draft||'')+'</textarea></div>'
+      +'<div id="mfDrinkSug"></div>'
+      +(added.length?'<div class="meta" style="font-weight:400">Added: '+added.map(function(it){return DRINK_EMOJI[it.drink]+' '+esc(it.name)+' ('+esc(it.unit)+')';}).join(', ')+' ✓</div>':'')
+      +'<button class="btn" id="mfEst">'+(added.length?'Next':'Next')+'</button><button class="btn link" id="mfToCam" style="align-self:center">Take a photo instead</button></div>');
     $('#mfBack').onclick=back;
-    $('#mfToCam').onclick=function(){ M.stage='photo'; M.noPhoto=false; openMealForm(d,forSlot,editId); };
-    $('#mfEst').onclick=function(){ var t=$('#mfText').value.trim(); if(!t){toast('Add a note or a photo');return;} M.noPhoto=true; analyse(null,t,false); };
+    $('#mfToCam').onclick=function(){ M.draft=$('#mfText').value; M.stage='photo'; M.noPhoto=false; openMealForm(d,forSlot,editId); };
+    $('#mfEst').onclick=function(){ var t=$('#mfText').value.trim(); M.draft='';
+      if(!t){ if(added.length){ M.noPhoto=true; M.stage='review'; openMealForm(d,forSlot,editId); return; } toast('Add a note or a photo');return; }
+      M.noPhoto=true; analyse(null,t,M.items.length>0); };
+    bindDrinkSearch($('#mfText'),$('#mfDrinkSug'),function(item){ M.items.push(item); M.draft=$('#mfText').value; openMealForm(d,forSlot,editId); });
     return;
   }
   // ---- stage 2: review the items ----
@@ -1533,12 +1604,13 @@ function openMealForm(d,forSlot,editId){
     +'<select id="mfSlot" aria-label="Which meal" style="min-height:44px;border-radius:12px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);padding:0 10px">'+['Breakfast','Morning snack','Lunch','Evening snack','Dinner','Late snack'].map(function(x){return '<option'+(x===slot?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>'
     +'<div class="steplbl">WHAT\'S ON YOUR PLATE</div>'
     +M.items.map(function(it,i){return '<div class="mcard" style="flex-direction:row;align-items:center;gap:8px;padding:8px 10px">'
-      +'<div style="flex:1;min-width:0"><button data-ren="'+i+'" style="background:none;border:none;color:var(--ink);font-weight:700;font-size:15px;padding:0;text-align:left">'+esc(it.name)+' ✎</button>'
+      +'<div style="flex:1;min-width:0"><button data-ren="'+i+'" style="background:none;border:none;color:var(--ink);font-weight:700;font-size:15px;padding:0;text-align:left">'+(isDrink(it)?DRINK_EMOJI[it.drink]+' ':'')+esc(it.name)+' ✎</button>'
       +(kOn?'<div class="meta" style="font-weight:400">~'+fmt(it.kcal||0)+' kcal</div>':'')+'</div>'
       +'<button class="round" data-dn="'+i+'" aria-label="Less" style="width:34px;height:34px">–</button>'
       +'<div class="f-time" style="min-width:74px;text-align:center">'+esc(amtTxt(it.amount)+(it.unit?' '+it.unit:''))+'</div>'
       +'<button class="round" data-up="'+i+'" aria-label="More" style="width:34px;height:34px">+</button>'
       +'<button data-rm="'+i+'" aria-label="Remove" style="background:none;border:none;color:var(--muted);font-size:18px;padding:0 4px">✕</button></div>';}).join('')
+    +(drinksLine(M.items)?'<div class="meta" style="font-weight:600;color:var(--soft)">'+esc(drinksLine(M.items))+'</div>':'')
     +handGuide(fb,slot)
     +'<div class="row" style="gap:14px;flex-wrap:wrap"><button class="btn link" id="mfMissing" style="min-height:36px">+ Something\'s missing</button><button class="btn link" id="mfMorePhoto" style="min-height:36px">+ Another photo</button></div>'
     +'<div class="card" style="border:1px solid var(--line);flex-direction:row;justify-content:space-between;align-items:center">'
@@ -1689,7 +1761,7 @@ var HINTS={
   welcome:'Start however you like: log a meal, or look at the habit plans. Nothing here is a test.',
   home:'Log a meal whenever you eat. My plan has a two-minute lesson a day. My progress holds your weekly weigh-in.',
   today:'A short lesson and one small thing to try. Your logged meals fill in your progress by themselves.',
-  log:'Your whole day, meal by meal. Tap + on any meal to snap a photo, choose one from your photos, or type it. Tap a photo to see it full size and swipe for the next. No scores, no judgement.',
+  log:'Your whole day, meal by meal. Typing a drink like "starbucks latte" or "thums up" shows matches with calories; pick the size. Tap Add water for glasses of water. Tap + on any meal to snap a photo, choose one from your photos, or type it. Tap a photo to see it full size and swipe for the next. No scores, no judgement.',
   progress:'Weigh in once a week: same scale, morning, before breakfast. Watch the line over a few weeks, not single days. Set your goal here: lose, maintain or gain.',
   journey:'Your plan, one habit at a time. Tap any habit you\'ve finished to reread its lessons.',
   chat:'Message your coach here. Replies show up in this same place. Links you send show as short tappable chips.',
