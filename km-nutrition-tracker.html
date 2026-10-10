@@ -337,7 +337,7 @@ function checkinText(){
   return h?h.checkin:null;
 }
 function habitMarks(){ return (S.program&&S.program.settings&&S.program.settings.habitMarks)||{}; }
-function habitCtx(){ var t=targets(); return {target:t&&t.maint?((S.program&&S.program.settings&&S.program.settings.goal)==='maintain'?t.maint:t.loss):null}; }
+function habitCtx(){ var t=targets(); return {target:goalKcal(t)}; }
 function autoAnswer(d){ if(!window.KFitHabit||!hasPlan()) return null; var st=S.program.step_started_on; if(st&&d<st) return null; return KFitHabit.score(stepId(),mealsOn(d).map(function(m){return m.body||{};}),habitCtx()); }
 // Your progress on the habit you're on: worked out from your meals, nothing to tap.
 function progressCard(){
@@ -353,11 +353,10 @@ function progressCard(){
   var days=[]; for(var i=0;i<=di&&i<len;i++) days.push(mealsOn(addDays(start,i)).map(function(m){return m.body||{};}));
   var tipTxt=KFitHabit.tip(id,days,habitCtx());
   var head=dn?(dn+' strong day'+(dn===1?'':'s')+(pt?' · '+pt+' partly':'')):pt?pt+' partly so far':'Log your meals and this fills in';
-  return '<div class="card" style="border:1px solid #3D6B4F;gap:8px"><div class="steplbl" style="color:var(--leaf)">YOUR PROGRESS · '+esc(String(h.title).toUpperCase())+'</div>'
-    +'<div style="font-size:17px">Day '+(di+1)+' of '+len+' · <span style="color:var(--leaf)">'+esc(head)+'</span></div>'
+  return '<div class="card" style="border:1px solid #3D6B4F;gap:8px"><div class="steplbl" style="color:var(--leaf)">THIS HABIT SO FAR</div>'
+    +'<div style="font-size:19px;font-weight:700">'+esc(head)+'</div>'
     +'<div style="display:grid;grid-template-columns:repeat('+Math.min(len,7)+',minmax(0,1fr));gap:4px">'+cells+'</div>'
-    +(tipTxt?'<div style="font-size:15px;line-height:1.45">💡 '+esc(tipTxt)+'</div>':'')
-    +'<div class="meta" style="font-weight:400">Worked out from the meals you log. Nothing to tap'+(KFitHabit.estimated(id)?'; for this habit it\'s a good guess from your plate':'')+'.</div></div>';
+    +(tipTxt?'<div style="font-size:15px;line-height:1.45">💡 '+esc(tipTxt)+'</div>':'')+'</div>';
 }
 // When a habit's days are up, the next one starts by itself (you can stay longer).
 function autoAdvance(){
@@ -666,6 +665,30 @@ async function enter(){
 // ---------- choose a plan ----------
 // Home when no plan is chosen yet: logging works straight away; the habit
 // plan is an invitation, never a gate.
+// ---------- My progress: a quiet tile on home that opens in place ----------
+function progressTile(){
+  var w=wStats(), open=!!S._progOpen;
+  var sub=w.cur!=null?(w.cur+' kg'+(w.change?' · <span style="color:'+(wGood(w.change)?'var(--leaf)':'var(--gold2,#E7CF8C)')+';font-weight:700;white-space:nowrap">'+(w.change<0?'▼ ':'▲ ')+Math.abs(w.change)+'</span>':'')+(w.pct!=null?' · '+Math.round(w.pct*100)+'% to goal':'')):'Add your first weigh-in';
+  var tag=w.due?'<span style="border:1px solid #6B5A2A;color:var(--gold);border-radius:10px;padding:3px 8px;font-size:12px;font-weight:800;white-space:nowrap;flex-shrink:0">⚖️ Weigh-in due</span>':'<span style="color:var(--muted);font-size:18px">'+(open?'▴':'▾')+'</span>';
+  var h='<button class="tile" id="hmProg" aria-expanded="'+open+'"'+(open?' style="border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom:none"':'')+'><div class="ic" style="background:#1E2433;font-size:26px">📈</div><div style="flex:1;min-width:0"><h2>My progress</h2><div class="meta" style="font-weight:400">'+sub+'</div></div>'+tag+'</button>';
+  if(!open) return h;
+  var t=targets(), k=dayKcal(today()), tg=goalKcal(t);
+  h+='<div class="card" style="border-top-left-radius:0;border-top-right-radius:0;margin-top:-12px;border-top:1px solid var(--line);gap:10px">';
+  if(w.cur!=null&&w.goal!=null&&w.pct!=null){
+    h+='<div style="height:10px;border-radius:5px;background:var(--line);position:relative"><i style="position:absolute;left:0;top:0;bottom:0;width:'+Math.round(w.pct*100)+'%;border-radius:5px;background:linear-gradient(90deg,#8FD1A2,#5FBF83)"></i></div>'
+      +'<div class="row" style="justify-content:space-between;font-size:13px;color:var(--muted)"><span>'+w.start+'</span><span style="color:var(--leaf);font-weight:700">'+Math.round(w.pct*100)+'% to goal</span><span>'+w.goal+'</span></div>';
+  } else if(w.cur!=null){ h+='<div class="meta" style="font-weight:400">Set a goal weight in Progress to see how far you\'ve come.</div>'; }
+  var chips=[]; if(w.waist) chips.push('📏 Waist '+(w.waist<0?'▼ ':'▲ ')+Math.abs(w.waist)+' cm'); if(showK()&&tg) chips.push('🔥 '+fmt(k.sum)+' / '+fmt(tg)+' kcal');
+  if(chips.length) h+='<div class="row" style="gap:6px;flex-wrap:wrap">'+chips.map(function(c){return '<span style="border:1px solid var(--line2);border-radius:14px;padding:3px 10px;font-size:13px">'+c+'</span>';}).join('')+'</div>';
+  h+='<button class="btn out" id="hmWeigh" style="min-height:46px">⚖️ '+(w.due?'Add this week\'s weight':'Update your weight')+'</button>'
+    +'<button class="btn link" id="hmProgAll" style="min-height:36px">See full progress ›</button></div>';
+  return h;
+}
+function bindProgressTile(){
+  var b=$('#hmProg'); if(b) b.onclick=function(){ S._progOpen=!S._progOpen; renderHome(); };
+  var wb=$('#hmWeigh'); if(wb) wb.onclick=function(){ openWeekly(); };
+  var al=$('#hmProgAll'); if(al) al.onclick=function(){ go('progress'); };
+}
 function renderHome(){
   S.tab='home';
   var name=(legacyName()||localStorage.getItem(LS.name)||'').split(' ')[0];
@@ -681,19 +704,20 @@ function renderHome(){
     +'<button class="tile main" id="hmLog"><div class="ic" style="background:#23382B;color:var(--leaf)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div><div style="flex:1"><h2>Log a meal</h2><div class="meta" style="font-weight:400">'+(todays.length?todays.length+' logged today':'Your day, meal by meal')+'</div>'+kcalBar(today())+'</div></button>'
     +'<button class="tile" id="hmPlan"><div class="ic" style="background:#3A2A1E;color:var(--terra)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M6 20c0-5 12-3 12-9S9 6 9 3"/><circle cx="9" cy="3" r="1"/><circle cx="6" cy="20" r="1"/></svg></div><div><h2>My plan</h2><div class="meta" style="font-weight:400">'+esc(planSub)+'</div></div></button>';
   if(anyNotes&&hasCoach()) html+='<button class="tile" id="hmCoach" style="border-color:#6B5A2A;padding:13px 16px"><div style="font-size:15px">'+(unread?'<b style="color:var(--gold)">'+unread+' new note'+(unread===1?'':'s')+' from your coach</b>':'<b style="color:var(--gold)">From your coach</b>')+' <span style="color:var(--muted)">· tap to read</span></div></button>';
-  html+=movedCard()+'<div id="pushCard"></div><div class="links">'+(dueWeekly()?'<button data-go="weekly" style="border-color:#6B5A2A;color:var(--gold)">'+(consultSoon()?'Before your consult ✨':'Weekly check-in')+'</button>':'')
-    +(hasCoach()?'<button data-go="consults">Consults</button>':'')+'<button data-go="guide">Food guide</button><button data-go="progress">Progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')
-    +(hasCoach()?'<button data-go="chat">'+(S.unread?'Chat ('+S.unread+' new)':'Chat')+'</button>':'')+'</div>'+(hasCoach()?'':wantCoachCard())+'</div>';
+  html+=progressTile();
+  html+=movedCard()+'<div id="pushCard"></div><div class="links">'
+    +'<button data-go="guide">📖 Food guide</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Earlier log</button>':'')
+    +(hasCoach()?'<button data-go="chat">'+(S.unread?'💬 Chat ('+S.unread+' new)':'💬 Chat')+'</button>':'')+'</div>'+(hasCoach()?'':wantCoachCard())+'</div>';
   show(html);
   var hj=$('#hmJoin'); if(hj) hj.onclick=openCoachLink;
-  bindMoved();
+  bindMoved(); bindProgressTile();
   $('#hmLog').onclick=function(){go('log');};
   $('#hmPlan').onclick=function(){go('plan');};
   var hc=$('#hmCoach'); if(hc) hc.onclick=function(){go('coach');};
   $('#hmOut').onclick=logOut;
   var hl=$('#hmLang'); if(hl) hl.onclick=function(){var bx=$('#hmLangBox');bx.style.display=bx.style.display==='none'?'block':'none';};
   bindLangChips();
-  try{ if(window.KFitClientPush) KFitClientPush.card($('#pushCard'),{sb:sb,mobile:S.mobile,app:'nutrition',compact:true}); }catch(e){}
+  try{ if(window.KFitClientPush) KFitClientPush.card($('#pushCard'),{sb:sb,mobile:S.mobile,app:'nutrition',line:true}); }catch(e){}
   (S.week!==undefined?Promise.resolve(S.week):loadWeek()).then(function(w){
     if(!w||S.tab!=='home'||S.view) return; var we=(w.data&&w.data.week_end)||addDays(w.week_start,6); if(addDays(we,6)<today()) return;
     var box=document.getElementById('pushCard'); if(!box||document.getElementById('wkCard')) return;
@@ -949,30 +973,22 @@ function renderToday(){
   var bar=stepCheckins().map(function(x,i){return '<i class="'+(x==='done'?'d':x==='partly'?'p':'')+'"></i>';}).join('');
   var title=id==='reset'?'7-day Reset':(h.n?'Habit '+h.n+' · ':'')+h.title;
   var html='<div class="screen">'
-    +'<div style="display:flex;flex-direction:column;gap:8px">'+head('Your day',esc(title)+' · Day '+(di+1)+' of '+len)+'<div class="bar">'+bar+'</div></div>'+hint('today')+movedCard()+progressCard()+ladder();
+    +'<div style="display:flex;flex-direction:column;gap:8px">'+head('Your day',esc(title)+' · Day '+(di+1)+' of '+len)+'<div class="bar">'+bar+'</div></div>'+hint('today')+movedCard()+progressCard();
   if(l.type==='reflect'){
-    html+='<button class="card" style="border:1px solid var(--line);text-align:left" id="tdLesson"><div class="steplbl">1 · '+(l.decision?'TIME TO DECIDE':'LOOK BACK')+'</div><h2>'+esc(l.title)+'</h2>'
+    html+='<button class="card" style="border:1px solid var(--line);text-align:left" id="tdLesson"><div class="steplbl">'+(l.decision?'TIME TO DECIDE':'LOOK BACK')+'</div><h2>'+esc(l.title)+'</h2>'
       +'<div class="body" style="font-size:15px">A few gentle questions'+(l.decision?', then you choose what\'s next.':'.')+'</div>'
       +'<div style="font-weight:700;color:var(--leaf)">Open →</div></button>';
   } else {
-    html+='<button class="card" style="border:1px solid var(--line);text-align:left" id="tdLesson"><div class="steplbl">1 · READ · 2 MIN</div><h2>'+esc(l.title)+'</h2>'
+    html+='<button class="card" style="border:1px solid var(--line);text-align:left" id="tdLesson"><div class="steplbl">TODAY\'S LESSON · 2 MIN</div><h2>'+esc(l.title)+'</h2>'
       +'<div class="body" style="font-size:15px">'+esc((l.read||[])[0]||'')+'</div>'
       +'<div class="row" style="gap:18px;font-weight:700;color:var(--leaf)"><span>Read →</span>'
       +(di===0&&h.explainer?'<span id="tdVideo" role="button">Watch the explainer</span>':'')+'</div></button>';
   }
-  html+='<div class="tint" style="border:1px solid #2C4234"><div class="steplbl" style="color:var(--leaf)">2 · TRY TODAY</div><div style="font-size:16px;line-height:1.45;margin-top:4px">'+esc(l.action)+'</div></div>';
-  var nm=mealsOn(today()).length;
-  html+='<button class="card" id="tdMeal" style="border:1px solid var(--line);text-align:left"><div class="steplbl">3 · LOG YOUR MEALS</div><div style="font-size:16px">'+(nm?nm+' logged today':'Nothing logged yet today')+' · <b style="color:var(--leaf)">Log a meal</b></div>'+kcalLine(today())+'</button>';
-  if(q){
-    html+='<div class="card" style="border:1px solid var(--line)"><div class="steplbl">4 · TONIGHT, HOW DID IT GO? (OPTIONAL)</div>'+kcalLine(today())+'<div style="font-size:17px;line-height:1.4;font-weight:600">'+esc(q)+'</div><div class="grid3">'
-      +[['done','Done'],['partly','Partly'],['not','Not today']].map(function(o){return '<button class="pill'+(c.answer===o[0]?' on':'')+'" data-a="'+o[0]+'">'+o[1]+'</button>';}).join('')
-      +'</div>'+(c.answer?'<div class="meta">'+(c.answer==='done'?'Lovely. See you tomorrow.':c.answer==='partly'?'Partly counts. Every bit adds up.':'That\'s okay. Tomorrow is a fresh start.')+'</div>':'')+'</div>';
-  }
-  html+='<button class="btn link" id="tdJourney" style="align-self:flex-start">See your journey</button>';
+  html+='<div class="tint" style="border:1px solid #2C4234"><div class="steplbl" style="color:var(--leaf)">TRY TODAY</div><div style="font-size:16px;line-height:1.45;margin-top:4px">'+esc(l.action)+'</div></div>';
+  html+=ladder().replace('<details class="card" style="border:1px solid var(--line);gap:8px">','<details style="gap:8px">')+'<button class="btn link" id="tdJourney" style="align-self:flex-start">See your journey</button>';
   if(S.program.settings&&S.program.settings.coachHold) html+='<div class="meta">Your coach has asked you to stay with this habit a little longer.</div>';
   html+='</div>';
   show(html,{tabs:true});
-  $('#tdMeal').onclick=function(){S._logDay=today();go('log');};
   $('#tdJourney').onclick=function(){go('journey');};
   bindMoved();
   $('#tdLesson').onclick=function(e){ if(e.target&&e.target.id==='tdVideo') return; openLesson(); };
@@ -1249,7 +1265,7 @@ function renderLog(){
     +'<div class="card" style="border:1px solid var(--line);flex-direction:row;gap:14px;align-items:center">'+kcalRing(d)+habit+'</div>';
   var dayNotes=commentsFor(d,null);
   if(!isToday&&S._fullDay!==d){
-    var kk=dayKcal(d), t2=targets(), tg2=t2&&t2.maint?((S.program&&S.program.settings&&S.program.settings.goal)==='maintain'?t2.maint:t2.loss):null;
+    var kk=dayKcal(d), t2=targets(), tg2=goalKcal(t2);
     var cc2=S.checkins[d], notes2=(S.comments||[]).filter(function(c){return c.day===d&&c.author==='coach';}).length;
     html+='<button class="mcard" id="lgFull" style="gap:6px"><div class="row" style="justify-content:space-between;align-items:center"><span class="f-meal" style="font-size:20px">'+esc(dateTxt)+'</span>'
       +(cc2&&cc2.answer?'<span style="color:'+(cc2.answer==='done'?'var(--leaf)':'var(--gold)')+';font-size:14px">Habit '+({done:'done ✓',partly:'partly',not:'not done'}[cc2.answer])+'</span>':'')+'</div>'
@@ -1437,13 +1453,13 @@ function itemsFeedback(items,tip){
 function handGuide(f,slot){
   if(!f||!((f.protein||0)+(f.veg||0)+(f.carbs||0)+(f.fats||0))) return '';
   var p=profile()||{}, men=String(p.sex||'').toLowerCase().indexOf('m')===0, snack=/snack/i.test(slot||'');
-  var loss=((S.program&&S.program.settings&&S.program.settings.goal)||'lose')!=='maintain';
+  var gain=goalOf()==='gain';
   var base=men?2:1; if(snack) base=base/2;
-  var T={protein:base,veg:base,carbs:base,fats:base};
+  var T={protein:base,veg:base,carbs:base+(gain?(snack?0.5:1):0),fats:base};
   var L=[['protein','✋','Protein','palm','add egg, dal or paneer'],['veg','✊','Veg','fist','add a salad or sabzi'],['carbs','🤲','Carbs','cupped hand','less roti or rice'],['fats','👍','Fats','thumb','less oil or ghee']];
   function n(x){ return x===0.5?'½':x===0.25?'¼':x===1.5?'1½':String(x); }
   var rows=L.map(function(r){ var have=Number(f[r[0]])||0, want=T[r[0]], low=have<want*0.75, high=have>want*1.6;
-    var say=low&&(r[0]==='protein'||r[0]==='veg')?'<span style="color:var(--gold)">'+r[4]+'</span>':high&&(r[0]==='carbs'||r[0]==='fats')?'<span style="color:var(--gold)">'+r[4]+'</span>':'<span style="color:var(--leaf)">good</span>';
+    var say=gain&&low&&r[0]==='carbs'?'<span style="color:var(--gold)">add roti, rice or poha</span>':low&&(r[0]==='protein'||r[0]==='veg')?'<span style="color:var(--gold)">'+r[4]+'</span>':high&&(r[0]==='carbs'||r[0]==='fats')?'<span style="color:var(--gold)">'+r[4]+'</span>':'<span style="color:var(--leaf)">good</span>';
     return '<div class="row" style="gap:8px;font-size:14px;align-items:baseline"><span style="width:84px;flex-shrink:0">'+r[1]+' '+r[2]+'</span><span class="f-time" style="flex-shrink:0">'+n(have)+' of '+n(want)+'</span><span style="flex:1;text-align:right">'+say+'</span></div>'; }).join('');
   return '<div class="card" style="border:1px solid #3D6B4F;gap:6px"><div class="steplbl" style="color:var(--leaf)">YOUR PLATE, BY YOUR HANDS</div>'+rows
     +'<div class="meta" style="font-weight:400">Use your own hand: palm for protein, fist for veg, cupped hand for carbs, thumb for fats.</div></div>';
@@ -1671,22 +1687,25 @@ function openGuide(first){
 }
 var HINTS={
   welcome:'Start however you like: log a meal, or look at the habit plans. Nothing here is a test.',
-  home:'Just two things: Log a meal whenever you eat, and My plan for your daily two-minute lesson. Your plan moves forward on its own.',
-  today:'Your day in four steps: read the short lesson, try the small action, log your meals, and tonight tap how it went. Forgot to tap? Your logged meals fill it in for you.',
+  home:'Log a meal whenever you eat. My plan has a two-minute lesson a day. My progress holds your weekly weigh-in.',
+  today:'A short lesson and one small thing to try. Your logged meals fill in your progress by themselves.',
   log:'Your whole day, meal by meal. Tap + on any meal to snap a photo, choose one from your photos, or type it. Tap a photo to see it full size and swipe for the next. No scores, no judgement.',
-  progress:'Once a week, add your waist and weight. Watch the direction over a few weeks, not single days.',
+  progress:'Weigh in once a week: same scale, morning, before breakfast. Watch the line over a few weeks, not single days. Set your goal here: lose, maintain or gain.',
   journey:'Your plan, one habit at a time. Tap any habit you\'ve finished to reread its lessons.',
   chat:'Message your coach here. Replies show up in this same place. Links you send show as short tappable chips.',
   lesson:'Tap Listen to hear this read aloud. Tap Got it when you\'re done.',
   reflect:'These questions are just for you, and all optional. Then choose what feels right: move on, or stay a little longer.'
 };
 function hint(key){
-  if(!HINTS[key]||localStorage.getItem('kfnc_hint_'+key)) return '';
+  // each tip shows during one visit only; after that it lives under the ? button
+  window._kfHs=window._kfHs||{};
+  if(!HINTS[key]||(localStorage.getItem('kfnc_hint_'+key)&&!window._kfHs[key])) return '';
+  window._kfHs[key]=1; try{ localStorage.setItem('kfnc_hint_'+key,'1'); }catch(e){}
   return '<div class="hint" data-hint="'+key+'"><p>'+esc(HINTS[key])+'</p><div class="row">'
     +('speechSynthesis' in window?'<button data-hint-say="'+key+'">Listen</button>':'')+'<button data-hint-ok="'+key+'">Got it</button></div></div>';
 }
 function bindHelp(){
-  document.querySelectorAll('[data-hint-ok]').forEach(function(b){b.onclick=function(){stopSpeech();localStorage.setItem('kfnc_hint_'+b.dataset.hintOk,'1');var c=b.closest('.hint');if(c)c.remove();};});
+  document.querySelectorAll('[data-hint-ok]').forEach(function(b){b.onclick=function(){stopSpeech();localStorage.setItem('kfnc_hint_'+b.dataset.hintOk,'1');if(window._kfHs) window._kfHs[b.dataset.hintOk]=0;var c=b.closest('.hint');if(c)c.remove();};});
   document.querySelectorAll('[data-hint-say]').forEach(function(b){b.onclick=function(){speak([HINTS[b.dataset.hintSay]]);};});
   document.querySelectorAll('.helpbtn').forEach(function(b){b.onclick=function(){openGuide(false);};});
   document.querySelectorAll('[data-home]').forEach(function(b){b.onclick=function(){go('home');};});
@@ -1710,8 +1729,31 @@ function targets(){
   var act=ACTIVITY.filter(function(a){return a[0]===p.activity;})[0]; var mult=act?act[2]:1.2;
   var maint=Math.round(base*mult/50)*50, floor=p.sex==='male'?1500:p.sex==='female'?1200:1350;
   var loss=Math.max(floor,Math.round(maint*0.82/50)*50);
-  return {maint:maint,loss:Math.min(loss,maint),floor:floor};
+  return {maint:maint,loss:Math.min(loss,maint),gain:Math.round(maint*1.1/50)*50,floor:floor};
 }
+// Goal: lose / maintain / gain. Clients set it themselves; once their coach
+// sets it in Merge it's locked for them (the coach's choice counts).
+function goalOf(){ var g=(S.program&&S.program.settings&&S.program.settings.goal)||'loss'; return g==='lose'?'loss':g; }
+function goalKcal(t){ if(!t||!t.maint) return null; var g=goalOf(); return g==='maintain'?t.maint:g==='gain'?t.gain:t.loss; }
+function goalWeight(){ var v=S.program&&S.program.settings&&S.program.settings.goalWeight; return v?+v:null; }
+function goalLocked(){ var st=S.program&&S.program.settings||{}; return st.goalBy==='coach'&&hasCoach(); }
+function setGoal(ch){ if(!S.program) return; S.program.settings=Object.assign({},S.program.settings,ch,{goalBy:'client'}); S.program.updated_ms=now(); write('nutrition_program',programRow()); }
+// Weight progress from the weekly weigh-ins.
+function wStats(){
+  var ms=measures(), ws=ms.filter(function(x){return x.m.weight;}), wa=ms.filter(function(x){return x.m.waist;});
+  var p=profile()||{}, st=(S.program&&S.program.settings)||{};
+  var cur=ws.length?+ws[0].m.weight:null, first=ws.length?ws[ws.length-1]:null;
+  var start=st.startWeight?+st.startWeight:first?+first.m.weight:(p.weight?+p.weight:null), startDay=first?first.day:null;
+  if(cur==null) return {cur:null,start:start,goal:goalWeight(),n:0,due:dueWeekly()};
+  var goal=goalWeight(), change=Math.round((cur-start)*10)/10, prev=ws[1]?+ws[1].m.weight:null;
+  var pct=null; if(goal!=null&&start!=null&&start!==goal){ pct=Math.max(0,Math.min(1,(start-cur)/(start-goal))); }
+  var weeks=startDay?Math.max(1,Math.round(daysBetween(startDay,ws[0].day)/7)):0;
+  var waist=wa.length>1?Math.round((+wa[0].m.waist-+wa[wa.length-1].m.waist)*10)/10:null;
+  return {cur:cur,start:start,goal:goal,change:change,week:prev!=null?Math.round((cur-prev)*10)/10:null,pct:pct,weeks:weeks,waist:waist,n:ws.length,lastDay:ws[0].day,due:dueWeekly(),list:ws};
+}
+// "good" direction depends on the goal
+function wGood(d){ var g=goalOf(); return g==='gain'?d>0:g==='maintain'?Math.abs(d)<=1:d<0; }
+function wArrow(d){ return (d<0?'▼ ':d>0?'▲ ':'')+Math.abs(d)+' kg'; }
 function dayKcal(d){
   var sum=0,n=0; Object.keys(S.meals).forEach(function(k){var m=S.meals[k];if(m.day!==d||m.deleted||!m.body)return;var f=aggFeedback(m.body);if(f&&f.kcal){sum+=f.kcal;n++;}});
   return {sum:sum,n:n};
@@ -1728,7 +1770,7 @@ function handsBox(d){
 }
 function kcalRing(d,size){
   if(!showK()) return handsBox(d);
-  size=size||96; var k=dayKcal(d), t=targets(), tgt=t&&t.maint?((S.program&&S.program.settings&&S.program.settings.goal)==='maintain'?t.maint:t.loss):null;
+  size=size||96; var k=dayKcal(d), t=targets(), tgt=goalKcal(t);
   var r=size/2-8, c=2*Math.PI*r, pct=tgt?Math.min(1,k.sum/tgt):0, over=tgt&&k.sum>tgt;
   return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" role="img" aria-label="'+fmt(k.sum)+' of '+(tgt?fmt(tgt):'?')+' calories"><circle cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="#2E2F28" stroke-width="9"/>'
     +'<circle cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="'+(over?'#E39A6E':'#C9A24A')+'" stroke-width="9" stroke-linecap="round" stroke-dasharray="'+(c*pct).toFixed(1)+' '+c.toFixed(1)+'" transform="rotate(-90 '+size/2+' '+size/2+')" style="transition:stroke-dasharray .6s"/>'
@@ -1744,7 +1786,7 @@ function weekDots(d){
 function kcalBar(d){
   if(!showK()) return '';
   var k=dayKcal(d), t=targets(); if(!k.n&&!(t&&t.maint)) return '';
-  var tgt=t&&t.maint?((S.program&&S.program.settings&&S.program.settings.goal)==='maintain'?t.maint:t.loss):null;
+  var tgt=goalKcal(t);
   var pct=tgt?Math.min(100,Math.round(k.sum/tgt*100)):0;
   return '<div style="margin-top:8px;font-size:13px;color:var(--soft)">Today: <b style="color:var(--gold)">'+fmt(k.sum)+'</b>'+(tgt?' of ~'+fmt(tgt):'')+' kcal · estimate</div>'
     +(tgt?'<div style="height:6px;border-radius:3px;background:var(--line);margin-top:6px"><div style="width:'+pct+'%;height:6px;border-radius:3px;background:var(--gold)"></div></div>':'');
@@ -1753,7 +1795,7 @@ function fmt(n){return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
 function kcalLine(d,big){
   var k=dayKcal(d), t=targets();
   if(!k.n&&!(t&&t.maint)) return '';
-  var tgt=t&&t.maint?(S.program&&S.program.settings&&S.program.settings.goal==='maintain'?t.maint:t.loss):null;
+  var tgt=goalKcal(t);
   var txt=(d===today()?'Today so far: ':'This day: ')+'about '+fmt(k.sum)+' kcal'+(tgt?' of ~'+fmt(tgt):'');
   return '<div class="meta" style="font-weight:'+(big?'700':'400')+';text-align:center">'+txt+' <span style="font-weight:400">· estimate, for reference</span></div>';
 }
@@ -1765,27 +1807,61 @@ function measures(){
 }
 function dueWeekly(){ var l=lastWeeklyDay(); if(consultSoon()) return !l||daysBetween(l,today())>=3; return !l||daysBetween(l,today())>=7; }
 function renderProgress(){
-  S.tab='log'; S.view=null;
-  var list=measures(), rows=list.map(function(x,i){
-    var prev=list[i+1], dw=prev&&x.m.waist&&prev.m.waist?Math.round((x.m.waist-prev.m.waist)*10)/10:null;
-    return '<div class="card" style="flex-direction:row;justify-content:space-between;align-items:center"><div><div style="font-weight:700">'+esc(parseD(x.day).toDateString().slice(4,10))+'</div>'
-      +'<div class="meta" style="font-weight:400">'+(x.m.waist?'Waist '+esc(x.m.waist)+' cm':'')+(x.m.waist&&x.m.weight?' · ':'')+(x.m.weight?'Weight '+esc(x.m.weight)+' kg':'')+'</div></div>'
-      +(dw!=null?'<div class="meta">'+(dw>0?'+':'')+dw+' cm</div>':'')+'</div>';
-  }).join('');
-  show('<div class="screen">'+head('Your log')+logSwitch('progress')+hint('progress')
-    +'<div class="body" style="font-size:15px"><p style="margin:0">Look at the direction over a few weeks, not any single number. Bodies go up and down day to day.</p></div>'
-    +calorieCard()
-    +'<button class="btn" id="pgAdd">Add this week\'s check-in</button>'
-    +(rows||'<div class="card"><div class="body" style="font-size:15px">No check-ins yet. Your first one is your starting point.</div></div>')
-    +'</div>',{tabs:true});
-  bindLogSwitch();
+  S.tab='progress'; S.view=null;
+  var w=wStats(), t=targets(), p=profile(), g=goalOf(), locked=goalLocked(), tg=goalKcal(t);
+  // weight graph (last 12 weigh-ins)
+  var pts=(w.list||[]).slice(0,12).reverse(), graph='';
+  if(pts.length>=2){
+    var vals=pts.map(function(x){return +x.m.weight;}); if(w.goal!=null) vals.push(w.goal);
+    var lo=Math.min.apply(null,vals)-0.5, hi=Math.max.apply(null,vals)+0.5, W2=320, H2=130, n=pts.length;
+    function X(i){return 20+i*(W2-40)/Math.max(1,n-1);} function Y(v){return 18+(hi-v)/(hi-lo)*(H2-34);}
+    graph='<svg width="100%" viewBox="0 0 '+W2+' '+(H2+16)+'" role="img" aria-label="Weight over time">'
+      +(w.goal!=null?'<line x1="10" y1="'+Y(w.goal)+'" x2="'+(W2-10)+'" y2="'+Y(w.goal)+'" stroke="#8FD1A2" stroke-dasharray="4 5" opacity=".6"/><text x="'+(W2-10)+'" y="'+(Y(w.goal)-5)+'" text-anchor="end" font-size="11" fill="#8FD1A2">goal '+w.goal+'</text>':'')
+      +'<polyline points="'+pts.map(function(x,i){return X(i)+','+Y(+x.m.weight);}).join(' ')+'" fill="none" stroke="#C9A24A" stroke-width="3" stroke-linejoin="round"/>'
+      +pts.map(function(x,i){var last=i===n-1;return '<circle cx="'+X(i)+'" cy="'+Y(+x.m.weight)+'" r="'+(last?6:4)+'" fill="#C9A24A"'+(last?' stroke="#1D1D19" stroke-width="3"':'')+'/>'
+        +((n<=6||i===0||last)?'<text x="'+X(i)+'" y="'+(Y(+x.m.weight)-10)+'" text-anchor="middle" font-size="12" fill="#F2EFE8"'+(last?' font-weight="800"':'')+'>'+x.m.weight+'</text>':'');}).join('')
+      +'<text x="'+X(0)+'" y="'+(H2+12)+'" text-anchor="middle" font-size="11" fill="#9C978A">'+esc(parseD(pts[0].day).toDateString().slice(4,10))+'</text>'
+      +'<text x="'+X(n-1)+'" y="'+(H2+12)+'" text-anchor="middle" font-size="11" fill="#9C978A">'+esc(parseD(pts[n-1].day).toDateString().slice(4,10))+'</text></svg>';
+  }
+  var strong=0; try{ var st0=(S.program&&S.program.started_on)||null; if(st0){ for(var d=st0,c=0; d<=today()&&c<400; d=addDays(d,1),c++) if(effAnswer(d)==='done') strong++; } }catch(e){}
+  function stat(lbl,val,unit,col){ return '<div class="card" style="padding:12px 6px;align-items:center;gap:2px;margin:0"><div class="meta" style="font-weight:400;font-size:13px">'+lbl+'</div><div class="f-meal" style="font-size:26px;color:'+(col||'var(--ink)')+'">'+val+'</div><div class="meta" style="font-weight:400;font-size:12px">'+unit+'</div></div>'; }
+  var html='<div class="screen">'+head('Your progress')
+    +'<div class="card" style="gap:6px"><div class="row" style="justify-content:space-between;align-items:baseline"><div class="cap">WEIGHT</div>'+(w.change?'<div style="font-weight:800;color:'+(wGood(w.change)?'var(--leaf)':'var(--gold)')+'">'+wArrow(w.change)+'</div>':'')+'</div>'
+    +(graph||'<div class="body" style="font-size:15px">'+(w.cur!=null?'Your line appears after your second weigh-in. Current: <b>'+w.cur+' kg</b>.':'Your first weigh-in is your starting point.')+'</div>')+'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">'
+    +stat('Weight',w.change!=null&&w.n>1?(w.change>0?'+':w.change<0?'−':'')+Math.abs(w.change):'–','kg',w.change&&w.n>1?(wGood(w.change)?'var(--leaf)':'var(--gold)'):null)
+    +stat('Waist',w.waist!=null?(w.waist>0?'+':w.waist<0?'−':'')+Math.abs(w.waist):'–','cm',w.waist?(w.waist<0?'var(--leaf)':'var(--gold)'):null)
+    +stat('Habit days',strong,'strong','var(--gold)')+'</div>'
+    +'<button class="btn out" id="pgAdd">⚖️ '+(w.due?'Add this week\'s weight':'Update your weight')+'</button>';
+  // goal
+  html+='<div class="card" style="gap:10px"><div class="row" style="justify-content:space-between;align-items:center"><div class="cap">YOUR GOAL</div>'
+    +(locked?'<span class="meta" style="font-weight:400">🔒 set by your coach</span>':(tg&&showK()?'<span class="meta" style="font-weight:400">~'+fmt(tg)+' kcal a day</span>':''))+'</div>';
+  if(locked){
+    html+='<div style="font-size:18px"><b>'+({loss:'Lose',maintain:'Maintain',gain:'Gain'}[g])+'</b>'+(w.goal!=null?' · goal weight <b>'+w.goal+' kg</b>':'')+(tg&&showK()?' · ~'+fmt(tg)+' kcal':'')+'</div>'
+      +'<div class="meta" style="font-weight:400">Want to change it? <a href="#" id="pgAskCoach" style="color:var(--leaf)">Message your coach</a></div>';
+  } else {
+    html+='<div class="grid3">'+[['loss','Lose'],['maintain','Maintain'],['gain','Gain']].map(function(o){return '<button class="pill'+(g===o[0]?' on':'')+'" data-goal="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div>'
+      +'<div class="row" style="gap:10px;align-items:center"><label for="pgGoalW" style="font-size:15px;flex:1">Goal weight</label><input id="pgGoalW" inputmode="decimal" placeholder="kg" value="'+(w.goal!=null?w.goal:'')+'" style="width:110px;text-align:center;min-height:44px;border-radius:12px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);font-size:16px;font-family:inherit"></div>'
+      +(g==='gain'?'<div class="meta" style="font-weight:400">Gaining: a small surplus (about 10% over maintenance), a palm of protein at every meal, and strength training 2–4 times a week. Aim for about ¼–½ kg a month.</div>':'');
+  }
+  html+='<details><summary class="meta" style="cursor:pointer;font-weight:700">Your details</summary><div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">'
+    +(p?'<div class="meta" style="font-weight:400">'+esc(heightText(p.height))+' · '+esc(latestWeight()||p.weight)+' kg'+(t&&t.maint?' · maintenance ~'+fmt(t.maint)+' kcal':'')+'</div>':'')
+    +'<label class="row" style="justify-content:space-between;align-items:center;font-size:15px"><span>Show calories in the app</span><input type="checkbox" id="pgShowK"'+(showK()?' checked':'')+' style="width:22px;height:22px"></label>'
+    +'<button class="btn link" id="pgProfile" style="align-self:flex-start">Edit your details</button></div></details></div>';
+  if(w.list&&w.list.length){
+    var ms=measures();
+    html+='<details class="card"><summary style="cursor:pointer;font-weight:700">All weigh-ins ('+ms.length+')</summary>'
+      +ms.map(function(x){ return '<div class="row" style="justify-content:space-between;border-top:1px solid var(--line);padding-top:8px;margin-top:8px"><b>'+esc(parseD(x.day).toDateString().slice(4,10))+'</b><span class="meta" style="font-weight:400">'+(x.m.weight?x.m.weight+' kg':'')+(x.m.weight&&x.m.waist?' · ':'')+(x.m.waist?x.m.waist+' cm':'')+'</span></div>'; }).join('')+'</details>';
+  }
+  if(hasCoach()) html+='<button class="card" data-go="consults" style="flex-direction:row;justify-content:space-between;text-align:left;font-weight:700;font-size:16px;color:var(--ink);border:1px solid var(--line);width:100%">Consults <span class="meta">›</span></button>';
+  html+='</div>';
+  show(html,{tabs:true});
   $('#pgAdd').onclick=function(){openWeekly();};
   var ed=$('#pgProfile'); if(ed) ed.onclick=function(){renderProfile(false);};
-  document.querySelectorAll('[data-goal]').forEach(function(b){b.onclick=function(){
-    S.program.settings=Object.assign({},S.program.settings,{goal:b.dataset.goal}); S.program.updated_ms=now();
-    write('nutrition_program',programRow()); renderProgress();
-  };});
-  try{ if(window.KFitClientPush){ var sc=document.querySelector('.screen'), pc=document.createElement('div'); pc.id='pushCardP'; sc.appendChild(pc); KFitClientPush.card(pc,{sb:sb,mobile:S.mobile,app:'nutrition',nudge:true}); } }catch(e){}
+  document.querySelectorAll('[data-goal]').forEach(function(b){b.onclick=function(){ setGoal({goal:b.dataset.goal}); renderProgress(); };});
+  var gw=$('#pgGoalW'); if(gw) gw.onchange=function(){ var v=parseFloat(String(gw.value).replace(',','.')); setGoal({goalWeight:isFinite(v)&&v>=25&&v<=350?Math.round(v*10)/10:null}); renderProgress(); };
+  var ac=$('#pgAskCoach'); if(ac) ac.onclick=function(e){ e.preventDefault(); go('chat'); };
+  document.querySelectorAll('[data-go]').forEach(function(b){ b.onclick=function(){ go(b.dataset.go); }; });
   var sk=$('#pgShowK'); if(sk) sk.onchange=function(){ S.program.settings=Object.assign({},S.program.settings,{showKcal:sk.checked}); S.program.updated_ms=now(); write('nutrition_program',programRow()); renderProgress(); };
 }
 function calorieCard(){
@@ -2002,38 +2078,64 @@ async function syncLegacy(){
 function lastWeeklyDay(){ var best=null; Object.keys(S.checkins||{}).forEach(function(d){ var r=(S.checkins[d]||{}).reflection||{}; if((r.weekly||r.measure)&&(!best||d>best)) best=d; }); return best; }
 function consultSoon(){ return S.nextConsult&&daysBetween(today(),S.nextConsult)>=0&&daysBetween(today(),S.nextConsult)<=1; }
 function openWeekly(){
-  var p0=(S.checkins[today()]||{}).reflection||{}, cur=Object.assign({},p0.measure||{},S._wkNums||{}), W=S._wk||(S._wk=Object.assign({},p0.weekly||{})), pre=consultSoon();
+  var p0=(S.checkins[today()]||{}).reflection||{}, W=S._wk||(S._wk=Object.assign({},p0.weekly||{})), pre=consultSoon();
+  var ws=wStats(), last=ws.cur;
+  var N=S._wkNums||(S._wkNums={weight:(p0.measure&&p0.measure.weight)||last||'',waist:(p0.measure&&p0.measure.waist)||''});
   S.view=openWeekly;
-  function faces(key,arr){ return '<div class="row" style="gap:8px">'+arr.map(function(x){return '<button data-wq="'+key+'" data-wv="'+x[0]+'" style="flex:1;font-size:'+(x[1].length<=2?'26px':'13px')+';font-weight:700;min-height:48px;border-radius:12px;color:var(--ink);border:'+(W[key]===x[0]?'2px solid var(--gold);background:#2A2618':'1px solid var(--line2);background:none')+'">'+x[1]+'</button>';}).join('')+'</div>'; }
-  show('<div class="screen full"><div class="top"><button class="round" id="wkBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><span></span></div>'
-    +'<h1>'+(pre?'Before your consult ✨':'Weekly check-in')+'</h1>'
-    +'<div class="body" style="font-size:15px"><p style="margin:0">'+(pre?'About a minute. Your coach reads this before you talk.':'About a minute, once a week.')+' Everything is optional.</p></div>'
-    +'<div class="field"><label>This week, how full did meals keep you?</label>'+faces('full',[[1,'😕'],[2,'😐'],[3,'🙂']])+'</div>'
+  function faces(key,arr){ return '<div class="row" style="gap:8px">'+arr.map(function(x){return '<button data-wq="'+key+'" data-wv="'+x[0]+'" style="flex:1;font-size:'+(x[1].length<=2?'24px':'13px')+';font-weight:700;min-height:48px;border-radius:12px;color:var(--ink);border:'+(W[key]===x[0]?'2px solid var(--gold);background:#2A2618':'1px solid var(--line2);background:none')+'">'+x[1]+'</button>';}).join('')+'</div>'; }
+  var stepBtn='width:56px;height:56px;border-radius:14px;border:1px solid var(--line2);background:none;color:var(--ink);font-size:26px;flex-shrink:0';
+  var more=!!(W.cravings||W.stress||W.win||W.struggle);
+  show('<div class="screen full"><button class="btn link" data-home style="align-self:flex-start;color:var(--soft)">‹ Back</button>'+head(pre?'Before your consult ✨':'This week\'s weigh-in',null,true)
+    +'<div class="meta" style="font-weight:400;margin-top:-6px">'+(pre?'About a minute. Your coach reads this before you talk.':'Same scale, morning, before breakfast.')+'</div>'
+    +'<div class="card" style="border:1px solid #6B5A2A;gap:8px">'
+    +'<div class="row" style="gap:10px;align-items:center"><button id="wkMinus" aria-label="Less" style="'+stepBtn+'">−</button>'
+    +'<input id="wkWeight" inputmode="decimal" aria-label="Weight in kg" value="'+esc(N.weight)+'" placeholder="kg" style="flex:1;min-width:0;text-align:center;font-family:\'Playfair Display\',Georgia,serif;font-size:40px;background:none;border:none;color:var(--ink);padding:0">'
+    +'<button id="wkPlus" aria-label="More" style="'+stepBtn+'">+</button></div>'
+    +'<div class="meta" style="font-weight:400;text-align:center">kg'+(last?' · last time '+last:'')+' · tap the number to type</div>'
+    +'<div class="field"><label for="wkWaist">Waist (optional, cm)</label><input id="wkWaist" inputmode="decimal" value="'+esc(N.waist)+'" placeholder="At the belly button"></div></div>'
+    +'<div class="field"><label>How was the week?</label>'+faces('full',[[1,'😕'],[2,'😐'],[3,'🙂']])+'</div>'
+    +'<details class="card"'+(more?' open':'')+'><summary style="cursor:pointer;font-weight:700">Cravings, stress, a win… <span class="meta" style="font-weight:400">(optional)</span></summary><div style="display:flex;flex-direction:column;gap:12px;margin-top:10px">'
     +'<div class="field"><label>Late-night cravings?</label>'+faces('cravings',[['most','Most nights'],['few','A few'],['none','None']])+'</div>'
     +'<div class="field"><label>Stress overall?</label>'+faces('stress',[[1,'😣'],[2,'😐'],[3,'😌']])+'</div>'
-    +'<div class="row" style="gap:10px"><div class="field" style="flex:1"><label for="wkWaist">Waist (cm)</label><input id="wkWaist" inputmode="decimal" value="'+esc(cur.waist||'')+'"></div>'
-    +'<div class="field" style="flex:1"><label for="wkWeight">Weight (kg)</label><input id="wkWeight" inputmode="decimal" value="'+esc(cur.weight||'')+'"></div></div>'
-    +'<div class="meta" style="font-weight:400;margin-top:-6px">Waist at the belly button, in the morning before breakfast.</div>'
     +'<div class="field"><label for="wkWin">One win this week</label><input id="wkWin" value="'+esc(W.win||'')+'" placeholder="For example: no snacking after dinner"></div>'
-    +'<div class="field"><label for="wkStruggle">One struggle</label><input id="wkStruggle" value="'+esc(W.struggle||'')+'" placeholder="For example: weekend lunches"></div>'
+    +'<div class="field"><label for="wkStruggle">One struggle</label><input id="wkStruggle" value="'+esc(W.struggle||'')+'" placeholder="For example: weekend lunches"></div></div></details>'
     +'<button class="btn" id="wkSave">Save</button></div>');
-  $('#wkBack').onclick=function(){S._wk=null;S._wkNums=null;S.view=null;render();};
-  document.querySelectorAll('[data-wq]').forEach(function(b){b.onclick=function(){ var k=b.dataset.wq, v=isNaN(+b.dataset.wv)?b.dataset.wv:+b.dataset.wv;
-    W.win=$('#wkWin').value; W.struggle=$('#wkStruggle').value; S._wkNums={waist:$('#wkWaist').value,weight:$('#wkWeight').value};
-    W[k]=(W[k]===v?null:v); openWeekly(); };});
+  function keep(){ N.weight=$('#wkWeight').value; N.waist=$('#wkWaist').value; W.win=$('#wkWin').value; W.struggle=$('#wkStruggle').value; }
+  function bump(d){ var v=parseFloat(String($('#wkWeight').value).replace(',','.')); if(!isFinite(v)) v=last||60; $('#wkWeight').value=(Math.round((v+d)*10)/10).toFixed(1); }
+  $('#wkMinus').onclick=function(){bump(-0.1);}; $('#wkPlus').onclick=function(){bump(0.1);};
+  document.querySelectorAll('[data-home]').forEach(function(b){b.onclick=function(){S._wk=null;S._wkNums=null;S.view=null;render();};});
+  document.querySelectorAll('[data-wq]').forEach(function(b){b.onclick=function(){ var k=b.dataset.wq, v=isNaN(+b.dataset.wv)?b.dataset.wv:+b.dataset.wv; keep(); W[k]=(W[k]===v?null:v); openWeekly(); };});
   $('#wkSave').onclick=function(){
     function num(id,lo,hi){var v=parseFloat(String($(id).value).replace(',','.'));return isFinite(v)&&v>=lo&&v<=hi?Math.round(v*10)/10:null;}
     var w=num('#wkWaist',40,250), kg=num('#wkWeight',25,350);
     W.win=($('#wkWin').value||'').trim().slice(0,200); W.struggle=($('#wkStruggle').value||'').trim().slice(0,200);
     var hasAny=w!=null||kg!=null||W.full||W.cravings||W.stress||W.win||W.struggle;
-    if(!hasAny){toast('Answer anything you like, then Save');return;}
+    if(!hasAny){toast('Add your weight, or answer anything, then Save');return;}
+    var before=wStats();
     var d=today(), p=S.checkins[d]||{}, r=Object.assign({},p.reflection||{});
     if(w!=null||kg!=null){ r.measure={}; if(w!=null) r.measure.waist=w; if(kg!=null) r.measure.weight=kg; }
     var wk={}; ['full','cravings','stress','win','struggle'].forEach(function(k){ if(W[k]) wk[k]=W[k]; }); wk.at=now(); if(pre) wk.forConsult=S.nextConsult;
     r.weekly=wk;
     var row={client_id:S.clientId,day:d,step_id:p.step_id||(hasPlan()?stepId():null),lesson_day:p.lesson_day||(hasPlan()?dayIndex()+1:null),answer:p.answer||null,lesson_read:!!p.lesson_read,reflection:r,updated_ms:now()};
-    S.checkins[d]=Object.assign({},p,row); write('nutrition_checkins',row); toast(pre?'Thank you. Your coach will see this before you talk.':'Saved. See you next week.'); S._wk=null; S._wkNums=null; S.view=null; render();
+    S.checkins[d]=Object.assign({},p,row); write('nutrition_checkins',row); S._wk=null; S._wkNums=null;
+    weighResult(before,kg,pre);
   };
+}
+// After saving: one clear, kind line about the result.
+function weighResult(before,kg,pre){
+  var after=wStats(), prev=before.lastDay===today()?(before.list&&before.list[1]?+before.list[1].m.weight:null):before.cur;
+  var d=kg!=null&&prev!=null?Math.round((kg-prev)*10)/10:null, big, sub, icon='🎉';
+  if(kg==null){ big=pre?'Thank you':'Saved'; sub=pre?'Your coach will see this before you talk.':'See you next week.'; icon='✅'; }
+  else if(d==null){ big='Your starting point: '+kg+' kg'; sub='Next weigh-in in a week. Watch the direction, not single days.'; icon='📍'; }
+  else if(d===0){ big='Steady this week'; sub='Holding steady counts. Keep the habits going.'; icon='👍'; }
+  else if(wGood(d)){ big=(d<0?'Down ':'Up ')+Math.abs(d)+' kg this week'; sub=(after.change?wArrow(after.change).replace('▼ ','').replace('▲ ','')+(after.change<0?' down':' up')+' since you started':'')+(after.pct!=null?'. '+Math.round(after.pct*100)+'% of the way.':'.'); }
+  else { big=(d<0?'Down ':'Up ')+Math.abs(d)+' kg this week'; sub='Weekly ups and downs are normal (water, salt, sleep, your cycle). Look at the line over a few weeks'+(after.waist&&after.waist<0?'; your waist is down '+Math.abs(after.waist)+' cm':'')+'.'; icon='🌱'; }
+  S.view=function(){ weighResult(before,kg,pre); };
+  show('<div class="screen full" style="justify-content:center;min-height:80vh"><div class="card" style="border:1px solid #3D6B4F;align-items:center;text-align:center;gap:8px;padding:28px 18px">'
+    +'<div style="font-size:40px">'+icon+'</div><div class="f-meal" style="font-size:26px">'+esc(big)+'</div><div class="meta" style="font-weight:400;font-size:15px">'+esc(sub)+'</div></div>'
+    +'<button class="btn" id="wrDone">Done</button><button class="btn link" id="wrProg">See your progress</button></div>');
+  $('#wrDone').onclick=function(){ S.view=null; go('home'); };
+  $('#wrProg').onclick=function(){ S.view=null; go('progress'); };
 }
 
 // ---------- Chat (same messages your coach sees in Merge) ----------
