@@ -1,4 +1,4 @@
-const V = "kfit-v52";
+const V = "kfit-v53";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => e.waitUntil(
   // v40: batch 28b (supersets from any exercise). Bumping
