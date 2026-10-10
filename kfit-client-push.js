@@ -9,10 +9,15 @@
   function iPhone(){ return /iPhone|iPad/.test(navigator.userAgent||''); }
   function b64(b){var p='='.repeat((4-b.length%4)%4),s=(b+p).replace(/-/g,'+').replace(/_/g,'/'),r=atob(s),o=new Uint8Array(r.length);for(var i=0;i<r.length;i++)o[i]=r.charCodeAt(i);return o;}
   async function current(){ try{ if(!supported()) return null; var reg=await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); }catch(e){ return null; } }
+  // Once blocked, a web app can't ask again: the phone's settings are the only way back.
+  function blockedHelp(app){ var nm=app==='fitness'?'KFit Fitness':'KFit Nutrition';
+    if(iPhone()) return 'Notifications are turned off for KFit on this iPhone.\n\nTo turn them on:\n1. Open the iPhone Settings app\n2. Tap Notifications\n3. Find '+nm+' in the list (the name under your KFit icon) and tap it\n4. Switch on Allow Notifications\n\nThen come back and tap Turn on again.';
+    return 'Notifications are blocked for KFit on this phone.\n\nTo turn them on:\n1. Press and hold the '+nm+' icon on your home screen\n2. Tap App info (or the ⓘ)\n3. Tap Notifications and switch them on\n\nIn Chrome instead: tap the ⋮ menu, Settings, Site settings, Notifications, and allow kfit.pages.dev.\n\nThen come back and tap Turn on again.';
+  }
   async function turnOn(sb,mobile,app){
     if(!supported()){ alert(iPhone()&&!standalone()?'On iPhone, notifications work when KFit is opened from its home-screen icon.\n\nIn Safari: tap Share, then Add to Home Screen. Open KFit from that icon and turn notifications on there.':'This phone can\'t show notifications from here.'); return false; }
     var perm=await Notification.requestPermission();
-    if(perm!=='granted'){ alert('Notifications are blocked. You can allow them in your phone\'s Settings, then try again.'); return false; }
+    if(perm!=='granted'){ alert(blockedHelp(app)); return false; }
     var k=await sb.functions.invoke('kfit-push',{body:{action:'public_key'}});
     if(k.error||!k.data||!k.data.publicKey){ alert('Notifications aren\'t ready yet. Please try again later.'); return false; }
     var reg=await navigator.serviceWorker.ready, sub=await reg.pushManager.getSubscription();
@@ -27,6 +32,7 @@
   async function card(el,opts){
     if(!el||!opts||!opts.sb) return;
     var sub=await current(), on=!!sub&&Notification.permission==='granted';
+    var denied=supported()&&Notification.permission==='denied';
     var hidden=false; try{ hidden=localStorage.getItem('kfit_push_card_hidden')==='1'; }catch(e){}
     if(opts.compact&&(on||hidden)){ el.innerHTML=''; return; }
     // line: a single quiet row (the fitness LOG screen) instead of the full card
@@ -34,7 +40,8 @@
       el.innerHTML='<div style="background:var(--card,var(--surf));border:1px solid var(--line,var(--border));border-radius:14px;padding:4px 6px 4px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;font-size:15px">'
         +'<button class="kcp-on" style="flex:1;text-align:left;background:none;border:none;color:var(--ink,var(--text));font-family:inherit;font-size:15px;padding:8px 0;cursor:pointer">🔔 <b>Turn on notifications</b></button>'
         +'<button class="kcp-hide" aria-label="Not now" style="background:none;border:none;color:var(--muted);font-size:16px;padding:8px 10px;cursor:pointer">✕</button></div>';
-      el.querySelector('.kcp-on').onclick=async function(){ this.disabled=true; if(await turnOn(opts.sb,opts.mobile,opts.app||'nutrition')) el.innerHTML=''; else this.disabled=false; };
+      if(denied) el.querySelector('.kcp-on').innerHTML='🔕 <b>Notifications blocked</b> · how to turn on';
+      el.querySelector('.kcp-on').onclick=denied?function(){ alert(blockedHelp(opts.app)); }:async function(){ this.disabled=true; if(await turnOn(opts.sb,opts.mobile,opts.app||'nutrition')) el.innerHTML=''; else this.disabled=false; };
       el.querySelector('.kcp-hide').onclick=function(){ try{ localStorage.setItem('kfit_push_card_hidden','1'); }catch(e){} el.innerHTML=''; };
       return;
     }
@@ -52,7 +59,8 @@
       var save=async function(){ var v=/^\d{2}:\d{2}$/.test(tm.value)?tm.value:'14:00'; var r=await opts.sb.from('client_push_prefs').upsert({mobile:m,nudge_time:cb.checked?v:null},{onConflict:'mobile'}); if(r.error) alert('Not saved. Check your connection.'); };
       cb.onchange=save; tm.onchange=function(){ if(cb.checked) save(); };
     }
-    var b=el.querySelector('.kcp-on'); if(b) b.onclick=async function(){ b.disabled=true; if(await turnOn(opts.sb,opts.mobile,opts.app||'nutrition')) card(el,Object.assign({},opts,{compact:false})); else b.disabled=false; };
+    var b=el.querySelector('.kcp-on'); if(b&&denied){ b.textContent='How to turn on'; b.onclick=function(){ alert(blockedHelp(opts.app)); }; b=null; }
+    if(b) b.onclick=async function(){ b.disabled=true; if(await turnOn(opts.sb,opts.mobile,opts.app||'nutrition')) card(el,Object.assign({},opts,{compact:false})); else b.disabled=false; };
     var o=el.querySelector('.kcp-off'); if(o) o.onclick=async function(){ await turnOff(opts.sb); card(el,opts); };
     var h=el.querySelector('.kcp-hide'); if(h) h.onclick=function(){ try{ localStorage.setItem('kfit_push_card_hidden','1'); }catch(e){} el.innerHTML=''; };
   }

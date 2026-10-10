@@ -1444,7 +1444,8 @@ async function aiItems(blob,text){
   var o=JSON.parse(String(t||'').replace(/```json|```/g,'').trim());
   function n(x,max){x=Number(x);return isFinite(x)&&x>=0&&x<=max?x:0;}
   var items=(o.items||[]).filter(function(x){return x&&x.name;}).slice(0,15).map(function(x){
-    var it={name:String(x.name).slice(0,60),amount:n(x.amount,50)||1,unit:String(x.unit||'').slice(0,20),kcal:Math.round(n(x.kcal,3000)),protein:n(x.protein,10),veg:n(x.veg,10),carbs:n(x.carbs,10),fats:n(x.fats,10)};
+    var big=/\b(ml|g|gm|grams?|millilit)/i.test(String(x.unit||''));
+    var it={name:String(x.name).slice(0,60),amount:n(x.amount,big?3000:50)||1,unit:String(x.unit||'').slice(0,20),kcal:Math.round(n(x.kcal,3000)),protein:n(x.protein,10),veg:n(x.veg,10),carbs:n(x.carbs,10),fats:n(x.fats,10)};
     if(x.drink&&DRINK_EMOJI[x.drink]){ it.drink=x.drink; if(x.sugar!=null&&isFinite(+x.sugar)) it.sugar=Math.round(n(x.sugar,500)); if(x.drink!=='dairy'){ it.protein=0; it.veg=0; it.carbs=0; it.fats=0; } }
     it.base={amount:it.amount,kcal:it.kcal,protein:it.protein,veg:it.veg,carbs:it.carbs,fats:it.fats}; return it;});
   return {items:items,tip:String(o.tip||'').slice(0,200)};
@@ -1480,6 +1481,24 @@ function bindDrinkSearch(ta,box,onPick){
     box.querySelectorAll('[data-sz]').forEach(function(b){ b.onclick=function(){ done(x.sizes[+b.dataset.sz]); }; });
   }
   ta.addEventListener('input',draw); draw();
+}
+// ---------- Say it: the phone's own speech-to-text (free). Where it isn't
+// available, the typing box opens and the keyboard's mic does the same job.
+function sayMeal(onText,onFallback){
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR){ onFallback(); return; }
+  var rec; try{ rec=new SR(); }catch(e){ onFallback(); return; }
+  rec.lang=kLang()==='hi'?'hi-IN':'en-IN'; rec.interimResults=true; rec.continuous=false; rec.maxAlternatives=1;
+  var ov=document.createElement('div'); ov.id='sayOv'; ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(10,10,8,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center';
+  ov.innerHTML='<div style="font-size:64px">🎤</div><div class="f-meal" style="font-size:24px">Listening…</div><div id="sayTxt" class="meta" style="font-weight:400;font-size:17px;min-height:48px;max-width:320px">Say what you ate, like "two rotis, dal and a glass of chaas"</div><button class="btn" id="sayDone" style="min-width:200px">Done</button><button class="btn link" id="sayCancel">Cancel</button>';
+  document.body.appendChild(ov);
+  var text='', ended=false, cancelled=false;
+  function finish(){ if(ended) return; ended=true; try{ rec.stop(); }catch(e){} ov.remove(); if(cancelled) return; if(text.trim()) onText(text.trim()); else onFallback(); }
+  rec.onresult=function(e){ var t=''; for(var i=0;i<e.results.length;i++) t+=e.results[i][0].transcript+' '; text=t; var el=document.getElementById('sayTxt'); if(el) el.textContent=t; };
+  rec.onerror=function(e){ if(e&&e.error==='not-allowed'){ cancelled=true; ov.remove(); ended=true; toast('Microphone is blocked. Type it instead, or allow the mic in your phone\'s settings.'); onFallback(); return; } finish(); };
+  rec.onend=function(){ finish(); };
+  document.getElementById('sayDone').onclick=finish;
+  document.getElementById('sayCancel').onclick=function(){ cancelled=true; finish(); };
+  try{ rec.start(); }catch(e){ ov.remove(); onFallback(); }
 }
 // ---------- Water: glasses a day, kept on that day's check-in ----------
 function waterOf(d){ var c=S.checkins[d]; return (c&&c.reflection&&+c.reflection.water)||0; }
@@ -1562,16 +1581,20 @@ function openMealForm(d,forSlot,editId){
   }
   // ---- stage 1: the camera ----
   if(M.stage==='photo'){
-    show('<div class="screen full">'+top+'<h1>Log a meal</h1>'
-      +'<button id="mfCam" style="border:2px dashed var(--line2);background:var(--card);border-radius:20px;min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--ink)">'
-      +'<span style="font-size:46px">📷</span><span class="f-meal" style="font-size:20px">Take a photo of your meal</span><span class="meta" style="font-weight:400">The app works out what\'s on your plate and how much</span></button>'
-      +'<button id="mfGal" style="border:1px solid var(--line2);background:var(--card);border-radius:16px;min-height:54px;color:var(--ink);font-weight:700;font-size:16px">🖼️ Choose from your photos</button>'
-      +'<button class="btn link" id="mfNoPhoto" style="align-self:center;min-height:40px">Forgot to take one? Log it without a photo</button>'
+    var rowS='display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:1px solid var(--line2);background:var(--card);border-radius:18px;padding:16px;color:var(--ink);min-height:76px';
+    function row(id,e,t,sub){ return '<button id="'+id+'" style="'+rowS+'"><span style="font-size:30px;width:40px;text-align:center;flex-shrink:0">'+e+'</span><span style="flex:1;min-width:0"><span style="display:block;font-size:18px;font-weight:800">'+t+'</span><span class="meta" style="font-weight:400">'+sub+'</span></span></button>'; }
+    var who=(forSlot||slotFor(new Date().getHours()))||'meal';
+    show('<div class="screen full">'+top+'<h1>Log your '+esc(String(who).toLowerCase())+'</h1><div class="meta" style="font-weight:400;margin-top:-6px">Pick whichever is easiest right now.</div>'
+      +row('mfCam','📷','Take a photo','The app works out what\'s on your plate')
+      +row('mfGal','🖼️','Upload a photo','One you already took')
+      +row('mfType','✍️','Type it','"2 rotis, dal, a Thums Up"')
+      +row('mfSay','🎤','Say it','Speak in English or Hindi')
       +'<button class="btn link" id="mfGuide" style="align-self:center;min-height:32px;font-size:14px">What\'s protein, carbs or fat? See the food guide</button></div>');
     $('#mfBack').onclick=back; $('#mfGuide').onclick=function(){S._mf=null;S.view=null;go('guide');};
     $('#mfCam').onclick=function(){ pickPhoto(function(ph){ M.photos.push(ph); analyse(ph,'',false); }); };
     $('#mfGal').onclick=function(){ pickPhoto(function(ph){ M.photos.push(ph); analyse(ph,'',false); },true); };
-    $('#mfNoPhoto').onclick=function(){ M.stage='text'; M.noPhoto=true; openMealForm(d,forSlot,editId); };
+    $('#mfType').onclick=function(){ M.stage='text'; M.noPhoto=true; M.sayHint=false; openMealForm(d,forSlot,editId); };
+    $('#mfSay').onclick=function(){ M.noPhoto=true; sayMeal(function(txt){ M.draft=((M.draft||'')+(M.draft?', ':'')+txt).trim(); M.stage='text'; openMealForm(d,forSlot,editId); },function(){ M.stage='text'; M.sayHint=true; openMealForm(d,forSlot,editId); }); };
     return;
   }
   // ---- busy ----
@@ -1580,10 +1603,12 @@ function openMealForm(d,forSlot,editId){
   if(M.stage==='text'){
     var added=M.items.filter(isDrink);
     show('<div class="screen full">'+top+'<h1>Log a meal</h1><div class="field"><label for="mfText">What did you have? Add amounts if you can.</label><textarea id="mfText" placeholder="2 rotis, 1 bowl dal, salad · or a drink: starbucks latte, thums up, kingfisher">'+esc(M.draft||'')+'</textarea></div>'
+      +(M.sayHint?'<div class="meta" style="font-weight:400">🎤 Tap the microphone on your keyboard and speak. Your words appear here.</div>':'')
       +'<div id="mfDrinkSug"></div>'
       +(added.length?'<div class="meta" style="font-weight:400">Added: '+added.map(function(it){return DRINK_EMOJI[it.drink]+' '+esc(it.name)+' ('+esc(it.unit)+')';}).join(', ')+' ✓</div>':'')
       +'<button class="btn" id="mfEst">'+(added.length?'Next':'Next')+'</button><button class="btn link" id="mfToCam" style="align-self:center">Take a photo instead</button></div>');
     $('#mfBack').onclick=back;
+    if(M.sayHint){ setTimeout(function(){ var t=$('#mfText'); if(t) t.focus(); },200); }
     $('#mfToCam').onclick=function(){ M.draft=$('#mfText').value; M.stage='photo'; M.noPhoto=false; openMealForm(d,forSlot,editId); };
     $('#mfEst').onclick=function(){ var t=$('#mfText').value.trim(); M.draft='';
       if(!t){ if(added.length){ M.noPhoto=true; M.stage='review'; openMealForm(d,forSlot,editId); return; } toast('Add a note or a photo');return; }
@@ -1634,6 +1659,8 @@ function openMealForm(d,forSlot,editId){
   $('#mfSlot').onchange=function(){ M.slotPicked=true; keep(); openMealForm(d,forSlot,editId); };
   document.querySelectorAll('[data-dn],[data-up]').forEach(function(b){b.onclick=function(){
     keep(); var i=+(b.dataset.dn||b.dataset.up), it=M.items[i], k=AMT_STEPS.indexOf(it.amount), up=!!b.dataset.up;
+    // millilitres and grams step in sensible sizes: a 30 ml peg for spirits, 50 otherwise
+    if(/\b(ml|g|gm|grams?)\b/i.test(it.unit||'')&&it.amount>10){ var st=it.drink==='alcohol'&&it.amount<=120?30:50, nx=Math.max(st,it.amount+(up?st:-st)); if(nx===it.amount) return; M.items[i]=itemScale(it,nx); M.edited=true; openMealForm(d,forSlot,editId); return; }
     var next; if(k<0){ next=up?AMT_STEPS.filter(function(x){return x>it.amount;})[0]:AMT_STEPS.filter(function(x){return x<it.amount;}).slice(-1)[0]; } else next=AMT_STEPS[k+(up?1:-1)];
     if(!next) return; M.items[i]=itemScale(it,next); M.edited=true; openMealForm(d,forSlot,editId);
   };});

@@ -7690,7 +7690,7 @@ async function kfitPushOn(){
     return false;
   }
   var perm=await Notification.requestPermission();
-  if(perm!=='granted'){ alert('Notifications are blocked for KFit Coach. Allow them in your phone\'s Settings → Notifications → KFit Coach, then try again.'); return false; }
+  if(perm!=='granted'){ alert(/iPhone|iPad/.test(navigator.userAgent||'')?'Notifications are turned off for KFit Coach on this iPhone.\n\n1. Open the iPhone Settings app\n2. Tap Notifications\n3. Find KFit Coach (or KFit) and tap it\n4. Switch on Allow Notifications\n\nThen come back and tap Turn on again.':'Notifications are blocked for KFit Coach.\n\n1. Press and hold the app icon, tap App info, then Notifications, and switch them on\n   (or in Chrome: ⋮ menu → Settings → Site settings → Notifications → allow kfit.pages.dev)\n\nThen come back and tap Turn on again.'); return false; }
   try{ await getSB().rpc('kfit_push_setup',{p_url:SB_URL,p_key:SB_KEY}); }catch(e){}
   var k=await getSB().functions.invoke('kfit-push',{body:{action:'public_key'}});
   if(k.error||!k.data||!k.data.publicKey){ alert('The notification sender isn\'t set up yet (the "kfit-push" Edge Function). '+(k.error?k.error.message:'')); return false; }
