@@ -107,6 +107,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .sess-tag{padding:5px 14px;background:var(--surf2);border:1px solid var(--gold);border-radius:20px;font-size:11px;font-weight:900;color:var(--gold);letter-spacing:2px;text-transform:uppercase;}
 .sess-tag-pr{background:var(--gold);border-color:var(--gold);color:#171200;}
 </style>
+<style id="kfFoldCss">/* everything that opens shows it can close: ▾ when shut, ▴ when open */
+details:not(.nc-wk)>summary{list-style:none}
+details:not(.nc-wk)>summary::-webkit-details-marker{display:none}
+details:not(.nc-wk)>summary::after{content:" ▾";color:var(--muted,#9C978A);font-weight:400}
+details:not(.nc-wk)[open]>summary::after{content:" ▴"}
+.nc-wk>summary>span:last-child::after{content:" ▾"}
+.nc-wk[open]>summary>span:last-child::after{content:" ▴"}
+</style>
 </head>
 <body>
 
@@ -6819,7 +6827,7 @@ async function nutCoachAttach(c){
     +'<div data-sec="billing"><div id="ncBill_'+cid+'"></div></div>'
     +'<div data-sec="notes"><div id="ncNotes_'+cid+'"></div></div>';
   box.querySelectorAll('[data-ncsec]').forEach(function(b){b.onclick=function(){ncShowSection(cid,b.dataset.ncsec);};});
-  ncShowSection(cid,ncSection[cid]);
+  ncShowSection(cid,ncSection[cid],true);
   ncCurrent=cid;
   ncSnapRender(cid); ncBillRender(cid); ncDaysRender(cid); ncNotesRender(cid);
   // The old nutrition tracker's tools (Assign / Log / Edit, its calorie box and
@@ -7203,7 +7211,7 @@ async function ncToolsRender(cid,tab,noTabs){
       });
       var nd=Object.keys(g.days).length;
       var openIt=gix===0||g.rows.some(function(i){var r=st.rows[i];return r.src==='screenshot'||(r.src==='app'&&r.ts&&r.ts>seen);});
-      list+='<details class="nc-wk"'+(openIt?' open':'')+'><summary><span>'+ncEsc(g.label)+'</span><span style="font-weight:500;color:var(--muted);font-size:12px">'+g.rows.length+' meal'+(g.rows.length===1?'':'s')+' · '+nd+' day'+(nd===1?'':'s')+(g.kcal?' · ~'+Math.round(g.kcal/Math.max(1,nd)/10)*10+' kcal/day':'')+' ▾</span></summary><div class="nc-wkb">'+inner+'</div></details>';
+      list+='<details class="nc-wk"'+(openIt?' open':'')+'><summary><span>'+ncEsc(g.label)+'</span><span style="font-weight:500;color:var(--muted);font-size:12px">'+g.rows.length+' meal'+(g.rows.length===1?'':'s')+' · '+nd+' day'+(nd===1?'':'s')+(g.kcal?' · ~'+Math.round(g.kcal/Math.max(1,nd)/10)*10+' kcal/day':'')+'</span></summary><div class="nc-wkb">'+inner+'</div></details>';
     });
     body.innerHTML=NC_F+(list||'<div style="font-size:13px;color:var(--muted)">No meals logged yet.</div>')
       +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><label class="btn-sm" style="display:inline-flex;align-items:center">📷 Import screenshots<input type="file" accept="image/*" multiple id="ncShots_'+cid+'" style="display:none"></label></div>'
@@ -7244,7 +7252,7 @@ async function ncToolsRender(cid,tab,noTabs){
       if(!gi[k]){gi[k]={label:ncWeekLabel(k),items:[]};groups.push(gi[k]);} gi[k].items.push(n);});
     var html=NC_F+'<div style="display:flex;gap:6px;margin-bottom:6px">'+fl+'</div>';
     groups.forEach(function(g,gix){
-      html+='<details class="nc-wk"'+(gix===0?' open':'')+'><summary><span>'+ncEsc(g.label)+'</span><span style="font-weight:500;color:var(--muted);font-size:12px">'+g.items.length+' sent ▾</span></summary><div class="nc-wkb">'
+      html+='<details class="nc-wk"'+(gix===0?' open':'')+'><summary><span>'+ncEsc(g.label)+'</span><span style="font-weight:500;color:var(--muted);font-size:12px">'+g.items.length+' sent</span></summary><div class="nc-wkb">'
         +g.items.map(function(n){var d=new Date(n.created_at), when=d.toDateString().slice(0,10)+', '+d.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toLowerCase();
           var head=n.kind==='plan'?'Meal plan for '+ncEsc(ncDayLabel(n.for_day||'')):'Advice';
           var items=(n.items||[]).map(function(it){return '<div style="padding:2px 0">'+(it.time?'<span class="nc-time">'+ncEsc(it.time)+'</span> ':'')+(it.dayLabel&&n.kind!=='plan'?'<b>'+ncEsc(it.dayLabel)+'</b> ':'')+'<span class="nc-meal">'+ncEsc(it.slot||'')+'</span> <span class="nc-food">'+ncEsc(it.text||'')+'</span>'+(it.note?' <span class="nc-note">'+ncEsc(it.note)+'</span>':'')+'</div>';}).join('');
@@ -7572,7 +7580,7 @@ async function ncDaysRender(cid){
       inner+='<div style="margin:2px 0 8px">'+(dOpen?thread(dayTh,dKey,'Note on '+ncDayLabel(d)+'…'):'<button class="nc-addnote" data-addnote="'+d+'" style="background:none;border:none;color:#8FD1A2;font-family:inherit;font-size:13px;font-weight:700;padding:6px 2px;cursor:pointer">+ Note on this day</button><div data-notebox="'+d+'" style="display:none">'+thread([],dKey,'Note on '+ncDayLabel(d)+'…')+'</div>')+'</div></div>';
     });
     var nd=g.days.length;
-    html+='<details class="nc-wk"'+(gix===0||hasNew?' open':'')+'><summary><span>'+ncEsc(g.label)+'</span><span style="font-weight:500;color:var(--muted);font-size:12px">'+g.meals+' meal'+(g.meals===1?'':'s')+' · '+nd+' day'+(nd===1?'':'s')+(g.kcal?' · ~'+Math.round(g.kcal/Math.max(1,nd)/10)*10+' kcal/day':'')+' ▾</span></summary><div class="nc-wkb">'+inner+'</div></details>';
+    html+='<details class="nc-wk"'+(gix===0||hasNew?' open':'')+'><summary><span>'+ncEsc(g.label)+'</span><span style="font-weight:500;color:var(--muted);font-size:12px">'+g.meals+' meal'+(g.meals===1?'':'s')+' · '+nd+' day'+(nd===1?'':'s')+(g.kcal?' · ~'+Math.round(g.kcal/Math.max(1,nd)/10)*10+' kcal/day':'')+'</span></summary><div class="nc-wkb">'+inner+'</div></details>';
   });
   if(!groups.length) html+='<div style="font-size:13px;color:var(--muted)">No meals logged yet.</div>';
   el.innerHTML=html+'</div>';
@@ -8179,7 +8187,8 @@ function kfClientTab(t){
 }
 setUniSubTab=function(){ kfClientTab(kfTab||'days'); };
 // shortcuts from the snapshot tiles map onto the three tabs
-ncShowSection=function(cid,sec){ var map={days:'days',plan:'plan',habits:'plan',billing:'account',notes:'account'}; ncSection[cid]=sec; kfClientTab(map[sec]||'days'); };
+// a redraw keeps the tab that's open; only a tap on a tile changes it
+ncShowSection=function(cid,sec,fromRender){ var map={days:'days',plan:'plan',habits:'plan',billing:'account',notes:'account'}; if(!fromRender) ncSection[cid]=sec; kfClientTab(fromRender?(kfTab||'days'):(map[sec]||'days')); };
 var _kfOpenUni=openUniClient;
 openUniClient=async function(key){ kfTab=(window.ncFocus?'days':'days'); kfShowOnly('clientsSection'); document.querySelectorAll('#kfNav [data-kp]').forEach(function(b){b.classList.toggle('on',b.dataset.kp==='clients');}); var r=await _kfOpenUni.apply(this,arguments); kfClientTab(kfTab); setTimeout(function(){kfClientTab(kfTab);},900); return r; };
 // 💬 Chat with this client, right next to their name (every client)
@@ -8455,21 +8464,21 @@ async function kfTodayRender(){
   needP.forEach(function(m){ var L=byP[m], first=L[0], extra=L.length>1?' · +'+(L.length-1)+' more':'', sm=came[m]?summary(came[m],first.ic==='💳'):'', s2=sm?' · '+sm:'';
     html+=row('need',m,first.line+extra+s2,first.act,needs.indexOf(first)); });
   var SHOW=5;
-  logP.forEach(function(m,k){ if(k===SHOW) html+='<button class="kf-tmore" id="kfMoreLogged">+ '+(logP.length-SHOW)+' more logged ›</button><div id="kfLoggedRest" style="display:none">';
+  logP.forEach(function(m,k){ if(k===SHOW) html+='<button class="kf-tmore" id="kfMoreLogged" data-n="'+(logP.length-SHOW)+'">+ '+(logP.length-SHOW)+' more logged ▾</button><div id="kfLoggedRest" style="display:none">';
     html+=row('log',m,summary(came[m])||'logged something',null,null); });
   if(logP.length>SHOW) html+='</div>';
   if(quietP.length&&isToday){ html+='<div class="kf-trow quiet" id="kfQuietRow"><span class="kf-halo quiet" style="background:#55534B"></span><div style="flex:1;min-width:0"><div class="kf-tname" style="color:#8A867B">'+(quietP.length<=3?quietP.map(nm).map(ncEsc).join(' · '):quietP.length+' quiet today')+'</div><div class="kf-tline">nothing yet today</div></div><span style="color:var(--muted);font-size:18px">▾</span></div>'
     +'<div id="kfQuietList" style="display:none">'+quietP.map(function(m){ return '<div class="kf-trow quiet" data-tp="'+ncEsc(m)+'" style="padding-left:28px"><div style="flex:1;color:#B9B4A8">'+ncEsc(nm(m))+'</div><button class="kf-tbtn quiet" data-msg="'+ncEsc(m)+'">Message</button></div>'; }).join('')+'</div>'; }
   if(!nRows&&!(quietP.length&&isToday)) html+='<div class="kf-caught"><div style="font-size:30px">🎉</div><div class="kf-h1" style="font-size:20px;color:#E7CF8C;margin:2px 0">'+(isToday?'All caught up':'Nothing came in that day')+'</div></div>';
   else if(isToday&&!needs.length) html+='<div style="font-size:13px;color:#8FD1A2;margin:10px 2px">🎉 Nothing needs you right now.</div>';
-  if(did.length) html+='<button class="kf-tmore" id="kfDidToggle" style="margin-top:14px">✍️ You did '+did.length+' thing'+(did.length===1?'':'s')+(isToday?' today':'')+' ›</button><div id="kfDidList" style="display:none">'+did.map(function(x){return kfLine(kfHM(x.ts),x.i,x.t,x.open);}).join('')+'</div>';
+  if(did.length) html+='<button class="kf-tmore" id="kfDidToggle" style="margin-top:14px">✍️ You did '+did.length+' thing'+(did.length===1?'':'s')+(isToday?' today':'')+' ▾</button><div id="kfDidList" style="display:none">'+did.map(function(x){return kfLine(kfHM(x.ts),x.i,x.t,x.open);}).join('')+'</div>';
   el.innerHTML=html;
   el.querySelectorAll('[data-ti]').forEach(function(r){ r.onclick=function(e){ e.stopPropagation(); var it=needs[+r.dataset.ti]; if(it) it.fn(); }; });
   el.querySelectorAll('[data-tp]').forEach(function(r){ r.onclick=function(){ var m=r.dataset.tp, L=byP[m]; if(L&&L[0]&&L[0].ic==='💬'){ L[0].fn(); return; } var side=(came[m]||[]).some(function(x){return x.open&&x.open.side==='fit';})?'fit':(came[m]||[]).length?'nut':null; kfOpenClientByMobile(m,'days',side); }; });
   el.querySelectorAll('[data-msg]').forEach(function(b){ b.onclick=function(e){ e.stopPropagation(); var m=b.dataset.msg; openCoachChat(m,nm(m)); }; });
-  var ml=document.getElementById('kfMoreLogged'); if(ml) ml.onclick=function(){ document.getElementById('kfLoggedRest').style.display='block'; ml.remove(); };
+  var ml=document.getElementById('kfMoreLogged'); if(ml) ml.onclick=function(){ var lr=document.getElementById('kfLoggedRest'), o=lr.style.display==='none'; lr.style.display=o?'block':'none'; ml.textContent=o?'Show fewer ▴':'+ '+ml.dataset.n+' more logged ▾'; if(o) lr.parentNode.insertBefore(ml,lr.nextSibling); else lr.parentNode.insertBefore(ml,lr); };
   var qr=document.getElementById('kfQuietRow'); if(qr) qr.onclick=function(){ var q=document.getElementById('kfQuietList'); var o=q.style.display==='none'; q.style.display=o?'block':'none'; qr.querySelector('span:last-child').textContent=o?'▴':'▾'; };
-  var dt=document.getElementById('kfDidToggle'); if(dt) dt.onclick=function(){ var d2=document.getElementById('kfDidList'); var o=d2.style.display==='none'; d2.style.display=o?'block':'none'; };
+  var dt=document.getElementById('kfDidToggle'); if(dt) dt.onclick=function(){ var d2=document.getElementById('kfDidList'); var o=d2.style.display==='none'; d2.style.display=o?'block':'none'; dt.textContent=dt.textContent.replace(/[▾▴]$/,o?'▴':'▾'); };
   el.querySelectorAll('[data-step]').forEach(function(b){ b.onclick=function(){ kfTodaySet(ncAddDays(day,+b.dataset.step)); }; });
   var dp=document.getElementById('kfDayPick'); if(dp) dp.onchange=function(){ if(/^\d{4}-\d{2}-\d{2}$/.test(dp.value)) kfTodaySet(dp.value>todayD?todayD:dp.value); };
   var bt=document.getElementById('kfBackToday'); if(bt) bt.onclick=function(){ kfTodaySet(null); };
@@ -8481,7 +8490,7 @@ function kfOpenClientByMobile(m,tab,side){
   kfSide=side||null;
   var c=null; try{ c=buildUnifiedRoster().find(function(r){return String(r.mobile||'').replace(/\D/g,'')===m;}); }catch(e){}
   if(!c){ alert('Open this client from Clients.'); return; }
-  kfTab=tab||'days'; kfEnterClient(); openUniClient(c.key).then(function(){ kfClientTab(kfTab); if(window.kfOpenConsult){ setTimeout(function(){ var b=document.getElementById('kfLogConsult_'+window.kfOpenConsult); if(b) b.click(); window.kfOpenConsult=null; },900);} });
+  var t0=tab||'days'; kfTab=t0; kfEnterClient(); openUniClient(c.key).then(function(){ kfClientTab(t0); if(window.kfOpenConsult){ setTimeout(function(){ var b=document.getElementById('kfLogConsult_'+window.kfOpenConsult); if(b) b.click(); window.kfOpenConsult=null; },900);} });
 }
 // the bell's count lives on Today now
 var _kfBellRefresh=kfitBellRefresh;
@@ -8522,7 +8531,9 @@ showCoachHelp=function(){
 // tab, side, scroll spot) for up to 12 hours; after that, Today.
 function kfResumeSave(){
   try{ var v=document.getElementById('uniClientView'), st={t:Date.now(),place:kfPlace,y:Math.round(window.scrollY||0)};
-    if(kfPlace==='clients'&&v&&v.style.display!=='none'&&uniCurrentKey){ st.key=uniCurrentKey; st.tab=kfTab; st.side=kfSide; }
+    // a client page is open (whether it was opened from Today or from Clients)
+    if(v&&v.style.display!=='none'&&getComputedStyle(v).display!=='none'&&uniCurrentKey){ st.key=uniCurrentKey; st.tab=kfTab; st.side=kfSide; st.from=(kfClientFrom&&kfClientFrom.place)||kfPlace; st.fy=kfClientFrom?Math.round(kfClientFrom.y||0):0; }
+    if(kfDay) st.day=kfDay;
     localStorage.setItem('kf_resume',JSON.stringify(st)); }catch(e){}
 }
 function kfResumeHook(){
@@ -8538,11 +8549,16 @@ function kfResumeHook(){
   if(!app||app.style.display==='none'||!window.currentCoachId){ return setTimeout(kfStart,400); }
   kfNavBuild();
   var R=null; try{ R=JSON.parse(localStorage.getItem('kf_resume')||'null'); }catch(e){}
-  if(!/[?&]open=/.test(location.search)&&R&&Date.now()-R.t<12*3600e3&&R.place&&R.place!=='today'){
-    kfGo(R.place==='more'?'more':'clients');
-    var back=function(){ setTimeout(function(){ window.scrollTo(0,R.y||0); },1800); };
-    if(R.key){ kfSide=R.side||null; kfTab=R.tab||'days'; openUniClient(R.key).then(function(){ kfClientTab(kfTab); back(); }).catch(function(){}); }
-    else back();
+  if(!/[?&]open=/.test(location.search)&&R&&Date.now()-R.t<12*3600e3&&R.place&&(R.key||R.place!=='today')){
+    var back=function(){ [600,1800,3200].forEach(function(ms){ setTimeout(function(){ if(Math.abs((window.scrollY||0)-(R.y||0))>40) window.scrollTo(0,R.y||0); },ms); }); };
+    if(R.key){
+      // put the page they came from underneath, so Back still goes there
+      var from=R.from||R.place; kfGo(from==='today'?'today':from==='more'?'more':'clients');
+      if(from==='today'&&R.day){ kfDay=R.day; try{ kfTodayRender(); }catch(e){} }
+      window.scrollTo(0,R.fy||0);
+      kfSide=R.side||null; var t0=R.tab||'days'; kfTab=t0; kfEnterClient();
+      openUniClient(R.key).then(function(){ kfSide=R.side||kfSide; kfClientTab(t0); back(); }).catch(function(){ kfGo('clients'); });
+    } else { kfGo(R.place==='more'?'more':'clients'); back(); }
     kfResumeHook(); return;
   }
   kfResumeHook();

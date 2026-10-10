@@ -49,7 +49,7 @@
       if(r.error){ alert('Goal not saved. Check your connection and try again.'); return; }
       mount(el,opts);
     };
-    var kx=el.querySelector('.kst-x'); if(kx) kx.onclick=function(){ el._kstOpen=false; mount(el,opts); };
+    var kx=el.querySelector('.kst-x'); if(kx) kx.onclick=function(){ el._kstOpen=false; if(opts.onClose) opts.onClose(); else mount(el,opts); };
     el.querySelector('.kst-save').onclick=async function(){
       var v=parseInt(el.querySelector('.kst-in').value,10);
       if(!isFinite(v)||v<0||v>150000){ el.querySelector('.kst-in').focus(); return; }
@@ -59,8 +59,20 @@
       if(res.error){ alert('Steps not saved. Check your connection.'); return; }
       if(opts.onSaved) opts.onSaved(v);
       el._kstOpen=false;
-      mount(el,opts);
+      if(opts.onClose) opts.onClose(); else mount(el,opts);
     };
   }
-  global.KFitSteps={mount:mount};
+  // just the numbers, for a small tile: {steps (or null), goal}
+  async function get(opts){
+    var m=String((opts&&opts.mobile)||'').replace(/\D/g,''), out={steps:null,goal:8000};
+    if(!opts||!opts.sb||m.length<8) return out;
+    try{
+      var r=await opts.sb.from('client_daily_steps').select('steps').eq('mobile',m).eq('day',opts.day||today());
+      if(r.data&&r.data[0]) out.steps=r.data[0].steps;
+      var g=await opts.sb.from('client_step_goals').select('goal').eq('mobile',m);
+      if(g.data&&g.data[0]) out.goal=g.data[0].goal;
+    }catch(e){}
+    return out;
+  }
+  global.KFitSteps={mount:mount,get:get};
 })(window);

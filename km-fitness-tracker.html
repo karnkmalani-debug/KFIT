@@ -467,6 +467,14 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style id="kfFoldCss">/* everything that opens shows it can close: ▾ when shut, ▴ when open */
+details:not(.nc-wk)>summary{list-style:none}
+details:not(.nc-wk)>summary::-webkit-details-marker{display:none}
+details:not(.nc-wk)>summary::after{content:" ▾";color:var(--muted,#9C978A);font-weight:400}
+details:not(.nc-wk)[open]>summary::after{content:" ▴"}
+.nc-wk>summary>span:last-child::after{content:" ▾"}
+.nc-wk[open]>summary>span:last-child::after{content:" ▴"}
+</style>
 </head>
 <body>
 
@@ -1310,7 +1318,7 @@ btn.textContent='Could not copy -- select the address bar manually';
       <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
         <div style="font-size:15px;font-weight:600;color:var(--muted);margin-bottom:8px;">Have a DEXA or InBody scan report? Attach it to this date's entry.</div>
         <input type="file" id="scanFileInput" style="display:none;" onchange="onScanFileSelected()">
-        <button onclick="triggerScanUpload()" style="width:100%;padding:11px;background:transparent;border:1px solid var(--gold);border-radius:8px;color:var(--gold);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">📎 Upload Scan / Report</button>
+        <button onclick="triggerScanUpload()" style="width:100%;padding:11px;background:transparent;border:1px solid var(--gold);border-radius:8px;color:var(--gold);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">📎 Add a scan or report (photo or PDF)</button>
       </div>
     </div>
     <div class="card">
@@ -8729,7 +8737,7 @@ const HELP_TEXT=[
 {title:'Body Measurements',body:
 '<b>What to log</b><br>Weight, height, age, and sex -- age/sex/height/weight together are what let calorie estimates work. Also chest, waist, arms and other measurements, plus Body Fat % and Muscle Mass if you know them (e.g. from a DEXA or InBody scan).<br><br>'+
 '<b>How often</b><br>Whenever you want to check in, not every session. Leave anything blank you don\'t want to track.<br><br>'+
-'<b>Uploading a scan report</b><br>Tap "Upload Scan / Report" to attach a DEXA/InBody photo or PDF to that entry, saved for you and your coach to look back on.<br><br>'+
+'<b>Adding a scan or report</b><br>Tap "Add a scan or report" to attach a DEXA/InBody photo or PDF to that entry, saved for you and your coach to look back on.<br><br>'+
 '<b>Tracking change over time</b><br>Each new entry shows how much it changed since your last one.'}
 ];
 function showHelp(i){
