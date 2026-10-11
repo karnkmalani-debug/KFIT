@@ -577,6 +577,7 @@ function show(html,opts){
   bindHelp();
 }
 function render(){
+  if(!S.view) S._viewHelp=null;
   if(S.view) return S.view();
   if(S.loaded&&!profileComplete()) return renderProfile(true);
   if(S.tab==='log') return renderLog();
@@ -592,7 +593,7 @@ function render(){
   if(S.tab==='week') return renderWeek();
   return renderHome();
 }
-function go(tab){ if(chatUI&&tab!=='chat'){try{chatUI.destroy();}catch(e){} chatUI=null;} S.tab=tab;S.view=null;S._lgPanel=null;S._openMeal=null;stopSpeech();render(); }
+function go(tab){ if(chatUI&&tab!=='chat'){try{chatUI.destroy();}catch(e){} chatUI=null;} S.tab=tab;S.view=null;S._viewHelp=null;S._lgPanel=null;S._openMeal=null;stopSpeech();render(); }
 
 // ---------- sign in ----------
 function renderSignIn(msg){
@@ -740,7 +741,7 @@ function renderHome(){
   var unread=(S.notes||[]).filter(function(n){return !n.read_at;}).length+unreadCoach().length, anyNotes=(S.notes||[]).length+(S.comments||[]).filter(function(c){return c.author==='coach';}).length;
   var html='<div class="screen">'
     +'<div class="hrow" style="align-items:center"><div class="brand"><span class="k">K</span><span class="f">F</span><span class="i">it</span><small>NUTRITION</small></div>'
-    +'<div class="row" style="gap:8px"><button id="hmOut" style="background:none;border:1px solid var(--line2);border-radius:20px;padding:8px 14px;font-weight:700;font-size:14px;color:var(--soft);min-height:40px">Log out</button><button class="langbtn" id="hmLang" aria-label="Language">🌐</button><button class="helpbtn" aria-label="How KFit works">?</button></div></div>'
+    +'<div class="row" style="gap:8px"><button id="hmOut" style="background:none;border:1px solid var(--line2);border-radius:20px;padding:8px 14px;font-weight:700;font-size:14px;color:var(--soft);min-height:40px">Log out</button><button class="langbtn" id="hmLang" aria-label="Language">🌐</button><button class="helpbtn" aria-label="What is this page?">?</button></div></div>'
     +'<div id="hmLangBox" style="display:none">'+langChips()+'</div>'
     +'<h1 style="font-size:34px">'+partOfDay()+(name?',<br><i style="color:var(--gold)">'+esc(name)+'</i>':'.')+'</h1><div class="goldline"></div>'
     +hint('home')
@@ -1054,10 +1055,10 @@ function markRead(){
 function openLesson(){
   var l=currentLesson(); if(!l) return;
   if(l.type==='reflect') return openReflect();
-  S.view=openLesson;
+  S.view=openLesson; S._viewHelp='lesson';
   show('<div class="screen full" style="background:var(--paper);min-height:100vh">'
     +'<div class="top"><button class="round" id="lsBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>'
-    +('speechSynthesis' in window?'<button class="btn out" id="lsListen" style="width:auto;min-height:44px;border-radius:22px;font-size:14px">Listen</button>':'')+'</div>'
+    +'<span style="display:flex;gap:8px;align-items:center">'+('speechSynthesis' in window?'<button class="btn out" id="lsListen" style="width:auto;min-height:44px;border-radius:22px;font-size:14px">Listen</button>':'')+'<button class="helpbtn" aria-label="What is this page?">?</button></span></div>'
     +hint('lesson')+'<div class="meta">Day '+(dayIndex()+1)+' · 2 min read</div><h1>'+esc(l.title)+'</h1>'
     +'<div class="body">'+(l.read||[]).map(function(p){return '<p>'+esc(p)+'</p>';}).join('')+'</div>'
     +'<div class="tint" style="font-size:16px;line-height:1.45"><b style="color:var(--green)">Your action:</b> '+esc(l.action)+'</div>'
@@ -1074,10 +1075,10 @@ function openLesson(){
 function openReflect(){
   var l=currentLesson(), d=today(), prev=(S.checkins[d]||{}).reflection||{};
   var id=stepId(), h=habitOf(id), hold=S.program.settings&&S.program.settings.coachHold;
-  S.view=openReflect;
+  S.view=openReflect; S._viewHelp='reflect';
   var grid=stepCheckins().map(function(x){return '<i class="'+(x==='done'?'done':x==='partly'?'partly':'')+'"></i>';}).join('');
   var mostly=mostlyDone();
-  var html='<div class="screen full"><div class="top"><button class="round" id="rfBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><span></span></div>'
+  var html='<div class="screen full"><div class="top"><button class="round" id="rfBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><button class="helpbtn" aria-label="What is this page?">?</button></div>'
     +hint('reflect')+'<div class="meta">'+esc(id==='reset'?'7-day Reset':(h.n?'Habit '+h.n:'')+'')+' · Day '+(dayIndex()+1)+'</div><h1>'+esc(l.title)+'</h1>'
     +(l.read||[]).map(function(p){return '<div class="body"><p style="margin:0">'+esc(p)+'</p></div>';}).join('')
     +(h.checkin?'<div class="card"><div class="meta">Your check-ins</div><div class="checks">'+grid+'</div><div class="meta" style="font-weight:400">Dark: done · Light: partly · Blank: not today</div></div>':'')
@@ -1338,7 +1339,7 @@ function renderLog(){
   var nowT=new Date().toLocaleTimeString(kLoc(), {hour:'numeric',minute:'2-digit'}).toLowerCase();
   var dateTxt=pd.toLocaleDateString(kLoc(), {weekday:'short',day:'numeric',month:'short'});
   if(S._lgPanelDay!==d){ S._lgPanel=null; S._lgPanelDay=d; }
-  var html='<div class="screen">'+head(isToday?'Today':dateTxt,isToday?dateTxt+' · '+nowT:pd.getFullYear()+'')
+  var html='<div class="screen">'+head(isToday?'Today':dateTxt,isToday?dateTxt+' · '+nowT:pd.getFullYear()+'')+hint('log')
     +'<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px">'+strip+'</div>';
   var dayNotes=commentsFor(d,null);
   if(!isToday&&S._fullDay!==d){
@@ -1907,17 +1908,51 @@ function openGuide(first){
   function done(){token++;clearTimeout(timer);stopSpeech();localStorage.setItem('kfnc_guide_seen','1');S.view=null;render();}
   draw();
 }
+// What each page is for. Shown once as a small tip the first time, and any time
+// under the ? button (with the full tour one tap further).
 var HINTS={
-  welcome:'Start however you like: log a meal, or look at the habit plans. Nothing here is a test.',
-  home:'Log a meal whenever you eat. My plan has a two-minute lesson a day. My progress holds your weekly weigh-in.',
-  today:'A short lesson and one small thing to try. Your logged meals fill in your progress by themselves.',
-  log:'Your whole day, meal by meal. Typing a drink like "starbucks latte" or "thums up" shows matches with calories; pick the size. Tap Add water for glasses of water. Tap + on any meal to snap a photo, choose one from your photos, or type it. Tap a photo to see it full size and swipe for the next. No scores, no judgement.',
-  progress:'Weigh in once a week: same scale, morning, before breakfast. Watch the line over a few weeks, not single days. Set your goal here: lose, maintain or gain.',
-  journey:'Your plan, one habit at a time. Tap any habit you\'ve finished to reread its lessons.',
-  chat:'Message your coach here. Replies show up in this same place. Links you send show as short tappable chips.',
+  welcome:'Pick a plan to get one small habit at a time, with a two-minute lesson a day. Or skip it and just log your meals. Nothing here is a test.',
+  home:'Log a meal: take a photo, upload from your gallery, type it or say it. My plan is your habit, with a two-minute lesson a day. My progress holds your weight, your goal and your details.',
+  today:'Today\'s lesson. Read it or tap Listen, try the one small thing, and at night tap how it went. Your logged meals help fill in the answer.',
+  log:'Your day. Your meals are at the top: tap one to see what\'s in it, or tap a plus button to log the next one. Below them are calories so far, water and steps. Tap a tile for details, and the cross to close it. Swipe left or right to change the day.',
+  progress:'Weigh in once a week: same scale, in the morning, before breakfast. Watch the line over a few weeks, not single days. Your goal and your details are here too, with how your daily calories are worked out.',
+  journey:'Your plan, one habit at a time, about two weeks each. Tap any habit you\'ve finished to read its lessons again.',
+  chat:'Message your coach here. Their replies show up in this same place.',
   lesson:'Tap Listen to hear this read aloud. Tap Got it when you\'re done.',
-  reflect:'These questions are just for you, and all optional. Then choose what feels right: move on, or stay a little longer.'
+  reflect:'These questions are just for you, and all optional. Then choose what feels right: move on, or stay a little longer.',
+  coach:'Notes and meal plans from your coach.',
+  food:'What counts as protein, vegetables, carbs and fat, with everyday examples. Tap Listen to hear it.',
+  consults:'Your consults with your coach.',
+  week:'A short summary of your week. A new one arrives every Sunday.',
+  earlier:'Meals you logged in the app you used before.'
 };
+var HELP_TITLE={welcome:'Choosing a plan',home:'Home',today:'Your day',log:'Today',progress:'My progress',journey:'Your journey',chat:'Chat',coach:'From your coach',food:'What\'s in my food?',consults:'Your consults',week:'Your week',earlier:'Your earlier log',lesson:'Lesson',reflect:'Looking back'};
+// which page is showing, for the ? button
+function helpKey(){
+  if(S._viewHelp) return S._viewHelp;
+  var t=S.tab||'home';
+  if(t==='plan') return hasPlan()?'today':'welcome';
+  if(t==='journey') return hasPlan()?'journey':'welcome';
+  return {home:'home',log:'log',progress:'progress',chat:'chat',coach:'coach',guide:'food',consults:'consults',week:'week',earlier:'earlier'}[t]||'home';
+}
+// ? : what this page is, read aloud on request, and the full tour one tap away
+function openPageHelp(){
+  var k=helpKey(), txt=HINTS[k]||HINTS.home, old=document.getElementById('kfPageHelp'); if(old) old.remove();
+  var ov=document.createElement('div'); ov.id='kfPageHelp';
+  ov.style.cssText='position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center';
+  ov.innerHTML='<div class="card" style="width:100%;max-width:480px;border-radius:22px 22px 0 0;border:1px solid var(--line2);gap:12px;padding:20px 18px calc(20px + env(safe-area-inset-bottom))">'
+    +'<div class="row" style="justify-content:space-between;align-items:center"><span class="steplbl">WHAT IS THIS PAGE?</span><button id="phX" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:22px;min-width:40px;min-height:40px">✕</button></div>'
+    +'<div class="f-meal" style="font-size:22px">'+esc(HELP_TITLE[k]||'This page')+'</div>'
+    +'<div style="font-size:16px;line-height:1.55">'+esc(txt)+'</div>'
+    +'<div class="row" style="gap:10px">'+('speechSynthesis' in window||window.KFIT_VOICE?'<button class="btn out" id="phSay" style="flex:1;min-height:46px">🔊 Listen</button>':'')+'<button class="btn" id="phOk" style="flex:1;min-height:46px">Got it</button></div>'
+    +'<button class="btn link" id="phTour" style="align-self:center;min-height:36px">See the full tour ›</button></div>';
+  document.body.appendChild(ov);
+  function close(){ stopSpeech(); ov.remove(); }
+  ov.onclick=function(e){ if(e.target===ov) close(); };
+  ov.querySelector('#phX').onclick=close; ov.querySelector('#phOk').onclick=close;
+  var sy=ov.querySelector('#phSay'); if(sy) sy.onclick=function(){ if(speaking){ stopSpeech(); sy.textContent='🔊 Listen'; return; } sy.textContent='■ Stop'; speak([txt],function(){ sy.textContent='🔊 Listen'; }); };
+  ov.querySelector('#phTour').onclick=function(){ close(); openGuide(false); };
+}
 function hint(key){
   // each tip shows during one visit only; after that it lives under the ? button
   window._kfHs=window._kfHs||{};
@@ -1929,12 +1964,12 @@ function hint(key){
 function bindHelp(){
   document.querySelectorAll('[data-hint-ok]').forEach(function(b){b.onclick=function(){stopSpeech();localStorage.setItem('kfnc_hint_'+b.dataset.hintOk,'1');if(window._kfHs) window._kfHs[b.dataset.hintOk]=0;var c=b.closest('.hint');if(c)c.remove();};});
   document.querySelectorAll('[data-hint-say]').forEach(function(b){b.onclick=function(){speak([HINTS[b.dataset.hintSay]]);};});
-  document.querySelectorAll('.helpbtn').forEach(function(b){b.onclick=function(){openGuide(false);};});
+  document.querySelectorAll('.helpbtn').forEach(function(b){b.onclick=openPageHelp;});
   document.querySelectorAll('[data-home]').forEach(function(b){b.onclick=function(){go('home');};});
 }
 function head(title,sub,noBack){
   return (noBack||S.tab==='home'?'':'<button class="btn link" data-home style="align-self:flex-start;color:var(--soft)">‹ Home</button>')+'<div class="hrow"><div style="display:flex;flex-direction:column;gap:6px">'+(sub?'<div class="meta">'+sub+'</div>':'')+'<h1>'+title+'</h1></div>'
-    +'<button class="helpbtn" aria-label="How KFit works">?</button></div>';
+    +'<button class="helpbtn" aria-label="What is this page?">?</button></div>';
 }
 
 // ---------- Calories: for reference only, like calories burnt in fitness ----------
@@ -2059,7 +2094,7 @@ function renderProgress(){
   }
   var strong=0; try{ var st0=(S.program&&S.program.started_on)||null; if(st0){ for(var d=st0,c=0; d<=today()&&c<400; d=addDays(d,1),c++) if(effAnswer(d)==='done') strong++; } }catch(e){}
   function stat(lbl,val,unit,col){ return '<div class="card" style="padding:12px 6px;align-items:center;gap:2px;margin:0"><div class="meta" style="font-weight:400;font-size:13px">'+lbl+'</div><div class="f-meal" style="font-size:26px;color:'+(col||'var(--ink)')+'">'+val+'</div><div class="meta" style="font-weight:400;font-size:12px">'+unit+'</div></div>'; }
-  var html='<div class="screen">'+head('Your progress')
+  var html='<div class="screen">'+head('My progress')+hint('progress')
     +'<div class="card" style="gap:6px"><div class="row" style="justify-content:space-between;align-items:baseline"><div class="cap">WEIGHT</div>'+(w.change?'<div style="font-weight:800;color:'+(wGood(w.change)?'var(--leaf)':'var(--gold)')+'">'+wArrow(w.change)+'</div>':'')+'</div>'
     +(graph||'<div class="body" style="font-size:15px">'+(w.cur!=null?'Your line appears after your second weigh-in. Current: <b>'+w.cur+' kg</b>.':'Your first weigh-in is your starting point.')+'</div>')+'</div>'
     +'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">'

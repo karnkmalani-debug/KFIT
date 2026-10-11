@@ -7803,7 +7803,9 @@ async function kfitPushCard(el){
 // Open a client (and a meal) from a notification link: ?open=<mobile>&meal=<id>&day=<date>
 function kfitOpenFromUrl(u){
   try{
-    var q=new URL(u,location.href).searchParams, m=(q.get('open')||'').replace(/\D/g,''); if(!m) return;
+    var q=new URL(u,location.href).searchParams, m=(q.get('open')||'').replace(/\D/g,'');
+    // a notification that isn't about one client (the 8 am summary): show what it counted
+    if(!m){ if(q.get('kfpush')) kfOpenSummary(); return; }
     var tries=0;
     (function wait(){
       tries++;
@@ -7817,7 +7819,18 @@ function kfitOpenFromUrl(u){
     })();
   }catch(e){}
 }
+// The morning summary counts what came in since yesterday morning, so it opens
+// yesterday's list (with a banner and a one-tap way back to today).
+function kfOpenSummary(){
+  var tries=0;
+  (function wait(){ tries++;
+    if(typeof kfGo!=='function'||!window.currentCoachId||!document.getElementById('kfNav')){ if(tries<60) setTimeout(wait,500); return; }
+    window.kfFromSummary=Date.now(); kfGo('today'); kfTodaySet(ncAddDays(ncToday(),-1));
+    try{ history.replaceState(null,'',location.pathname); }catch(e){}
+  })();
+}
 if(/[?&]open=/.test(location.search)) kfitOpenFromUrl(location.href);
+else if(/[?&]kfpush=1/.test(location.search)) kfOpenSummary();
 try{ navigator.serviceWorker&&navigator.serviceWorker.addEventListener('message',function(ev){ if(ev.data&&ev.data.type==='kfit-open') kfitOpenFromUrl(ev.data.url); }); }catch(e){}
 // Clear the number on the KFit Coach icon whenever Merge is opened
 function kfitClearBadge(){ try{ if(navigator.clearAppBadge) navigator.clearAppBadge(); caches.open('kfit-badge').then(function(c){c.delete('/__badge');}); }catch(e){} }
@@ -8515,6 +8528,7 @@ async function kfTodayRender(){
     +'<input type="date" id="kfDayPick" aria-label="Pick a day" value="'+day+'" max="'+todayD+'" style="position:absolute;inset:0;opacity:0;width:100%;cursor:pointer"></label></div>'
     +'<div style="display:flex;gap:6px"><button class="kf-daynav" data-step="-1" aria-label="Previous day">‹</button><button class="kf-daynav" data-step="1" aria-label="Next day"'+(isToday?' disabled':'')+'>›</button></div></div>'
     +'<div style="height:1px;background:linear-gradient(90deg,#C9A24A,transparent);margin:10px 0 6px"></div>'
+    +(!isToday&&window.kfFromSummary&&Date.now()-window.kfFromSummary<10*60000&&day===ncAddDays(todayD,-1)?'<div style="background:#2A2416;border:1px solid #6B5A2A;border-radius:12px;padding:10px 12px;margin:6px 0;font-size:14px">🌅 From this morning\'s summary: everything that came in yesterday.</div>':'')
     +(isToday?'<div id="kfPushCardToday"></div>':'<button class="kf-act" id="kfBackToday" style="width:100%;padding:10px;margin:6px 0">Back to today</button>');
   var nRows=0;
   function row(kind,m,line,btn,idx){ nRows++;
@@ -8612,7 +8626,7 @@ function kfResumeHook(){
   if(!app||app.style.display==='none'||!window.currentCoachId){ return setTimeout(kfStart,400); }
   kfNavBuild();
   var R=null; try{ R=JSON.parse(localStorage.getItem('kf_resume')||'null'); }catch(e){}
-  if(!/[?&]open=/.test(location.search)&&R&&Date.now()-R.t<12*3600e3&&R.place&&(R.key||R.place!=='today')){
+  if(!/[?&](open|kfpush)=/.test(location.search)&&R&&Date.now()-R.t<12*3600e3&&R.place&&(R.key||R.place!=='today')){
     var back=function(){ [600,1800,3200].forEach(function(ms){ setTimeout(function(){ if(Math.abs((window.scrollY||0)-(R.y||0))>40) window.scrollTo(0,R.y||0); },ms); }); };
     if(R.key){
       // put the page they came from underneath, so Back still goes there

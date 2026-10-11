@@ -1,4 +1,4 @@
-const V = "kfit-v59";
+const V = "kfit-v60";
 self.addEventListener("install", e => { self.skipWaiting(); });
 self.addEventListener("activate", e => e.waitUntil(
   // v40: batch 28b (supersets from any exercise). Bumping
@@ -63,7 +63,9 @@ self.addEventListener("push", e => {
 });
 self.addEventListener("notificationclick", e => {
   e.notification.close();
-  const url = (e.notification.data && e.notification.data.url) || "/kfit-coach-merged.html";
+  // mark the link as "opened from a notification", so the app can show what it was about
+  let url = (e.notification.data && e.notification.data.url) || "/kfit-coach-merged.html";
+  url += (url.indexOf("?") >= 0 ? "&" : "?") + "kfpush=1";
   e.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     const page = url.split("?")[0].replace(/^\//, "");
