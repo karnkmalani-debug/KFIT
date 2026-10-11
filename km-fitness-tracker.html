@@ -8247,7 +8247,9 @@ const s=sessions.find(s=>String(s.id)===String(id));
 if(!s)return;
 const d=new Date(s.date+'T12:00:00');
 const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-document.getElementById('dTitle').textContent=kfSessEmoji(s)+' '+kfSessLabel(s);
+// the title is the person who did it (the activity is shown below)
+var _who=String(s.client||'').trim(); if(/^Unnamed /.test(_who)) _who='';
+document.getElementById('dTitle').textContent=_who||(kfSessEmoji(s)+' '+kfSessLabel(s));
 document.getElementById('dSub').textContent=d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear()+(s.timeOfDay?' - '+s.timeOfDay:'');
 const _sessDur=s.duration||(s.cardio&&s.cardio.length?s.cardio.reduce((a,c)=>a+(parseInt(c.duration)||0),0)*60:0);
 const _exCount=(s.exercises?s.exercises.length:0)+(s.supersets?s.supersets.reduce((a,ss)=>a+(ss.exercises?ss.exercises.length:0),0):0);
@@ -8280,7 +8282,7 @@ ${_sessDur?`<div class="rst-row" style="margin-bottom:14px;"><span class="rst-la
 ${s.cardio.map(c=>`
 <div style="margin-bottom:6px;">
 ${c.intensity?`<div class="rst-row"><span class="rst-label" style="color:var(--text);font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.03em;">Intensity</span><span style="color:var(--terra);font-size:19px;font-weight:800;font-family:'DM Mono',monospace;">${c.intensity.toUpperCase()}</span></div>`:''}
-<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);color:var(--text);font-size:22px;font-weight:800;letter-spacing:.02em;">${kfitEmoji(c.ex,'cardio')} ${c.ex}${c.duration?` <span style="color:var(--gold);font-size:17px;font-family:'DM Mono',monospace;">${c.duration} min</span>`:''}</div>
+<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);color:var(--text);font-size:22px;font-weight:800;letter-spacing:.02em;">${kfitEmoji(c.ex,'cardio')} ${c.ex}${c.duration&&s.cardio.length>1?` <span style="color:var(--gold);font-size:17px;font-family:'DM Mono',monospace;">${c.duration} min</span>`:''}</div>
 ${c.distance?`<div style="margin-top:6px;color:var(--gold);font-size:16px;font-weight:700;font-family:'DM Mono',monospace;">${c.distance}km</div>`:''}
 </div>`).join('')}
 </div>`:'';
