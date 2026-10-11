@@ -128,7 +128,8 @@ h2{margin:0;font-family:var(--serif);font-weight:500;font-size:22px;line-height:
    edge and a dot only, so they never compete with those. */
 .mcard.slot{border-left:4px solid var(--sc,var(--line));}
 .mcard.slot .mthumb:not(img){background:var(--sb,var(--sand));}
-.addgrid button[data-add]{border:1px solid var(--line2);color:var(--ink);background:none;display:flex;align-items:center;justify-content:center;gap:6px}
+.addgrid button[data-add]{border:1.5px solid var(--sc,var(--line2));color:var(--sc,var(--ink));background:var(--sb,none);display:flex;align-items:center;justify-content:center;gap:4px;min-height:54px;font-size:14.5px;font-weight:800;white-space:nowrap;padding:0 6px;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.addgrid button[data-add]:active{transform:scale(.97)}
 .sdot{width:8px;height:8px;border-radius:4px;background:var(--sc,var(--muted));display:inline-block;flex-shrink:0}
 .lgtiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .lgt{position:relative;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 10px 10px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;color:var(--ink);text-align:left;min-height:104px;font-family:inherit}
@@ -1294,7 +1295,7 @@ function openPast(id){
 // ---------- Log (meals + photo feedback in hands, never calories) ----------
 // one colour per meal of the day: its card edge, its name and its "+" button
 // sunrise to night; kept clear of gold (calories), blue (water) and green (steps, habit)
-var SLOT_COL={'Breakfast':['#F2B880','#2A221A'],'Morning snack':['#E8957A','#2A1F1A'],'Lunch':['#E07A8F','#2A1A1E'],'Evening snack':['#C79BE0','#241D2A'],'Dinner':['#9C8FE0','#1E1C2A'],'Late snack':['#9C978A','#1F1F1B']};
+var SLOT_COL={'Breakfast':['#F2B880','#3B2C1D'],'Morning snack':['#EE9C80','#3A241C'],'Lunch':['#EC8499','#3B1F27'],'Evening snack':['#CDA4EA','#30233D'],'Dinner':['#A79BEE','#25223F'],'Late snack':['#B8B3A7','#2A2A25']};
 function slotStyle(sl){ var c=SLOT_COL[sl]||SLOT_COL['Late snack']; return '--sc:'+c[0]+';--sb:'+c[1]; }
 var DAY_SLOTS=[['Breakfast','08:00'],['Morning snack','11:00'],['Lunch','13:30'],['Evening snack','17:00'],['Dinner','20:00']];
 // Photos: a meal can hold several, added over time (a long meal, drinks...).
@@ -1396,7 +1397,7 @@ function renderLog(){
   // 1. meals, right under the date: what's logged, then the meals still to log
   html+='<div class="row" style="justify-content:space-between;align-items:center;margin-top:2px"><div class="steplbl" style="color:var(--soft)">🍽️ MEALS'+(list.length?' · '+list.length+' LOGGED':'')+'</div>'+(!isToday?'<button class="btn link" id="lgFold" style="min-height:30px;font-size:13px;color:var(--muted)">Fold this day ▴</button>':'')+'</div>';
   html+=cards||'<div class="meta" style="font-weight:400;padding:2px 0 4px">Nothing logged '+(isToday?'yet today':'on this day')+'. Tap a meal below to add it.</div>';
-  html+='<div class="addgrid">'+missing.map(function(sl){return '<button data-add="'+sl+'" style="'+slotStyle(sl)+'"><i class="sdot"></i>+ '+(SHORT[sl]||sl)+'</button>';}).join('')+'<button data-add="Late snack"><i class="sdot"></i>+ Other</button></div>';
+  html+='<div class="addgrid">'+missing.map(function(sl){return '<button data-add="'+sl+'" style="'+slotStyle(sl)+'">+ '+(SHORT[sl]||sl)+'</button>';}).join('')+'<button data-add="Late snack" style="'+slotStyle('Late snack')+'">+ Other</button></div>';
   // 2. calories, water and steps: three small tiles, each says what it counts
   var kd=dayKcal(d), tg=goalKcal(targets()), over=tg&&kd.sum>tg, P=S._lgPanel;
   var kT=showK()
