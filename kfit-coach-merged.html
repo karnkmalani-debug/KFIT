@@ -3419,8 +3419,11 @@ setInterval(function(){
   const day=new Date().toDateString();
   if(!window.currentCoachId||localStorage.getItem('merge_chat_cleanup_day')===day||typeof KFitChat==='undefined') return;
   try{ localStorage.setItem('merge_chat_cleanup_day',day); }catch(e){}
-  getSB().from('fitness_clients').select('client_id').eq('coach_id',window.currentCoachId).then(function(r){
+  getSB().from('fitness_clients').select('client_id').eq('coach_id',window.currentCoachId).then(async function(r){
     const ids=((r&&r.data)||[]).map(function(x){return x.client_id;});
+    // nutrition clients' chat folders too (their consult photos that weren't kept)
+    try{ const t=await getSB().from('client_tags').select('mobile,client_key,tracker').eq('coach_id',window.currentCoachId).eq('tracker','nutrition');
+      ((t&&t.data)||[]).forEach(function(x){ const m=String(x.mobile||x.client_key||'').replace(/\D/g,'').slice(-10); if(m.length===10&&ids.indexOf('kfit__'+m)<0) ids.push('kfit__'+m); }); }catch(e){}
     if(ids.length) KFitChat.cleanupExpired(getSB(),ids);
   });
 },60000);
@@ -7497,11 +7500,12 @@ async function ncBillRender(cid){
       html+=line+'<div style="display:flex;gap:10px" data-cons="'+c.id+'">'+node('#8FD1A2')+'<div style="flex:1;min-width:0"><div style="font-size:14px"><b>Consult ✓</b> <span style="font-family:\'DM Mono\',monospace;color:#C9A24A">'+nice(c.consult_day)+'</span> <span style="font-size:11px;color:var(--muted)">tap to edit</span></div>'
         +(c.notes?'<div style="font-size:13px;color:var(--text)">"'+ncEsc(c.notes)+'"</div>':'')
         +(c.client_notes?'<div style="background:#23382B;border:1px solid #3D6B4F;color:#CFEBD8;border-radius:8px;padding:5px 8px;margin-top:4px;font-size:13px"><b>Client\'s notes:</b> '+ncEsc(c.client_notes)+'</div>':'')
-        +(window.KFitConsultMedia?KFitConsultMedia.html(c.files,{}):'')+'</div></div>';
+        +(window.KFitConsultMedia&&Array.isArray(c.files)&&c.files.length?'<div data-ccf="'+c.id+'"></div>':'')+'</div></div>';
     });
     html+=line+'<div style="display:flex;gap:10px">'+node('#C9A24A',true)+'<div style="flex:1"><div style="font-size:14px"><b>Next consult</b> '+dateBtn(I.nextC,'data-bdate="next"')+'</div>'
       +(I.prep&&I.prep.notes?'<div style="background:#23382B;border:1px solid #3D6B4F;color:#CFEBD8;border-radius:8px;padding:5px 8px;margin-top:4px;font-size:13px"><b>Client\'s note for it:</b> '+ncEsc(I.prep.notes)+'</div>':'')
       +(I.prep&&Array.isArray(I.prep.files)&&I.prep.files.length&&window.KFitConsultMedia?'<div style="font-size:12px;color:var(--muted);margin-top:4px">They added for it:</div>'+KFitConsultMedia.html(I.prep.files,{}):'')
+      +'<div style="font-size:11px;color:var(--muted);margin-top:4px">Photos and videos stay 30 days. ☆ Keep saves one for good (it shows in their progress photos).</div>'
       +(I.weekly?'<div style="background:#23382B;border:1px solid #3D6B4F;color:#CFEBD8;border-radius:8px;padding:5px 8px;margin-top:4px;font-size:13px"><b>Check-in:</b> '+[I.weekly.full?'fullness '+['','😕','😐','🙂'][I.weekly.full]:'',I.weekly.cravings?'cravings '+({most:'most nights',few:'a few',none:'none'}[I.weekly.cravings]):'',I.weekly.stress?'stress '+['','😣','😐','😌'][I.weekly.stress]:''].filter(Boolean).join(' · ')+(I.weekly.win?'<br>🏆 '+ncEsc(I.weekly.win):'')+(I.weekly.struggle?'<br>🧗 '+ncEsc(I.weekly.struggle):'')+'</div>':'')
       +'<button class="kf-act main" id="kfLogConsult_'+cid+'" style="margin-top:8px">+ Log a consult</button>'
       +'<div id="ncNewCons_'+cid+'" style="display:none;margin-top:8px"><div style="font-size:13px;margin-bottom:6px">Date: '+dateBtn(ncToday(),'id="ncCDay_'+cid+'"','<span id="ncCDayTxt_'+cid+'">'+nice(ncToday())+'</span>')+' <span style="font-size:11px;color:var(--muted)">(tap to change)</span></div>'
@@ -7533,13 +7537,22 @@ async function ncBillRender(cid){
   var cd=document.getElementById('ncCDay_'+cid); if(cd){ cd.onclick=function(e){e.stopPropagation();}; cd.onchange=function(){ if(/^\d{4}-\d{2}-\d{2}$/.test(cd.value)) document.getElementById('ncCDayTxt_'+cid).textContent=nice(cd.value); }; }
   var lb=document.getElementById('kfLogConsult_'+cid); if(lb) lb.onclick=function(){ lb.style.display='none'; document.getElementById('ncNewCons_'+cid).style.display='block'; var n=document.getElementById('ncCNote_'+cid); n.focus(); };
   var cc=document.getElementById('ncCCancel_'+cid); if(cc) cc.onclick=function(){ if(window.kfNewConsFiles) delete window.kfNewConsFiles[cid]; ncBillRender(cid); };
-  var CMx=window.KFitConsultMedia; if(CMx) CMx.hydrate(getSB(),el,'Consult');
+  var CMx=window.KFitConsultMedia, IDSx={meals:cid,chat:'kfit__'+cid.slice(6)}; if(CMx) CMx.hydrate(getSB(),el,'Consult');
+  // a logged consult's photos, with ⭐ Keep (you or the client can keep any)
+  function drawCC(c){ var bx=el.querySelector('[data-ccf="'+c.id+'"]'); if(!bx||!CMx) return; bx.innerHTML=CMx.html(c.files,{keepable:true}); CMx.hydrate(getSB(),bx,'Consult');
+    bx.onclick=function(e){ e.stopPropagation(); };
+    bx.querySelectorAll('[data-cmk]').forEach(function(k){ k.onclick=async function(e){ e.stopPropagation(); var i=+k.dataset.cmk, f=c.files[i]; k.disabled=true; k.textContent='…';
+      var nf=await CMx.setKeep(getSB(),IDSx,f,!CMx.isKept(f)); if(nf.error){ alert(nf.error); drawCC(c); return; }
+      var all=c.files.slice(); all[i]=nf; var r=await getSB().from('nutrition_consults').update({files:all}).eq('id',c.id);
+      if(r.error){ alert('Not saved -- '+r.error.message); drawCC(c); return; } c.files=all; drawCC(c); }; }); }
+  if(CMx) I.consults.forEach(function(c){ if(Array.isArray(c.files)&&c.files.length) drawCC(c); });
   // photos or videos for the consult you're logging (uploaded now, saved with it)
   window.kfNewConsFiles=window.kfNewConsFiles||{};
-  function drawNew(){ var bx=document.getElementById('ncCFiles_'+cid); if(!bx||!CMx) return; var L=window.kfNewConsFiles[cid]||[]; bx.innerHTML=CMx.html(L,{removable:true}); CMx.hydrate(getSB(),bx,'Consult');
-    bx.querySelectorAll('[data-cmx]').forEach(function(b){ b.onclick=function(e){ e.stopPropagation(); L.splice(+b.dataset.cmx,1); drawNew(); }; }); }
+  function drawNew(){ var bx=document.getElementById('ncCFiles_'+cid); if(!bx||!CMx) return; var L=window.kfNewConsFiles[cid]=window.kfNewConsFiles[cid]||[]; bx.innerHTML=CMx.html(L,{removable:true,keepable:true}); CMx.hydrate(getSB(),bx,'Consult');
+    bx.querySelectorAll('[data-cmx]').forEach(function(b){ b.onclick=function(e){ e.stopPropagation(); L.splice(+b.dataset.cmx,1); drawNew(); }; });
+    bx.querySelectorAll('[data-cmk]').forEach(function(b){ b.onclick=async function(e){ e.stopPropagation(); var i=+b.dataset.cmk; b.disabled=true; b.textContent='…'; var nf=await CMx.setKeep(getSB(),IDSx,L[i],!CMx.isKept(L[i])); if(nf.error){ alert(nf.error); } else L[i]=nf; drawNew(); }; }); }
   var catt=document.getElementById('ncCAttach_'+cid); if(catt&&CMx) catt.onclick=function(){ CMx.pick(async function(fs){
-    catt.disabled=true; var res=await CMx.uploadAll(getSB(),cid,fs,'coach',function(i,n){ catt.textContent='Adding '+i+' of '+n+'…'; }); catt.disabled=false; catt.textContent='📎 Add photo or video';
+    catt.disabled=true; var res=await CMx.uploadAll(getSB(),IDSx,fs,'coach',function(i,n){ catt.textContent='Adding '+i+' of '+n+'…'; },false); catt.disabled=false; catt.textContent='📎 Add photo or video';
     if(res.errors.length) alert(res.errors[0]); window.kfNewConsFiles[cid]=(window.kfNewConsFiles[cid]||[]).concat(res.files); drawNew(); }); };
   drawNew();
   var pb=document.getElementById('ncPaid_'+cid); if(pb) pb.onclick=async function(){
@@ -7570,11 +7583,13 @@ async function ncBillRender(cid){
       +'<div data-ed="files"></div><button class="kf-act" data-ed="attach" style="padding:6px 12px;font-size:13px;margin-top:4px">📎 Add photo or video</button>'
       +'<div style="display:flex;gap:6px;margin:6px 0"><button class="kf-act main" data-ed="save">Save</button><button class="kf-act" data-ed="cancel">Cancel</button><button class="kf-act" data-ed="del" style="margin-left:auto;border-color:var(--terra);color:var(--terra)">Delete</button></div>';
     var efiles=(Array.isArray(c.files)?c.files:[]).slice(), CMe=window.KFitConsultMedia;
-    function drawE(){ var bx=row.querySelector('[data-ed="files"]'); if(!bx||!CMe) return; bx.innerHTML=CMe.html(efiles,{removable:true}); CMe.hydrate(getSB(),bx,'Consult');
-      bx.querySelectorAll('[data-cmx]').forEach(function(b){ b.onclick=function(e){ e.stopPropagation(); if(!confirm('Remove this photo or video from the consult?')) return; efiles.splice(+b.dataset.cmx,1); drawE(); }; }); }
+    var IDSe={meals:cid,chat:'kfit__'+cid.slice(6)};
+    function drawE(){ var bx=row.querySelector('[data-ed="files"]'); if(!bx||!CMe) return; bx.innerHTML=CMe.html(efiles,{removable:true,keepable:true}); CMe.hydrate(getSB(),bx,'Consult');
+      bx.querySelectorAll('[data-cmx]').forEach(function(b){ b.onclick=function(e){ e.stopPropagation(); if(!confirm('Remove this photo or video from the consult?')) return; efiles.splice(+b.dataset.cmx,1); drawE(); }; });
+      bx.querySelectorAll('[data-cmk]').forEach(function(b){ b.onclick=async function(e){ e.stopPropagation(); var i=+b.dataset.cmk; b.disabled=true; b.textContent='…'; var nf=await CMe.setKeep(getSB(),IDSe,efiles[i],!CMe.isKept(efiles[i])); if(nf.error) alert(nf.error); else efiles[i]=nf; drawE(); }; }); }
     drawE();
     var at=row.querySelector('[data-ed="attach"]'); if(at) at.onclick=function(e){ e.stopPropagation(); if(!CMe) return; CMe.pick(async function(fs){
-      at.disabled=true; var res=await CMe.uploadAll(getSB(),cid,fs,'coach',function(i,n){ at.textContent='Adding '+i+' of '+n+'…'; }); at.disabled=false; at.textContent='📎 Add photo or video';
+      at.disabled=true; var res=await CMe.uploadAll(getSB(),IDSe,fs,'coach',function(i,n){ at.textContent='Adding '+i+' of '+n+'…'; },false); at.disabled=false; at.textContent='📎 Add photo or video';
       if(res.errors.length) alert(res.errors[0]); efiles=efiles.concat(res.files); drawE(); }); };
     var dIn=row.querySelector('[data-ed="day"]'); dIn.onclick=function(e){e.stopPropagation();};
     dIn.onchange=function(){ if(/^\d{4}-\d{2}-\d{2}$/.test(dIn.value)){ day=dIn.value; row.querySelector('[data-ed="daytxt"]').textContent=nice(day); } };
@@ -8664,7 +8679,7 @@ var KF_HELP=[
   ['⚡','Quick replies','Under each meal, tap a ready-made note (like "Great protein! 💪") to send it in one tap. Tap ✎ edit to change your list.'],
   ['💚','How they\'re feeling','Clients can tap one face when they log dinner ("How do you feel today?") and say at breakfast if they had late-night cravings. The weekly check-in, the day before the consult, adds fullness, cravings, stress, waist, weight, one win and one struggle. You see it all at the top of Days and under Next consult, plus how dinner time lines up with cravings.'],
   ['✨','Week summary','Every Sunday each nutrition client gets a summary of their week. It appears at the top of Days; add a line and they see it on their card.'],
-  ['💳','Account','Fitness: sessions this month, which are unpaid, and Mark all paid. Nutrition: their month as one timeline: started, each consult (with your notes and hers), next consult, and renewal. Tap "+ Log a consult" after you talk, and 📎 to add progress photos or a short video (kept for good, privately; they see them in their app under My progress, and can add their own before a consult); tap any date to change it; tap Mark paid when she pays. Her settings (show calories, step goal) and your private notes are here too.'],
+  ['💳','Account','Fitness: sessions this month, which are unpaid, and Mark all paid. Nutrition: their month as one timeline: started, each consult (with your notes and hers), next consult, and renewal. Tap "+ Log a consult" after you talk, and 📎 to add photos or a short video. They stay 30 days; tap ☆ Keep to save one for good (privately). Either of you can keep a photo, and kept photos show in their app under My progress. They can add their own before a consult; tap any date to change it; tap Mark paid when she pays. Her settings (show calories, step goal) and your private notes are here too.'],
   ['🔔','Notifications','Turn on phone notifications in More → Notifications (open Merge from its home-screen icon on iPhone). You\'ll get a buzz when a tagged client logs, replies or checks in, plus a morning summary at 8 am. Quiet 10 pm to 7 am. Clients can turn on their own reminders too.'],
   ['☰','More','Requests, feedback, notifications, exercises, your account and invite links, trash, print, help and log out.']
 ];
