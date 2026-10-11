@@ -1515,25 +1515,41 @@ async function retryEstimate(mealId,quiet){
     m.body=b; m.updated_ms=now(); await write('nutrition_meals',mealRow(m)); if(!quiet||(S.tab==='log'&&!S.view)) renderLog(); if(!quiet) toast('Estimate added');
   }catch(e){ if(!quiet) toast('Still no estimate. Please try again a bit later.'); }
 }
+// Photos: the camera takes one; the gallery lets her pick as many as she likes.
+// Every photo is saved; the AI reads up to AI_PHOTOS of them in one go (more is
+// slow and doesn't improve the estimate). The file box is set up fresh every
+// time, so a cancelled camera never sticks.
+var AI_PHOTOS=10;
+function pickPhotos(then,fromGallery){
+  var inp=$('#photoInput'); inp.value='';
+  if(fromGallery){ inp.removeAttribute('capture'); inp.setAttribute('multiple',''); } else { inp.setAttribute('capture','environment'); inp.removeAttribute('multiple'); }
+  inp.onchange=async function(){
+    var fs=Array.prototype.slice.call(inp.files||[]); inp.removeAttribute('capture'); inp.removeAttribute('multiple'); inp.value='';
+    if(!fs.length) return;
+    var out=[];
+    for(var i=0;i<fs.length;i++){ if(fs[i].size>G_MAX){ toast('One photo was too large, skipped'); continue; } try{ out.push(await shrink(fs[i],1024,0.72)); }catch(e){ toast('Could not read one photo'); } }
+    if(out.length) then(out);
+  };
+  inp.click();
+}
 function addPhotoToMeal(mealId){
   var m=S.meals[mealId]; if(!m) return;
-  var inp=$('#photoInput'); inp.value=''; inp.onchange=async function(){
-    var file=inp.files&&inp.files[0]; if(!file) return;
-    if(file.size>G_MAX){toast('That photo is too large');return;}
-    toast('Adding your photo…');
+  pickPhotos(async function(phs){
+    toast(phs.length>1?'Adding '+phs.length+' photos…':'Adding your photo…');
     try{
-      var ph=await shrink(file,1024,0.72), path=S.clientId+'/'+mealId+'-'+uid()+'.jpg';
-      var up=await withTimeout(sb.storage.from('kfit-meals').upload(path,ph,{contentType:'image/jpeg',upsert:false}),25000);
-      if(up.error){toast('Photo not saved. Check your connection.');return;}
-      var b=m.body||{}, ps=mealPhotos(b);
+      var b=m.body||{}, ps=mealPhotos(b), added=[];
+      for(var i=0;i<phs.length;i++){ var path=S.clientId+'/'+mealId+'-'+uid()+'.jpg';
+        var up=await withTimeout(sb.storage.from('kfit-meals').upload(path,phs[i],{contentType:'image/jpeg',upsert:false}),25000);
+        if(up.error){ toast('A photo was not saved. Check your connection.'); continue; } added.push({path:path,blob:phs[i]}); }
+      if(!added.length) return;
       if(Array.isArray(b.items)){
-        try{ var r=await aiItems(ph,''); b.items=b.items.concat(r.items); b.feedback=itemsFeedback(b.items,(b.feedback||{}).tip||r.tip); b.text=itemsText(b.items).slice(0,1000); b.edited=true; }catch(e){}
-        ps.push({path:path,at:now()});
-      } else { var fb=null; try{ fb=await handFeedback(ph,''); }catch(e){} ps.push({path:path,at:now(),feedback:fb}); }
+        try{ var r=await aiItems(added.map(function(x){return x.blob;}),''); b.items=b.items.concat(r.items); b.feedback=itemsFeedback(b.items,(b.feedback||{}).tip||r.tip); b.text=itemsText(b.items).slice(0,1000); b.edited=true; }catch(e){}
+        added.forEach(function(x){ ps.push({path:x.path,at:now()}); });
+      } else { for(var j=0;j<added.length;j++){ var fb=null; try{ fb=await handFeedback(added[j].blob,''); }catch(e){} ps.push({path:added[j].path,at:now(),feedback:fb}); } }
       b.photos=ps; delete b.photo; b.noPhoto=false; m.body=b; m.updated_ms=now();
       S.meals[mealId]=m; await write('nutrition_meals',mealRow(m)); if(S.tab==='log'&&!S.view) renderLog();
     }catch(e){ toast('Could not add that photo'); }
-  }; inp.click();
+  },true);
 }
 var photoUrls={};
 async function loadPhoto(img){
@@ -1552,7 +1568,8 @@ function itemScale(it,amt){
 }
 function amtTxt(a){return a===0.25?'¼':a===0.5?'½':a===0.75?'¾':a===1.5?'1½':a===2.5?'2½':String(a);}
 async function aiItems(blob,text){
-  var prompt='You are a nutrition coach. List each separate food or drink '+(blob?'in this meal photo':'in this meal')+(text?(blob?' (the person adds: "':' : "')+String(text).replace(/"/g,"'").slice(0,400)+'"'+(blob?')':''):'')+'. '
+  var blobs=Array.isArray(blob)?blob.filter(Boolean).slice(0,AI_PHOTOS):(blob?[blob]:[]); blob=blobs.length?blobs[0]:null;
+  var prompt='You are a nutrition coach. List each separate food or drink '+(blobs.length>1?'in these '+blobs.length+' photos of one meal (a food that shows in more than one photo counts once)':blob?'in this meal photo':'in this meal')+(text?(blob?' (the person adds: "':' : "')+String(text).replace(/"/g,"'").slice(0,400)+'"'+(blob?')':''):'')+'. '
     +'For each item give: name (short, plain English), amount (a number) and unit in everyday household measures (cup, bowl, piece, slice, roti, glass, tbsp, tsp, plate; for drinks also ml, can, bottle, pint, peg, shot, or a cafe cup size like tall, grande, venti, small, regular, large), '
     +'its calories for that amount, and its hand portions: protein palms, vegetable fists, carb cupped hands, fat thumbs (0, 0.25, 0.5, 1...). '
     +'Drinks: give "drink" as one of zero (water, soda water, black coffee, plain tea, diet or zero-sugar soft drinks), light (coconut water, chaas, jaljeera, unsweetened nimbu pani), home (homemade chai or coffee with milk), cafe (coffee-shop drinks), dairy (milk, lassi, milkshakes, protein shakes), sugary (soft drinks, juices, energy drinks, sharbat, sweetened drinks), alcohol (beer, wine, spirits, cocktails, breezers); for food use null. '
@@ -1563,7 +1580,7 @@ async function aiItems(blob,text){
     +'Also one short, kind, practical tip (max 25 words) based on: protein first, a fist of vegetables, carbs last; if there is alcohol, suggest water between drinks and protein with them; if there is a sugary drink, suggest one simple swap (nimbu pani without sugar, chaas, sparkling water). Never shame. '
     +(kLang()!=='en'?'Write the tip in '+KFitI18n.aiName()+'. ':'')
     +'Reply ONLY with JSON: {"items":[{"name":"","amount":1,"unit":"","kcal":0,"protein":0,"veg":0,"carbs":0,"fats":0,"drink":null,"sugar":0}],"tip":""}';
-  var parts=[{text:prompt}]; if(blob) parts.push({inline_data:{mime_type:'image/jpeg',data:await b64(blob)}});
+  var parts=[{text:prompt}]; for(var bi=0;bi<blobs.length;bi++) parts.push({inline_data:{mime_type:'image/jpeg',data:await b64(blobs[bi])}});
   var r=await fetch(GEMINI_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:parts}],generationConfig:{temperature:0.2,maxOutputTokens:2048,responseMimeType:'application/json',thinkingConfig:{thinkingBudget:0}}})});
   var j=await r.json(); var t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&(j.candidates[0].content.parts||[]).map(function(q){return q.text||'';}).join('');
   var o=JSON.parse(String(t||'').replace(/```json|```/g,'').trim());
@@ -1692,11 +1709,8 @@ function openMealForm(d,forSlot,editId){
   if(M.time){ var mt=M.time.split(':'); hh=+mt[0]; mm=+mt[1]; } if(M.slot) slot=M.slot; if(M.day) d=M.day;
   var top='<div class="top"><button class="round" id="mfBack" aria-label="Back"><svg class="icon" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button><span></span></div>';
   function back(){ S._mf=null; S.view=null; S.tab='log'; render(); }
-  function pickPhoto(then,fromGallery){ var inp=$('#photoInput'); inp.value=''; if(fromGallery) inp.removeAttribute('capture'); else inp.setAttribute('capture','environment'); inp.onchange=async function(){
-      var f=inp.files&&inp.files[0]; inp.removeAttribute('capture'); if(!f) return;
-      if(f.size>G_MAX){toast('That photo is too large');return;}
-      try{ var ph=await shrink(f,1024,0.72); then(ph); }catch(e){ toast('Could not read that photo'); }
-    }; inp.click(); }
+  function pickPhoto(then,fromGallery){ pickPhotos(function(phs){ then(phs); },fromGallery); }
+  // blob: one photo or a list of photos of the same meal (read together, so nothing is counted twice)
   async function analyse(blob,text,append){
     M.busy=true; openMealForm(d,forSlot,editId);
     try{ var r=await aiItems(blob,text); if(!r.items.length) throw new Error('nothing');
@@ -1716,8 +1730,8 @@ function openMealForm(d,forSlot,editId){
       +row('mfSay','🎤','Say it','Speak in English or Hindi')
       +'<button class="btn link" id="mfGuide" style="align-self:center;min-height:32px;font-size:14px">What\'s protein, carbs or fat? See the food guide</button></div>');
     $('#mfBack').onclick=back; $('#mfGuide').onclick=function(){S._mf=null;S.view=null;go('guide');};
-    $('#mfCam').onclick=function(){ pickPhoto(function(ph){ M.photos.push(ph); analyse(ph,'',false); }); };
-    $('#mfGal').onclick=function(){ pickPhoto(function(ph){ M.photos.push(ph); analyse(ph,'',false); },true); };
+    $('#mfCam').onclick=function(){ pickPhoto(function(phs){ M.photos=M.photos.concat(phs); analyse(phs,'',false); }); };
+    $('#mfGal').onclick=function(){ pickPhoto(function(phs){ M.photos=M.photos.concat(phs); analyse(phs,'',false); },true); };
     $('#mfType').onclick=function(){ M.stage='text'; M.noPhoto=true; M.sayHint=false; openMealForm(d,forSlot,editId); };
     $('#mfSay').onclick=function(){ M.noPhoto=true; sayMeal(function(txt){ M.draft=((M.draft||'')+(M.draft?', ':'')+txt).trim(); M.stage='text'; openMealForm(d,forSlot,editId); },function(){ M.stage='text'; M.sayHint=true; openMealForm(d,forSlot,editId); }); };
     return;
@@ -1762,7 +1776,7 @@ function openMealForm(d,forSlot,editId){
       +'<button data-rm="'+i+'" aria-label="Remove" style="background:none;border:none;color:var(--muted);font-size:18px;padding:0 4px">✕</button></div>';}).join('')
     +(drinksLine(M.items)?'<div class="meta" style="font-weight:600;color:var(--soft)">'+esc(drinksLine(M.items))+'</div>':'')
     +handGuide(fb,slot)
-    +'<div class="row" style="gap:14px;flex-wrap:wrap"><button class="btn link" id="mfMissing" style="min-height:36px">+ Something\'s missing</button><button class="btn link" id="mfMorePhoto" style="min-height:36px">+ Another photo</button></div>'
+    +'<div class="row" style="gap:14px;flex-wrap:wrap"><button class="btn link" id="mfMissing" style="min-height:36px">+ Something\'s missing</button><button class="btn link" id="mfMorePhoto" style="min-height:36px">+ Take another photo</button><button class="btn link" id="mfMoreGal" style="min-height:36px">+ Add from gallery</button></div>'
     +'<div class="card" style="border:1px solid var(--line);flex-direction:row;justify-content:space-between;align-items:center">'
     +(kOn?'<span class="meta" style="font-weight:400">Total, estimate</span><span class="f-meal" style="font-size:24px;color:var(--gold)">~'+fmt(fb.kcal||0)+' calories</span>'
          :'<span class="f-food">Hands: protein '+fb.protein+' · veg '+fb.veg+' · carbs '+fb.carbs+' · fats '+fb.fats+'</span>')+'</div>'
@@ -1800,7 +1814,8 @@ function openMealForm(d,forSlot,editId){
     M.edited=true; M.busy=false; openMealForm(d,forSlot,editId);
   };});
   $('#mfMissing').onclick=function(){ keep(); var v=prompt('What else did you have? (for example: 1 glass buttermilk)'); if(!v||!v.trim()) return; analyse(null,v.trim(),true); };
-  $('#mfMorePhoto').onclick=function(){ keep(); pickPhoto(function(ph){ M.photos.push(ph); M.noPhoto=false; analyse(ph,'',true); }); };
+  $('#mfMorePhoto').onclick=function(){ keep(); pickPhoto(function(phs){ M.photos=M.photos.concat(phs); M.noPhoto=false; analyse(phs,'',true); }); };
+  $('#mfMoreGal').onclick=function(){ keep(); pickPhoto(function(phs){ M.photos=M.photos.concat(phs); M.noPhoto=false; analyse(phs,'',true); },true); };
   $('#mfSave').onclick=async function(){
     keep();
     if(!M.items.length){ toast('Add a note or a photo'); return; }
