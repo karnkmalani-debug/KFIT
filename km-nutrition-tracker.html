@@ -16,6 +16,7 @@
 <script src="./kfit-exercise-library.js"></script>
 <script src="./kfit-drinks.js"></script>
 <script src="./kfit-voice.js"></script>
+<script src="./kfit-consult-media.js"></script>
 <script src="./kfit-nutrition-lessons.js"></script>
 <script src="./kfit-i18n.js"></script>
 <script src="./kfit-ui.js"></script>
@@ -800,28 +801,51 @@ var FOOD_GUIDE=[
 async function renderConsults(){
   S.tab='consults';
   show('<div class="screen">'+head('Your consults')+'<div class="meta" style="font-weight:400">Loading…</div></div>');
-  var next=null, prep='', list=[];
+  var next=null, prep='', prepFiles=[], list=[];
   try{ var r=await sb.rpc('kfit_my_next_consult',{p_client:S.clientId}); next=r&&r.data||null; }catch(e){}
-  try{ var p=await sb.from('nutrition_consult_prep').select('notes').eq('client_id',S.clientId); prep=(p.data&&p.data[0]&&p.data[0].notes)||''; }catch(e){}
+  try{ var p=await sb.from('nutrition_consult_prep').select('*').eq('client_id',S.clientId); var p0=p.data&&p.data[0]; prep=(p0&&p0.notes)||''; prepFiles=(p0&&Array.isArray(p0.files))?p0.files:[]; }catch(e){}
   try{ var c=await sb.from('nutrition_consults').select('*').eq('client_id',S.clientId).order('consult_day',{ascending:false}).limit(50); list=c.data||[]; }catch(e){}
   if(S.tab!=='consults') return;
+  var CM=window.KFitConsultMedia, addB=function(attr){ return CM?'<button class="btn link" '+attr+' style="align-self:flex-start;min-height:36px;font-size:14px">📎 Add photo or video</button>':''; };
   var html='<div class="screen">'+head('Your consults');
   html+='<div class="card" style="border:1px solid var(--gold);gap:8px"><div class="steplbl">NEXT CONSULT</div>'
     +'<div class="f-meal" style="font-size:20px">'+(next?esc(parseD(next).toLocaleDateString(kLoc(),{weekday:'short',day:'numeric',month:'short'})):'Your coach will set it')+'</div>'
-    +'<div class="meta" style="font-weight:400">Anything you want to bring up?</div>'
+    +'<div class="meta" style="font-weight:400">Anything you want to bring up? You can add progress photos or a video too.</div>'
     +'<textarea id="csPrep" placeholder="Write a note for this consult…" style="min-height:70px;border-radius:10px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);padding:8px 10px;font-family:inherit;font-size:15px">'+esc(prep)+'</textarea>'
+    +'<div id="csPrepFiles">'+(CM?CM.html(prepFiles,{removable:true}):'')+'</div>'+addB('id="csPrepAdd"')
     +'<button class="btn" id="csPrepSave" style="min-height:44px">Save note</button></div>';
   if(!list.length) html+='<div class="card"><div class="body">No consults yet. After each one, your coach\'s notes appear here, and you can add your own.</div></div>';
   list.forEach(function(c){
+    var fs=Array.isArray(c.files)?c.files:[];
     html+='<div class="card" style="border:1px solid var(--line);gap:6px"><div class="f-time">'+esc(parseD(c.consult_day).toLocaleDateString(kLoc(),{weekday:'short',day:'numeric',month:'short'}))+'</div>'
       +(c.notes?'<div style="background:#2A2618;border:1px solid #6B5A2A;color:#E7CF8C;border-radius:10px;padding:7px 10px;font-size:14px"><b>Coach:</b> '+esc(c.notes)+'</div>':'')
+      +'<div data-cf="'+c.id+'">'+(CM?CM.html(fs,{removable:false}):'')+'</div>'
       +'<textarea data-cn="'+c.id+'" placeholder="My notes (how it went, what I\'ll try)…" style="min-height:56px;border-radius:10px;border:1px solid #3D6B4F;background:#1E2B22;color:#CFEBD8;padding:8px 10px;font-family:inherit;font-size:14px">'+esc(c.client_notes||'')+'</textarea>'
-      +'<button class="btn link" data-cns="'+c.id+'" style="align-self:flex-start;min-height:32px;font-size:14px">Save my notes</button></div>';
+      +'<div class="row" style="gap:14px;flex-wrap:wrap"><button class="btn link" data-cns="'+c.id+'" style="min-height:32px;font-size:14px">Save my notes</button>'+addB('data-cadd="'+c.id+'"')+'</div></div>';
   });
   show(html+'</div>');
-  $('#csPrepSave').onclick=async function(){ var t=$('#csPrep').value.trim().slice(0,4000);
-    var r=await sb.from('nutrition_consult_prep').upsert({client_id:S.clientId,notes:t||null},{onConflict:'client_id'});
-    toast(r.error?'Not saved. Check your connection.':'Saved'); };
+  var scr=document.querySelector('.screen'); if(CM) CM.hydrate(sb,scr,'Consult');
+  async function savePrep(files){ var t=$('#csPrep').value.trim().slice(0,4000);
+    var row={client_id:S.clientId,notes:t||null}; if(files) row.files=files;
+    var r=await sb.from('nutrition_consult_prep').upsert(row,{onConflict:'client_id'}); return !r.error; }
+  $('#csPrepSave').onclick=async function(){ toast(await savePrep(null)?'Saved':'Not saved. Check your connection.'); };
+  function bindPrepX(){ document.querySelectorAll('#csPrepFiles [data-cmx]').forEach(function(b){ b.onclick=async function(e){ e.stopPropagation(); if(!confirm('Remove this from your consult note?')) return;
+    prepFiles.splice(+b.dataset.cmx,1); await savePrep(prepFiles); $('#csPrepFiles').innerHTML=CM.html(prepFiles,{removable:true}); CM.hydrate(sb,$('#csPrepFiles'),'Consult'); bindPrepX(); }; }); }
+  if(CM) bindPrepX();
+  var pa=$('#csPrepAdd'); if(pa) pa.onclick=function(){ CM.pick(async function(fs){
+    pa.disabled=true; var res=await CM.uploadAll(sb,S.clientId,fs,'client',function(i,n){ pa.textContent='Adding '+i+' of '+n+'…'; });
+    pa.disabled=false; pa.textContent='📎 Add photo or video';
+    if(res.errors.length) toast(res.errors[0]);
+    if(!res.files.length) return; prepFiles=prepFiles.concat(res.files);
+    toast(await savePrep(prepFiles)?'Added':'Not saved. Check your connection.');
+    $('#csPrepFiles').innerHTML=CM.html(prepFiles,{removable:true}); CM.hydrate(sb,$('#csPrepFiles'),'Consult'); bindPrepX(); }); };
+  document.querySelectorAll('[data-cadd]').forEach(function(b){ b.onclick=function(){ var id=+b.dataset.cadd, c=list.filter(function(x){return x.id===id;})[0]; if(!c) return;
+    CM.pick(async function(fs){ b.disabled=true; var res=await CM.uploadAll(sb,S.clientId,fs,'client',function(i,n){ b.textContent='Adding '+i+' of '+n+'…'; }); b.disabled=false; b.textContent='📎 Add photo or video';
+      if(res.errors.length) toast(res.errors[0]); if(!res.files.length) return;
+      var all=(Array.isArray(c.files)?c.files:[]).concat(res.files);
+      var r=await sb.from('nutrition_consults').update({files:all}).eq('id',id);
+      if(r.error){ toast('Not saved. Check your connection.'); return; } c.files=all;
+      var box=document.querySelector('[data-cf="'+id+'"]'); box.innerHTML=CM.html(all,{removable:false}); CM.hydrate(sb,box,'Consult'); toast('Added'); }); }; });
   document.querySelectorAll('[data-cns]').forEach(function(b){b.onclick=async function(){
     var ta=document.querySelector('[data-cn="'+b.dataset.cns+'"]'), t=(ta.value||'').trim().slice(0,4000);
     var r=await sb.from('nutrition_consults').update({client_notes:t||null}).eq('id',+b.dataset.cns);
@@ -1960,7 +1984,7 @@ var HINTS={
   reflect:'These questions are just for you, and all optional. Then choose what feels right: move on, or stay a little longer.',
   coach:'Notes and meal plans from your coach.',
   food:'What counts as protein, vegetables, carbs and fat, with everyday examples. Tap Listen to hear it.',
-  consults:'Your consults with your coach.',
+  consults:'Your consults with your coach. Write what you want to bring up, and add progress photos or a short video. They also show in My progress, so you can see how far you\'ve come.',
   week:'A short summary of your week. A new one arrives every Sunday.',
   earlier:'Meals you logged in the app you used before.'
 };
@@ -2113,6 +2137,19 @@ function measures(){
     .filter(Boolean).sort(function(a,b){return a.day<b.day?1:-1;});
 }
 function dueWeekly(){ var l=lastWeeklyDay(); if(consultSoon()) return !l||daysBetween(l,today())>=3; return !l||daysBetween(l,today())>=7; }
+// Progress photos: everything added to her consults (by her or her coach), newest first
+async function fillProgressPhotos(){
+  var el=$('#pgPhotos'), CM=window.KFitConsultMedia; if(!el||!CM) return;
+  var list=[]; try{ var c=await sb.from('nutrition_consults').select('consult_day,files').eq('client_id',S.clientId).order('consult_day',{ascending:false}).limit(60); list=(c.data||[]).filter(function(x){return Array.isArray(x.files)&&x.files.length;}); }catch(e){}
+  if(!$('#pgPhotos')) return;
+  if(!list.length){ el.innerHTML=''; return; }
+  var open=!!S._photosOpen, shown=open?list:list.slice(0,2);
+  el.innerHTML='<div class="card" style="border:1px solid var(--line);gap:6px"><div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:17px">📸 Progress photos</b><span class="meta" style="font-weight:400">from your consults</span></div>'
+    +shown.map(function(x){ return '<div><div class="meta" style="font-weight:400;font-size:12px">'+esc(parseD(x.consult_day).toLocaleDateString(kLoc(),{day:'numeric',month:'short',year:'numeric'}))+'</div>'+CM.html(x.files,{})+'</div>'; }).join('')
+    +(list.length>2?'<button class="btn link" id="pgPhAll" style="align-self:flex-start;min-height:32px;font-size:14px">'+(open?'Show fewer ▴':'See all '+list.length+' consults ▾')+'</button>':'')+'</div>';
+  CM.hydrate(sb,el,'Progress');
+  var b=$('#pgPhAll'); if(b) b.onclick=function(){ S._photosOpen=!open; fillProgressPhotos(); };
+}
 function renderProgress(){
   S.tab='progress'; S.view=null;
   var w=wStats(), t=targets(), p=profile(), g=goalOf(), locked=goalLocked(), tg=goalKcal(t);
@@ -2151,6 +2188,8 @@ function renderProgress(){
       +'<div class="row" style="gap:10px;align-items:center"><label for="pgGoalW" style="font-size:15px;flex:1">Goal weight</label><input id="pgGoalW" inputmode="decimal" placeholder="kg" value="'+(w.goal!=null?w.goal:'')+'" style="width:110px;text-align:center;min-height:44px;border-radius:12px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);font-size:16px;font-family:inherit"></div>'
       +(g==='gain'?'<div class="meta" style="font-weight:400">Gaining: a small surplus (about 10% over maintenance), a palm of protein at every meal, and strength training 2–4 times a week. Aim for about ¼–½ kg a month.</div>':'');
   }
+  // progress photos and videos from her consults, filled in below
+  html+='</div><div id="pgPhotos"></div><div style="display:none">';
   // Your details: all five things the calorie guide uses, always on show
   html+=(function(){
     var t2=targets(), act=ACTIVITY.filter(function(a){return a[0]===(p&&p.activity);})[0], hc=latestHeight(), wt=latestWeight();
@@ -2184,6 +2223,7 @@ function renderProgress(){
   html+='</div>';
   show(html,{tabs:true});
   $('#pgAdd').onclick=function(){openWeekly();};
+  fillProgressPhotos();
   var ed=$('#pgProfile'); if(ed) ed.onclick=function(){renderProfile(false);};
   document.querySelectorAll('[data-goal]').forEach(function(b){b.onclick=function(){ setGoal({goal:b.dataset.goal}); renderProgress(); };});
   var gw=$('#pgGoalW'); if(gw) gw.onchange=function(){ var v=parseFloat(String(gw.value).replace(',','.')); setGoal({goalWeight:isFinite(v)&&v>=25&&v<=350?Math.round(v*10)/10:null}); renderProgress(); };
