@@ -15,6 +15,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="./kfit-exercise-library.js"></script>
 <script src="./kfit-drinks.js"></script>
+<script src="./kfit-voice.js"></script>
 <script src="./kfit-nutrition-lessons.js"></script>
 <script src="./kfit-i18n.js"></script>
 <script src="./kfit-ui.js"></script>
@@ -1157,8 +1158,41 @@ if(window.speechSynthesis){ try{ speechSynthesis.getVoices(); speechSynthesis.on
 function phrases(text){
   return (String(text||'').match(/[^.!?:;,।]+[.!?:;,।]?/g)||[]).map(function(x){return x.trim();}).filter(Boolean);
 }
+// Recorded voice ("Heart"): every English line the app reads has an audio
+// file in ./voice/, named by a short code made from the exact words. If a
+// file is missing (text changed, offline, another language), the phone's own
+// voice reads it instead.
+function kfVKey(parts){ var s=parts.join('\n'), h=0x811c9dc5; for(var i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,0x01000193)>>>0; } return ('0000000'+h.toString(16)).slice(-8); }
+var kfAudio=null;
+var PROFILE_SAY='A little about you. Five quick questions, asked once, so the app can estimate how much energy your body uses in a day. Calories stay in the background, as a guide. Your habits come first. Only you and your coach can see these details.';
+// Every English line the app can read aloud, with its file code: used once
+// to make the recordings (and again whenever lesson text changes).
+window.KFitVoiceList=function(){
+  var L=[], seen={}; function add(kind,parts){ parts=parts.map(String); var k=kfVKey(parts); if(seen[k]) return; seen[k]=1; L.push({kind:kind,key:k,parts:parts}); }
+  G_H.concat(G_R?[G_R]:[]).forEach(function(h){ (h.days||[]).forEach(function(l){ add('lesson',[l.title].concat(l.read||[]).concat(['Your action. '+l.action])); });
+    if(h.explainer&&h.explainer.scenes) h.explainer.scenes.forEach(function(sc){ add('explainer',[sc.line]); }); });
+  add('food',FOOD_GUIDE.map(function(g){return g[1]+'. '+g.slice(3).filter(Boolean).join(' ');}));
+  Object.keys(TEMPLATES).forEach(function(id){ add('plan',[TEMPLATES[id].name,PLAN_INFO[id]||'','How every day works. A two-minute lesson, one small thing to try, and a tap at night to say how it went.']); });
+  GUIDE.forEach(function(g){ add('guide',[g.t+'. '+g.l]); });
+  Object.keys(HINTS).forEach(function(k){ add('hint',[HINTS[k]]); });
+  add('profile',[PROFILE_SAY]);
+  return L;
+};
 function speak(parts,done){
-  stopSpeech(); if(!window.speechSynthesis){if(done)done();return;}
+  stopSpeech();
+  var key=kfVKey(parts);
+  if(kLang()==='en'&&window.KFIT_VOICE&&KFIT_VOICE[key]){
+    speaking=true; speakCb=done; var a=kfAudio=new Audio('./voice/'+key+'.mp3'), fell=false;
+    a.onended=function(){ if(kfAudio!==a) return; speaking=false; kfAudio=null; if(speakCb) speakCb(); };
+    a.onerror=function(){ if(kfAudio!==a||fell) return; fell=true; kfAudio=null; speakTTS(parts,done); };
+    var pr=a.play(); if(pr&&pr.catch) pr.catch(function(){ if(kfAudio===a&&!fell){ fell=true; kfAudio=null; speakTTS(parts,done); } });
+    return;
+  }
+  speakTTS(parts,done);
+}
+function speakTTS(parts,done){
+  speaking=false; if(window.speechSynthesis) speechSynthesis.cancel();
+  if(!window.speechSynthesis){if(done)done();return;}
   if(window.KFitI18n&&kLang()!=='en') parts=parts.map(function(x){return KFitI18n.t(x);});
   speaking=true; speakCb=done; var i=0, bits=[];
   parts.forEach(function(p){ bits=bits.concat(phrases(p)); bits.push(''); });
@@ -1174,7 +1208,7 @@ function speak(parts,done){
     u.onend=goOn; u.onerror=goOn; speechSynthesis.speak(u);
   })();
 }
-function stopSpeech(){speaking=false;speakCb=null;if(window.speechSynthesis)speechSynthesis.cancel();}
+function stopSpeech(){speaking=false;speakCb=null;if(kfAudio){try{kfAudio.pause();}catch(e){} kfAudio=null;} if(window.speechSynthesis)speechSynthesis.cancel();}
 var STILLS=[
   '<circle cx="120" cy="120" r="96" stroke="#CFC6B8" stroke-width="3"/><circle cx="120" cy="120" r="72" stroke="#E6DFD3" stroke-width="2"/><path d="M92 112a28 20 0 0 1 56 0" stroke="#2E5E4E" stroke-width="4"/>',
   '<path d="M60 150c20-70 100-70 120 0" stroke="#2E5E4E" stroke-width="4"/><circle cx="120" cy="96" r="14" stroke="#B86A3C" stroke-width="3"/>',
@@ -2142,7 +2176,7 @@ function renderProfile(required){
     $('#pfUnitFt').classList.toggle('on',u==='ftin');$('#pfUnitCm').classList.toggle('on',u==='cm');showSay();}
   $('#pfUnitFt').onclick=function(){setUnit('ftin');}; $('#pfUnitCm').onclick=function(){setUnit('cm');};
   ['#pfFt','#pfIn','#pfHeight'].forEach(function(id){$(id).oninput=showSay;}); showSay();
-  var ls=$('#pfListen'); if(ls) ls.onclick=function(){speak(['A little about you. Five quick questions, asked once, so the app can estimate how much energy your body uses in a day. Calories stay in the background, as a guide. Your habits come first. Only you and your coach can see these details.']);};
+  var ls=$('#pfListen'); if(ls) ls.onclick=function(){speak([PROFILE_SAY]);};
   $('#pfSex').onchange=function(){$('#pfPregWrap').style.display=this.value==='female'?'flex':'none';};
   var bk=$('#pfBack'); if(bk) bk.onclick=function(){S.view=null;renderProgress();};
   $('#pfSave').onclick=function(){
