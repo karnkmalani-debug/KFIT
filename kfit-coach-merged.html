@@ -2982,7 +2982,7 @@ async function sendSuggestedRoutine(idx,clientKey){
   const clients=groupClients();
   const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
   if(!c){ alert('Client not found.'); return; }
-  const chosenName=prompt('Send as (rename if you like):',r.name);
+  const chosenName=await kfAsk('Send as','Rename it if you like.',r.name,{ok:'Send'});
   if(chosenName===null) return; // cancelled
   const finalName=chosenName.trim()||r.name;
   // performRoutineAssignment reads body_parts (snake_case, matching the
@@ -3000,7 +3000,7 @@ async function sendKfitStandardRoutine(idx,clientKey){
   const clients=groupClients();
   const c=Object.values(clients).find(function(cl){ return (cl.mobile||cl.name)===clientKey; });
   if(!c){ alert('Client not found.'); return; }
-  const chosenName=prompt('Send as (rename if you like):',r.name);
+  const chosenName=await kfAsk('Send as','Rename it if you like.',r.name,{ok:'Send'});
   if(chosenName===null) return;
   const finalName=chosenName.trim()||r.name;
   const syntheticTemplate={ name:finalName, body_parts:r.bodyParts, exercises:r.exercises, supersets:[] };
@@ -7003,8 +7003,8 @@ async function ncWeightRender(cid,p0){
     kfLog('⚖️','Added a weigh-in'+(w!=null?': '+w+' kg':''),cid); window['ncWgtPane_'+cid]=''; redraw(); };
   el.querySelectorAll('[data-ncbe]').forEach(function(b){ b.onclick=async function(){
     var day=b.dataset.ncbe, row=rows.filter(function(x){return x.day===day;})[0]; if(!row) return; var m=Object.assign({},row.reflection.measure);
-    var v=prompt('Weight in kg on '+dm(day)+' (leave empty to remove it):',m.weight!=null?m.weight:''); if(v===null) return;
-    var c=prompt('Waist in cm (leave empty if none):',m.waist!=null?m.waist:''); if(c===null) return;
+    var v=await kfAsk('Weight on '+dm(day),'In kg. Leave empty to remove it.',m.weight!=null?m.weight:'',{num:1}); if(v===null) return;
+    var c=await kfAsk('Waist on '+dm(day),'In cm. Leave empty if none.',m.waist!=null?m.waist:'',{num:1}); if(c===null) return;
     var w=num(v,25,300), cc=num(c,40,200); if(w!=null) m.weight=w; else delete m.weight; if(cc!=null) m.waist=cc; else delete m.waist;
     if(m.weight==null&&m.waist==null){ if(!confirm('Remove the weigh-in on '+dm(day)+'?')) return; m=null; }
     if(await putMeasure(day,m)){ kfLog('✎','Fixed a weigh-in ('+dm(day)+')',cid); redraw(); } }; });
@@ -7012,7 +7012,7 @@ async function ncWeightRender(cid,p0){
     var ns=Object.assign({},cur0.settings||{},ch2); var u=await getSB().from('nutrition_program').update({settings:ns,updated_ms:Date.now()}).eq('client_id',cid);
     if(u.error){ alert('Not saved: '+u.error.message); return; } kfLog('🎯','Set their goal: '+ncGoalName(ns.goal)+(ns.goalWeight?' · '+ns.goalWeight+' kg':''),cid); ncSnapRender(cid); }
   el.querySelectorAll('[data-ncgoal]').forEach(function(b){ b.onclick=function(){ save({goal:b.dataset.ncgoal,goalBy:'coach'}); }; });
-  var gb=document.getElementById('ncGoalW_'+cid); if(gb) gb.onclick=function(){ var v=prompt('Goal weight in kg (leave empty to clear):',gw!=null?gw:''); if(v===null) return; var n2=parseFloat(String(v).replace(',','.')); save({goalWeight:isFinite(n2)&&n2>=25&&n2<=300?Math.round(n2*10)/10:null,goalBy:'coach'}); };
+  var gb=document.getElementById('ncGoalW_'+cid); if(gb) gb.onclick=async function(){ var v=await kfAsk('Goal weight','In kg. Leave empty to clear it. Her protein target uses it too.',gw!=null?gw:'',{num:1}); if(v===null) return; var n2=parseFloat(String(v).replace(',','.')); save({goalWeight:isFinite(n2)&&n2>=25&&n2<=300?Math.round(n2*10)/10:null,goalBy:'coach'}); };
   var fr=document.getElementById('ncGoalFree_'+cid); if(fr) fr.onclick=function(e){ e.preventDefault(); save({goalBy:'client'}); };
   // (the weight card itself is the only place it shows; no copy in the header)
   try{ var oldHdr=document.getElementById('kfHdrWt'); if(oldHdr) oldHdr.remove(); }catch(e){}
@@ -7065,118 +7065,312 @@ async function ncNotesRender(cid){
     if(res.error){alert('Not saved -- '+res.error.message);return;} this.textContent='Saved ✓'; var b=this; setTimeout(function(){b.textContent='Save notes';},1500);
   };
 }
+// ═══ Habits: one engine for the Habits tab, the Days card and Today ═══
+// Each day's answer: your mark, else her tap, else what her meals show.
+function ncDiff(a,b){ var x=a.split('-'),y=b.split('-'); return Math.round((new Date(+y[0],+y[1]-1,+y[2])-new Date(+x[0],+x[1]-1,+x[2]))/864e5); }
+function ncHabTitle(id){ return id==='reset'?'7-day Reset':(NC_H[id]&&NC_H[id].title)||id||''; }
+function ncStepLen(t,id){ var h=NC_H[id]; if(!h||!h.days) return (t&&t.pace)||7; if(id==='reset'||id==='start'||!t||!t.pace||t.pace>=h.days.length) return h.days.length; return t.pace; }
+// protein: 1.5 to 2 g per kg of goal weight (or current weight if no goal)
+function ncProtein(p,lastW){ var st=(p&&p.settings)||{}, pr=st.profile||{}, w=+st.goalWeight||+lastW||+pr.weight||0; if(!w) return null;
+  return {lo:Math.round(w*1.5/5)*5, hi:Math.round(w*2/5)*5, w:w, basis:+st.goalWeight?'goal':'current'}; }
+function ncHabitModel(p,ckBy,mealsBy,hctx){
+  if(!p||!p.template_id||!NC_T[p.template_id]) return null;
+  var T=ncToday(), t=NC_T[p.template_id], idx=p.step_index||0, hid=t.path[idx], len=ncStepLen(t,hid), st=p.step_started_on||T;
+  var S=p.settings||{}, marks=S.habitMarks||{};
+  function eff(d,id){ id=id||hid; var cur=id===hid, c=ckBy[d]||{};
+    var auto=window.KFitHabit&&(!cur||d>=st)?KFitHabit.score(id,mealsBy[d]||[],hctx):null;
+    var tap=(c.step_id?c.step_id===id:cur)?c.answer:null, mk=cur&&d>=st?marks[d]:null;
+    var a=window.KFitHabit?KFitHabit.answer(tap,mk,auto):(mk||tap);
+    return {d:d,a:a||null,src:mk?'coach':tap?'tap':auto&&auto!=='wait'?'meals':null,auto:auto}; }
+  var cells=[], dn=0, pt=0, no=0, nl=0;
+  for(var i=0;i<Math.max(len,ncDiff(st,T)+1);i++){ var d=ncAddDays(st,i); if(i>=len&&d>T) break;
+    if(d>T){ cells.push({d:d,future:true}); continue; }
+    var e=eff(d); cells.push(e); if(e.a==='done') dn++; else if(e.a==='partly') pt++; else if(e.a==='not') no++; else nl++; }
+  var n=dn+pt+no+nl, dayN=ncDiff(st,T)+1, sc=n?(dn+pt*0.5)/n:0, status, label;
+  if(hid==='start'){ status='early'; label='Getting started'; }
+  else if(n>=3&&nl>=n-1){ status='quiet'; label='Not logging'; }
+  else if(n>=2&&sc>=0.65){ status='good'; label='On track'; }
+  else if(n>=3&&sc<0.45){ status='nudge'; label='Needs a nudge'; }
+  else { status='early'; label=n<3?'Early days':'Getting there'; }
+  var ends=ncAddDays(st,len), suggest='';
+  if(S.coachHold) suggest='You\'re holding her here. The app won\'t move her on.';
+  else if(dayN>=len) suggest=sc>=0.65?'She\'s done it most days: ready to move on.':'Suggest 7 more days on this one.';
+  else if(status==='nudge'||status==='quiet') suggest='If nothing changes, the app gives her 7 more days on '+ncNice(ends)+'.';
+  var tip=''; if(window.KFitHabit&&hid!=='start'){ var ds=[]; for(var k=0;k<cells.length;k++) if(!cells[k].future) ds.push(mealsBy[cells[k].d]||[]); tip=KFitHabit.tip(hid,ds,hctx)||''; }
+  // earlier habits: are they still showing up in her meals? (last 7 days)
+  var earlier=[]; for(var j=0;j<idx;j++){ var id=t.path[j]; if(id==='start'||id==='reset'||!window.KFitHabit) continue;
+    var g=0,q=0,m=0; for(var b=6;b>=0;b--){ var a2=KFitHabit.score(id,mealsBy[ncAddDays(T,-b)]||[],hctx); if(a2==='done'){g++;m++;} else if(a2==='partly'){q++;m++;} else if(a2==='not') m++; }
+    earlier.push({id:id,k:j,title:ncHabTitle(id),done:g,partly:q,n:m,slipping:m>=4&&(g+q*0.5)/m<0.45}); }
+  var shown=t.path.filter(function(x){return x!=='start';});
+  return {t:t,idx:idx,hid:hid,title:ncHabTitle(hid),len:len,st:st,dayN:dayN,ends:ends,cells:cells,dn:dn,pt:pt,no:no,nl:nl,n:n,score:sc,status:status,label:label,suggest:suggest,tip:tip,earlier:earlier,hold:!!S.coachHold,eff:eff,
+    num:shown.indexOf(hid)+1, of:shown.length, prev:idx>0&&t.path[idx-1]!=='start'?idx-1:null, next:idx<t.path.length-1?idx+1:null, nextPlan:t.next&&NC_T[t.next]?t.next:null};
+}
+var NC_STAT={good:['🟢','#8FD1A2','#1E2B22','#3D6B4F'],nudge:['🟡','#E7CF8C','#2A2416','#6B5A2A'],quiet:['🔴','#E39A6E','#2E211B','#6B4A3A'],early:['⚪','#B9B4A8','#22231E','#3A3B33']};
+// small bottom sheets (no prompt(): it doesn't work in an iPhone home-screen app)
+function kfSheet(html,onBind){
+  var ov=document.createElement('div'); ov.className='kf-sheet'; ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10000;display:flex;align-items:flex-end;justify-content:center';
+  ov.innerHTML='<div style="background:var(--surf,#1b1b1b);color:var(--text);border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));width:100%;max-width:560px;max-height:88vh;overflow:auto;display:flex;flex-direction:column;gap:10px">'+html+'</div>';
+  document.body.appendChild(ov); function close(){ ov.remove(); } ov.onclick=function(e){ if(e.target===ov) close(); };
+  if(onBind) onBind(ov,close); return close; }
+function kfChoose(title,sub,opts){ return new Promise(function(res){
+  kfSheet('<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:21px">'+ncEsc(title)+'</div>'+(sub?'<div style="font-size:13px;color:var(--muted)">'+ncEsc(sub)+'</div>':'')
+    +opts.map(function(o,i){ return '<button data-kc="'+i+'" style="padding:13px;border-radius:12px;border:1px solid '+(o.main?'var(--sage)':'var(--border)')+';background:'+(o.main?'var(--sage)':'none')+';color:'+(o.main?'#fff':'var(--text)')+';font-family:inherit;font-size:15px;font-weight:700;text-align:left;cursor:pointer">'+o.label+'</button>'; }).join('')
+    +'<button data-kc="x" style="padding:11px;border:none;background:none;color:var(--muted);font-family:inherit;font-size:14px;cursor:pointer">Cancel</button>',
+    function(ov,close){ ov.querySelectorAll('[data-kc]').forEach(function(b){ b.onclick=function(){ close(); res(b.dataset.kc==='x'?null:opts[+b.dataset.kc].val); }; }); ov.addEventListener('click',function(e){ if(e.target===ov) res(null); }); }); }); }
+// a message she'll see in her app; returns the text ('' = no message) or null if cancelled
+function kfMsgSheet(o){ return new Promise(function(res){
+  kfSheet('<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:21px">'+ncEsc(o.title)+'</div>'+(o.sub?'<div style="font-size:13px;color:var(--muted);line-height:1.45">'+o.sub+'</div>':'')
+    +'<div style="font-size:12px;font-weight:700;color:var(--muted)">'+ncEsc(o.label||'Message she sees in her app (optional)')+'</div>'
+    +'<textarea id="kfMsgT" style="min-height:110px;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:16px;line-height:1.4"></textarea>'
+    +'<div style="display:flex;gap:8px"><button id="kfMsgOk" style="flex:1;border:none;border-radius:12px;padding:13px;background:var(--sage);color:#fff;font-weight:800;font-family:inherit;font-size:15px;cursor:pointer">'+ncEsc(o.ok||'Save')+'</button>'
+    +'<button id="kfMsgNo" style="border:1px solid var(--border);border-radius:12px;padding:13px 16px;background:none;color:var(--text);font-family:inherit;font-size:15px;cursor:pointer">Cancel</button></div>',
+    function(ov,close){ var ta=ov.querySelector('#kfMsgT'); ta.value=o.text||''; ov.querySelector('#kfMsgOk').onclick=function(){ var v=ta.value.trim(); if(o.need&&!v){ ta.focus(); return; } close(); res(v); };
+      ov.querySelector('#kfMsgNo').onclick=function(){ close(); res(null); }; ov.addEventListener('click',function(e){ if(e.target===ov) res(null); }); }); }); }
+// one value typed in (a number, a name...); returns the text or null
+function kfAsk(title,sub,val,opt){ opt=opt||{}; return new Promise(function(res){
+  kfSheet('<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:21px">'+ncEsc(title)+'</div>'+(sub?'<div style="font-size:13px;color:var(--muted)">'+ncEsc(sub)+'</div>':'')
+    +'<input id="kfAskI" '+(opt.num?'inputmode="decimal"':'')+' style="padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:17px">'
+    +'<div style="display:flex;gap:8px"><button id="kfAskOk" style="flex:1;border:none;border-radius:12px;padding:13px;background:var(--sage);color:#fff;font-weight:800;font-family:inherit;font-size:15px;cursor:pointer">'+ncEsc(opt.ok||'Save')+'</button>'
+    +'<button id="kfAskNo" style="border:1px solid var(--border);border-radius:12px;padding:13px 16px;background:none;color:var(--text);font-family:inherit;font-size:15px;cursor:pointer">Cancel</button></div>',
+    function(ov,close){ var i=ov.querySelector('#kfAskI'); i.value=val==null?'':String(val); setTimeout(function(){ i.focus(); try{ i.select(); }catch(e){} },60);
+      i.onkeydown=function(e){ if(e.key==='Enter') ov.querySelector('#kfAskOk').click(); };
+      ov.querySelector('#kfAskOk').onclick=function(){ close(); res(i.value); }; ov.querySelector('#kfAskNo').onclick=function(){ close(); res(null); };
+      ov.addEventListener('click',function(e){ if(e.target===ov) res(null); }); }); }); }
+var ncHabData={};
+function ncOpenHabits(cid){ if(typeof kfClientTab==='function'&&document.getElementById('kfTabs')) kfClientTab('plan'); else ncShowSection(cid,'habits'); setTimeout(function(){ var b=document.getElementById('ncPlanBox_'+cid); if(b) b.scrollIntoView({behavior:'smooth',block:'start'}); },60); }
 async function nutCoachPanel(cid,box,p){
-  var since=ncAddDays(ncToday(),-27);
+  if(!box) return;
+  var T=ncToday(), since=ncAddDays(T,-120);
   var ck=await getSB().from('nutrition_checkins').select('*').eq('client_id',cid).gte('day',since);
-  var ml28=await getSB().from('nutrition_meals').select('day,deleted,body').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-27));
-  var ml={data:(ml28.data||[]).filter(function(x){return x.day>=ncAddDays(ncToday(),-6);}),error:ml28.error};
-  var kByDay={}; (ml.data||[]).forEach(function(x){var k=x.body&&x.body.feedback&&x.body.feedback.kcal; if(!x.deleted&&k){kByDay[x.day]=(kByDay[x.day]||0)+k;}});
-  var kDays=Object.keys(kByDay), kAvg=kDays.length?Math.round(kDays.reduce(function(a,d){return a+kByDay[d];},0)/kDays.length/10)*10:null;
+  var mlAll=await getSB().from('nutrition_meals').select('day,deleted,body').eq('client_id',cid).gte('day',since);
   var byDay={}; (ck.data||[]).forEach(function(x){byDay[x.day]=x;});
-  var cells='', refl='';
-  // Habit grid: 4 weeks, Monday to Sunday. Each day: your mark, else their
-  // tap, else what their logged meals show for the habit they're on now.
-  var hid=(p&&p.template_id&&NC_T[p.template_id])?NC_T[p.template_id].path[p.step_index]:null, marks=(p&&p.settings&&p.settings.habitMarks)||{};
-  var mealsBy={}; (ml28.data||[]).forEach(function(x){ if(!x.deleted) (mealsBy[x.day]=mealsBy[x.day]||[]).push(x.body||{}); });
-  var stStart=(p&&p.step_started_on)||null, planStart=(p&&p.started_on)||null;
+  var mealsBy={}; (mlAll.data||[]).forEach(function(x){ if(!x.deleted) (mealsBy[x.day]=mealsBy[x.day]||[]).push(x.body||{}); });
+  var last7=(mlAll.data||[]).filter(function(x){return !x.deleted&&x.day>=ncAddDays(T,-6);});
+  var kByDay={}; last7.forEach(function(x){var k=x.body&&x.body.feedback&&x.body.feedback.kcal; if(k){kByDay[x.day]=(kByDay[x.day]||0)+k;}});
+  var kDays=Object.keys(kByDay), kAvg=kDays.length?Math.round(kDays.reduce(function(a,d){return a+kByDay[d];},0)/kDays.length/10)*10:null;
   var hctx=(function(){ try{ var pr=p&&p.settings&&p.settings.profile, tg0=pr?ncTargets(pr):null; return {target:ncGoalKcal(tg0,p.settings.goal)}; }catch(e){ return {}; } })();
-  function eff(d){ var auto=(window.KFitHabit&&hid&&(!stStart||d>=stStart))?KFitHabit.score(hid,mealsBy[d]||[],hctx):null;
-    var a=window.KFitHabit?KFitHabit.answer((byDay[d]||{}).answer,marks[d],auto):(byDay[d]||{}).answer; return {a:a||null,src:marks[d]?'coach':(byDay[d]||{}).answer?'tap':auto&&auto!=='wait'?'meals':null,auto:auto}; }
-  var mon0=(function(){ var t=ncToday().split('-'), x=new Date(+t[0],+t[1]-1,+t[2]); return ncAddDays(ncToday(),-((x.getDay()+6)%7)); })();
-  var g0=ncAddDays(mon0,-21);
-  cells='<span></span>'+['M','T','W','T','F','S','S'].map(function(w){return '<span style="font-size:11px;color:var(--muted);text-align:center">'+w+'</span>';}).join('');
-  for(var wk=0;wk<4;wk++){ var ws=ncAddDays(g0,wk*7); cells+='<span style="font-size:11px;color:var(--muted)">'+ncNice(ws).slice(4)+'</span>';
-    for(var dd=0;dd<7;dd++){ var d=ncAddDays(ws,dd);
-      if(d>ncToday()||(planStart&&d<planStart)){ cells+='<span style="height:26px;border-radius:6px;border:1px dashed #3E3F36;opacity:.5"></span>'; continue; }
-      var e=eff(d), sym=e.a==='done'?'✓':e.a==='partly'?'½':e.a==='not'?'✕':(e.auto==='wait'?'…':(mealsBy[d]?'':'·'));
-      var bg=e.a==='done'?'#6E9E7A':e.a==='partly'?'#3D5A45':e.a==='not'?'#3A2E22':'transparent', fg=e.a==='done'?'#12130F':'var(--text)';
-      cells+='<button data-hday="'+d+'" title="'+ncNice(d)+(e.src==='coach'?' · your mark':e.src==='tap'?' · their tap':e.src==='meals'?' · from their meals':'')+'" style="height:26px;border-radius:6px;border:1px solid '+(e.a?bg:'#3E3F36')+';background:'+bg+';color:'+fg+';font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;padding:0'+(e.src==='coach'?';box-shadow:inset 0 0 0 2px #C9A24A':'')+'">'+sym+'</button>'; } }
-  // plain words for the habit they're on now
-  var habSum='';
-  if(hid&&stStart){ var n=0,dn=0,pt=0,no=0,nl=0, miss={Breakfast:0,Lunch:0,Dinner:0};
-    for(var d2=stStart; d2<=ncToday(); d2=ncAddDays(d2,1)){ n++; var e2=eff(d2); if(e2.a==='done') dn++; else if(e2.a==='partly') pt++; else if(e2.a==='not') no++; else nl++;
-      if(hid==='protein-first') (mealsBy[d2]||[]).forEach(function(b){ var h=KFitHabit.hands(b); if(h&&miss[b.slot]!=null&&h.protein<0.5) miss[b.slot]++; }); }
-    var hname=(NC_H[hid]&&NC_H[hid].title)||hid, len=(NC_T[p.template_id]&&NC_T[p.template_id].pace)||(NC_H[hid]&&NC_H[hid].days&&NC_H[hid].days.length)||7;
-    var worst=Object.keys(miss).sort(function(a,b){return miss[b]-miss[a];})[0];
-    habSum='<div style="background:#1E2B22;border:1px solid #3D6B4F;border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.5;margin-top:8px"><b>'+ncEsc(hname)+'</b> · day '+n+' of about '+len+'<br>'
-      +'Done '+dn+' · partly '+pt+' · not '+no+(nl?' · nothing logged '+nl:'')
-      +(hid==='protein-first'&&miss[worst]>0?'<br>Most often missing protein: <b>'+worst.toLowerCase()+'</b> ('+miss[worst]+' day'+(miss[worst]===1?'':'s')+')':'')
-      +(window.KFitHabit?(function(){ var days=[]; for(var d3=stStart; d3<=ncToday(); d3=ncAddDays(d3,1)) days.push(mealsBy[d3]||[]); var tp=KFitHabit.tip(hid,days,hctx); return tp?'<br>💡 '+ncEsc(tp):''; })():'')
-      +(window.KFitHabit&&KFitHabit.estimated(hid)?'<br><span style="color:var(--muted)">For this habit the score is a good guess from the plate.</span>':'')+'</div>'; }
+  var M=ncHabitModel(p,byDay,mealsBy,hctx);
+  ncHabData[cid]={p:p,byDay:byDay,ck:ck.data||[],mealsBy:mealsBy,hctx:hctx,M:M};
+  // their numbers
   function qs(x){return Object.keys(x.reflection||{}).filter(function(k){return /^q\d+$/.test(k);});}
-  (ck.data||[]).filter(function(x){return qs(x).length;}).sort(function(a,b){return a.day<b.day?1:-1;}).slice(0,4).forEach(function(x){
-    refl+='<div style="margin-top:8px;font-size:13px;line-height:1.5"><b>'+ncEsc(x.day)+'</b> · '+qs(x).map(function(k){return ncEsc(x.reflection[k]);}).join(' / ')+'</div>';});
+  var refl=''; (ck.data||[]).filter(function(x){return qs(x).length;}).sort(function(a,b){return a.day<b.day?1:-1;}).slice(0,4).forEach(function(x){
+    refl+='<div style="margin-top:8px;font-size:13px;line-height:1.5"><b>'+ncEsc(ncNice(x.day))+'</b> · '+qs(x).map(function(k){return ncEsc(x.reflection[k]);}).join(' / ')+'</div>';});
   var ms=(ck.data||[]).filter(function(x){return x.reflection&&x.reflection.measure;}).sort(function(a,b){return a.day<b.day?1:-1;});
-  var meas=ms.length?'<div style="font-size:13px;margin-top:8px">Latest check-in ('+ncEsc(ms[0].day)+'): '
+  var meas=ms.length?'<div style="font-size:13px;margin-top:8px">Latest check-in ('+ncEsc(ncNice(ms[0].day))+'): '
     +(ms[0].reflection.measure.waist?'waist '+ncEsc(ms[0].reflection.measure.waist)+' cm ':'')+(ms[0].reflection.measure.weight?'weight '+ncEsc(ms[0].reflection.measure.weight)+' kg':'')
     +(ms[1]&&ms[0].reflection.measure.waist&&ms[1].reflection.measure.waist?' · waist change '+(Math.round((ms[0].reflection.measure.waist-ms[1].reflection.measure.waist)*10)/10)+' cm':'')+'</div>':'';
-  var meals=(ml.data||[]).filter(function(x){return !x.deleted;}).length;
-  var recent=(ml.data||[]).filter(function(x){return !x.deleted;}).sort(function(a,b){return ((b.body||{}).at||0)-((a.body||{}).at||0);}).slice(0,8)
-    .map(function(x){var b=x.body||{},f=(window.KFitHabit&&KFitHabit.hands(b))||b.feedback;return '<div style="font-size:13px;line-height:1.5;margin-top:6px"><b>'+ncEsc(x.day)+' · '+ncEsc(b.slot||'Meal')+'</b>'+(b.text?' — '+ncEsc(b.text):'')
-      +(f?'<br><span style="color:var(--muted)">protein '+ncEsc(f.protein)+' palm · veg '+ncEsc(f.veg)+' fist · carbs '+ncEsc(f.carbs)+' · fats '+ncEsc(f.fats)+'</span>':'')+'</div>';}).join('');
   var prof=p&&p.settings&&p.settings.profile, lastW=null;
-  (ck.data||[]).filter(function(x){return x.reflection&&x.reflection.measure&&x.reflection.measure.weight;}).sort(function(a,b){return a.day<b.day?1:-1;}).slice(0,1).forEach(function(x){lastW=x.reflection.measure.weight;});
-  var tg=ncTargets(prof,lastW);
-  var calHtml='<div style="font-size:13px;margin-top:8px">'
+  ms.filter(function(x){return x.reflection.measure.weight;}).slice(0,1).forEach(function(x){lastW=x.reflection.measure.weight;});
+  var tg=ncTargets(prof,lastW), PR=ncProtein(p,lastW);
+  var calHtml='<div style="font-size:13px;margin-top:8px;line-height:1.55">'
     +(prof?('About them: '+ncEsc(prof.age)+' yrs · '+ncEsc(prof.sex)+' · '+ncEsc(kfitHeightText(prof.height))+' · '+ncEsc(lastW||prof.weight)+' kg · '+ncEsc(prof.activity)):'Details not filled in yet.')
-    +(tg&&tg.maint?'<br>Calories (estimate): maintenance ~'+tg.maint+' · fat loss ~'+tg.loss+' · gain ~'+tg.gain+' · goal: '+ncEsc(ncGoalName(p.settings&&p.settings.goal)):'')
+    +(tg&&tg.maint?'<br>Calories (estimate): maintenance ~'+tg.maint+' · fat loss ~'+tg.loss+' · gain ~'+tg.gain+' · goal: '+ncEsc(ncGoalName(p&&p.settings&&p.settings.goal)):'')
+    +(PR?'<br>Protein: <b>'+PR.lo+'–'+PR.hi+' g a day</b> (1.5–2 g per kg of '+(PR.basis==='goal'?'goal weight ':'current weight ')+PR.w+' kg). Her app tips her when she\'s short.':'')
     +(tg&&tg.none?'<br>No calorie targets (under 18 or pregnant/breastfeeding).':'')
-    +(kAvg?'<br>Eaten (from logged meals): '+(kByDay[ncToday()]?'today ~'+kByDay[ncToday()]+' · ':'')+'7-day average ~'+kAvg+' on '+kDays.length+' logged day'+(kDays.length===1?'':'s'):'')
+    +(kAvg?'<br>Eaten (from logged meals): '+(kByDay[T]?'today ~'+kByDay[T]+' · ':'')+'7-day average ~'+kAvg+' on '+kDays.length+' logged day'+(kDays.length===1?'':'s'):'')
     +'</div>';
-  if(!p||!p.template_id||!NC_T[p.template_id]){
-    box.innerHTML='<div class="card" style="margin-bottom:12px"><div style="font-size:16px;font-weight:800;margin-bottom:6px">🌱 Nutrition app</div>'
-      +'<div style="font-size:14px">Logging meals, no habit plan chosen yet.</div>'+calHtml+(recent||'')+'</div>';
+  var fold=function(title,sub,body){ return '<details class="card" style="margin-bottom:10px"><summary style="font-size:15px;font-weight:800;cursor:pointer">'+title+(sub?' <span style="font-size:12px;font-weight:400;color:var(--muted)">· '+sub+'</span>':'')+'</summary><div style="margin-top:10px">'+body+'</div></details>'; };
+  var numbers=fold('📊 Their numbers',(prof?prof.age+' yrs · ':'')+(tg&&tg.maint?'maintenance ~'+tg.maint:''),'<div style="font-size:13px;color:var(--muted)">Meals logged in the last 7 days: '+last7.length+'</div>'+calHtml+meas+refl);
+  if(!M){
+    box.innerHTML='<div class="card" style="margin-bottom:10px;border-color:#3D6B4F;gap:8px"><div style="font-size:18px;font-weight:800">🌱 No habit plan yet</div>'
+      +'<div style="font-size:13px;color:var(--muted);line-height:1.5">A <b>habit</b> is one small eating skill she practises for 1–2 weeks, with a 2-minute lesson a day. The app checks it from her meals and moves her on when it sticks.</div>'
+      +(p?'<div style="display:flex;gap:8px;flex-wrap:wrap"><select id="ncTpl_'+cid+'" style="padding:8px;border-radius:8px">'+Object.keys(NC_T).map(function(k){return '<option value="'+k+'">'+ncEsc(NC_T[k].name)+'</option>';}).join('')+'</select><button class="btn-sm" onclick="ncChangePlan(\''+cid+'\')">Start this plan</button></div>'
+        :'<div style="font-size:13px">She hasn\'t set up the nutrition app yet.</div>')+'</div>'+numbers;
     return;
   }
-  var t=NC_T[p.template_id], hold=!!(p.settings&&p.settings.coachHold);
-  var opts=Object.keys(NC_T).map(function(k){return '<option value="'+k+'"'+(k===p.template_id?' selected':'')+'>'+ncEsc(NC_T[k].name)+'</option>';}).join('');
-  // the habit first; everything else folds away
-  var fold=function(title,sub,body){ return '<details class="card" style="margin-bottom:10px"><summary style="font-size:15px;font-weight:800;cursor:pointer">'+title+(sub?' <span style="font-size:12px;font-weight:400;color:var(--muted)">· '+sub+'</span>':'')+'</summary><div style="margin-top:10px">'+body+'</div></details>'; };
-  box.innerHTML='<div class="card" style="margin-bottom:10px;border-color:#3D6B4F">'
-    +'<div style="font-size:12px;color:var(--muted)">'+ncEsc(t?t.name:p.template_id)+(hold?' · <span style="color:var(--terra)">on hold</span>':'')+'</div>'
-    +'<div style="font-size:18px;font-weight:800;margin:2px 0 6px">🌱 '+ncEsc(ncStepName(p))+ncDayTxt(p)+'</div>'
-    +habSum
-    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'
-    +'<button class="btn-sm" onclick="ncHold(\''+cid+'\','+(!hold)+')">'+(hold?'Release hold':'Hold here')+'</button>'
-    +'<button class="btn-sm" onclick="ncAdvance(\''+cid+'\')">Next habit</button></div>'
-    +'<details style="margin-top:10px"><summary style="font-size:13px;font-weight:700;cursor:pointer;color:var(--muted)">4-week grid</summary>'
-    +'<div style="display:grid;grid-template-columns:44px repeat(7,1fr);gap:4px;align-items:center;margin-top:8px">'+cells+'</div>'
-    +'<div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5">✓ done · ½ partly · ✕ not · · nothing logged · … waiting for an estimate. From their meals; their own tap wins, and yours wins over both (gold edge). Tap a day to mark it.</div></details></div>'
-    +fold('📊 Their numbers',(prof?prof.age+' yrs · ':'')+(tg&&tg.maint?'maintenance ~'+tg.maint:''),'<div style="font-size:13px;color:var(--muted)">Meals logged in the last 7 days: '+meals+'</div>'+calHtml+meas+refl)
-    +fold('🔁 Change their plan',ncEsc(t?t.name:''),ncLadderHtml(p)+'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><select id="ncTpl_'+cid+'" style="padding:6px;border-radius:8px">'+opts+'</select><button class="btn-sm" onclick="ncChangePlan(\''+cid+'\')">Change plan</button></div>');
+  var C=NC_STAT[M.status], stepCells=M.cells.slice(-Math.max(M.len,7));
+  function cell(c){ if(c.future) return '<span style="height:30px;border-radius:7px;border:1px dashed #3E3F36;opacity:.5"></span>';
+    var sym=c.a==='done'?'✓':c.a==='partly'?'½':c.a==='not'?'✕':(c.auto==='wait'?'…':'·'), bg=c.a==='done'?'#6E9E7A':c.a==='partly'?'#3D5A45':c.a==='not'?'#3A2E22':'transparent';
+    return '<button data-hday="'+c.d+'" title="'+ncEsc(ncNice(c.d))+'" style="height:30px;border-radius:7px;border:1px solid '+(c.a?bg:'#3E3F36')+';background:'+bg+';color:'+(c.a==='done'?'#12130F':'var(--text)')+';font-size:13px;font-weight:800;font-family:inherit;cursor:pointer;padding:0'+(c.src==='coach'?';box-shadow:inset 0 0 0 2px #C9A24A':'')+'">'+sym+'</button>'; }
+  var chips=M.t.path.map(function(id,k){ if(id==='start') return ''; var on=k===M.idx, dn=k<M.idx;
+    return '<button data-hx="'+k+'" style="flex-shrink:0;border:1px solid '+(on?'#C9A24A':dn?'#5E7A5A':'var(--border)')+';background:'+(on?'#C9A24A':'none')+';color:'+(on?'#12130F':dn?'#8FD1A2':'var(--muted)')+';border-radius:14px;padding:5px 10px;font-size:12px;font-weight:'+(on?800:600)+';font-family:inherit;white-space:nowrap;cursor:pointer">'+(dn?'✓ ':on?'● ':'')+ncEsc(ncHabTitle(id))+'</button>'; }).join('');
+  var BTN='padding:10px 8px;border-radius:10px;border:1px solid var(--border);background:none;color:var(--text);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;line-height:1.25';
+  var nextLbl=M.next!=null?'Move on now →':M.nextPlan?'On to '+ncEsc(NC_T[M.nextPlan].name)+' →':'';
+  var html='<div class="card" style="margin-bottom:10px;border-color:#3D6B4F;display:flex;flex-direction:column;gap:12px;align-items:stretch">'
+    +'<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)"><span>'+ncEsc(M.t.name)+(M.hid!=='reset'&&M.of?' · habit '+M.num+' of '+M.of:'')+'</span>'+(M.hold?'<span style="color:var(--terra);font-weight:700">⏸ held here</span>':'')+'</div>'
+    +'<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch">'+chips+'</div>'
+    +'<div><div style="font-size:20px;font-weight:800">🌱 '+ncEsc(M.title)+'</div>'
+    +'<div style="font-size:13px;color:var(--muted);margin-top:2px">Day '+Math.min(M.dayN,M.len)+' of '+M.len+(M.dayN>M.len?' · '+(M.dayN-M.len)+' day'+(M.dayN-M.len===1?'':'s')+' past its end':M.hold?'':' · '+(M.len-M.dayN+1)+' day'+(M.len-M.dayN+1===1?'':'s')+' to go')+'</div>'
+    +(NC_H[M.hid]&&NC_H[M.hid].short?'<div style="font-size:13px;margin-top:4px">'+ncEsc(NC_H[M.hid].short)+'</div>':'')+'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">'+stepCells.map(cell).join('')+'</div>'
+    +'<div style="background:'+C[2]+';border:1px solid '+C[3]+';border-radius:10px;padding:9px 11px;font-size:13px;line-height:1.5"><b style="color:'+C[1]+'">'+C[0]+' '+M.label+'</b> · '+M.dn+' done'+(M.pt?' · '+M.pt+' partly':'')+(M.no?' · '+M.no+' not':'')+(M.nl?' · '+M.nl+' nothing logged':'')
+    +(M.suggest?'<br>'+ncEsc(M.suggest):'')+(M.tip?'<br>💡 '+ncEsc(M.tip):'')+'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+    +'<button data-ha="stay" style="'+BTN+'">⏸ Stay 7 more days</button>'
+    +(nextLbl?'<button data-ha="next" style="'+BTN+'">'+nextLbl+'</button>':'<span></span>')
+    +(M.prev!=null?'<button data-ha="back" style="'+BTN+'">← Back to '+ncEsc(ncHabTitle(M.t.path[M.prev]))+'</button>':'')
+    +'<button data-ha="pick" style="'+BTN+(M.prev!=null?'':';grid-column:1/-1')+'">Pick a habit or plan</button></div>'
+    +'<div style="font-size:12px;color:var(--muted)">Her app nudges her about this by itself: a tip when it slips, a well done when it\'s going well.</div>'
+    +(M.earlier.length?'<div style="border-top:1px solid var(--border);padding-top:10px"><b style="font-size:14px">Still doing earlier habits?</b> <span style="font-size:12px;color:var(--muted)">from her meals, last 7 days</span>'
+      +M.earlier.map(function(e){ return '<button data-hx="'+e.k+'" style="display:flex;justify-content:space-between;width:100%;background:none;border:none;color:var(--text);font-family:inherit;font-size:14px;padding:7px 0 0;cursor:pointer;text-align:left"><span>✓ '+ncEsc(e.title)+'</span><span style="color:'+(e.slipping?'#E39A6E':e.n?'#8FD1A2':'var(--muted)')+'">'+(e.n?e.done+' done'+(e.partly?' · '+e.partly+' partly':'')+' of '+e.n+(e.slipping?' · slipping':' · holding'):'nothing to go on')+' ›</span></button>'; }).join('')+'</div>':'')
+    +'<label style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--muted)"><span>Keep her on this habit until I move her</span><input type="checkbox" data-ha="hold"'+(M.hold?' checked':'')+' style="width:20px;height:20px"></label>'
+    +'<div style="display:flex;gap:16px;flex-wrap:wrap"><button data-ha="grid" style="background:none;border:none;color:var(--sage);font-family:inherit;font-size:13px;font-weight:700;padding:0;cursor:pointer">📅 4-week grid</button><button data-ha="time" style="background:none;border:none;color:var(--sage);font-family:inherit;font-size:13px;font-weight:700;padding:0;cursor:pointer">🕓 Timeline</button></div>'
+    +'<div id="ncHabMore_'+cid+'"></div>'
+    +'<div style="font-size:11px;color:var(--muted);line-height:1.5">✓ done · ½ partly · ✕ not · · nothing logged. Worked out from her meals; her own tap counts over that, and your mark (gold edge) over both. Tap a day to mark it.</div>'
+    +'</div>'+numbers;
+  box.innerHTML=html;
   box.querySelectorAll('[data-hday]').forEach(function(b){ b.onclick=function(){ ncMarkDay(cid,b.dataset.hday); }; });
+  box.querySelectorAll('[data-hx]').forEach(function(b){ b.onclick=function(){ ncHabitHist(cid,+b.dataset.hx); }; });
+  box.querySelectorAll('[data-ha]').forEach(function(b){ var k=b.dataset.ha;
+    if(k==='hold') b.onchange=function(){ ncHold(cid,b.checked); };
+    else if(k==='grid'||k==='time') b.onclick=function(){ var mo=document.getElementById('ncHabMore_'+cid); if(mo.dataset.k===k){ mo.innerHTML=''; mo.dataset.k=''; return; } mo.dataset.k=k; mo.innerHTML=k==='grid'?ncGridHtml(cid):ncTimelineHtml(cid);
+      mo.querySelectorAll('[data-hday]').forEach(function(x){ x.onclick=function(){ ncMarkDay(cid,x.dataset.hday); }; }); };
+    else if(k==='nudge') b.onclick=function(){ ncNudge(cid); };
+    else b.onclick=function(){ ncHabitAct(cid,k); }; });
+}
+function ncGridHtml(cid){
+  var D=ncHabData[cid]; if(!D||!D.M) return ''; var M=D.M, T=ncToday(), planStart=D.p.started_on||null;
+  var mon0=(function(){ var t=T.split('-'), x=new Date(+t[0],+t[1]-1,+t[2]); return ncAddDays(T,-((x.getDay()+6)%7)); })(), g0=ncAddDays(mon0,-21);
+  var cells='<span></span>'+['M','T','W','T','F','S','S'].map(function(w){return '<span style="font-size:11px;color:var(--muted);text-align:center">'+w+'</span>';}).join('');
+  for(var wk=0;wk<4;wk++){ var ws=ncAddDays(g0,wk*7); cells+='<span style="font-size:11px;color:var(--muted)">'+ncNice(ws).slice(4)+'</span>';
+    for(var dd=0;dd<7;dd++){ var d=ncAddDays(ws,dd);
+      if(d>T||(planStart&&d<planStart)){ cells+='<span style="height:26px;border-radius:6px;border:1px dashed #3E3F36;opacity:.5"></span>'; continue; }
+      var c=D.byDay[d]||{}, e=M.eff(d,d>=M.st?M.hid:(c.step_id||M.hid));
+      var sym=e.a==='done'?'✓':e.a==='partly'?'½':e.a==='not'?'✕':(e.auto==='wait'?'…':(D.mealsBy[d]?'':'·'));
+      var bg=e.a==='done'?'#6E9E7A':e.a==='partly'?'#3D5A45':e.a==='not'?'#3A2E22':'transparent';
+      cells+='<button data-hday="'+d+'" title="'+ncNice(d)+'" style="height:26px;border-radius:6px;border:1px solid '+(e.a?bg:'#3E3F36')+';background:'+bg+';color:'+(e.a==='done'?'#12130F':'var(--text)')+';font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;padding:0'+(e.src==='coach'?';box-shadow:inset 0 0 0 2px #C9A24A':'')+'">'+sym+'</button>'; } }
+  return '<div style="display:grid;grid-template-columns:44px repeat(7,1fr);gap:4px;align-items:center">'+cells+'</div>';
+}
+var NC_EV={start:'Started {plan}',moveOn:'She chose to move on from {step}',next:'Moved on from {step} by itself (days were up)',stay:'She chose 7 more days on {step}',autoStay:'The app gave her 7 more days on {step}',
+  finish:'Finished {plan}',coachAdvance:'You moved her on from {step}',coachHold:'You held her on her habit',coachRelease:'You released the hold',coachChangePlan:'You switched her plan to {to}',
+  coachStay:'You gave her 7 more days on {step}',coachBack:'You took her back to {to}',coachPick:'You moved her to {to}',back:'She went back to {to}'};
+function ncTimelineHtml(cid){
+  var D=ncHabData[cid]; if(!D) return ''; var H=(D.p.history||[]).slice().reverse();
+  if(!H.length) return '<div style="font-size:13px;color:var(--muted)">Nothing yet.</div>';
+  return '<div style="font-size:13px;line-height:1.7;max-height:280px;overflow:auto">'+H.slice(0,60).map(function(h){
+    var tx=(NC_EV[h.type]||h.type||'').replace('{plan}',ncEsc((NC_T[h.template||h.to]||{}).name||'a plan')).replace('{step}',ncEsc(ncHabTitle(h.step)||'a habit')).replace('{to}',ncEsc(NC_T[h.to]?NC_T[h.to].name:ncHabTitle(h.to)||''));
+    return '<div><span style="color:var(--muted);display:inline-block;min-width:58px">'+ncEsc(h.on?ncNice(h.on).slice(4):'')+'</span> '+tx+'</div>'; }).join('')+'</div>';
+}
+// one habit's own story: its days, how it went, what she wrote. ‹ › steps through her habits.
+function ncHabitHist(cid,k){
+  var D=ncHabData[cid]; if(!D||!D.M) return; var M=D.M, t=M.t, T=ncToday();
+  var ks=t.path.map(function(id,i){return i;}).filter(function(i){return t.path[i]!=='start';}); if(ks.indexOf(k)<0) k=M.idx;
+  var id=t.path[k], h=NC_H[id]||{}, state=k<M.idx?'done':k===M.idx?'now':'next', days=[];
+  if(state==='now') days=M.cells.filter(function(c){return !c.future;}).map(function(c){return c.d;});
+  else if(state==='done'){ var ds=D.ck.filter(function(x){return x.step_id===id;}).map(function(x){return x.day;}).sort(); if(ds.length){ for(var d=ds[0];d<=ds[ds.length-1];d=ncAddDays(d,1)) days.push(d); } }
+  var es=days.slice(-21).map(function(d){ return M.eff(d,id); }), dn=es.filter(function(e){return e.a==='done';}).length, pt=es.filter(function(e){return e.a==='partly';}).length, no=es.filter(function(e){return e.a==='not';}).length, nl=es.length-dn-pt-no;
+  var wrote=D.ck.filter(function(x){return x.step_id===id&&x.reflection;}).sort(function(a,b){return a.day<b.day?1:-1;}).map(function(x){ return Object.keys(x.reflection).filter(function(q){return /^q\d+$/.test(q);}).map(function(q){return '<div style="font-size:13px;line-height:1.45;margin-top:4px"><span style="color:var(--muted)">'+ncEsc(ncNice(x.day).slice(4))+'</span> · "'+ncEsc(x.reflection[q])+'"</div>';}).join(''); }).join('');
+  var ear=M.earlier.filter(function(e){return e.k===k;})[0], pos=ks.indexOf(k);
+  var BTN='padding:6px 14px;border-radius:10px;border:1px solid var(--border);background:none;color:var(--text);font-size:16px;font-family:inherit;cursor:pointer';
+  var html='<div style="display:flex;justify-content:space-between;align-items:center"><button data-nv="-1" style="'+BTN+(pos>0?'':';opacity:.3')+'"'+(pos>0?'':' disabled')+'>‹</button><b>Habit '+(pos+1)+' of '+ks.length+'</b><button data-nv="1" style="'+BTN+(pos<ks.length-1?'':';opacity:.3')+'"'+(pos<ks.length-1?'':' disabled')+'>›</button></div>'
+    +'<div style="font-size:20px;font-weight:800">'+(state==='done'?'✓ ':state==='now'?'🌱 ':'')+ncEsc(ncHabTitle(id))+'</div>'
+    +'<div style="font-size:13px;color:var(--muted)">'+ncEsc(h.short||'')+'</div>'
+    +'<div style="font-size:13px">'+(state==='now'?'Her habit now · day '+Math.min(M.dayN,M.len)+' of '+M.len:state==='done'?(days.length?ncNice(days[0]).slice(4)+' – '+ncNice(days[days.length-1]).slice(4)+' · '+days.length+' days':'Done (no days recorded, may have been skipped)'):'Coming up')+'</div>'
+    +(es.length?'<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">'+es.map(function(e){ var bg=e.a==='done'?'#6E9E7A':e.a==='partly'?'#3D5A45':e.a==='not'?'#3A2E22':'transparent'; return '<span title="'+ncEsc(ncNice(e.d))+'" style="height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;border:1px solid '+(e.a?bg:'#3E3F36')+';background:'+bg+';color:'+(e.a==='done'?'#12130F':'var(--text)')+'">'+(e.a==='done'?'✓':e.a==='partly'?'½':e.a==='not'?'✕':'·')+'</span>'; }).join('')+'</div>'
+      +'<div style="font-size:14px">'+dn+' done'+(pt?' · '+pt+' partly':'')+(no?' · '+no+' not':'')+(nl?' · '+nl+' nothing logged':'')+'</div>':'')
+    +(ear?'<div style="font-size:13px;color:'+(ear.slipping?'#E39A6E':'#8FD1A2')+'">Last 7 days: '+(ear.n?ear.done+' of '+ear.n+' days'+(ear.slipping?', slipping':', still holding'):'nothing to go on')+'</div>':'')
+    +(wrote?'<div><b style="font-size:13px">What she wrote</b>'+wrote+'</div>':'')
+    +(state!=='now'?'<button data-go="1" style="padding:13px;border-radius:12px;border:none;background:var(--sage);color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">'+(state==='done'?'Make this her habit again':'Start this habit now')+'</button>':'')
+    +'<button data-cl="1" style="padding:11px;border-radius:12px;border:1px solid var(--border);background:none;color:var(--text);font-family:inherit;font-size:14px;cursor:pointer">Close</button>';
+  document.querySelectorAll('.kf-sheet').forEach(function(x){x.remove();});
+  kfSheet(html,function(ov,close){
+    ov.querySelectorAll('[data-nv]').forEach(function(b){ b.onclick=function(){ var np=pos+(+b.dataset.nv); if(np<0||np>=ks.length) return; close(); ncHabitHist(cid,ks[np]); }; });
+    ov.querySelector('[data-cl]').onclick=close;
+    var g=ov.querySelector('[data-go]'); if(g) g.onclick=function(){ close(); ncHabitAct(cid,'pick',k); }; });
+}
+// Stay / move on / back / pick. Each one can carry a message she sees in her app.
+async function ncHabitAct(cid,kind,arg){
+  var p=await ncLoad(cid); if(!p) return; var t=NC_T[p.template_id]; if(!t) return;
+  var idx=p.step_index||0, cur=t.path[idx], len=ncStepLen(t,cur), T=ncToday(), D=ncHabData[cid], M=D&&D.M, first=ncFirstName(cid);
+  if(kind==='pick'&&arg==null){
+    var opts=t.path.map(function(id,i){ return id==='start'?null:{label:(i<idx?'✓ ':i===idx?'● ':'')+ncHabTitle(id)+(i===idx?' (now)':''),val:'h'+i}; }).filter(Boolean)
+      .concat(Object.keys(NC_T).filter(function(k){return k!==p.template_id;}).map(function(k){ return {label:'🔁 Switch plan: '+NC_T[k].name,val:'p'+k}; }));
+    var v=await kfChoose('Pick a habit or plan',t.name,opts); if(!v) return;
+    if(v[0]==='p'){ return ncSwitchPlan(cid,v.slice(1)); }
+    arg=+v.slice(1); if(arg===idx) return;
+  }
+  var to=null, title, sub, def, ev;
+  if(kind==='stay'){ title='7 more days of '+ncHabTitle(cur)+'?'; sub='Her lessons go back a week, and the app won\'t move her on before '+ncNice(ncAddDays(T,7))+'.';
+    def='Let\'s give '+ncHabTitle(cur)+' 7 more days, '+first+'. '+(M&&M.tip?M.tip:'A little more practice and it\'ll feel automatic.'); ev='coachStay'; }
+  else if(kind==='next'){
+    if(idx>=t.path.length-1){ if(t.next&&NC_T[t.next]) return ncSwitchPlan(cid,t.next,true); alert('This is the last habit of her last plan.'); return; }
+    to=idx+1; title='Move her on to '+ncHabTitle(t.path[to])+'?'; sub='She keeps '+ncHabTitle(cur)+' going; the app keeps checking it from her meals.';
+    def='Well done on '+ncHabTitle(cur)+', '+first+'! Keep it going. Next up: '+ncHabTitle(t.path[to])+'.'; ev='coachAdvance'; }
+  else if(kind==='back'){ to=M&&M.prev!=null?M.prev:idx-1; if(to<0||t.path[to]==='start') return;
+    title='Back to '+ncHabTitle(t.path[to])+'?'; sub='She starts its lessons again from day 1.'; def='Let\'s go back to '+ncHabTitle(t.path[to])+' for a bit, '+first+', so it really sticks.'; ev='coachBack'; }
+  else if(kind==='pick'){ to=arg; title=(to<idx?'Back to ':'Move her to ')+ncHabTitle(t.path[to])+'?'; sub='She starts its lessons from day 1.';
+    def=(to<idx?'Let\'s go back to ':'Let\'s start ')+ncHabTitle(t.path[to])+', '+first+'. '; ev=to<idx?'coachBack':'coachPick'; }
+  else return;
+  var msg=await kfMsgSheet({title:title,sub:ncEsc(sub),text:def,ok:kind==='stay'?'Give her 7 more days':'Yes, do it'}); if(msg===null) return;
+  p.settings=Object.assign({},p.settings); delete p.settings.autoMoved; delete p.settings.autoStayed;
+  if(msg) p.settings.coachMsg={text:msg.slice(0,600),on:T,kind:kind,seen:false}; else delete p.settings.coachMsg;
+  var extra={step:cur};
+  if(kind==='stay'){ p.step_started_on=ncAddDays(T,-Math.max(0,len-7)); }
+  else { p.step_index=to; p.step_started_on=T; extra.to=t.path[to]; }
+  kfLog('🌱',{stay:'Gave 7 more days on ',next:'Moved on from ',back:'Took back to ',pick:'Moved to '}[kind]+(kind==='stay'||kind==='next'?ncHabTitle(cur):ncHabTitle(t.path[to])),cid);
+  await ncSave(cid,p,ev,extra);
+}
+async function ncSwitchPlan(cid,tid,isNext){
+  var p=await ncLoad(cid); if(!p||!NC_T[tid]) return; var first=ncFirstName(cid);
+  var msg=await kfMsgSheet({title:(isNext?'On to ':'Switch to ')+NC_T[tid].name+'?',sub:'Her progress comes with her: finished habits stay finished.',text:isNext?'You finished '+((NC_T[p.template_id]||{}).name||'your plan')+', '+first+'! On to '+NC_T[tid].name+'.':'',ok:'Yes, switch'}); if(msg===null) return;
+  var sel=document.createElement('select'); sel.id='ncTpl_'+cid; sel.style.display='none'; sel.innerHTML='<option value="'+tid+'" selected></option>'; document.body.appendChild(sel);
+  window.__ncPlanMsg=msg; try{ await ncChangePlan(cid,true); } finally { sel.remove(); window.__ncPlanMsg=null; }
+}
+async function ncNudge(cid){
+  var D=ncHabData[cid], M=D&&D.M, first=ncFirstName(cid); if(!M) return;
+  var def=M.status==='good'?'Great going on '+M.title+', '+first+': '+M.dn+' of '+M.n+' days 💪 Keep it up!':M.status==='quiet'?'Hi '+first+', I haven\'t seen your meals for a few days. Snap your next one, even just a photo. How are things?':'Hi '+first+', how is '+M.title+' going? '+(M.tip||'');
+  var msg=await kfMsgSheet({title:M.status==='good'?'Send a well done':'Send a nudge',sub:'It goes on today\'s day in her app, like your other notes.',label:'Your message',text:def,ok:'Send',need:true}); if(!msg) return;
+  var r=await getSB().from('nutrition_meal_comments').insert({client_id:cid,day:ncToday(),meal_id:null,author:'coach',body:msg.slice(0,2000)});
+  if(r.error){ alert('Not sent -- '+r.error.message); return; }
+  kfLog('💬',M.status==='good'?'Sent a well done':'Sent a habit nudge',cid,null,ncToday());
+  try{ localStorage.setItem('kfit_habnudged_'+cid.slice(6)+'_'+ncToday(),'1'); }catch(e){}
+  try{ ncDaysRender(cid); }catch(e){} alert('Sent ✓');
 }
 async function ncMarkDay(cid,d){
-  var v=prompt('Mark '+ncNice(d)+': type done, partly or not (leave empty to clear your mark)','');
-  if(v===null) return; v=String(v).trim().toLowerCase(); var map={done:'done',d:'done',partly:'partly',p:'partly',not:'not',n:'not','':null}; if(!(v in map)){ alert('Type done, partly or not.'); return; }
+  var v=await kfChoose('Mark '+ncNice(d),'Your mark counts over hers and her meals (gold edge).',[{label:'✓ Done',val:'done'},{label:'½ Partly',val:'partly'},{label:'✕ Not',val:'not'},{label:'Clear your mark',val:'clear'}]);
+  if(!v) return;
   var p=await ncLoad(cid); if(!p) return; p.settings=Object.assign({},p.settings); var hm=Object.assign({},p.settings.habitMarks||{});
-  if(map[v]) hm[d]=map[v]; else delete hm[d]; p.settings.habitMarks=hm;
+  if(v!=='clear') hm[d]=v; else delete hm[d]; p.settings.habitMarks=hm;
   var r=await getSB().from('nutrition_program').update({settings:p.settings,updated_ms:Date.now()}).eq('client_id',cid);
   if(r.error){ alert('Not saved -- '+r.error.message); return; }
-  kfLog('🌱',map[v]?'Marked a habit day '+map[v]:'Cleared a habit mark',cid,null,d);
+  kfLog('🌱',v!=='clear'?'Marked a habit day '+v:'Cleared a habit mark',cid,null,d);
   var box=document.getElementById('ncPlanBox_'+cid); if(box) nutCoachPanel(cid,box,p);
+  try{ ncDaysRender(cid); }catch(e){}
+}
+// Today: nutrition clients whose habit needs you (one query each for programs, check-ins and meals)
+async function ncHabitNeeds(tagged){
+  var out=[], T=ncToday(), sb=getSB();
+  var pr=await sb.from('nutrition_program').select('*'); var rows=(pr.data||[]).filter(function(p){ return tagged[String(p.client_id).slice(6)]&&p.template_id&&NC_T[p.template_id]; });
+  if(!rows.length) return out;
+  var ck=await sb.from('nutrition_checkins').select('client_id,day,answer,step_id').gte('day',ncAddDays(T,-21)).limit(5000);
+  var ml=await sb.from('nutrition_meals').select('client_id,day,deleted,body').gte('day',ncAddDays(T,-21)).limit(5000);
+  rows.forEach(function(p){ var cid=p.client_id, m=String(cid).slice(6), byDay={}, mealsBy={};
+    (ck.data||[]).forEach(function(x){ if(x.client_id===cid) byDay[x.day]=x; });
+    (ml.data||[]).forEach(function(x){ if(x.client_id===cid&&!x.deleted) (mealsBy[x.day]=mealsBy[x.day]||[]).push(x.body||{}); });
+    var hctx={}; try{ var pf=p.settings&&p.settings.profile; hctx={target:ncGoalKcal(pf?ncTargets(pf):null,p.settings.goal)}; }catch(e){}
+    var M=ncHabitModel(p,byDay,mealsBy,hctx); if(!M||M.hid==='start') return;
+    var k='kfit_habnudged_'+m+'_'+T; try{ if(localStorage.getItem(k)) return; }catch(e){}
+    var slip=M.earlier.filter(function(e){return e.slipping;})[0];
+    if(M.status==='nudge') out.push({m:m,cid:cid,ic:'🌱',line:M.title+' · '+M.dn+' of '+M.n+' days',act:'Nudge',k:k});
+    else if(slip) out.push({m:m,cid:cid,ic:'🌱',line:slip.title+' is slipping · '+slip.done+' of '+slip.n+' days',act:'Look',k:k});
+    else if(!M.hold&&M.dayN===M.len&&M.status==='good') out.push({m:m,cid:cid,ic:'🎉',line:'finishes '+M.title+' today · '+M.dn+' of '+M.n+' days',act:'Well done',k:k});
+  });
+  return out;
 }
 async function ncLoad(cid){var r=await getSB().from('nutrition_program').select('*').eq('client_id',cid);if(r.error||!r.data||!r.data[0]){alert('Could not load this program.');return null;}return r.data[0];}
 async function ncSave(cid,p,note,extra){
   p.updated_ms=Date.now(); p.history=(p.history||[]).concat([Object.assign({type:note,on:ncToday(),by:'coach'},extra||{})]);
   var r=await getSB().from('nutrition_program').update({template_id:p.template_id,step_index:p.step_index,step_started_on:p.step_started_on,started_on:p.started_on,history:p.history,settings:p.settings||{},updated_ms:p.updated_ms}).eq('client_id',cid);
   if(r.error){alert('Not saved -- nothing changed. '+r.error.message);return;}
-  var box=document.getElementById('uniNutCoach'); if(box&&box.innerHTML) nutCoachPanel(cid,box,p);
+  var box=document.getElementById('ncPlanBox_'+cid); if(box) nutCoachPanel(cid,box,p);
+  try{ ncDaysRender(cid); }catch(e){}
   var lb=document.getElementById('ncListBody'); if(lb) openNutCoachList();
 }
 async function ncHold(cid,on){var p=await ncLoad(cid);if(!p)return;p.settings=Object.assign({},p.settings);if(on)p.settings.coachHold=true;else delete p.settings.coachHold;ncSave(cid,p,on?'coachHold':'coachRelease');}
 async function ncAdvance(cid){var p=await ncLoad(cid);if(!p)return;var t=NC_T[p.template_id];
   if(!t||p.step_index>=t.path.length-1){alert('This is the last habit on their plan. Use "Change plan" to move them on.');return;}
   if(!confirm('Move them on to the next habit now?'))return;var was=t.path[p.step_index];p.step_index++;p.step_started_on=ncToday();ncSave(cid,p,'coachAdvance',{step:was});}
-async function ncChangePlan(cid){var sel=document.getElementById('ncTpl_'+cid);if(!sel)return;var p=await ncLoad(cid);if(!p)return;
+async function ncChangePlan(cid,asked){var sel=document.getElementById('ncTpl_'+cid);if(!sel)return;var p=await ncLoad(cid);if(!p)return;
   if(sel.value===p.template_id){alert('They are already on this plan.');return;}
-  if(!confirm('Switch them to '+NC_T[sel.value].name+'? Their progress comes with them: finished habits stay finished, and if their current habit is in the new plan they carry on from the same day.'))return;
+  if(!asked&&!confirm('Switch them to '+NC_T[sel.value].name+'? Their progress comes with them: finished habits stay finished, and if their current habit is in the new plan they carry on from the same day.'))return;
+  p.settings=Object.assign({},p.settings); delete p.settings.autoMoved; delete p.settings.autoStayed;
+  if(window.__ncPlanMsg) p.settings.coachMsg={text:String(window.__ncPlanMsg).slice(0,600),on:ncToday(),kind:'plan',seen:false};
   var from=p.template_id, oldT=NC_T[from], cur=oldT&&oldT.path[p.step_index];
   var done={};(p.history||[]).forEach(function(h){if((h.type==='moveOn'||h.type==='coachAdvance')&&h.step)done[h.step]=1;});
   if(oldT) oldT.path.slice(0,p.step_index).forEach(function(id){done[id]=1;});
   var t=NC_T[sel.value], ci=t.path.indexOf(cur), i;
   if(ci>=0&&!done[cur]){ i=ci; } else { i=0; while(i<t.path.length-1&&done[t.path[i]])i++; p.step_started_on=ncToday(); }
-  p.template_id=sel.value; p.step_index=i; ncSave(cid,p,'coachChangePlan',{from:from,to:sel.value});}
+  p.template_id=sel.value; p.step_index=i; if(!p.started_on) p.started_on=ncToday(); await ncSave(cid,p,'coachChangePlan',{from:from,to:sel.value});}
 async function openNutCoachList(){
   var r=await getSB().from('nutrition_program').select('*').order('updated_at',{ascending:false});
   if(r.error){alert('Could not load: '+r.error.message);return;}
@@ -7629,8 +7823,16 @@ async function ncDaysRender(cid){
   var prog=pr.data&&pr.data[0]||null;
   var prof=pr.data&&pr.data[0]&&pr.data[0].settings&&pr.data[0].settings.profile, goal=pr.data&&pr.data[0]&&pr.data[0].settings&&pr.data[0].settings.goal;
   var tg=prof?ncTargets(prof):null, target=ncGoalKcal(tg,goal);
-  var ck=await getSB().from('nutrition_checkins').select('day,answer,reflection').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-90));
-  var hab={}, waterBy={}; (ck.data||[]).forEach(function(c){if(c.answer)hab[c.day]=c.answer; var wml=c.reflection?(c.reflection.waterMl!=null?+c.reflection.waterMl:(+c.reflection.water||0)*250):0; if(wml>0) waterBy[c.day]=wml;});
+  var ck=await getSB().from('nutrition_checkins').select('day,answer,reflection,step_id').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-90));
+  // the habit answer per day: same rule as the Habits tab (your mark, her tap, her meals)
+  var hab={}, waterBy={}, ckBy={}, HM=null; (ck.data||[]).forEach(function(c){ ckBy[c.day]=c; });
+  try{ var mb=await getSB().from('nutrition_meals').select('day,deleted,body').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-90)); var mBy={};
+    (mb.data||[]).forEach(function(x){ if(!x.deleted) (mBy[x.day]=mBy[x.day]||[]).push(x.body||{}); });
+    var hc={}; try{ hc={target:target}; }catch(e){}
+    HM=ncHabitModel(prog,ckBy,mBy,hc);
+    if(HM) Object.keys(Object.assign({},ckBy,mBy)).forEach(function(d){ var c=ckBy[d]||{}; var e=HM.eff(d,d>=HM.st?HM.hid:(c.step_id||HM.hid)); if(e.a) hab[d]=e.a; });
+  }catch(e){}
+  (ck.data||[]).forEach(function(c){if(c.answer&&!hab[c.day])hab[c.day]=c.answer; var wml=c.reflection?(c.reflection.waterMl!=null?+c.reflection.waterMl:(+c.reflection.water||0)*250):0; if(wml>0) waterBy[c.day]=wml;});
   var stepsBy={}; try{ var sr2=await getSB().from('client_daily_steps').select('day,steps').eq('mobile',cid.slice(6)).gte('day',ncAddDays(ncToday(),-90)); (sr2.data||[]).forEach(function(x){stepsBy[x.day]=x.steps;}); }catch(e){}
   st.open=st.open||{}; if(focus&&focus.meal_id) st.open[focus.meal_id]=true;
   if(!st.dayShut){ try{ st.dayShut=JSON.parse(localStorage.getItem('kf_dayshut_'+cid)||'{}'); }catch(e){ st.dayShut={}; } } if(focus&&focus.day) st.dayShut[focus.day]=false;
@@ -7689,19 +7891,19 @@ async function ncDaysRender(cid){
   svg+='</svg>';
   html+=svg;
   // the habit she's practising: tap for her week of answers
-  var hasPlan=prog&&prog.template_id&&typeof NC_T!=='undefined'&&NC_T[prog.template_id];
+  var hasPlan=!!HM;
   var hDone=wkDays.filter(function(x){return hab[x]==='done';}).length, hSoFar=wkDays.filter(function(x){return x<=todayD;}).length;
   html+='<button id="ncHab_'+cid+'" style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;background:#22261F;border:1px solid #2F3A2C;border-radius:12px;padding:9px 12px;color:var(--text);font-family:inherit;text-align:left;cursor:pointer;margin-top:4px">'
-    +'<span style="min-width:0"><span style="font-size:14px">🌱 <b>'+ncEsc(hasPlan?ncStepName(prog):'No habit yet')+'</b></span><br><span style="font-size:12px;color:var(--muted)">'+(hasPlan?'done '+hDone+' of '+hSoFar+' day'+(hSoFar===1?'':'s')+' this week · <span style="color:#8FD1A2">●</span> under a day = done':'Tap to choose one for her')+'</span></span>'
+    +'<span style="min-width:0"><span style="font-size:14px">🌱 <b>'+ncEsc(hasPlan?ncStepName(prog):'No habit yet')+'</b></span><br><span style="font-size:12px;color:var(--muted)">'+(hasPlan?'<span style="color:'+NC_STAT[HM.status][1]+'">'+NC_STAT[HM.status][0]+' '+HM.label+'</span> · done '+hDone+' of '+hSoFar+' day'+(hSoFar===1?'':'s')+' this week · <span style="color:#8FD1A2">●</span> = done':'Tap to choose one for her')+'</span></span>'
     +'<span style="color:var(--muted);font-size:18px">'+(st.habOpen?'⌃':'›')+'</span></button>';
   if(st.habOpen&&hasPlan){
     var mark={done:'✅',partly:'½',not:'✕'};
     html+='<div style="background:#1C1F19;border:1px solid #2F3A2C;border-radius:12px;padding:10px 12px;margin-top:6px">'
-      +'<div style="font-size:12px;color:var(--muted)">'+(prog.step_started_on?'since '+ncEsc(ncNice(prog.step_started_on))+' · ':'')+'day '+ncDay(prog)+'</div>'
+      +'<div style="font-size:12px;color:var(--muted)">'+(prog.step_started_on?'since '+ncEsc(ncNice(prog.step_started_on))+' · ':'')+'day '+Math.min(HM.dayN,HM.len)+' of '+HM.len+'</div>'
       +'<div style="display:flex;justify-content:space-between;text-align:center;font-size:12px;color:var(--muted);margin:10px 0">'+wkDays.map(function(x,i){ return '<div style="flex:1">'+'MTWTFSS'.charAt(i)+'<br><span style="font-size:17px;color:var(--text)">'+(x>todayD?'':(mark[hab[x]]||'–'))+'</span></div>'; }).join('')+'</div>'
-      +'<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Her answer each day to "Did you do today\'s habit?" ✅ done · ½ partly · ✕ not yet · – no answer</div>'
-      +'<div style="display:flex;gap:8px"><button id="ncHabChg_'+cid+'" style="flex:1;padding:9px;border:1px solid var(--border);background:none;color:var(--text);border-radius:10px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer">Change habit</button>'
-      +'<button id="ncHabCheer_'+cid+'" style="flex:1;padding:9px;border:none;background:var(--sage);color:#fff;border-radius:10px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer">💬 Cheer her on</button></div></div>';
+      +'<div style="font-size:11px;color:var(--muted);margin-bottom:10px">From her meals, her own answer, or your mark. ✅ done · ½ partly · ✕ not yet · – nothing to go on</div>'
+      +'<div style="display:flex;gap:8px"><button id="ncHabChg_'+cid+'" style="flex:1;padding:9px;border:1px solid var(--border);background:none;color:var(--text);border-radius:10px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer">Open her habit</button>'
+      +'</div></div>';
   }
   var anyOver=target&&ks.some(function(k){return k>target;});
   html+='<div style="font-size:11px;color:var(--muted);margin-top:6px"><span style="color:#C9A24A">Gold letter</span> = something new to see'+(anyOver?' · <span style="color:#E39A6E">orange bar</span> = over goal':'')+'</div>';
@@ -7753,9 +7955,9 @@ async function ncDaysRender(cid){
   el.querySelectorAll('[data-qr]').forEach(function(b){b.onclick=function(e){ e.stopPropagation();
     var inp=el.querySelector('[data-ncin="'+b.dataset.qrk+'"]'), sendB=el.querySelector('[data-ncsend="'+b.dataset.qrk+'"]');
     if(inp&&sendB){ inp.value=ncQuickReplies()[+b.dataset.qr]||''; sendB.click(); } };});
-  el.querySelectorAll('[data-qredit]').forEach(function(b){b.onclick=function(e){ e.stopPropagation();
-    var cur=ncQuickReplies().join(' | '), v=prompt('Your quick replies, separated by  |  (up to 8):',cur); if(v===null) return;
-    var list=v.split('|').map(function(x){return x.trim();}).filter(Boolean).slice(0,8);
+  el.querySelectorAll('[data-qredit]').forEach(function(b){b.onclick=async function(e){ e.stopPropagation();
+    var cur=ncQuickReplies().join('\n'), v=await kfMsgSheet({title:'Your quick replies',sub:'One per line, up to 8.',label:'Quick replies',text:cur,ok:'Save'}); if(v===null) return;
+    var list=v.split(/\n|\|/).map(function(x){return x.trim();}).filter(Boolean).slice(0,8);
     try{ localStorage.setItem('kfit_quick_replies',JSON.stringify(list.length?list:NC_QR_DEFAULT)); }catch(e2){} ncDaysRender(cid); };});
   el.querySelectorAll('[data-ncsend]').forEach(function(b){b.onclick=async function(){
     var key=b.dataset.ncsend, inp=el.querySelector('[data-ncin="'+key+'"]'), txt=(inp&&inp.value||'').trim(); if(!txt) return;
@@ -7775,8 +7977,8 @@ async function ncDaysRender(cid){
       onDelete:async function(){ var res=await getSB().from('nutrition_meal_comments').update({deleted:true}).eq('id',c.id); if(res.error){alert('Not deleted -- '+res.error.message);return false;} kfLog('🗑️','Deleted a note',cid,c.meal_id,c.day); ncDaysRender(cid); return true; }});
   };});
   var mb=document.getElementById('ncMenu_'+cid); if(mb) mb.onclick=function(){ kfClientMenu(cid); };
-  var hb=document.getElementById('ncHab_'+cid); if(hb) hb.onclick=function(){ if(!hasPlan){ ncShowSection(cid,'habits'); return; } st.habOpen=!st.habOpen; draw(); };
-  var hc=document.getElementById('ncHabChg_'+cid); if(hc) hc.onclick=function(){ ncShowSection(cid,'habits'); };
+  var hb=document.getElementById('ncHab_'+cid); if(hb) hb.onclick=function(){ if(!hasPlan){ ncOpenHabits(cid); return; } st.habOpen=!st.habOpen; draw(); };
+  var hc=document.getElementById('ncHabChg_'+cid); if(hc) hc.onclick=function(){ ncOpenHabits(cid); };
   var hh=document.getElementById('ncHabCheer_'+cid); if(hh) hh.onclick=function(){
     // a note on today, ready to send (she sees it on her day)
     st.sel=ncToday(); st.wk=ncWeekStart(st.sel); st.habOpen=false; draw();
@@ -8285,7 +8487,7 @@ function kfInvite(){
   var links=[nut,fit];
   ov.querySelectorAll('[data-inv]').forEach(function(b){b.onclick=async function(){ var u=links[+b.dataset.inv];
     try{ if(navigator.share){ await navigator.share({title:'KFit',text:'Join me on KFit:',url:u}); return; } }catch(e){ return; }
-    try{ await navigator.clipboard.writeText(u); b.textContent='Copied ✓'; }catch(e){ prompt('Copy this link:',u); } };});
+    try{ await navigator.clipboard.writeText(u); b.textContent='Copied ✓'; }catch(e){ kfAsk('Copy this link','Press and hold to copy.',u,{ok:'Done'}); } };});
   ov.querySelector('#kfInvClose').onclick=function(){ov.remove();}; ov.onclick=function(e){if(e.target===ov)ov.remove();};
 }
 // the old landing screen and dashboard become the simple list
@@ -8706,13 +8908,15 @@ var KF_HELP=[
   ['👥','Clients','Your clients, grouped as Nutrition, Fitness, or both. "My clients" shows the people you\'ve tagged; "Needs attention" shows clients with no log for 3 or more days or unpaid sessions; "All users" shows everyone who signed up. The dot shows recent activity: green (last 2 days), amber (this week), red (longer). "+ Invite" shares your nutrition or fitness link. If you close Merge or swipe it away, it reopens on the same client and spot (for up to 12 hours).'],
   ['⇄','Fitness + Nutrition clients','Tapping someone you coach for both asks which side to open. Their page then shows only that side; tap "Switch to …" at the top to flip.'],
   ['💬','Chat','Every client\'s page has 💬 Chat next to their name, with a red count when they\'ve written. Use it for anything that isn\'t about one meal, like a nudge when they haven\'t logged.'],
-  ['🍽️','Days','Tap a client, then Days: their weight card, the "This week" card, then the week as a chart: one bar of calories per day against their goal, a green dot under each day they did their habit, and gold day letters when something new came in. ‹ › moves a week; tap a day for its meals, steps, water and habit. Tap the 🌱 habit line under the chart to see their answer for each day this week, change the habit, or send a quick well-done. Tap a meal to see amounts, and tap a photo to see it full size: swipe for the next, ✕ brings you back to the meal. Tap a day\'s heading to fold it away, and again to open it. Write a note under any meal or day: the box grows for more lines, Enter starts a new line and Send sends; unsent words are kept. ✓ means sent, blue ✓✓ means they read it. Links show as short tappable chips. ⋯ at the top has Estimate missing calories, Import screenshots and the earlier app\'s tools.'],
+  ['🍽️','Days','Tap a client, then Days: their weight card, the "This week" card, then the week as a chart: one bar of calories per day against their goal, a green dot under each day they did their habit, and gold day letters when something new came in. ‹ › moves a week; tap a day for its meals, steps, water and habit. Tap the 🌱 habit line under the chart (it shows 🟢 on track, 🟡 needs a nudge, 🔴 not logging or ⚪ early days) to see each day this week, or open the habit. Tap a meal to see amounts, and tap a photo to see it full size: swipe for the next, ✕ brings you back to the meal. Tap a day\'s heading to fold it away, and again to open it. Write a note under any meal or day: the box grows for more lines, Enter starts a new line and Send sends; unsent words are kept. ✓ means sent, blue ✓✓ means they read it. Links show as short tappable chips. ⋯ at the top has Estimate missing calories, Import screenshots and the earlier app\'s tools.'],
   ['🏋️','Fitness clients','Days shows each workout as a card: body parts, exercises, duration, steps and personal records 🏆. Tap a card for every set. Clients say whether each session was with you or on their own; only sessions with you count as unpaid. Got it wrong? Tap "Mark on their own" or "Mark with you" on the card. Plan has just the workout tools: Assign, Log and Edit.'],
-  ['🗓️','Plan','Nutrition: the habit they\'re on comes first (Hold here, Next habit, the 4-week grid), then Send a meal plan, Their numbers and Change their plan, each folded. Fitness: Assign a workout and Log a session; edit a past session from Days. Name history, remove and delete data are under Account, in Client settings.'],
+  ['🗓️','Plan','Nutrition: their habit card comes first (see Habits below), then Their numbers and Send a meal plan, each folded. Fitness: Assign a workout and Log a session; edit a past session from Days. Name history, remove and delete data are under Account, in Client settings.'],
   ['🏋️','Workouts','On a fitness client\'s Days: the week across the top, with a dot on each workout day (orange = unpaid). ‹ › moves a week. Tap a day for its sessions, and a session for the full workout: sets, PRs, cardio and functional, their note, ✎ Edit and with you or on their own. ⋯ prints the week, the month or everything.'],
   ['↩️','Back','The phone\'s Back (or swipe back) steps back one screen: a workout to the list, a client to where you came from (Today or Clients, same spot), and closes chat, the tracker and pop-ups.'],
   ['⚖️','Weight and goals','Clients weigh in once a week from My progress in their app. Their page shows their weight and change since they started (header and "This week"), a small graph, and their goal: Lose, Maintain or Gain, plus a goal weight. They set it themselves; once you tap a goal or ✎ the goal weight, yours counts and it\'s locked for them ("Let them choose" unlocks it). Gain is about 10% over maintenance. Weigh-ins also show in Today.'],
-  ['🌱','Habit progress','Plan shows the habit they\'re on, "day 12 of about 7", and a 4-week grid (Monday to Sunday). Each day is worked out from their logged meals, photos or typed: for Protein First, ✓ means every main meal had a palm of protein, ½ some did, ✕ none, · nothing logged. If they tap Done/Partly themselves, that wins; tap a day to set your own mark, which wins over both (gold edge). Every habit is read from meals; Eating Order, More-same-less and Sip smarter are good guesses from the plate. The same tip they see in their app shows here. When a habit\'s days are up their app moves them on by itself (they can choose to stay 7 more days); "Hold on this habit" stops that.'],
+  ['🌱','Habits','A habit is one small eating skill (like a palm of protein at every main meal) practised for 1 to 2 weeks, with a 2-minute lesson a day. Plan → the habit card: the row of chips is their plan (✓ done, ● now, then what\'s next); tap any chip to see that habit\'s own days, how it went and what they wrote, and ‹ › to step through them. Under the name: day X of Y and a strip of days. Each day is worked out from their meals; their own Done/Partly tap counts over that, and your mark (tap a day, gold edge) over both. The coloured box says how it\'s going (🟢 on track, 🟡 needs a nudge, 🔴 not logging, ⚪ early days) with a tip from their meals.'],
+  ['🔁','Changing a habit','Stay 7 more days, Move on now, ← Back to the previous habit, or Pick a habit or plan (any habit, or switch plan; progress comes along). Each one lets you add a message they see as a card in their app, so they always know why. "Keep her on this habit until I move her" stops the app moving them on. 🕓 Timeline lists everything that happened; 📅 4-week grid shows the last four weeks.'],
+  ['🤖','What the app does by itself','When a habit\'s days are up, the app moves them on if they did it most days; if not, it gives them 7 more days once, then moves on. Their app nudges them by itself: a tip when the habit slips, a well done when it\'s going well, a heads-up on its last day, and a welcome back after 2 days with no meals. Earlier habits keep being checked from their meals ("Still doing earlier habits?"); if one slips, their app suggests practising it again. Through the day their app also tips them on protein (1.5 to 2 g per kg of goal weight, or current weight with no goal), calories, water and steps. They can turn off water and step tips. Your choices always win.'],
   ['⚡','Quick replies','Under each meal, tap a ready-made note (like "Great protein! 💪") to send it in one tap. Tap ✎ edit to change your list.'],
   ['💚','How they\'re feeling','Clients can tap one face when they log dinner ("How do you feel today?") and say at breakfast if they had late-night cravings. The weekly check-in, the day before the consult, adds fullness, cravings, stress, waist, weight, one win and one struggle. You see it all at the top of Days and under Next consult, plus how dinner time lines up with cravings.'],
   ['✨','Week summary','Every Sunday each nutrition client gets a summary of their week. It appears at the top of Days; add a line and they see it on their card.'],

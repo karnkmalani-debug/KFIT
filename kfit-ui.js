@@ -90,6 +90,21 @@
     if(all.indexOf(img)<0) all=[img];
     viewer(all.map(function(x){return x.src;}),all.indexOf(img),caption);
   }
-  global.KFitUI={viewer:viewer,gallery:gallery,linkify:linkify,linkLabel:linkLabel,closeViewer:function(){close();}};
+  // A small sheet to type something in (prompt() doesn't work in an iPhone home-screen app).
+  // ask({title, sub, value, ok, multi, num}) -> Promise of the text, or null if cancelled.
+  function ask(o){ o=o||{}; return new Promise(function(res){
+    var ov=document.createElement('div'); ov.className='kfui-ask'; ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10001;display:flex;align-items:flex-end;justify-content:center';
+    var fld='padding:12px;border-radius:12px;border:1px solid #3A3B33;background:#24251F;color:#F2EFE8;font-family:inherit;font-size:17px;width:100%;box-sizing:border-box';
+    ov.innerHTML='<div style="background:#1B1C17;color:#F2EFE8;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));width:100%;max-width:560px;display:flex;flex-direction:column;gap:10px">'
+      +'<div style="font-size:19px;font-weight:700">'+esc(o.title||'')+'</div>'+(o.sub?'<div style="font-size:13px;color:#9C978A;line-height:1.4">'+esc(o.sub)+'</div>':'')
+      +(o.multi?'<textarea id="kfuiA" style="'+fld+';min-height:110px;line-height:1.4"></textarea>':'<input id="kfuiA" '+(o.num?'inputmode="decimal"':'')+' style="'+fld+'">')
+      +'<div style="display:flex;gap:8px"><button id="kfuiOk" style="flex:1;border:none;border-radius:12px;padding:13px;background:#5E7A5A;color:#fff;font-weight:800;font-family:inherit;font-size:15px">'+esc(o.ok||'Save')+'</button>'
+      +'<button id="kfuiNo" style="border:1px solid #3A3B33;border-radius:12px;padding:13px 16px;background:none;color:#F2EFE8;font-family:inherit;font-size:15px">Cancel</button></div></div>';
+    document.body.appendChild(ov); var i=ov.querySelector('#kfuiA'); i.value=o.value==null?'':String(o.value); setTimeout(function(){ i.focus(); },60);
+    function done(v){ ov.remove(); res(v); }
+    if(!o.multi) i.onkeydown=function(e){ if(e.key==='Enter') done(i.value); };
+    ov.querySelector('#kfuiOk').onclick=function(){ done(i.value); }; ov.querySelector('#kfuiNo').onclick=function(){ done(null); };
+    ov.onclick=function(e){ if(e.target===ov) done(null); }; }); }
+  global.KFitUI={viewer:viewer,gallery:gallery,linkify:linkify,linkLabel:linkLabel,ask:ask,closeViewer:function(){close();}};
   if(typeof document!=='undefined'){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',css); else css(); }
 })(typeof window!=='undefined'?window:this);

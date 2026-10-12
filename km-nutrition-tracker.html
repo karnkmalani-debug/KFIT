@@ -384,7 +384,8 @@ function progressCard(){
     +'<div style="display:grid;grid-template-columns:repeat('+Math.min(len,7)+',minmax(0,1fr));gap:4px">'+cells+'</div>'
     +(tipTxt?'<div style="font-size:15px;line-height:1.45">💡 '+esc(tipTxt)+'</div>':'')+'</div>';
 }
-// When a habit's days are up, the next one starts by itself (you can stay longer).
+// When a habit's days are up: mostly done → the next one starts by itself; not
+// yet → 7 more days (once), so it can stick; after that it moves on anyway.
 function autoAdvance(){
   try{
     if(!hasPlan()||S.view) return; var p=S.program, id=stepId(), t=tpl();
@@ -392,24 +393,127 @@ function autoAdvance(){
     var len=stepLen(id); if(daysBetween(p.step_started_on||today(),today())<len) return;
     var cs=stepCheckins(), strong=cs.filter(function(x){return x==='done';}).length, from=habitOf(id);
     var info={from:id,fromTitle:from?from.title:'',strong:strong,len:len,on:today(),index:p.step_index,started:p.step_started_on};
-    p.settings=Object.assign({},p.settings,{autoMoved:info});
+    var stayedOnce=(p.history||[]).some(function(h){ return (h.type==='autoStay'||h.type==='stay'||h.type==='coachStay')&&h.step===id&&(!h.template||h.template===p.template_id); });
+    if(!mostlyDone()&&!stayedOnce&&id!=='reset'){
+      p.step_started_on=addDays(today(),-(Math.max(0,len-7)));
+      p.history=(p.history||[]).concat([{type:'autoStay',step:id,template:p.template_id,on:today(),strong:strong}]);
+      p.settings=Object.assign({},p.settings,{autoStayed:info}); delete p.settings.autoMoved; p.updated_ms=now();
+      write('nutrition_program',programRow()); return;
+    }
+    p.settings=Object.assign({},p.settings,{autoMoved:info}); delete p.settings.autoStayed;
     decide('next');
     if(S.program&&S.program!==p){ S.program.settings=Object.assign({},S.program.settings,{autoMoved:info}); write('nutrition_program',programRow()); }
   }catch(e){ console.warn('autoAdvance',e); }
 }
+// A message from the coach (when they move you on, give you more days, or take you back),
+// or what the app did by itself. One card at a time; "Got it" puts it away.
 function movedCard(){
-  var a=S.program&&S.program.settings&&S.program.settings.autoMoved; if(!a||!hasPlan()||daysBetween(a.on,today())>3||a.seen) return '';
+  if(!S.program||!hasPlan()) return '';
+  var st=S.program.settings||{}, cm=st.coachMsg;
+  if(cm&&!cm.seen&&cm.text&&daysBetween(cm.on,today())<=7)
+    return '<div class="card" id="mvCard" style="border:1px solid #6B5A2A;gap:8px"><div style="font-size:17px;font-weight:700">💬 From your coach</div>'
+      +'<div style="font-size:15px;line-height:1.45">'+esc(cm.text)+'</div>'
+      +(cm.kind!=='stay'&&habitOf(stepId())?'<div class="meta" style="font-weight:400">Your habit now: '+esc(stepId()==='reset'?'7-day Reset':habitOf(stepId()).title)+'</div>':'')
+      +'<button class="btn" id="mvOk" data-k="coachMsg" style="min-height:44px">Got it</button></div>';
+  var s2=st.autoStayed;
+  if(s2&&!s2.seen&&daysBetween(s2.on,today())<=3){ var hs=habitOf(s2.from);
+    return '<div class="card" id="mvCard" style="border:1px solid #3D6B4F;gap:8px"><div style="font-size:18px">🌱 7 more days of '+esc(hs?hs.title:'')+'</div>'
+      +'<div class="meta" style="font-weight:400;font-size:14px">You did it on '+s2.strong+' of '+s2.len+' days. Another week helps it stick, then you move on.</div>'
+      +'<div class="row" style="gap:8px"><button class="btn" id="mvOk" data-k="autoStayed" style="flex:1;min-height:44px">Sounds good</button><button class="btn link" id="mvGo" style="flex:1;min-height:44px;border:1px solid var(--line2);border-radius:12px">Move on anyway</button></div></div>'; }
+  var a=st.autoMoved; if(!a||daysBetween(a.on,today())>3||a.seen) return '';
   var h=habitOf(stepId()); if(!h) return '';
   return '<div class="card" id="mvCard" style="border:1px solid #6B5A2A;gap:8px"><div style="font-size:18px">🎉 On to '+(h.n?'Habit '+h.n+': ':'')+esc(h.title)+'</div>'
     +'<div class="meta" style="font-weight:400;font-size:14px">You finished '+a.len+' days of '+esc(a.fromTitle)+(a.strong?' ('+a.strong+' strong day'+(a.strong===1?'':'s')+')':'')+'. Keep it going; it\'s part of your plate now.</div>'
-    +'<div class="row" style="gap:8px"><button class="btn" id="mvOk" style="flex:1;min-height:44px">Got it</button><button class="btn link" id="mvStay" style="flex:1;min-height:44px;border:1px solid var(--line2);border-radius:12px">Stay 7 more days</button></div></div>';
+    +'<div class="row" style="gap:8px"><button class="btn" id="mvOk" data-k="autoMoved" style="flex:1;min-height:44px">Got it</button><button class="btn link" id="mvStay" style="flex:1;min-height:44px;border:1px solid var(--line2);border-radius:12px">Stay 7 more days</button></div></div>';
 }
 function bindMoved(){
-  var ok=$('#mvOk'), st=$('#mvStay'), p=S.program; if(!ok||!p) return;
-  ok.onclick=function(){ p.settings=Object.assign({},p.settings); p.settings.autoMoved=Object.assign({},p.settings.autoMoved,{seen:true}); p.updated_ms=now(); write('nutrition_program',programRow()); render(); };
-  st.onclick=function(){ var a=p.settings.autoMoved; if(!a) return; p.step_index=a.index; var len=a.len; p.step_started_on=addDays(today(),-(Math.max(0,len-7)));
+  var ok=$('#mvOk'), st=$('#mvStay'), gO=$('#mvGo'), p=S.program; if(!ok||!p) return;
+  ok.onclick=function(){ var k=ok.dataset.k; p.settings=Object.assign({},p.settings); p.settings[k]=Object.assign({},p.settings[k],{seen:true}); p.updated_ms=now(); write('nutrition_program',programRow()); render(); };
+  if(st) st.onclick=function(){ var a=p.settings.autoMoved; if(!a) return; p.step_index=a.index; var len=a.len; p.step_started_on=addDays(today(),-(Math.max(0,len-7)));
     p.settings=Object.assign({},p.settings); delete p.settings.autoMoved; p.history=(p.history||[]).concat([{type:'stay',step:a.from,template:p.template_id,on:today(),after:'auto'}]); p.updated_ms=now();
     write('nutrition_program',programRow()); render(); toast('Another week it is. Nice choice.'); };
+  if(gO) gO.onclick=function(){ p.settings=Object.assign({},p.settings); p.settings.autoStayed=Object.assign({},p.settings.autoStayed,{seen:true}); decide('moveOn'); };
+}
+// Your habits: the one you're on, and the earlier ones (still checked from your meals).
+function earlierHabits(){
+  var t=tpl(); if(!t||!window.KFitHabit) return []; var out=[];
+  for(var j=0;j<S.program.step_index;j++){ var id=t.path[j]; if(id==='start'||id==='reset') continue; var h=habitOf(id); if(!h) continue;
+    var g=0,q=0,m=0; for(var b=6;b>=0;b--){ var a=KFitHabit.score(id,mealsOn(addDays(today(),-b)).map(function(x){return x.body||{};}),habitCtx()); if(a==='done'){g++;m++;} else if(a==='partly'){q++;m++;} else if(a==='not') m++; }
+    var days=[]; for(var b2=6;b2>=0;b2--) days.push(mealsOn(addDays(today(),-b2)).map(function(x){return x.body||{};}));
+    out.push({id:id,k:j,title:h.title,done:g,partly:q,n:m,slipping:m>=4&&(g+q*0.5)/m<0.45,tip:KFitHabit.tip(id,days,habitCtx())}); }
+  return out;
+}
+function yourHabitsCard(compact){
+  if(!hasPlan()) return ''; var E=earlierHabits(); if(!E.length) return '';
+  var slip=E.filter(function(e){return e.slipping;})[0];
+  var rows=E.map(function(e){ return '<div class="row" style="justify-content:space-between;gap:8px;font-size:14px"><span>✓ '+esc(e.title)+'</span><span style="color:'+(e.slipping?'var(--terra)':e.n?'var(--leaf)':'var(--muted)')+'">'+(e.n?e.done+' done'+(e.partly?', '+e.partly+' partly':'')+' of '+e.n+' days'+(e.slipping?'':' 💪'):'log meals to see')+'</span></div>'; }).join('');
+  if(compact) return '<div class="meta" style="font-weight:400">Keep going: '+E.map(function(e){return '<b style="color:'+(e.slipping?'var(--terra)':'var(--leaf)')+'">'+esc(e.title)+'</b> '+(e.n?(e.slipping?'slipping':e.done>=e.n*0.65?'strong 💪':'most days, partly'):'');}).join(' · ')+'</div>';
+  return '<div class="card" style="border:1px solid #2C4234;gap:8px"><div class="steplbl" style="color:var(--leaf)">KEEP THEM GOING · LAST 7 DAYS</div>'+rows
+    +(slip?'<div style="font-size:14px;line-height:1.45;color:var(--soft)">'+esc(slip.title)+' is slipping a little. '+esc(slip.tip||'')+'</div><button class="btn out" id="yhBack" data-k="'+slip.k+'" style="min-height:42px">Practise '+esc(slip.title)+' again for a week</button>':'')
+    +'<div class="meta" style="font-weight:400">Worked out from your meals. Nothing to tap.</div></div>';
+}
+function bindYourHabits(){
+  var b=$('#yhBack'); if(!b) return; b.onclick=function(){ var p=S.program, k=+b.dataset.k, was=stepId();
+    if(!confirm('Go back to '+habitOf(stepId(k)).title+' for a week? You can move on again any time.')) return;
+    p.history=(p.history||[]).concat([{type:'back',step:was,to:stepId(k),template:p.template_id,on:today()}]);
+    p.step_index=k; p.step_started_on=addDays(today(),-(Math.max(0,stepLen(stepId(k))-7))); p.updated_ms=now();
+    p.settings=Object.assign({},p.settings); delete p.settings.autoMoved; delete p.settings.autoStayed;
+    write('nutrition_program',programRow()); render(); toast('Back to '+habitOf(stepId(k)).title+'. You\'ve got this.'); };
+}
+// ---------- The app's own nudge: one short card a day on the log page ----------
+// slipping → a tip; going well → a well done; last day → a heads-up; no meals for 2 days → welcome back.
+function nudgeCard(){
+  var T=today(); try{ if(localStorage.getItem('kfnudge_'+S.clientId+'_'+T)) return ''; }catch(e){}
+  var any14=false; for(var i=2;i<=14;i++) if(mealsOn(addDays(T,-i)).length){ any14=true; break; }
+  var ic='',tx='',col='#3D6B4F';
+  if(!mealsOn(T).length&&!mealsOn(addDays(T,-1)).length&&any14){ ic='👋'; tx='Welcome back. Snap your next meal, even just a photo. Every log helps, and there\'s nothing to catch up on.'; col='#6B5A2A'; }
+  else if(hasPlan()&&window.KFitHabit){ var id=stepId(), h=habitOf(id); if(!h||id==='start') return '';
+    var cs=stepCheckins().filter(function(x){return x!=='future';}), dn=cs.filter(function(x){return x==='done';}).length, pt=cs.filter(function(x){return x==='partly';}).length, n=cs.length, sc=n?(dn+pt*0.5)/n:0, len=stepLen(id), di=dayIndex();
+    var hold=S.program.settings&&S.program.settings.coachHold;
+    if(!hold&&di===len-1&&n>=2){ ic='🏁'; tx='Last day of '+h.title+'. '+(sc>=0.65?'You\'ve done it most days, so tomorrow something new starts.':'If it needs more time, you\'ll get 7 more days. No rush.'); }
+    else if(n>=3&&sc<0.45){ var ds=[]; for(var k=0;k<=di;k++) ds.push(mealsOn(addDays(S.program.step_started_on||T,k)).map(function(m){return m.body||{};}));
+      ic='🌱'; tx=h.title+': '+dn+' of '+n+' days so far. '+(KFitHabit.tip(id,ds,habitCtx())||'Try it at your next meal.'); col='#6B5A2A'; }
+    else if(n>=2&&sc>=0.65){ ic='💪'; tx=h.title+': '+dn+(pt?' (+'+pt+' partly)':'')+' of '+n+' days. You\'re nailing it. Keep going.'; }
+  }
+  if(!tx) return '';
+  return '<div class="card" id="ndCard" style="border:1px solid '+col+';flex-direction:row;gap:10px;align-items:flex-start"><span style="font-size:22px">'+ic+'</span><span style="flex:1;font-size:15px;line-height:1.45">'+esc(tx)+'</span><button id="ndX" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:18px;min-width:32px;min-height:32px">✕</button></div>';
+}
+function bindNudge(){ var x=$('#ndX'); if(x) x.onclick=function(){ try{ localStorage.setItem('kfnudge_'+S.clientId+'_'+today(),'1'); }catch(e){} var c=$('#ndCard'); if(c) c.remove(); }; }
+// ---------- Tips for the rest of today: protein, calories, water, steps ----------
+// Protein: 1.5 to 2 g per kg of your goal weight (or your weight if no goal). 1 palm ≈ 25 g.
+var PALM_G=25;
+function proteinTarget(){ var w=goalWeight()||+latestWeight()||+((profile()||{}).weight)||0; if(!w) return null;
+  return {lo:Math.round(w*1.5/5)*5, hi:Math.round(w*2/5)*5, w:w, basis:goalWeight()?'goal':'current'}; }
+function tipsOn(k){ var st=(S.program&&S.program.settings)||{}; return st[k]!==false; }
+function nextMealName(h){ return h<11?'breakfast':h<15?'lunch':h<18?'your evening snack':h<22?'dinner':'tomorrow\'s breakfast'; }
+function tipsCard(d){
+  if(d!==today()||!S.program) return '';
+  var now0=new Date(), h=now0.getHours()+now0.getMinutes()/60, frac=Math.max(0.15,Math.min(1,(h-7)/14)), tips=[];
+  var list=mealsOn(d), PT=proteinTarget();
+  if(PT&&list.length){ var g=Math.round(handsDay(d).protein*PALM_G/5)*5, nm=nextMealName(h);
+    if(g>=PT.lo) tips.push(['🥚','Protein: about '+g+' g of '+PT.lo+'–'+PT.hi+' g. Target met 💪']);
+    else if(g<PT.lo*frac*0.85) tips.push(['🥚','Protein: about '+g+' g of '+PT.lo+'–'+PT.hi+' g so far. Add a palm (~25 g) of eggs, paneer, dal, chicken, fish or curd at '+nm+'.']);
+    else tips.push(['🥚','Protein: about '+g+' g of '+PT.lo+'–'+PT.hi+' g so far. On track.']); }
+  var tg=goalKcal(targets()), kd=dayKcal(d);
+  if(showK()&&tg&&kd.n){
+    if(kd.sum>tg*1.05) tips.push(['🔥','About '+fmt(Math.round((kd.sum-tg)/10)*10)+' calories over today. Keep anything else light: veg, curd, chaas or soup.']);
+    else if(h>=19&&kd.sum<tg*0.6) tips.push(['🔥','About '+fmt(Math.round((tg-kd.sum)/10)*10)+' calories left today. Don\'t skip dinner: make it protein and veg.']); }
+  if(tipsOn('tipsWater')){ var wml=waterMl(d), wg=waterGoalMl();
+    if(wml<wg*frac*0.75) tips.push(['💧',fmtWater(wml)+' of '+fmtWater(wg)+' so far. Have 2 glasses in the next hour.']); }
+  var stepSlot=tipsOn('tipsSteps')?'<div id="tipSteps"></div>':'';
+  if(!tips.length&&!stepSlot) return '';
+  return '<div class="card" id="tipsCard" style="border:1px solid #2F3A2C;gap:8px'+(tips.length?'':';display:none')+'"><div class="steplbl" style="color:var(--leaf)">💡 FOR THE REST OF TODAY</div>'
+    +tips.map(function(x){ return '<div class="row" style="gap:10px;align-items:flex-start;font-size:15px;line-height:1.4"><span>'+x[0]+'</span><span>'+esc(x[1])+'</span></div>'; }).join('')+stepSlot
+    +'<div class="meta" style="font-weight:400;font-size:12px">Water and step tips can be turned off in Progress → Your details.</div></div>';
+}
+function fillStepTip(d){
+  var el=$('#tipSteps'); if(!el||!window.KFitSteps||!KFitSteps.get) return;
+  KFitSteps.get({sb:sb,mobile:S.mobile,day:d}).then(function(r){ var el2=$('#tipSteps'); if(!el2) return;
+    var now0=new Date(), h=now0.getHours(), frac=Math.max(0.15,Math.min(1,(h-7)/14)), t='';
+    if(r.steps==null){ if(h>=18) t='No steps added yet today. Copy them from your phone\'s Health or Fit app.'; }
+    else if(r.steps<r.goal*frac*0.75) t=fmt(r.steps)+' of '+fmt(r.goal)+' steps so far. A 20-minute walk adds about 2,000. After a meal is best.';
+    if(!t) return; el2.innerHTML='<div class="row" style="gap:10px;align-items:flex-start;font-size:15px;line-height:1.4"><span>👟</span><span>'+esc(t)+'</span></div>';
+    var c=$('#tipsCard'); if(c) c.style.display=''; });
 }
 function effAnswer(d){ var c=S.checkins[d]; var a=window.KFitHabit?KFitHabit.answer(c&&c.answer,habitMarks()[d],autoAnswer(d)):(c&&c.answer); return a||''; }
 function stepCheckins(){
@@ -465,8 +569,8 @@ function wantCoachCard(){
   return '<div class="wantcoach"><b style="font-size:17px">Want a coach?</b><div class="meta" style="font-weight:400;font-size:14px;line-height:1.5">Chat, consults and notes on your meals switch on when a coach adds you as their client. Everything you log now stays with you.</div>'
     +'<button class="btn" id="hmJoin" style="min-height:46px">I have a coach\'s link</button></div>';
 }
-function openCoachLink(){
-  var v=prompt('Paste the KFit link your coach sent you:'); if(!v) return;
+async function openCoachLink(){
+  var v=await KFitUI.ask({title:'Your coach\'s link',sub:'Paste the KFit link your coach sent you.',ok:'Open'}); if(!v) return;
   var m=String(v).match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
   if(!m){ toast('That doesn\'t look like a coach\'s link. Ask them to send it again.'); return; }
   location.href=location.pathname+'?coach='+m[0];
@@ -550,7 +654,7 @@ function bindThreads(after){
   };});
   document.querySelectorAll('[data-editc]').forEach(function(a){a.onclick=async function(e){
     e.preventDefault(); var c=(S.comments||[]).filter(function(x){return String(x.id)===a.dataset.editc;})[0]; if(!c) return;
-    var t=prompt('Edit your message (leave empty to delete it):',c.body); if(t===null) return;
+    var t=await KFitUI.ask({title:'Edit your message',sub:'Leave it empty to delete it.',value:c.body,multi:true}); if(t===null) return;
     var upd=t.trim()?{body:t.trim().slice(0,2000)}:{deleted:true};
     var r=await sb.from('nutrition_meal_comments').update(upd).eq('id',c.id);
     if(r.error){toast('Not saved. Check your connection.');return;}
@@ -1052,7 +1156,7 @@ function renderToday(){
   var bar=stepCheckins().map(function(x,i){return '<i class="'+(x==='done'?'d':x==='partly'?'p':'')+'"></i>';}).join('');
   var title=id==='reset'?'7-day Reset':(h.n?'Habit '+h.n+' · ':'')+h.title;
   var html='<div class="screen">'
-    +'<div style="display:flex;flex-direction:column;gap:8px">'+head('Your day',esc(title)+' · Day '+(di+1)+' of '+len)+'<div class="bar">'+bar+'</div></div>'+hint('today')+movedCard()+progressCard();
+    +'<div style="display:flex;flex-direction:column;gap:8px">'+head('Your day',esc(title)+' · Day '+(di+1)+' of '+len)+'<div class="bar">'+bar+'</div></div>'+hint('today')+movedCard()+progressCard()+yourHabitsCard();
   if(l.type==='reflect'){
     html+='<button class="card" style="border:1px solid var(--line);text-align:left" id="tdLesson"><div class="steplbl">'+(l.decision?'TIME TO DECIDE':'LOOK BACK')+'</div><h2>'+esc(l.title)+'</h2>'
       +'<div class="body" style="font-size:15px">A few gentle questions'+(l.decision?', then you choose what\'s next.':'.')+'</div>'
@@ -1069,7 +1173,7 @@ function renderToday(){
   html+='</div>';
   show(html,{tabs:true});
   $('#tdJourney').onclick=function(){go('journey');};
-  bindMoved();
+  bindMoved(); bindYourHabits();
   $('#tdLesson').onclick=function(e){ if(e.target&&e.target.id==='tdVideo') return; openLesson(); };
   var v=$('#tdVideo'); if(v) v.onclick=function(e){e.stopPropagation();openExplainer(h);};
   document.querySelectorAll('.pill[data-a]').forEach(function(b){b.onclick=function(){setCheckin(b.dataset.a);};});
@@ -1365,7 +1469,7 @@ function renderLog(){
       +'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">'
       +[['done','Done'],['partly','Partly'],['not','Not yet']].map(function(o){return '<button class="hbtn'+(c.answer===o[0]?' on':'')+'" data-hab="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div>'
       +(function(){ if(c.answer) return ''; var au=autoAnswer(today()); if(!au) return ''; return '<div class="meta" style="font-weight:400">'+(au==='wait'?'Checking your meals…':'From your meals so far: <b style="color:'+(au==='done'?'var(--leaf)':'var(--gold)')+'">'+({done:'Done ✓',partly:'Partly',not:'Not yet'}[au])+'</b>')+'</div>'; })()
-      +'<div style="display:flex;gap:4px;align-items:center">'+weekDots(d)+'<span class="meta" style="margin-left:4px">this week</span></div></div>';
+      +'<div style="display:flex;gap:4px;align-items:center">'+weekDots(d)+'<span class="meta" style="margin-left:4px">this week</span></div>'+yourHabitsCard(true)+'</div>';
   } else if(isToday&&!hasPlan()){
     habit='<div class="card lg-habit" style="flex-direction:row;align-items:center;gap:12px"><span style="font-size:24px">🌱</span><div style="flex:1;font-size:14px;color:var(--soft)">Add one small daily habit to go with your meals.</div><button class="btn link" id="lgPlan" style="min-height:36px">Choose a plan →</button></div>';
   } else {
@@ -1375,7 +1479,7 @@ function renderLog(){
   var dateTxt=pd.toLocaleDateString(kLoc(), {weekday:'short',day:'numeric',month:'short'});
   if(S._lgPanelDay!==d){ S._lgPanel=null; S._lgPanelDay=d; }
   var html='<div class="screen">'+head(isToday?'Today':dateTxt,isToday?dateTxt+' · '+nowT:pd.getFullYear()+'')+hint('log')
-    +'<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px">'+strip+'</div>';
+    +'<div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px">'+strip+'</div>'+(isToday?(movedCard()||nudgeCard()):'');
   var dayNotes=commentsFor(d,null);
   if(!isToday&&S._fullDay!==d){
     var kk=dayKcal(d), t2=targets(), tg2=goalKcal(t2);
@@ -1441,12 +1545,13 @@ function renderLog(){
   var wT='<button class="lgt wt'+(P==='water'?' on':'')+'" data-lgp="water"><span class="lgl">💧 Water</span><span class="lgn" style="color:#8EC9EA">'+fmtWater(wml).replace(' ','<span style="font-size:15px"> ')+(/ /.test(fmtWater(wml))?'</span>':'')+'</span><span class="lgs">of '+fmtWater(wgl)+'</span><span class="lgb"><i style="width:'+Math.min(100,Math.round(wml/wgl*100))+'%;background:#5FA8D3"></i></span>'
     +'<span class="lgplus" data-wplus="1" role="button" aria-label="Add a glass of water">+</span></button>';
   var sT='<button class="lgt st'+(P==='steps'?' on':'')+'" data-lgp="steps"><span class="lgl">👟 Steps</span><span class="lgn" id="lgStepsN" style="color:var(--leaf)">–</span><span class="lgs" id="lgStepsS">tap to add</span><span class="lgb"><i id="lgStepsB" style="width:0;background:var(--leaf)"></i></span></button>';
-  html+='<div class="lgtiles">'+kT+wT+sT+'</div><div id="lgPanel"></div>';
+  html+='<div class="lgtiles">'+kT+wT+sT+'</div><div id="lgPanel"></div>'+tipsCard(d);
   // 3. today's habit
   html+=habit;
   if(dayNotes.length) html+='<div class="coachbox"><div class="steplbl">NOTE FROM YOUR COACH</div>'+threadHtml(d,null)+'</div>';
   html+='<div class="links"><button data-go="progress">My progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Older logs</button>':'')+'</div></div>';
   show(html);
+  if(isToday){ bindMoved(); bindNudge(); fillStepTip(d); }
   document.querySelectorAll('[data-day]').forEach(function(b){b.onclick=function(){S._logDay=b.dataset.day;S._openMeal=null;S._fullDay=null;renderLog();};});
   document.querySelectorAll('[data-open]').forEach(function(b){b.onclick=function(e){
     if(e.target&&e.target.dataset&&e.target.dataset.retry){ e.stopPropagation(); return retryEstimate(e.target.dataset.retry); }
@@ -1752,7 +1857,9 @@ function handGuide(f,slot){
   var rows=L.map(function(r){ var have=Number(f[r[0]])||0, want=T[r[0]], low=have<want*0.75, high=have>want*1.6;
     var say=gain&&low&&r[0]==='carbs'?'<span style="color:var(--gold)">add roti, rice or poha</span>':low&&(r[0]==='protein'||r[0]==='veg')?'<span style="color:var(--gold)">'+r[4]+'</span>':high&&(r[0]==='carbs'||r[0]==='fats')?'<span style="color:var(--gold)">'+r[4]+'</span>':'<span style="color:var(--leaf)">good</span>';
     return '<div class="row" style="gap:8px;font-size:14px;align-items:baseline"><span style="width:84px;flex-shrink:0">'+r[1]+' '+r[2]+'</span><span class="f-time" style="flex-shrink:0">'+n(have)+' of '+n(want)+'</span><span style="flex:1;text-align:right">'+say+'</span></div>'; }).join('');
-  return '<div class="card" style="border:1px solid #3D6B4F;gap:6px"><div class="steplbl" style="color:var(--leaf)">YOUR PLATE, BY YOUR HANDS</div>'+rows
+  var PT=proteinTarget(), pg=Math.round((Number(f.protein)||0)*PALM_G/5)*5, per=PT?Math.round(PT.lo/(snack?6:3)/5)*5:0;
+  var ptx=PT?'<div style="font-size:14px;line-height:1.4">🥚 About <b>'+pg+' g protein</b> here. Aim for ~'+per+' g '+(snack?'in a snack':'at a main meal')+' to reach '+PT.lo+'–'+PT.hi+' g a day.'+(pg<per*0.75?' <span style="color:var(--gold)">Add a palm of eggs, paneer, dal, chicken or curd.</span>':'')+'</div>':'';
+  return '<div class="card" style="border:1px solid #3D6B4F;gap:6px"><div class="steplbl" style="color:var(--leaf)">YOUR PLATE, BY YOUR HANDS</div>'+rows+ptx
     +'<div class="meta" style="font-weight:400">Use your own hand: palm for protein, fist for veg, cupped hand for carbs, thumb for fats.</div></div>';
 }
 function itemsText(items){return (items||[]).map(function(it){return (isDrink(it)?kfDrinkEmoji(it.name,it.drink)+' ':'')+it.name+' '+amtTxt(it.amount)+(it.unit?' '+it.unit:'');}).join(', ');}
@@ -1872,13 +1979,13 @@ function openMealForm(d,forSlot,editId){
   document.querySelectorAll('[data-crav]').forEach(function(b){b.onclick=function(){ keep(); var v=b.dataset.crav; M.cravings=(M.cravings===v?null:v); openMealForm(d,forSlot,editId); };});
   document.querySelectorAll('[data-rm]').forEach(function(b){b.onclick=function(){ keep(); M.items.splice(+b.dataset.rm,1); M.edited=true; openMealForm(d,forSlot,editId); };});
   document.querySelectorAll('[data-ren]').forEach(function(b){b.onclick=async function(){
-    keep(); var i=+b.dataset.ren, it=M.items[i], v=prompt('What is it really?',it.name); if(!v||!v.trim()||v.trim()===it.name) return;
+    keep(); var i=+b.dataset.ren, it=M.items[i], v=await KFitUI.ask({title:'What is it really?',value:it.name,ok:'Change'}); if(!v||!v.trim()||v.trim()===it.name) return;
     M.busy=true; openMealForm(d,forSlot,editId);
     try{ var r=await aiItems(null,amtTxt(it.amount)+' '+(it.unit||'')+' '+v.trim()); if(r.items[0]){ var ni=r.items[0]; ni.name=v.trim().slice(0,60); M.items[i]=ni; } else M.items[i]=Object.assign({},it,{name:v.trim().slice(0,60)}); }
     catch(e){ M.items[i]=Object.assign({},it,{name:v.trim().slice(0,60)}); }
     M.edited=true; M.busy=false; openMealForm(d,forSlot,editId);
   };});
-  $('#mfMissing').onclick=function(){ keep(); var v=prompt('What else did you have? (for example: 1 glass buttermilk)'); if(!v||!v.trim()) return; analyse(null,v.trim(),true); };
+  $('#mfMissing').onclick=async function(){ keep(); var v=await KFitUI.ask({title:'What else did you have?',sub:'For example: 1 glass buttermilk',ok:'Add'}); if(!v||!v.trim()) return; analyse(null,v.trim(),true); };
   $('#mfMorePhoto').onclick=function(){ keep(); pickPhoto(function(phs){ M.photos=M.photos.concat(phs); M.noPhoto=false; analyse(phs,'',true); }); };
   $('#mfMoreGal').onclick=function(){ keep(); pickPhoto(function(phs){ M.photos=M.photos.concat(phs); M.noPhoto=false; analyse(phs,'',true); },true); };
   $('#mfSave').onclick=async function(){
@@ -1953,9 +2060,9 @@ var GUIDE=[
   {img:'help-1.jpeg',t:'Your nutrition coach, in your pocket',l:'KFit helps you eat better, one small habit at a time. No strict diet. No foods banned. Just real meals, and a little help every day.'},
   {img:'help-2.jpeg',t:'Every day takes about three minutes',l:'Read a two-minute lesson. Try one small thing. Then tonight, tap how it went: Done, Partly, or Not today. Missing a day is completely fine.'},
   {img:'help-3.jpeg',t:'Your hands are your measuring cups',l:'A palm of protein. A fist of vegetables. A cupped hand of carbs. A thumb of fats. No weighing, no counting. Your hands go everywhere with you.'},
-  {img:'help-4.jpeg',t:'Log a meal in seconds',l:'Snap a photo of your plate, choose one from your gallery, type a few words, or just say what you ate. You will see how it compares with your own hands: a palm of protein, a fist of veg, a cupped hand of carbs, a thumb of fats. The time is saved for you.'},
+  {img:'help-4.jpeg',t:'Log a meal in seconds',l:'Snap a photo of your plate, choose one from your gallery, type a few words, or just say what you ate. You will see how it compares with your own hands: a palm of protein, a fist of veg, a cupped hand of carbs, a thumb of fats. The time is saved for you. Through the day, you get tips on protein, water and steps.'},
   {img:'help-5.jpeg',t:'Once a week, a quick check-in',l:'Add your waist and weight once a week. Look at the direction over a few weeks, not at any single day. Bodies go up and down.'},
-  {img:'help-6.jpeg',t:'Choose a plan when you are ready',l:'Plans go from seven days to six months. One habit at a time, about two weeks each. After each habit, you choose: move on, or stay a little longer.'},
+  {img:'help-6.jpeg',t:'Choose a plan when you are ready',l:'Plans go from seven days to six months. One habit at a time, about one or two weeks each. When you have done it most days, the next one starts. If not, you get seven more days. Your earlier habits keep being checked from your meals.'},
   {img:'help-7.jpeg',t:'Help is always one tap away',l:'Tap the question mark on any screen to see what that page is for. This tour is there too, one tap further. When a coach looks after you, message them in Chat and send photos too. That is it. Let us begin.'}
 ];
 function openGuide(first){
@@ -1994,9 +2101,9 @@ function openGuide(first){
 var HINTS={
   welcome:'Pick a plan to get one small habit at a time, with a two-minute lesson a day. Or skip it and just log your meals. Nothing here is a test.',
   home:'Log a meal: take a photo, upload from your gallery, type it or say it. My plan is your habit, with a two-minute lesson a day. My progress holds your weight, your goal and your details.',
-  today:'Today\'s lesson. Read it or tap Listen, try the one small thing, and at night tap how it went. Your logged meals help fill in the answer.',
-  log:'Your day. Your meals are at the top: tap one to see what\'s in it, or tap a plus button to log the next one. Below them are calories so far, water and steps. Tap a tile for details, and the cross to close it. Swipe left or right to change the day.',
-  progress:'Weigh in once a week: same scale, in the morning, before breakfast. Watch the line over a few weeks, not single days. Your goal and your details are here too, with how your daily calories are worked out.',
+  today:'Today\'s lesson. Read it or tap Listen, try the one small thing, and at night tap how it went. Your logged meals help fill in the answer. Below it, Keep them going shows your earlier habits from the last seven days. When a habit\'s days are up, you move on if you did it most days. If not, you get seven more days so it can stick.',
+  log:'Your day. Your meals are at the top: tap one to see what\'s in it, or tap a plus button to log the next one. Below them are calories so far, water and steps. Tap a tile for details, and the cross to close it. Under the tiles, tips for the rest of today: protein, calories, water and steps. At the top, a message from your coach, or a short note on how your habit is going. Swipe left or right to change the day.',
+  progress:'Weigh in once a week: same scale, in the morning, before breakfast. Watch the line over a few weeks, not single days. Your goal and your details are here too, with how your daily calories and protein are worked out. You can turn water and step tips on or off here.',
   journey:'Your plan, one habit at a time, about two weeks each. Tap any habit you\'ve finished to read its lessons again.',
   chat:'Message your coach here. Their replies show up in this same place.',
   lesson:'Tap Listen to hear this read aloud. Tap Got it when you\'re done.',
@@ -2229,7 +2336,13 @@ function renderProgress(){
         +'3. <b>To lose</b>, eat about 18% less: <b>'+fmt(t2.loss)+'</b>. It never goes below '+fmt(t2.floor)+'.</div>'
         +'<div class="meta" style="font-weight:400;margin-top:6px">It\'s an estimate. Your weekly weigh-ins show whether it\'s right for you.</div></details>';
     }
+    var PT=proteinTarget();
+    if(PT) o+='<div class="row" style="justify-content:space-between;align-items:baseline"><span class="meta" style="font-weight:400">Protein a day</span><span><span class="f-meal" style="font-size:22px;color:var(--gold)">'+PT.lo+'–'+PT.hi+'</span> <span class="meta" style="font-weight:400">grams</span></span></div>'
+      +'<div class="meta" style="font-weight:400;margin-top:-6px">1.5 to 2 g for each kg of your '+(PT.basis==='goal'?'goal weight':'weight')+' ('+PT.w+' kg). A palm of protein is about 25 g.'+(PT.basis==='goal'?'':' Set a goal weight above to base it on that.')+'</div>';
     o+='<label class="row" style="justify-content:space-between;align-items:center;font-size:15px"><span>Show calories in the app</span><input type="checkbox" id="pgShowK"'+(showK()?' checked':'')+' style="width:22px;height:22px"></label>'
+      +'<label class="row" style="justify-content:space-between;align-items:center;font-size:15px"><span>💧 Water tips during the day</span><input type="checkbox" id="pgTipW"'+(tipsOn('tipsWater')?' checked':'')+' style="width:22px;height:22px"></label>'
+      +'<label class="row" style="justify-content:space-between;align-items:center;font-size:15px"><span>👟 Step tips during the day</span><input type="checkbox" id="pgTipS"'+(tipsOn('tipsSteps')?' checked':'')+' style="width:22px;height:22px"></label>'
+      +'<div class="meta" style="font-weight:400">Protein and calorie tips always stay on.</div>'
       +'<button class="btn out" id="pgProfile" style="min-height:44px">Edit details</button></div>';
     return o;
   })();
@@ -2249,6 +2362,7 @@ function renderProgress(){
   var ac=$('#pgAskCoach'); if(ac) ac.onclick=function(e){ e.preventDefault(); go('chat'); };
   document.querySelectorAll('[data-go]').forEach(function(b){ b.onclick=function(){ go(b.dataset.go); }; });
   var sk=$('#pgShowK'); if(sk) sk.onchange=function(){ S.program.settings=Object.assign({},S.program.settings,{showKcal:sk.checked}); S.program.updated_ms=now(); write('nutrition_program',programRow()); renderProgress(); };
+  [['#pgTipW','tipsWater'],['#pgTipS','tipsSteps']].forEach(function(x){ var c=$(x[0]); if(c) c.onchange=function(){ var ch={}; ch[x[1]]=c.checked; S.program.settings=Object.assign({},S.program.settings,ch); S.program.updated_ms=now(); write('nutrition_program',programRow()); toast(c.checked?'Tips on':'Tips off'); }; });
 }
 function calorieCard(){
   var t=targets(), p=profile(); if(!p) return '';

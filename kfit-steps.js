@@ -43,7 +43,7 @@
       +'<div style="font-size:12px;color:var(--muted)">Copy the number from your phone\'s Health or Fit app, or your watch.</div></div>';
     // anyone can change their own daily goal (the coach can too, in Merge)
     var kg=el.querySelector('.kst-goal'); if(kg) kg.onclick=async function(){
-      var v=prompt('Your daily step goal (1,000 to 50,000):',String(goal)); if(v===null) return;
+      var v=global.KFitUI&&KFitUI.ask?await KFitUI.ask({title:'Your daily step goal',sub:'1,000 to 50,000',value:String(goal),num:true}):prompt('Your daily step goal (1,000 to 50,000):',String(goal)); if(v===null) return;
       var g=parseInt(String(v).replace(/\D/g,''),10); if(!(g>=1000&&g<=50000)){ alert('Please enter a number between 1,000 and 50,000.'); return; }
       var r=await opts.sb.from('client_step_goals').upsert({mobile:m,goal:g},{onConflict:'mobile'});
       if(r.error){ alert('Goal not saved. Check your connection and try again.'); return; }
