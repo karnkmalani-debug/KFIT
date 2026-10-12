@@ -4207,9 +4207,16 @@ try{ if(JSON.parse(localStorage.getItem('kmfit_routine_offer_declined')||'[]').i
 structure._offerSig=_sig;
 _pendingRoutineOffer=structure;
 var _inp=document.getElementById('routineOfferName'); if(_inp) _inp.value='';
+// No pop-up: a small "⭐ Save as routine" link shows for a few seconds after
+// the save tick. Tap it to name the routine; ignore it and it just goes away.
 setTimeout(function(){
-var el=document.getElementById('saveAsRoutineOffer');
-if(el) el.style.display='flex';
+var old=document.getElementById('kfRoutineChip'); if(old) old.remove();
+var chip=document.createElement('button'); chip.id='kfRoutineChip'; chip.type='button';
+chip.textContent='⭐ Save as routine';
+chip.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom));z-index:940;padding:10px 18px;border-radius:22px;border:1px solid var(--border);background:var(--surf3);color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:14px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.45);cursor:pointer';
+chip.onclick=function(){ chip.remove(); var el=document.getElementById('saveAsRoutineOffer'); if(el) el.style.display='flex'; };
+document.body.appendChild(chip);
+setTimeout(function(){ if(chip.isConnected){ chip.remove(); if(_pendingRoutineOffer===structure) _pendingRoutineOffer=null; } },8000);
 },1600); // let the brief save-confirmation checkmark finish first
 }
 function dismissSaveAsRoutineOffer(){
@@ -5118,11 +5125,8 @@ const _newId=window._editingSessionId||Date.now();
 const _isEditing=!!window._editingSessionId;
 const _timeWasOverridden=!!window._sessTimeManual;
 const _gate=needsCoachApproval();
-if(_gate&&!window._editingSessionId&&typeof window._kfWithCoach!=='boolean'){
-if(saveBtn) saveBtn.disabled=false;
-kfAskWho(function(v){ window._kfWithCoach=v; window._skipMissingPrompt=true; saveSession(); });
-return;
-}
+// No "who was this with?" question any more -- the client just saves. The
+// coach marks a session as with-coach or on-their-own in Merge.
 var _orig=null;
 
 if(_isEditing){
@@ -5176,7 +5180,7 @@ _approvalMode='pendingNew';
 _approvalMode='pendingEdit';
 }
 // A session the client forgot to log (any date, any time) saves straight
-// away -- it only needs "with my coach" or "on my own" (asked above).
+// away -- the coach marks it "on their own" in Merge if needed.
 }
 var _noChangeMsg=null;
 if(_approvalMode==='pendingEdit'){
@@ -8712,7 +8716,7 @@ const HELP_TEXT=[
 {title:'Log a Workout',body:
 '<b>1. Tap the body part you\'re training</b><br>See buttons like Back, Chest, Legs, Cardio? Tap the one(s) you\'re training today. You can tap more than one (e.g. Chest + Shoulders). The right exercises show up below by themselves -- you never have to search for them.<br><br>'+
 '<b>1b. Or just search for any exercise directly</b><br>There\'s a search box above your exercise list -- type any exercise\'s name, from any body part, whether or not you\'ve tapped that body part above. It\'s forgiving about word order, so "flat bench press barbell" still finds "Barbell Bench Press (Flat)." Tap a suggestion and it gets added, its body part gets ticked on automatically, and your history for it shows up right away.<br><br>'+
-'<b>1c. Save and reuse your own routines</b><br>Built a combination of exercises you want to repeat -- a specific push day, a week\'s plan, anything? In the Select Body Part card, open <b>My Routines</b> and tap <b>Add exercises</b> to search and build a list right there (no need to log real sets first), then tap <b>Set a Routine</b> to name and save it, however many you like. If you\'d rather build it the long way, add exercises normally on this page first, then tap Set a Routine -- it saves whatever\'s currently on the page instead. Next time, tap "Load" from the dropdown and it rebuilds that exact exercise list instantly -- a fresh, blank set of exercises ready to log new numbers against, with your history for each one still showing. Loading a routine only clears whatever\'s currently unsaved on the page; it never touches anything you\'ve already saved. Routines with a "(Coach)" tag were sent to you by your coach -- you can load, rename, or delete them just like your own. Right below My Routines, open <b>KFit Standard Routine</b> for Karan\'s own core program (Chest+Core, Back, Legs, Arms & Shoulders) -- no building required, just tap Load or preview it first with the small ⓘ button. Inside the Functional/Isometric card, open <b>KFit Suggested Routines</b> for four ready-made circuits (20/30/45/60 min) built around proper movement-pattern rotation. And if you log a combination of exercises that isn\'t already one of your saved routines, tapping Save Session will offer to save it as a new routine right then -- name it and it\'s ready to load again next time.<br><br>'+
+'<b>1c. Save and reuse your own routines</b><br>Built a combination of exercises you want to repeat -- a specific push day, a week\'s plan, anything? In the Select Body Part card, open <b>My Routines</b> and tap <b>Add exercises</b> to search and build a list right there (no need to log real sets first), then tap <b>Set a Routine</b> to name and save it, however many you like. If you\'d rather build it the long way, add exercises normally on this page first, then tap Set a Routine -- it saves whatever\'s currently on the page instead. Next time, tap "Load" from the dropdown and it rebuilds that exact exercise list instantly -- a fresh, blank set of exercises ready to log new numbers against, with your history for each one still showing. Loading a routine only clears whatever\'s currently unsaved on the page; it never touches anything you\'ve already saved. Routines with a "(Coach)" tag were sent to you by your coach -- you can load, rename, or delete them just like your own. Right below My Routines, open <b>KFit Standard Routine</b> for Karan\'s own core program (Chest+Core, Back, Legs, Arms & Shoulders) -- no building required, just tap Load or preview it first with the small ⓘ button. Inside the Functional/Isometric card, open <b>KFit Suggested Routines</b> for four ready-made circuits (20/30/45/60 min) built around proper movement-pattern rotation. And if you log a combination of exercises that isn\'t already one of your saved routines, a small <b>⭐ Save as routine</b> link shows for a few seconds after you tap Save Session -- tap it to name it, or just ignore it.<br><br>'+
 '<b>2. For each exercise, fill in your sets</b><br>Every exercise shows boxes for Reps and Weight, one row per set. Just type the numbers in as you finish each set. Did an extra set that isn\'t shown? Tap "+ Add Set" to add another row.<br><br>'+
 '<b>3. The H button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "H" (for Help). Tap it once for every rep in that set where someone helped you finish (a spot) -- it\'ll show a number like "H 2". Tapped it by mistake, or want to lower the count? Press and hold the button to subtract one. Didn\'t need help at all? Just leave it alone.<br><br>'+
 '<b>3b. The LP button (lengthened partials)</b><br>Works exactly the same way as H, right next to it. Tap "LP" once for every rep in that set done as a lengthened partial -- a shorter rep performed in the stretched position of the movement (e.g. the bottom half of a leg extension or bicep curl), a technique some research suggests builds muscle as well as full-range reps for certain exercises. Same as H: tap to add one, press and hold to subtract one. Like H and drop sets, LP reps are excluded from your Personal Records, since a partial-range rep isn\'t really the same lift as a full-range one.<br><br>'+
@@ -8731,7 +8735,7 @@ const HELP_TEXT=[
 '<b>9. Timing the whole workout</b><br>At the top of the screen, next to Help and Feedback, there\'s a timer with Start/Stop -- tap Start when you begin your session. It stays visible even if you switch to another tab, and its total gets saved with the session. Made a mistake or want to start over? Tap Reset to clear it back to 00:00. Prefer to just type the total afterwards instead? Scroll down to Session Duration and enter it manually there.<br><br>'+
 '<b>10. Notes, your coach, and importing</b><br>Session Notes is for writing how the workout felt. To send your coach a photo or a video, use the 💬 chat. Coming from another app or a spreadsheet? "Import data" is at the top of History.<br><br>'+
 '<b>11. You can\'t lose your work</b><br>Everything you type is saved as a draft automatically, even if you close the app halfway through a workout and come back later. It only becomes a real, permanent entry in your History once you tap "Save Session" at the bottom. This also covers editing a past session from History mid-workout: your in-progress session is safely tucked away while you edit, and comes right back once you\'re done.<br><br>'+
-'<b>11b. Training with a coach?</b><br>If your coach has marked you as their client, saving a session asks who it was with: <b>With my coach</b> (it counts towards your billing) or <b>On my own</b> (it never does). Forgot to log one? Add it for any date and it saves straight away. Editing or deleting a saved session still sends a request to your coach -- you\'ll see a ⏳ tag until they approve or decline. Your coach can correct "with coach / on my own" if it was picked by mistake.<br><br>'+
+'<b>11b. Training with a coach?</b><br>If your coach has marked you as their client, just tap Save -- no questions. Your coach marks in Merge any session you did on your own, so it isn\'t billed. Forgot to log one? Add it for any date and it saves straight away. Editing or deleting a saved session still sends a request to your coach -- you\'ll see a ⏳ tag until they approve or decline.<br><br>'+
 '<b>12. Logging a workout from a past day</b><br>Forgot to log yesterday? Tap the date at the very top of the screen (next to the KFit logo) -- it opens your phone\'s own calendar so you can pick any earlier date and log for that day instead of today. If that day already has a workout logged, you\'ll get asked whether to edit it or add another one -- useful if you train twice in a day.<br><br>'+
 '<b>13. Exercise isn\'t in the list?</b><br>Scroll to the bottom of the exercise list and tap "Suggest a new exercise to your coach." It gets sent to your coach, who can add it permanently so it shows up for everyone next time.'},
 {title:'History',body:
