@@ -6782,6 +6782,17 @@ function ncLadderHtml(p){
     +'<div style="display:flex;flex-wrap:wrap;gap:5px">'+chips+'</div>'
     +(sw&&sw.type==='coachChangePlan'?'<div style="font-size:12px;color:var(--muted);margin-top:6px">Switched to '+ncEsc((NC_T[sw.to]||{}).name||'')+(sw.from?' from '+ncEsc((NC_T[sw.from]||{}).name||''):'')+' on '+ncEsc(sw.on)+' · progress kept</div>':'');
 }
+// Drinks: the icon comes from the drink's name (lime water 🍋‍🟩, chai 🫖...);
+// otherwise the icon for its kind. Same list as the nutrition app.
+function kfDrinkEmoji(name,type){ var n=String(name||'').toLowerCase(), R=[
+  [/champagne|prosecco|sparkling wine/,'🥂'],[/cocktail|mojito|margarita|martini/,'🍸'],[/whisk|rum\b|vodka|\bgin\b|brandy|tequila|scotch/,'🥃'],[/beer|lager|\bale\b/,'🍺'],[/wine/,'🍷'],
+  [/bubble tea|boba/,'🧋'],[/milkshake|shake|smoothie|protein/,'🥤'],[/chai/,'🫖'],[/\btea\b|matcha|kahwa|herbal/,'🍵'],
+  [/coffee|latte|cappuccino|espresso|americano|mocha|cold brew|flat white|macchiato/,'☕'],[/coconut/,'🥥'],[/lime|nimbu|shikanji/,'🍋‍🟩'],[/lemon/,'🍋'],
+  [/juice/,'🧃'],[/milk|chaas|buttermilk|lassi/,'🥛'],[/cola|coke|soda|pepsi|sprite|fanta|energy drink|red bull|soft drink/,'🥤'],[/water/,'💧']];
+  for(var i=0;i<R.length;i++) if(R[i][0].test(n)) return R[i][1];
+  return type===null?null:(({zero:'💧',light:'🥥',home:'☕',cafe:'☕',dairy:'🥛',sugary:'🥤',alcohol:'🍷'})[type]||'🥤'); }
+// meal text saved earlier: put the right icon in front of each drink
+function kfReiconText(t){ return String(t||'').replace(/(💧|🥥|☕|🥛|🥤|🍷) ([^,]+)/g,function(m,e,rest){ return (kfDrinkEmoji(rest,null)||e)+' '+rest; }); }
 function ncStepName(p){if(!p.template_id||!NC_T[p.template_id]) return 'No habit plan yet';var t=NC_T[p.template_id];var id=t&&t.path[p.step_index];var h=NC_H[id];return id==='reset'?'7-day Reset':h?((h.n?'Habit '+h.n+': ':'')+h.title):(id||'?');}
 function ncDayTxt(p){return p.template_id&&NC_T[p.template_id]?' · day '+ncDay(p):'';}
 function ncDay(p){var a=(p.step_started_on||ncToday()).split('-'),b=ncToday().split('-');return Math.round((new Date(+b[0],+b[1]-1,+b[2])-new Date(+a[0],+a[1]-1,+a[2]))/86400000)+1;}
@@ -7614,7 +7625,8 @@ async function ncDaysRender(cid){
   st.rows=(await ncLoadWeek(cid)).concat(st.keepShots||[]);
   st.rows.sort(function(a,b){return a.day===b.day?(a.time||'99').localeCompare(b.time||'99'):(a.day<b.day?1:-1);});
   var cm=await getSB().from('nutrition_meal_comments').select('*').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-90)).order('created_at',{ascending:true});
-  var pr=await getSB().from('nutrition_program').select('settings').eq('client_id',cid);
+  var pr=await getSB().from('nutrition_program').select('*').eq('client_id',cid);
+  var prog=pr.data&&pr.data[0]||null;
   var prof=pr.data&&pr.data[0]&&pr.data[0].settings&&pr.data[0].settings.profile, goal=pr.data&&pr.data[0]&&pr.data[0].settings&&pr.data[0].settings.goal;
   var tg=prof?ncTargets(prof):null, target=ncGoalKcal(tg,goal);
   var ck=await getSB().from('nutrition_checkins').select('day,answer,reflection').eq('client_id',cid).gte('day',ncAddDays(ncToday(),-90));
@@ -7675,10 +7687,27 @@ async function ncDaysRender(cid){
       +(hab[d]==='done'?'<circle cx="'+(bx(i)+18)+'" cy="145" r="3" fill="#8FD1A2"/>':'')+'</g>';
   });
   svg+='</svg>';
-  html+=svg+'<div style="display:flex;gap:12px;font-size:11px;color:var(--muted);margin-top:-2px"><span>bars: calories</span><span><i style="display:inline-block;width:6px;height:6px;border-radius:3px;background:#8FD1A2;margin-right:4px"></i>habit done</span><span style="color:#C9A24A">gold day: new</span></div>';
+  html+=svg;
+  // the habit she's practising: tap for her week of answers
+  var hasPlan=prog&&prog.template_id&&typeof NC_T!=='undefined'&&NC_T[prog.template_id];
+  var hDone=wkDays.filter(function(x){return hab[x]==='done';}).length, hSoFar=wkDays.filter(function(x){return x<=todayD;}).length;
+  html+='<button id="ncHab_'+cid+'" style="display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;background:#22261F;border:1px solid #2F3A2C;border-radius:12px;padding:9px 12px;color:var(--text);font-family:inherit;text-align:left;cursor:pointer;margin-top:4px">'
+    +'<span style="min-width:0"><span style="font-size:14px">🌱 <b>'+ncEsc(hasPlan?ncStepName(prog):'No habit yet')+'</b></span><br><span style="font-size:12px;color:var(--muted)">'+(hasPlan?'done '+hDone+' of '+hSoFar+' day'+(hSoFar===1?'':'s')+' this week · <span style="color:#8FD1A2">●</span> under a day = done':'Tap to choose one for her')+'</span></span>'
+    +'<span style="color:var(--muted);font-size:18px">'+(st.habOpen?'⌃':'›')+'</span></button>';
+  if(st.habOpen&&hasPlan){
+    var mark={done:'✅',partly:'½',not:'✕'};
+    html+='<div style="background:#1C1F19;border:1px solid #2F3A2C;border-radius:12px;padding:10px 12px;margin-top:6px">'
+      +'<div style="font-size:12px;color:var(--muted)">'+(prog.step_started_on?'since '+ncEsc(ncNice(prog.step_started_on))+' · ':'')+'day '+ncDay(prog)+'</div>'
+      +'<div style="display:flex;justify-content:space-between;text-align:center;font-size:12px;color:var(--muted);margin:10px 0">'+wkDays.map(function(x,i){ return '<div style="flex:1">'+'MTWTFSS'.charAt(i)+'<br><span style="font-size:17px;color:var(--text)">'+(x>todayD?'':(mark[hab[x]]||'–'))+'</span></div>'; }).join('')+'</div>'
+      +'<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Her answer each day to "Did you do today\'s habit?" ✅ done · ½ partly · ✕ not yet · – no answer</div>'
+      +'<div style="display:flex;gap:8px"><button id="ncHabChg_'+cid+'" style="flex:1;padding:9px;border:1px solid var(--border);background:none;color:var(--text);border-radius:10px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer">Change habit</button>'
+      +'<button id="ncHabCheer_'+cid+'" style="flex:1;padding:9px;border:none;background:var(--sage);color:#fff;border-radius:10px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer">💬 Cheer her on</button></div></div>';
+  }
+  var anyOver=target&&ks.some(function(k){return k>target;});
+  html+='<div style="font-size:11px;color:var(--muted);margin-top:6px"><span style="color:#C9A24A">Gold letter</span> = something new to see'+(anyOver?' · <span style="color:#E39A6E">orange bar</span> = over goal':'')+'</div>';
   // the chosen day
   var d=st.sel, meals=st.rows.map(function(r,i){r._i=i;return r;}).filter(function(r){return r.day===d;}), dk=dayKcal(d), ha=hab[d];
-  var extras=[stepsBy[d]!=null?'👟 '+Number(stepsBy[d]).toLocaleString('en-IN')+' steps':'',waterBy[d]?'💧 '+kfWater(waterBy[d]):'',ha?'<span style="color:'+(ha==='done'?'#8FD1A2':ha==='partly'?'#C9A24A':'#E39A6E')+'">🌱 habit '+({done:'done',partly:'partly',not:'not yet'}[ha])+'</span>':''].filter(Boolean).join(' · ');
+  var extras=['👟 '+(stepsBy[d]!=null?Number(stepsBy[d]).toLocaleString('en-IN')+' steps':'–'),'💧 '+(waterBy[d]?kfWater(waterBy[d]):'–'),ha?'<span style="color:'+(ha==='done'?'#8FD1A2':ha==='partly'?'#C9A24A':'#E39A6E')+'">🌱 habit '+({done:'done',partly:'partly',not:'not yet'}[ha])+'</span>':'🌱 –'].join(' · ');
   var inner='<div style="border-top:1px solid var(--border);padding-top:10px;margin-top:2px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b style="font-size:15px">'+ncEsc(ncNice(d))+'</b>'
     +'<span style="font-size:14px">'+(dk?'<b style="color:'+(target&&dk>target?'#E39A6E':'#C9A24A')+'">'+(Math.round(dk/10)*10).toLocaleString('en-IN')+'</b> <span style="color:var(--muted);font-size:12px">'+(target?'of '+target.toLocaleString('en-IN')+' cal':'cal')+'</span>':'<span style="color:var(--muted);font-size:12px">'+(meals.length?meals.length+' meal'+(meals.length===1?'':'s'):'nothing logged')+'</span>')+'</span></div>'
     +(extras?'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+extras+'</div>':'')
@@ -7693,7 +7722,7 @@ async function ncDaysRender(cid){
           +'<div data-ncopen="'+ncEsc(okey)+'" style="display:flex;gap:10px;align-items:center;cursor:pointer">'
           +((r.photos||[]).length?'<img data-ncph="'+ncEsc(r.photos[0])+'" alt="" style="width:48px;height:48px;border-radius:10px;object-fit:cover;background:#333;flex-shrink:0">':'<span style="width:48px;height:48px;border-radius:10px;background:#2A2B24;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🍽️</span>')
           +'<div style="flex:1;min-width:0"><div><b style="font-size:15px">'+ncEsc(r.slot||'Meal')+'</b>'+(r.time?' <span style="color:var(--muted);font-size:12px">'+ncEsc(kfAmPm(r.time))+'</span>':'')+(isNew?'<span class="nc-new">NEW</span>':'')+(th.length?' <span style="color:var(--muted);font-size:12px">💬 '+th.length+'</span>':'')+'</div>'
-          +'<div class="nc-food" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+ncEsc(r.text||'Photo')+'</div>'
+          +'<div class="nc-food" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+ncEsc(kfReiconText(r.text)||'Photo')+'</div>'
           +(r.feel?'<div style="font-size:12px;color:var(--muted)">Felt today: '+['','😕 low','😐 okay','🙂 good'][r.feel]+'</div>':'')
           +(r.cravings?'<div style="font-size:12px;color:var(--muted)">Cravings last night: '+({none:'😌 none',little:'😐 a little',gave:'😣 gave in'}[r.cravings]||'')+'</div>':'')+'</div>'
           +(r.kcal?'<span style="color:var(--muted);font-size:13px;white-space:nowrap">'+r.kcal+' cal</span>':'')+'</div>'
@@ -7701,8 +7730,8 @@ async function ncDaysRender(cid){
           +'<div>'
           +(r.fromPlan?' <span style="color:var(--muted);font-size:11px">(from your plan)</span>':'')+(r.src==='screenshot'?' <span style="color:var(--muted);font-size:11px">(screenshot)</span>':'')+(r.src==='earlier'||r.earlier?' <span style="color:var(--muted);font-size:11px">(earlier app)</span>':'')
           +'</div>'
-          +(r.items&&r.items.length?'<div style="display:flex;flex-direction:column;gap:2px;margin:4px 0">'+r.items.map(function(it){return '<div class="nc-food">'+ncEsc(it.name)+' · <span class="nc-time">'+ncEsc((it.amount===0.5?'½':it.amount===0.25?'¼':it.amount===0.75?'¾':it.amount===1.5?'1½':it.amount===2.5?'2½':it.amount)+(it.unit?' '+it.unit:''))+'</span>'+(it.kcal?' <span style="color:var(--muted)">~'+it.kcal+'</span>':'')+'</div>';}).join('')+'</div>'
-             :(r.text&&r.text.length>38?'<div class="nc-food">'+ncEsc(r.text)+'</div>':''))
+          +(r.items&&r.items.length?'<div style="display:flex;flex-direction:column;gap:2px;margin:4px 0">'+r.items.map(function(it){return '<div class="nc-food">'+(it.drink?kfDrinkEmoji(it.name,it.drink)+' ':'')+ncEsc(it.name)+' · <span class="nc-time">'+ncEsc((it.amount===0.5?'½':it.amount===0.25?'¼':it.amount===0.75?'¾':it.amount===1.5?'1½':it.amount===2.5?'2½':it.amount)+(it.unit?' '+it.unit:''))+'</span>'+(it.kcal?' <span style="color:var(--muted)">~'+it.kcal+'</span>':'')+'</div>';}).join('')+'</div>'
+             :(r.text&&r.text.length>38?'<div class="nc-food">'+ncEsc(kfReiconText(r.text))+'</div>':''))
           +(r.edited||r.noPhoto?'<div style="font-size:11px;color:var(--muted)">'+[r.edited?'adjusted the AI\'s amounts':'',r.noPhoto?'no photo · from their words':''].filter(Boolean).join(' · ')+'</div>':'')
           +((r.photos||[]).length?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+r.photos.map(function(pth){return '<img data-ncph="'+ncEsc(pth)+'" alt="Meal photo" style="width:64px;height:64px;border-radius:8px;object-fit:cover;background:#333;cursor:pointer">';}).join('')+'</div>':'')
           +(r.meal_id?thread(th,'m|'+r.meal_id+'|'+d,'Note on this meal…'):thread([], 's|'+r._i+'|'+d,'Note on this meal…'))+'</div></div>';
@@ -7746,6 +7775,14 @@ async function ncDaysRender(cid){
       onDelete:async function(){ var res=await getSB().from('nutrition_meal_comments').update({deleted:true}).eq('id',c.id); if(res.error){alert('Not deleted -- '+res.error.message);return false;} kfLog('🗑️','Deleted a note',cid,c.meal_id,c.day); ncDaysRender(cid); return true; }});
   };});
   var mb=document.getElementById('ncMenu_'+cid); if(mb) mb.onclick=function(){ kfClientMenu(cid); };
+  var hb=document.getElementById('ncHab_'+cid); if(hb) hb.onclick=function(){ if(!hasPlan){ ncShowSection(cid,'habits'); return; } st.habOpen=!st.habOpen; draw(); };
+  var hc=document.getElementById('ncHabChg_'+cid); if(hc) hc.onclick=function(){ ncShowSection(cid,'habits'); };
+  var hh=document.getElementById('ncHabCheer_'+cid); if(hh) hh.onclick=function(){
+    // a note on today, ready to send (she sees it on her day)
+    st.sel=ncToday(); st.wk=ncWeekStart(st.sel); st.habOpen=false; draw();
+    var k='d||'+st.sel, box=el.querySelector('[data-notebox="'+st.sel+'"]'), add=el.querySelector('[data-addnote="'+st.sel+'"]');
+    if(box){ box.style.display=''; if(add) add.style.display='none'; }
+    var ta=el.querySelector('[data-ncin="'+k+'"]'); if(ta){ ta.value='Well done on "'+ncStepName(prog).replace(/^Habit \d+: /,'')+'" this week! Keep it going 💪'; ta.scrollIntoView({block:'center'}); ta.focus(); } };
   if(focus){ var focus0=focus; focus=null; setTimeout(function(){ var focus=focus0;
     var t=focus.meal_id?el.querySelector('[data-ncopen="'+focus.meal_id+'"]'):null; if(!t&&focus.day){ t=el.querySelector('[data-ncin="d||'+focus.day+'"]'); }
     if(!t) return; var dt=t.closest('details'); if(dt) dt.open=true; var db0=t.closest('[data-ncdb]'); if(db0&&db0.style.display==='none'){ db0.style.display=''; } var card=t.parentNode;
@@ -8669,7 +8706,7 @@ var KF_HELP=[
   ['👥','Clients','Your clients, grouped as Nutrition, Fitness, or both. "My clients" shows the people you\'ve tagged; "Needs attention" shows clients with no log for 3 or more days or unpaid sessions; "All users" shows everyone who signed up. The dot shows recent activity: green (last 2 days), amber (this week), red (longer). "+ Invite" shares your nutrition or fitness link. If you close Merge or swipe it away, it reopens on the same client and spot (for up to 12 hours).'],
   ['⇄','Fitness + Nutrition clients','Tapping someone you coach for both asks which side to open. Their page then shows only that side; tap "Switch to …" at the top to flip.'],
   ['💬','Chat','Every client\'s page has 💬 Chat next to their name, with a red count when they\'ve written. Use it for anything that isn\'t about one meal, like a nudge when they haven\'t logged.'],
-  ['🍽️','Days','Tap a client, then Days: their weight card, the "This week" card, then the week as a chart: one bar of calories per day against their goal, a green dot on habit days, and gold day letters when something new came in. ‹ › moves a week; tap a day for its meals. Tap a meal to see amounts, and tap a photo to see it full size: swipe for the next, ✕ brings you back to the meal. Tap a day\'s heading to fold it away, and again to open it. Write a note under any meal or day: the box grows for more lines, Enter starts a new line and Send sends; unsent words are kept. ✓ means sent, blue ✓✓ means they read it. Links show as short tappable chips. ⋯ at the top has Estimate missing calories, Import screenshots and the earlier app\'s tools.'],
+  ['🍽️','Days','Tap a client, then Days: their weight card, the "This week" card, then the week as a chart: one bar of calories per day against their goal, a green dot under each day they did their habit, and gold day letters when something new came in. ‹ › moves a week; tap a day for its meals, steps, water and habit. Tap the 🌱 habit line under the chart to see their answer for each day this week, change the habit, or send a quick well-done. Tap a meal to see amounts, and tap a photo to see it full size: swipe for the next, ✕ brings you back to the meal. Tap a day\'s heading to fold it away, and again to open it. Write a note under any meal or day: the box grows for more lines, Enter starts a new line and Send sends; unsent words are kept. ✓ means sent, blue ✓✓ means they read it. Links show as short tappable chips. ⋯ at the top has Estimate missing calories, Import screenshots and the earlier app\'s tools.'],
   ['🏋️','Fitness clients','Days shows each workout as a card: body parts, exercises, duration, steps and personal records 🏆. Tap a card for every set. Clients say whether each session was with you or on their own; only sessions with you count as unpaid. Got it wrong? Tap "Mark on their own" or "Mark with you" on the card. Plan has just the workout tools: Assign, Log and Edit.'],
   ['🗓️','Plan','Nutrition: the habit they\'re on comes first (Hold here, Next habit, the 4-week grid), then Send a meal plan, Their numbers and Change their plan, each folded. Fitness: Assign a workout and Log a session; edit a past session from Days. Name history, remove and delete data are under Account, in Client settings.'],
   ['🏋️','Workouts','On a fitness client\'s Days: the week across the top, with a dot on each workout day (orange = unpaid). ‹ › moves a week. Tap a day for its sessions, and a session for the full workout: sets, PRs, cardio and functional, their note, ✎ Edit and with you or on their own. ⋯ prints the week, the month or everything.'],
