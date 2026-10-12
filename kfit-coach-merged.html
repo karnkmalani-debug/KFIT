@@ -7668,7 +7668,7 @@ async function ncDaysRender(cid){
     var k=ks[i], fut=d>todayD, sel=d===st.sel, h=k?Math.max(4,Math.round(k/top*H)):0, y=base-h, over=target&&k>target, nw=isNewDay(d);
     var lab=k?(k>=1000?(Math.round(k/100)/10)+'k':String(Math.round(k/10)*10)):(fut?'':'–');
     svg+='<g data-ncsel="'+d+'" style="cursor:'+(fut?'default':'pointer')+'"><rect x="'+(bx(i)-4)+'" y="0" width="44" height="152" fill="transparent"/>'
-      +(sel?'<rect x="'+(bx(i)-4)+'" y="2" width="44" height="148" rx="10" fill="#26261F"/>':'')
+      +(sel?'<rect x="'+(bx(i)+3)+'" y="121" width="30" height="19" rx="9.5" fill="#3A3A30"/>':'')
       +(h?'<rect x="'+bx(i)+'" y="'+y+'" width="36" height="'+h+'" rx="6" fill="'+(over?'#E39A6E':sel?'#E7CF8C':'#C9A24A')+'" opacity="'+(sel?1:.78)+'"/>':'<rect x="'+bx(i)+'" y="'+(base-3)+'" width="36" height="3" rx="1.5" fill="#2E2F28"/>')
       +'<text x="'+(bx(i)+18)+'" y="'+((h?y:base-3)-6)+'" text-anchor="middle" font-size="10.5" fill="'+(fut?'#55534B':'#F2EFE8')+'">'+lab+'</text>'
       +'<text x="'+(bx(i)+18)+'" y="134" text-anchor="middle" font-size="12" font-weight="'+(sel?800:500)+'" fill="'+(fut?'#55534B':nw?'#C9A24A':sel?'#F2EFE8':'#9C978A')+'">'+'MTWTFSS'.charAt(i)+'</text>'
