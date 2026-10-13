@@ -2397,7 +2397,7 @@ localStorage.removeItem('kmfit_unlocked');
 localStorage.removeItem('kmfit_uid');
 clearCookie('kmfit_unlocked');
 sessionStorage.removeItem('kmfit_session');
-try{ getSB().auth.signOut(); }catch(e){}
+// The phone stays approved: logging back in on this phone needs no code or approval.
 try{
 var req=indexedDB.open('kmfit_auth',1);
 req.onsuccess=function(e){

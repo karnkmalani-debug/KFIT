@@ -547,7 +547,7 @@ details:not(.nc-wk)[open]>summary::after{content:" ▴"}
     </div>
   </div>
 
-<div id="liveTrackerModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:#000;z-index:700;">
+<div id="liveTrackerModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:#000;z-index:950;">
   <button id="liveTrackerClose" onclick="closeLiveTracker()" style="position:absolute;top:10px;right:10px;z-index:701;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:18px;cursor:pointer;">✕</button>
   <iframe id="liveTrackerFrame" src="" style="width:100%;height:100%;border:none;"></iframe>
 </div>
@@ -7921,7 +7921,7 @@ async function ncDaysRender(cid){
         var th=r.meal_id?(byMeal[r.meal_id]||[]):[]; if(th.some(function(c){return c.author==='client'&&new Date(c.created_at).getTime()>seen;})) hasNew=true;
         var okey=r.meal_id||('s'+r._i), hasNewReply=th.some(function(c){return c.author==='client'&&new Date(c.created_at).getTime()>seen;});
         var isOpen=st.open[okey]!==undefined?st.open[okey]:hasNewReply;
-        inner+='<div style="background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:8px 10px;margin:6px 0;'+(isNew?'box-shadow:inset 3px 0 0 #C9A24A;':'')+'">'
+        inner+='<div data-ncmeal="1" style="background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:8px 10px;margin:6px 0;'+(isNew?'box-shadow:inset 3px 0 0 #C9A24A;':'')+'">'
           +'<div data-ncopen="'+ncEsc(okey)+'" style="display:flex;gap:10px;align-items:center;cursor:pointer">'
           +((r.photos||[]).length?'<img data-ncph="'+ncEsc(r.photos[0])+'" alt="" style="width:48px;height:48px;border-radius:10px;object-fit:cover;background:#333;flex-shrink:0">':'<span style="width:48px;height:48px;border-radius:10px;background:#2A2B24;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🍽️</span>')
           +'<div style="flex:1;min-width:0"><div><b style="font-size:15px">'+ncEsc(r.slot||'Meal')+'</b>'+(r.time?' <span style="color:var(--muted);font-size:12px">'+ncEsc(kfAmPm(r.time))+'</span>':'')+(isNew?'<span class="nc-new">NEW</span>':'')+(th.length?' <span style="color:var(--muted);font-size:12px">💬 '+th.length+'</span>':'')+'</div>'
@@ -7949,9 +7949,16 @@ async function ncDaysRender(cid){
   el.querySelectorAll('[data-ncsel]').forEach(function(g){ g.onclick=function(){ var d=g.dataset.ncsel; if(d>ncToday()) return; st.sel=d; draw(); }; });
   // photos (signed links from her private folder)
   el.querySelectorAll('[data-ncph]').forEach(async function(img){
-    try{ var u=await getSB().storage.from('kfit-meals').createSignedUrl(img.dataset.ncph,3600); if(u.data&&u.data.signedUrl){ img.src=u.data.signedUrl;
-      // the big photos open here in the app (swipe for the next; ✕ returns to this meal). The small one just opens the meal.
-      if(!img.closest('[data-ncopen]')) img.onclick=function(e){ e.stopPropagation(); if(window.KFitUI) KFitUI.gallery(img,'Meal photos'); }; } }catch(e){}
+    // any meal photo, small or big, opens full size (swipe for the others in that meal; ✕ comes back)
+    img.style.cursor='pointer';
+    img.onclick=async function(e){ e.stopPropagation(); e.preventDefault();
+      var card=img.closest('[data-ncmeal]')||img.parentNode, paths=[];
+      card.querySelectorAll('img[data-ncph]').forEach(function(x){ if(paths.indexOf(x.dataset.ncph)<0) paths.push(x.dataset.ncph); });
+      var urls=await Promise.all(paths.map(async function(pth){ try{ var u=await getSB().storage.from('kfit-meals').createSignedUrl(pth,3600); return u.data&&u.data.signedUrl||null; }catch(e2){ return null; } }));
+      var ok=urls.filter(Boolean); if(!ok.length){ alert('This photo couldn\'t be opened. Check your connection.'); return; }
+      var i=Math.max(0,ok.indexOf(urls[paths.indexOf(img.dataset.ncph)]));
+      if(window.KFitUI&&KFitUI.viewer) KFitUI.viewer(ok,i,'Meal photos'); else window.open(ok[i],'_blank'); };
+    try{ var u=await getSB().storage.from('kfit-meals').createSignedUrl(img.dataset.ncph,3600); if(u.data&&u.data.signedUrl) img.src=u.data.signedUrl; }catch(e){}
   });
   el.querySelectorAll('[data-qr]').forEach(function(b){b.onclick=function(e){ e.stopPropagation();
     var inp=el.querySelector('[data-ncin="'+b.dataset.qrk+'"]'), sendB=el.querySelector('[data-ncsend="'+b.dataset.qrk+'"]');
@@ -8117,6 +8124,7 @@ function kfitOpenFromUrl(u){
   try{
     var q=new URL(u,location.href).searchParams, m=(q.get('open')||'').replace(/\D/g,'');
     // a notification that isn't about one client (the 8 am summary): show what it counted
+    if(q.get('requests')){ setTimeout(function(){ try{ kfGo('today'); kfTodayRender(); }catch(e){} },900); try{ history.replaceState(null,'',location.pathname); }catch(e){} return; }
     if(!m){ if(q.get('kfpush')) kfOpenSummary(); return; }
     var tries=0;
     (function wait(){
@@ -8799,6 +8807,7 @@ function kfHM(ts){ return new Date(ts).toLocaleTimeString([], {hour:'2-digit',mi
 // arrows or the date field; past days show what came in and what you did.
 var kfDay=null, kfTodaySeq=0;
 function kfTodaySet(d){ var t=ncToday(); kfDay=(d&&d<t)?d:null; kfTodayRender(); window.scrollTo(0,0); }
+var kfLinks=[];
 async function kfTodayRender(){
   var el=document.getElementById('kfTodayBody'); if(!el) return;
   var todayD=ncToday(), day=kfDay&&kfDay<todayD?kfDay:todayD, isToday=day===todayD, seq=++kfTodaySeq;
@@ -8810,7 +8819,8 @@ async function kfTodayRender(){
     try{ var rc=await sb.from('nutrition_meal_comments').select('client_id,meal_id,day,body,author,created_at,read_by_coach_at,deleted').eq('author','client').is('read_by_coach_at',null).gte('created_at',ncAddDays(todayD,-30)+'T00:00:00').limit(300);
       (rc.data||[]).forEach(function(x){ var m=String(x.client_id).slice(6); if(x.deleted||!tagged[m]) return;
         needs.push({m:m,ic:'💬',title:nm(m)+' replied',line:'replied "'+kfShort(x.body,50)+'"',sub:'"'+kfShort(x.body,60)+'"',act:'Reply',ts:new Date(x.created_at).getTime(),fn:function(){ window.ncFocus={m:m,meal_id:x.meal_id||null,day:x.day||null}; kfOpenClientByMobile(m,'days','nut'); }}); }); }catch(e){}
-    try{ var reqs=await fetchClientRequests(); var n=(reqs||[]).length;
+    try{ kfLinks=await fetchLinkRequests(); }catch(e){ kfLinks=[]; }
+    try{ var reqs=await fetchClientRequests(); var n=(reqs||[]).filter(function(x){return x.kind!=='link';}).length;
       if(n) needs.push({ic:'📥',title:n+' request'+(n===1?'':'s')+' waiting',sub:'phone access, join requests, edits',act:'Review',ts:Date.now(),fn:function(){openRequests();}}); }catch(e){}
     // nutrition clients who logged nothing yesterday (but have been logging lately)
     try{ var yd=ncAddDays(todayD,-1), rost=buildUnifiedRoster().filter(function(c){return c.isTagged&&c.nut&&c.mobile;});
@@ -8834,7 +8844,7 @@ async function kfTodayRender(){
         var ok=true; for(var i=0;i<up.length;i++){ var u=await getSBScoped().from('attendance').update({paid:true}).eq('id',up[i].id); if(u.error){ ok=false; alert('Not saved: '+u.error.message); break; } up[i].paid=true; }
         if(ok){ kfLog('💳','Marked paid',null); kfTodayRender(); } }}); }); }catch(e){}
     needs.sort(function(a,b){return b.ts-a.ts;});
-    var bd=document.getElementById('kfTodayBadge'); if(bd){ bd.textContent=needs.length; bd.style.display=needs.length?'flex':'none'; }
+    var bd=document.getElementById('kfTodayBadge'), nb=needs.length+kfLinks.length; if(bd){ bd.textContent=nb; bd.style.display=nb?'flex':'none'; }
   }
   if(seq!==kfTodaySeq||kfPlace!=='today') return;
   // ---- one calm list: needs you (gold), logged (green), quiet (grey) ----
@@ -8858,7 +8868,12 @@ async function kfTodayRender(){
     +'<div style="display:flex;gap:6px"><button class="kf-daynav" data-step="-1" aria-label="Previous day">‹</button><button class="kf-daynav" data-step="1" aria-label="Next day"'+(isToday?' disabled':'')+'>›</button></div></div>'
     +'<div style="height:1px;background:linear-gradient(90deg,#C9A24A,transparent);margin:10px 0 6px"></div>'
     +(!isToday&&window.kfFromSummary&&Date.now()-window.kfFromSummary<10*60000&&day===ncAddDays(todayD,-1)?'<div style="background:#2A2416;border:1px solid #6B5A2A;border-radius:12px;padding:10px 12px;margin:6px 0;font-size:14px">🌅 From this morning\'s summary: everything that came in yesterday.</div>':'')
-    +(isToday?'<div id="kfPushCardToday"></div>':'<button class="kf-act" id="kfBackToday" style="width:100%;padding:10px;margin:6px 0">Back to today</button>');
+    +(isToday?'<div id="kfPushCardToday"></div>':'<button class="kf-act" id="kfBackToday" style="width:100%;padding:10px;margin:6px 0">Back to today</button>')
+    +(isToday?kfLinks.map(function(it,i){ return '<div style="background:#2A2416;border:2px solid #C9A24A;border-radius:14px;padding:12px;margin:8px 0;display:flex;flex-direction:column;gap:8px">'
+      +'<div style="font-size:16px;font-weight:800;color:#F3DC92">🔐 '+ncEsc(it.clientName)+' is waiting for you</div>'
+      +'<div style="font-size:13px;color:var(--muted)">Asking to use KFit on their phone'+(it.request&&it.request.app?' ('+ncEsc(it.request.app)+')':'')+' · '+ncEsc(new Date(it.at||Date.now()).toLocaleString([], {day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}))+'</div>'
+      +'<div style="display:flex;gap:8px"><button data-lk="'+i+'" data-ok="1" style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--sage);color:#fff;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer">Approve</button>'
+      +'<button data-lk="'+i+'" data-ok="0" style="padding:11px 16px;border:1px solid var(--border);border-radius:10px;background:none;color:var(--text);font-family:inherit;font-size:15px;cursor:pointer">Decline</button></div></div>'; }).join(''):'');
   var nRows=0;
   function row(kind,m,line,btn,idx){ nRows++;
     var col=kind==='need'?'#C9A24A':kind==='log'?'#8FD1A2':'#55534B';
@@ -8876,9 +8891,13 @@ async function kfTodayRender(){
   if(quietP.length&&isToday){ html+='<div class="kf-trow quiet" id="kfQuietRow"><span class="kf-halo quiet" style="background:#55534B"></span><div style="flex:1;min-width:0"><div class="kf-tname" style="color:#8A867B">'+(quietP.length<=3?quietP.map(nm).map(ncEsc).join(' · '):quietP.length+' quiet today')+'</div><div class="kf-tline">nothing yet today</div></div><span style="color:var(--muted);font-size:18px">▾</span></div>'
     +'<div id="kfQuietList" style="display:none">'+quietP.map(function(m){ return '<div class="kf-trow quiet" data-tp="'+ncEsc(m)+'" style="padding-left:28px"><div style="flex:1;color:#B9B4A8">'+ncEsc(nm(m))+'</div><button class="kf-tbtn quiet" data-msg="'+ncEsc(m)+'">Message</button></div>'; }).join('')+'</div>'; }
   if(!nRows&&!(quietP.length&&isToday)) html+='<div class="kf-caught"><div style="font-size:30px">🎉</div><div class="kf-h1" style="font-size:20px;color:#E7CF8C;margin:2px 0">'+(isToday?'All caught up':'Nothing came in that day')+'</div></div>';
-  else if(isToday&&!needs.length) html+='<div style="font-size:13px;color:#8FD1A2;margin:10px 2px">🎉 Nothing needs you right now.</div>';
+  else if(isToday&&!needs.length&&!kfLinks.length) html+='<div style="font-size:13px;color:#8FD1A2;margin:10px 2px">🎉 Nothing needs you right now.</div>';
   if(did.length) html+='<button class="kf-tmore" id="kfDidToggle" style="margin-top:14px">✍️ You did '+did.length+' thing'+(did.length===1?'':'s')+(isToday?' today':'')+' ▾</button><div id="kfDidList" style="display:none">'+did.map(function(x){return kfLine(kfHM(x.ts),x.i,x.t,x.open);}).join('')+'</div>';
   el.innerHTML=html;
+  el.querySelectorAll('[data-lk]').forEach(function(b){ b.onclick=async function(){ var it=kfLinks[+b.dataset.lk]; if(!it) return; var ok=b.dataset.ok==='1';
+    if(!ok&&!confirm('Decline '+it.clientName+'\'s phone?')) return; b.disabled=true;
+    var r=await getSB().rpc('kfit_decide_link',{p_request_id:it.request.id,p_approve:ok}); if(r.error){ alert('Not saved -- '+r.error.message); b.disabled=false; return; }
+    kfLog(ok?'🔐':'✕',(ok?'Approved ':'Declined ')+it.clientName+'\'s phone',null); try{ loadAll(); }catch(e){} kfTodayRender(); }; });
   el.querySelectorAll('[data-ti]').forEach(function(r){ r.onclick=function(e){ e.stopPropagation(); var it=needs[+r.dataset.ti]; if(it) it.fn(); }; });
   el.querySelectorAll('[data-tp]').forEach(function(r){ r.onclick=function(){ var m=r.dataset.tp, L=byP[m]; if(L&&L[0]&&L[0].ic==='💬'){ L[0].fn(); return; } var side=(came[m]||[]).some(function(x){return x.open&&x.open.side==='fit';})?'fit':(came[m]||[]).length?'nut':null; kfOpenClientByMobile(m,'days',side); }; });
   el.querySelectorAll('[data-msg]').forEach(function(b){ b.onclick=function(e){ e.stopPropagation(); var m=b.dataset.msg; openCoachChat(m,nm(m)); }; });
@@ -8905,7 +8924,7 @@ document.addEventListener('visibilitychange',function(){ if(!document.hidden&&kf
 
 // ---------- Help: written for the simple Merge (kept in step with every update) ----------
 var KF_HELP=[
-  ['☀️','Today','One calm list of your clients. Gold (gently pulsing) = needs you: a reply, an unpaid session, a consult or renewal due, or nothing logged yesterday, each with one button (Reply, Mark paid, Message). Green = logged something today, in one line (meals, workouts, weight, steps). Grey = quiet today, folded into one line; open it to message anyone. After 5 green names the rest fold into "+ N more logged". "You did" at the bottom lists your notes, plans and payments. Tap the date to pick another day, or use ‹ ›.'],
+  ['☀️','Today','A client waiting for your approval (a new phone) shows first, as a gold 🔐 card with Approve and Decline, and your phone buzzes the moment they ask. Once a phone is approved, logging out and back in on it never needs approval again. Below that, one calm list of your clients. Gold (gently pulsing) = needs you: a reply, an unpaid session, a consult or renewal due, or nothing logged yesterday, each with one button (Reply, Mark paid, Message). Green = logged something today, in one line (meals, workouts, weight, steps). Grey = quiet today, folded into one line; open it to message anyone. After 5 green names the rest fold into "+ N more logged". "You did" at the bottom lists your notes, plans and payments. Tap the date to pick another day, or use ‹ ›.'],
   ['👥','Clients','Your clients, grouped as Nutrition, Fitness, or both. "My clients" shows the people you\'ve tagged; "Needs attention" shows clients with no log for 3 or more days or unpaid sessions; "All users" shows everyone who signed up. The dot shows recent activity: green (last 2 days), amber (this week), red (longer). "+ Invite" shares your nutrition or fitness link. If you close Merge or swipe it away, it reopens on the same client and spot (for up to 12 hours).'],
   ['⇄','Fitness + Nutrition clients','Tapping someone you coach for both asks which side to open. Their page then shows only that side; tap "Switch to …" at the top to flip.'],
   ['💬','Chat','Every client\'s page has 💬 Chat next to their name, with a red count when they\'ve written. Use it for anything that isn\'t about one meal, like a nudge when they haven\'t logged.'],

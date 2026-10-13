@@ -1055,11 +1055,11 @@ function renderCoachNotes(){
   markNotesRead(); markThreadRead(S.comments||[]);
 }
 async function logOut(){
-  if(!confirm('Log out of KFit on this phone?\n\nYour meals and progress stay saved. To come back, you\'ll confirm your number again (with an email code or your coach).')) return;
+  if(!confirm('Log out of KFit on this phone?\n\nYour meals and progress stay saved. To come back, just enter your number again on this phone.')) return;
   try{ await flush(); }catch(e){}
   if((queue().length||failedQ().length)&&!confirm('Some of your entries haven\'t reached your coach yet. Log out anyway? They\'ll be lost.')) return;
   try{ if(chatUI){chatUI.destroy();chatUI=null;} }catch(e){}
-  try{ await sb.auth.signOut(); }catch(e){}
+  // The phone stays approved: logging back in on this phone needs no code or approval.
   [LS.mobile,LS.name,LS.cache,LS.queue,'kfnc_failed','kfnc_phone_backup'].forEach(function(k){try{localStorage.removeItem(k);}catch(e){}});
   S.mobile='';S.clientId='';S.fitId='';S.program=null;S.checkins={};S.meals={};S.notes=[];S.legacyDays=[];S.loaded=false;S.tab='home';S.view=null;
   renderSignIn();
