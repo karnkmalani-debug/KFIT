@@ -4555,6 +4555,10 @@ const block=document.createElement('div');
 block.className='superset-ex-block';
 block.innerHTML=`
 <div class="ex-top-row" style="padding:6px 8px;">
+<div class="reorder-stack">
+<button class="move-btn" onclick="moveSsEx(this,-1)" title="Move up">⇧</button>
+<button class="move-btn move-btn-down" onclick="moveSsEx(this,1)" title="Move down">⇧</button>
+</div>
 <select class="ss-ex-select ex-select" onchange="onSupersetExChange(this)">
 <option value="">-- Select Exercise --</option>
 </select>
@@ -7333,6 +7337,15 @@ function _prFlashTellParent(showing){
 try{ if(window.parent&&window.parent!==window) window.parent.postMessage({kfit:'prFlash',showing:!!showing},location.origin); }catch(e){}
 }
 
+// The exercises inside a superset: the same two arrows, moving within that superset.
+function moveSsEx(btn,direction){
+const block=btn.closest('.superset-ex-block'); if(!block) return;
+const beforeTop=btn.getBoundingClientRect().top, parent=block.parentElement;
+if(direction<0){ const prev=block.previousElementSibling; if(prev&&prev.classList.contains('superset-ex-block')) parent.insertBefore(block,prev); }
+else { const next=block.nextElementSibling; if(next&&next.classList.contains('superset-ex-block')) parent.insertBefore(next,block); }
+const shift=btn.getBoundingClientRect().top-beforeTop; if(shift) window.scrollBy(0,shift);
+try{ if(typeof draftSave==='function') draftSave(); }catch(e){}
+}
 function moveExBlock(btn,direction){
 const block=btn.closest('.ex-block');
 if(!block) return;
@@ -8727,7 +8740,7 @@ const HELP_TEXT=[
 '<b>Not sure what a button means?</b> Tap the small <b>i</b> above the four buttons on any exercise for a one-line reminder.<br><br>'+
 '<b>4. Drop sets</b><br>Right after a set, you\'ll see a small "+ Drop set" link. Tap it if you dropped the weight and kept going with no rest (a classic drop set) -- it adds a new row marked "D" underneath that set.<br><br>'+
 '<b>5. How to actually do each rep</b><br>This matters as much as the numbers you log: lower the weight slowly (2-4 seconds), pause for a second at the bottom, then lift back up fast and with intent. Always use the full range of motion -- never half-reps. If you can\'t do this with control, the weight is too heavy; use less weight, not less range.<br><br>'+
-'<b>6. Doing two exercises back-to-back with no rest? Make it a superset</b><br>Under any exercise, tap <b>⇄ Superset with another exercise</b>. That exercise becomes a superset right where it is, keeping any sets you\'ve typed, and a second slot opens below it. Pick the second exercise from any body part (tap the body-part buttons in the superset), a functional movement or cardio. Add a third and it becomes a circuit. Cardio activities and functional movements have the same link. You can still start an empty one with "+ Superset / Circuit".<br><br>'+
+'<b>6. Doing two exercises back-to-back with no rest? Make it a superset</b><br>Under any exercise, tap <b>⇄ Superset with another exercise</b>. That exercise becomes a superset right where it is, keeping any sets you\'ve typed, and a second slot opens below it. Pick the second exercise from any body part (tap the body-part buttons in the superset), a functional movement or cardio. Add a third and it becomes a circuit. Cardio activities and functional movements have the same link. You can still start an empty one with "+ Superset / Circuit". Use the two arrows on the left of each exercise inside the superset to change their order.<br><br>'+
 '<b>7. Just doing cardio?</b><br>Tap the Cardio body part instead. You\'ll log duration and how hard it felt, not sets and reps.<br><br>'+
 '<b>7b. Planks, wall sits, or other holds? Use Functional</b><br>Tap <b>Functional</b> above your exercises, then tap a movement (Plank, Wall Sit, Dead Hang, Jumping Jacks, and more) and log how long you held or did it. Putting weight on your back for a loaded plank or carry? There\'s an optional weight field for exactly that. Don\'t see the movement you want? Type it into "Add movement". To do it back-to-back with other exercises, tap ⇄ Superset under it.<br><br>'+
 '<b>7c. Estimated calories burned</b><br>Each saved session shows roughly how many calories it burned in History -- based on your session time, your logged rest between sets, and (for cardio/functional work) the specific activity. This needs your age, sex, height and weight filled in on the Body tab.<br><br>'+

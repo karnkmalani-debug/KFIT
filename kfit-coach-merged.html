@@ -4907,7 +4907,11 @@ function renderAsSupersets(){
         });
         return`
         <div class="as-cardio-block" style="background:var(--surf);">
-          <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-bottom:8px;align-items:center;">
+          <div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;margin-bottom:8px;align-items:center;">
+            <div class="reorder-stack">
+              <button onclick="moveAsSupersetEx('${ss.id}','${e.id}',-1,this)" ${i===0?'disabled':''} title="Move up">⇧</button>
+              <button class="move-btn-down" onclick="moveAsSupersetEx('${ss.id}','${e.id}',1,this)" ${i===ss.exercises.length-1?'disabled':''} title="Move down">⇧</button>
+            </div>
             ${exSelectHtml(e.id,e.ex,`updateAsSupersetEx('${ss.id}','${e.id}','ex',this.value)`)}
             <select class="form-inp" onchange="updateAsSupersetExSets('${ss.id}','${e.id}',this.value)" style="font-size:14px;width:64px;">
               ${Array.from({length:25},(_,i)=>i+1).map(n=>`<option value="${n}"${n===e.sets?' selected':''}>${n} set${n>1?'s':''}</option>`).join('')}
@@ -5010,6 +5014,15 @@ function toggleAsExCollapse(id){
   renderAsExercises();
 }
 
+// the exercises inside a superset: the same two arrows, within that superset
+function moveAsSupersetEx(ssId,exId,direction,btn){
+  const ss=asSupersets.find(x=>x.id==ssId); if(!ss) return;
+  const idx=ss.exercises.findIndex(e=>e.id==exId), sw=idx+direction; if(idx<0||sw<0||sw>=ss.exercises.length) return;
+  const beforeTop=btn?btn.getBoundingClientRect().top:null;
+  [ss.exercises[idx],ss.exercises[sw]]=[ss.exercises[sw],ss.exercises[idx]];
+  renderAsSupersets();
+  if(beforeTop!=null){ const nb=document.querySelector('[onclick^="moveAsSupersetEx(\''+ssId+'\',\''+exId+'\','+direction+'"]'); if(nb) window.scrollBy(0,nb.getBoundingClientRect().top-beforeTop); }
+}
 function moveAsExercise(id,direction,btn){
   const idx=asExercises.findIndex(b=>b.id==id);
   if(idx<0) return;
