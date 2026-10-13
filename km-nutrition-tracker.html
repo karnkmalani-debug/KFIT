@@ -21,7 +21,6 @@
 <script src="./kfit-i18n.js"></script>
 <script src="./kfit-ui.js"></script>
 <script src="./kfit-habit-score.js"></script>
-<script src="./kfit-steps.js"></script>
 <script src="./kfit-client-push.js"></script>
 <script src="./kfit-coach-chat.js"></script>
 <script src="./kfit-join-coach.js"></script>
@@ -132,7 +131,7 @@ h2{margin:0;font-family:var(--serif);font-weight:500;font-size:22px;line-height:
 .addgrid button[data-add]{border:1.5px solid var(--sc,var(--line2));color:var(--sc,var(--ink));background:var(--sb,none);display:flex;align-items:center;justify-content:center;gap:4px;min-height:54px;font-size:14.5px;font-weight:800;white-space:nowrap;padding:0 6px;box-shadow:0 2px 10px rgba(0,0,0,.25)}
 .addgrid button[data-add]:active{transform:scale(.97)}
 .sdot{width:8px;height:8px;border-radius:4px;background:var(--sc,var(--muted));display:inline-block;flex-shrink:0}
-.lgtiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.lgtiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.lgtiles.one{grid-template-columns:1fr}
 .lgt{position:relative;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 10px 10px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;color:var(--ink);text-align:left;min-height:104px;font-family:inherit}
 .lgt.on{border-color:var(--line2);background:#22221D}
 .lgt.kc.on{border-color:#5E4E25}.lgt.wt.on{border-color:#2F5670}.lgt.st.on{border-color:#3D6B4F}
@@ -479,12 +478,36 @@ function nudgeCard(){
   return '<div class="card" id="ndCard" style="border:1px solid '+col+';flex-direction:row;gap:10px;align-items:flex-start"><span style="font-size:22px">'+ic+'</span><span style="flex:1;font-size:15px;line-height:1.45">'+esc(tx)+'</span><button id="ndX" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:18px;min-width:32px;min-height:32px">✕</button></div>';
 }
 function bindNudge(){ var x=$('#ndX'); if(x) x.onclick=function(){ try{ localStorage.setItem('kfnudge_'+S.clientId+'_'+today(),'1'); }catch(e){} var c=$('#ndCard'); if(c) c.remove(); }; }
-// ---------- Tips for the rest of today: protein, calories, water, steps ----------
+// ---------- Tomorrow morning's phone note (the server sends it at 8:30 am) ----------
+// Worked out here whenever she opens the day page, so it uses her habit and her meals.
+function savePushNote(){
+  try{
+    var m=String(S.mobile||'').replace(/\D/g,''); if(!m||!sb) return;
+    var T=today(), parts=[], ht=null;
+    if(hasPlan()&&window.KFitHabit){ var id=stepId(), h=habitOf(id);
+      if(h&&id!=='start'){ ht=id==='reset'?'7-day Reset':h.title;
+        var cs=stepCheckins().filter(function(x){return x!=='future';}), dn=cs.filter(function(x){return x==='done';}).length, pt=cs.filter(function(x){return x==='partly';}).length, n=cs.length, sc=n?(dn+pt*0.5)/n:0, di=dayIndex(), len=stepLen(id);
+        if(di+1>=len) parts.push(sc>=0.65?'You did '+ht+' most days. Something new starts today 🌱':'One more week of '+ht+' starts today. No rush 🌱');
+        else if(di+1===len-1) parts.push('Last day of '+ht+' today.');
+        else if(n>=3&&sc<0.45){ var ds=[]; for(var k=0;k<=di;k++) ds.push(mealsOn(addDays(S.program.step_started_on||T,k)).map(function(x){return x.body||{};})); parts.push(ht+', day '+(di+2)+': '+(KFitHabit.tip(id,ds,habitCtx())||h.short||'')); }
+        else if(n>=2&&sc>=0.65) parts.push(ht+': '+dn+' of '+n+' days so far 💪 Keep it going.');
+        else parts.push(ht+', day '+(di+2)+': '+(h.short||'')+'.'); } }
+    var k2=mealsOn(T).length; if(k2) parts.push('Yesterday: '+k2+' meal'+(k2===1?'':'s')+' logged'+(k2>=3?' 💪':'.'));
+    var hsh=0; for(var i=0;i<T.length;i++) hsh=(hsh*31+T.charCodeAt(i))%997;
+    if(waterReminders()&&waterMl(T)<waterGoalMl()*0.6&&(hsh%7===1||hsh%7===4)) parts.push(['A glass of water before breakfast 💧','Keep a bottle of water close today 💧','Start the day with a glass of water 💧'][hsh%3]);
+    var row={mobile:m,next_note:parts.join(' ').replace(/\.\./g,'.').slice(0,300)||null,next_note_day:addDays(T,1),opened_day:T,habit_title:ht};
+    var key=JSON.stringify(row); try{ if(localStorage.getItem('kfnote_'+m)===key) return; }catch(e){}
+    sb.from('client_push_prefs').upsert(row,{onConflict:'mobile'}).then(function(r){ if(!r||!r.error){ try{ localStorage.setItem('kfnote_'+m,key); }catch(e){} } });
+  }catch(e){}
+}
+// ---------- Tips for the rest of today: protein, calories, water ----------
 // Protein: 1.5 to 2 g per kg of your goal weight (or your weight if no goal). 1 palm ≈ 25 g.
 var PALM_G=25;
 function proteinTarget(){ var w=goalWeight()||+latestWeight()||+((profile()||{}).weight)||0; if(!w) return null;
   return {lo:Math.round(w*1.5/5)*5, hi:Math.round(w*2/5)*5, w:w, basis:goalWeight()?'goal':'current'}; }
 function tipsOn(k){ var st=(S.program&&S.program.settings)||{}; return st[k]!==false; }
+function trackWater(){ return tipsOn('trackWater'); }
+function waterReminders(){ return trackWater()&&tipsOn('tipsWater'); }
 function nextMealName(h){ return h<11?'breakfast':h<15?'lunch':h<18?'your evening snack':h<22?'dinner':'tomorrow\'s breakfast'; }
 function tipsCard(d){
   if(d!==today()||!S.program) return '';
@@ -496,24 +519,14 @@ function tipsCard(d){
     else tips.push(['🥚','Protein: about '+g+' g of '+PT.lo+'–'+PT.hi+' g so far. On track.']); }
   var tg=goalKcal(targets()), kd=dayKcal(d);
   if(showK()&&tg&&kd.n){
-    if(kd.sum>tg*1.05) tips.push(['🔥','About '+fmt(Math.round((kd.sum-tg)/10)*10)+' calories over today. Keep anything else light: veg, curd, chaas or soup.']);
+    if(kd.sum>tg*1.05) tips.push(['🔥','You\'ve had your calories for today. Hungry later? Veg, curd, chaas or soup. One day doesn\'t matter; the week does.']);
     else if(h>=19&&kd.sum<tg*0.6) tips.push(['🔥','About '+fmt(Math.round((tg-kd.sum)/10)*10)+' calories left today. Don\'t skip dinner: make it protein and veg.']); }
-  if(tipsOn('tipsWater')){ var wml=waterMl(d), wg=waterGoalMl();
+  if(waterReminders()){ var wml=waterMl(d), wg=waterGoalMl();
     if(wml<wg*frac*0.75) tips.push(['💧',fmtWater(wml)+' of '+fmtWater(wg)+' so far. Have 2 glasses in the next hour.']); }
-  var stepSlot=tipsOn('tipsSteps')?'<div id="tipSteps"></div>':'';
-  if(!tips.length&&!stepSlot) return '';
-  return '<div class="card" id="tipsCard" style="border:1px solid #2F3A2C;gap:8px'+(tips.length?'':';display:none')+'"><div class="steplbl" style="color:var(--leaf)">💡 FOR THE REST OF TODAY</div>'
-    +tips.map(function(x){ return '<div class="row" style="gap:10px;align-items:flex-start;font-size:15px;line-height:1.4"><span>'+x[0]+'</span><span>'+esc(x[1])+'</span></div>'; }).join('')+stepSlot
-    +'<div class="meta" style="font-weight:400;font-size:12px">Water and step tips can be turned off in Progress → Your details.</div></div>';
-}
-function fillStepTip(d){
-  var el=$('#tipSteps'); if(!el||!window.KFitSteps||!KFitSteps.get) return;
-  KFitSteps.get({sb:sb,mobile:S.mobile,day:d}).then(function(r){ var el2=$('#tipSteps'); if(!el2) return;
-    var now0=new Date(), h=now0.getHours(), frac=Math.max(0.15,Math.min(1,(h-7)/14)), t='';
-    if(r.steps==null){ if(h>=18) t='No steps added yet today. Copy them from your phone\'s Health or Fit app.'; }
-    else if(r.steps<r.goal*frac*0.75) t=fmt(r.steps)+' of '+fmt(r.goal)+' steps so far. A 20-minute walk adds about 2,000. After a meal is best.';
-    if(!t) return; el2.innerHTML='<div class="row" style="gap:10px;align-items:flex-start;font-size:15px;line-height:1.4"><span>👟</span><span>'+esc(t)+'</span></div>';
-    var c=$('#tipsCard'); if(c) c.style.display=''; });
+  if(!tips.length) return '';
+  return '<div class="card" id="tipsCard" style="border:1px solid #2F3A2C;gap:8px"><div class="steplbl" style="color:var(--leaf)">💡 FOR THE REST OF TODAY</div>'
+    +tips.map(function(x){ return '<div class="row" style="gap:10px;align-items:flex-start;font-size:15px;line-height:1.4"><span>'+x[0]+'</span><span>'+esc(x[1])+'</span></div>'; }).join('')
+    +(trackWater()?'<div class="meta" style="font-weight:400;font-size:12px">Water reminders can be turned off in Progress → Your details.</div>':'')+'</div>';
 }
 function effAnswer(d){ var c=S.checkins[d]; var a=window.KFitHabit?KFitHabit.answer(c&&c.answer,habitMarks()[d],autoAnswer(d)):(c&&c.answer); return a||''; }
 function stepCheckins(){
@@ -1544,14 +1557,14 @@ function renderLog(){
   var wml=waterMl(d), wgl=waterGoalMl();
   var wT='<button class="lgt wt'+(P==='water'?' on':'')+'" data-lgp="water"><span class="lgl">💧 Water</span><span class="lgn" style="color:#8EC9EA">'+fmtWater(wml).replace(' ','<span style="font-size:15px"> ')+(/ /.test(fmtWater(wml))?'</span>':'')+'</span><span class="lgs">of '+fmtWater(wgl)+'</span><span class="lgb"><i style="width:'+Math.min(100,Math.round(wml/wgl*100))+'%;background:#5FA8D3"></i></span>'
     +'<span class="lgplus" data-wplus="1" role="button" aria-label="Add a glass of water">+</span></button>';
-  var sT='<button class="lgt st'+(P==='steps'?' on':'')+'" data-lgp="steps"><span class="lgl">👟 Steps</span><span class="lgn" id="lgStepsN" style="color:var(--leaf)">–</span><span class="lgs" id="lgStepsS">tap to add</span><span class="lgb"><i id="lgStepsB" style="width:0;background:var(--leaf)"></i></span></button>';
-  html+='<div class="lgtiles">'+kT+wT+sT+'</div><div id="lgPanel"></div>'+tipsCard(d);
+  var tw=trackWater();
+  html+='<div class="lgtiles'+(tw?'':' one')+'">'+kT+(tw?wT:'')+'</div><div id="lgPanel"></div>'+tipsCard(d);
   // 3. today's habit
   html+=habit;
   if(dayNotes.length) html+='<div class="coachbox"><div class="steplbl">NOTE FROM YOUR COACH</div>'+threadHtml(d,null)+'</div>';
   html+='<div class="links"><button data-go="progress">My progress</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Older logs</button>':'')+'</div></div>';
   show(html);
-  if(isToday){ bindMoved(); bindNudge(); fillStepTip(d); }
+  if(isToday){ bindMoved(); bindNudge(); savePushNote(); }
   document.querySelectorAll('[data-day]').forEach(function(b){b.onclick=function(){S._logDay=b.dataset.day;S._openMeal=null;S._fullDay=null;renderLog();};});
   document.querySelectorAll('[data-open]').forEach(function(b){b.onclick=function(e){
     if(e.target&&e.target.dataset&&e.target.dataset.retry){ e.stopPropagation(); return retryEstimate(e.target.dataset.retry); }
@@ -1591,20 +1604,10 @@ function renderLog(){
 // The three tiles on the day page. Tapping one opens its details just below
 // (one at a time), with ✕ to fold it away; the "+" on Water adds a glass straight away.
 function lgTiles(d){
-  var stepsOpts={sb:sb,mobile:S.mobile,day:d};
-  function fillSteps(){
-    if(!window.KFitSteps||!KFitSteps.get) return;
-    KFitSteps.get(stepsOpts).then(function(r){ if(S._lgPanelDay!==d) return;
-      var n=$('#lgStepsN'), s=$('#lgStepsS'), b=$('#lgStepsB'); if(!n) return;
-      n.textContent=r.steps!=null?fmt(r.steps):'–'; s.textContent=r.steps!=null?'of '+fmt(r.goal):'tap to add';
-      if(b) b.style.width=(r.steps?Math.min(100,Math.round(r.steps/r.goal*100)):0)+'%'; });
-  }
   function close(){ S._lgPanel=null; renderLog(); }
   function panel(){
     var el=$('#lgPanel'); if(!el) return; var P=S._lgPanel; el.innerHTML=''; if(!P) return;
     if(P==='water') return waterCard(el,d,close);
-    if(P==='steps'){ if(!window.KFitSteps){ el.innerHTML=''; return; } el._kstOpen=true;
-      KFitSteps.mount(el,Object.assign({},stepsOpts,{collapsed:true,onSaved:function(){ toast('Steps saved'); },onClose:close})); return; }
     if(P==='kcal'){
       var k=dayKcal(d), tg=goalKcal(targets());
       el.innerHTML='<div class="card" style="gap:10px;border:1px solid #5E4E25"><div class="row" style="justify-content:space-between;align-items:center"><b>'+(showK()?'🔥 Calories':'🖐️ Your hands')+(d===today()?' today':'')+'</b>'+xBtn('lgX')+'</div>'
@@ -1618,7 +1621,7 @@ function lgTiles(d){
   document.querySelectorAll('[data-lgp]').forEach(function(b){ b.onclick=function(e){
     if(e.target&&e.target.dataset&&e.target.dataset.wplus){ e.stopPropagation(); addWater(d,250); toast('💧 +1 glass · '+fmtWater(waterMl(d))+' of '+fmtWater(waterGoalMl())); renderLog(); return; }
     S._lgPanel=S._lgPanel===b.dataset.lgp?null:b.dataset.lgp; renderLog(); }; });
-  fillSteps(); panel();
+  panel();
 }
 function xBtn(id){ return '<button id="'+id+'" aria-label="Close" style="background:none;border:none;color:var(--muted);font-size:20px;padding:0 4px;min-width:32px;min-height:32px">✕</button>'; }
 // When the calorie estimate didn't come back (no signal, AI busy), try again.
@@ -2060,7 +2063,7 @@ var GUIDE=[
   {img:'help-1.jpeg',t:'Your nutrition coach, in your pocket',l:'KFit helps you eat better, one small habit at a time. No strict diet. No foods banned. Just real meals, and a little help every day.'},
   {img:'help-2.jpeg',t:'Every day takes about three minutes',l:'Read a two-minute lesson. Try one small thing. Then tonight, tap how it went: Done, Partly, or Not today. Missing a day is completely fine.'},
   {img:'help-3.jpeg',t:'Your hands are your measuring cups',l:'A palm of protein. A fist of vegetables. A cupped hand of carbs. A thumb of fats. No weighing, no counting. Your hands go everywhere with you.'},
-  {img:'help-4.jpeg',t:'Log a meal in seconds',l:'Snap a photo of your plate, choose one from your gallery, type a few words, or just say what you ate. You will see how it compares with your own hands: a palm of protein, a fist of veg, a cupped hand of carbs, a thumb of fats. The time is saved for you. Through the day, you get tips on protein, water and steps.'},
+  {img:'help-4.jpeg',t:'Log a meal in seconds',l:'Snap a photo of your plate, choose one from your gallery, type a few words, or just say what you ate. You will see how it compares with your own hands: a palm of protein, a fist of veg, a cupped hand of carbs, a thumb of fats. The time is saved for you. Through the day, you get tips on protein and water.'},
   {img:'help-5.jpeg',t:'Once a week, a quick check-in',l:'Add your waist and weight once a week. Look at the direction over a few weeks, not at any single day. Bodies go up and down.'},
   {img:'help-6.jpeg',t:'Choose a plan when you are ready',l:'Plans go from seven days to six months. One habit at a time, about one or two weeks each. When you have done it most days, the next one starts. If not, you get seven more days. Your earlier habits keep being checked from your meals.'},
   {img:'help-7.jpeg',t:'Help is always one tap away',l:'Tap the question mark on any screen to see what that page is for. This tour is there too, one tap further. When a coach looks after you, message them in Chat and send photos too. That is it. Let us begin.'}
@@ -2102,8 +2105,8 @@ var HINTS={
   welcome:'Pick a plan to get one small habit at a time, with a two-minute lesson a day. Or skip it and just log your meals. Nothing here is a test.',
   home:'Log a meal: take a photo, upload from your gallery, type it or say it. My plan is your habit, with a two-minute lesson a day. My progress holds your weight, your goal and your details.',
   today:'Today\'s lesson. Read it or tap Listen, try the one small thing, and at night tap how it went. Your logged meals help fill in the answer. Below it, Keep them going shows your earlier habits from the last seven days. When a habit\'s days are up, you move on if you did it most days. If not, you get seven more days so it can stick.',
-  log:'Your day. Your meals are at the top: tap one to see what\'s in it, or tap a plus button to log the next one. Below them are calories so far, water and steps. Tap a tile for details, and the cross to close it. Under the tiles, tips for the rest of today: protein, calories, water and steps. At the top, a message from your coach, or a short note on how your habit is going. Swipe left or right to change the day.',
-  progress:'Weigh in once a week: same scale, in the morning, before breakfast. Watch the line over a few weeks, not single days. Your goal and your details are here too, with how your daily calories and protein are worked out. You can turn water and step tips on or off here.',
+  log:'Your day. Your meals are at the top: tap one to see what\'s in it, or tap a plus button to log the next one. Below them are calories so far and water. Tap a tile for details, and the cross to close it. Under the tiles, tips for the rest of today: protein, calories and water. At the top, a message from your coach, or a short note on how your habit is going. Swipe left or right to change the day.',
+  progress:'Weigh in once a week: same scale, in the morning, before breakfast. Watch the line over a few weeks, not single days. Your goal and your details are here too, with how your daily calories and protein are worked out. Track water or not, water reminders, and your phone reminders: morning and evening, or morning only.',
   journey:'Your plan, one habit at a time, about two weeks each. Tap any habit you\'ve finished to read its lessons again.',
   chat:'Message your coach here. Their replies show up in this same place.',
   lesson:'Tap Listen to hear this read aloud. Tap Got it when you\'re done.',
@@ -2340,9 +2343,9 @@ function renderProgress(){
     if(PT) o+='<div class="row" style="justify-content:space-between;align-items:baseline"><span class="meta" style="font-weight:400">Protein a day</span><span><span class="f-meal" style="font-size:22px;color:var(--gold)">'+PT.lo+'–'+PT.hi+'</span> <span class="meta" style="font-weight:400">grams</span></span></div>'
       +'<div class="meta" style="font-weight:400;margin-top:-6px">1.5 to 2 g for each kg of your '+(PT.basis==='goal'?'goal weight':'weight')+' ('+PT.w+' kg). A palm of protein is about 25 g.'+(PT.basis==='goal'?'':' Set a goal weight above to base it on that.')+'</div>';
     o+='<label class="row" style="justify-content:space-between;align-items:center;font-size:15px"><span>Show calories in the app</span><input type="checkbox" id="pgShowK"'+(showK()?' checked':'')+' style="width:22px;height:22px"></label>'
-      +'<label class="row" style="justify-content:space-between;align-items:center;font-size:15px"><span>💧 Water tips during the day</span><input type="checkbox" id="pgTipW"'+(tipsOn('tipsWater')?' checked':'')+' style="width:22px;height:22px"></label>'
-      +'<label class="row" style="justify-content:space-between;align-items:center;font-size:15px"><span>👟 Step tips during the day</span><input type="checkbox" id="pgTipS"'+(tipsOn('tipsSteps')?' checked':'')+' style="width:22px;height:22px"></label>'
-      +'<div class="meta" style="font-weight:400">Protein and calorie tips always stay on.</div>'
+      +'<label class="row" style="justify-content:space-between;align-items:center;font-size:15px"><span>💧 Track water</span><input type="checkbox" id="pgTrackW"'+(trackWater()?' checked':'')+' style="width:22px;height:22px"></label>'
+      +(trackWater()?'<label class="row" style="justify-content:space-between;align-items:center;font-size:15px"><span>💧 Water reminders</span><input type="checkbox" id="pgTipW"'+(tipsOn('tipsWater')?' checked':'')+' style="width:22px;height:22px"></label>':'')
+      +'<div class="meta" style="font-weight:400">Track water off: no water tile, tips or reminders. Protein and calorie tips always stay on.</div><div id="pgPush"></div>'
       +'<button class="btn out" id="pgProfile" style="min-height:44px">Edit details</button></div>';
     return o;
   })();
@@ -2362,7 +2365,8 @@ function renderProgress(){
   var ac=$('#pgAskCoach'); if(ac) ac.onclick=function(e){ e.preventDefault(); go('chat'); };
   document.querySelectorAll('[data-go]').forEach(function(b){ b.onclick=function(){ go(b.dataset.go); }; });
   var sk=$('#pgShowK'); if(sk) sk.onchange=function(){ S.program.settings=Object.assign({},S.program.settings,{showKcal:sk.checked}); S.program.updated_ms=now(); write('nutrition_program',programRow()); renderProgress(); };
-  [['#pgTipW','tipsWater'],['#pgTipS','tipsSteps']].forEach(function(x){ var c=$(x[0]); if(c) c.onchange=function(){ var ch={}; ch[x[1]]=c.checked; S.program.settings=Object.assign({},S.program.settings,ch); S.program.updated_ms=now(); write('nutrition_program',programRow()); toast(c.checked?'Tips on':'Tips off'); }; });
+  try{ if(window.KFitClientPush&&$('#pgPush')) KFitClientPush.card($('#pgPush'),{sb:sb,mobile:S.mobile,app:'nutrition',nudge:true}); }catch(e){}
+  [['#pgTipW','tipsWater'],['#pgTrackW','trackWater']].forEach(function(x){ var c=$(x[0]); if(c) c.onchange=function(){ var ch={}; ch[x[1]]=c.checked; S.program.settings=Object.assign({},S.program.settings,ch); S.program.updated_ms=now(); write('nutrition_program',programRow()); toast(c.checked?'On':'Off'); renderProgress(); }; });
 }
 function calorieCard(){
   var t=targets(), p=profile(); if(!p) return '';
