@@ -69,6 +69,11 @@ html,body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-seri
    icon buttons (their labels stay for screen readers). */
 @media (max-width:480px){
 .header .date-chip{font-size:13px;padding:4px 8px;}
+/* header fits a 360-390px phone without spilling sideways */
+.header{padding-left:12px;padding-right:12px;gap:6px}
+.header .date-chip{font-size:12px;padding:4px 7px}
+.header>div:last-child{gap:4px!important}
+#homeBtn,#logoutBtn,#kfPrintBtn{padding:5px 7px!important}
 .header .hdr-lbl{display:none;}
 #homeBtn{padding:5px 8px !important;font-size:.95rem !important;}
 #logoutBtn{padding:5px 9px !important;font-size:.72rem !important;}
