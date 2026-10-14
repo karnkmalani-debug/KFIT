@@ -7135,16 +7135,16 @@ function kfMsgSheet(o){ return new Promise(function(res){
   kfSheet('<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:21px">'+ncEsc(o.title)+'</div>'+(o.sub?'<div style="font-size:13px;color:var(--muted);line-height:1.45">'+o.sub+'</div>':'')
     +'<div style="font-size:12px;font-weight:700;color:var(--muted)">'+ncEsc(o.label||'Message she sees in her app (optional)')+'</div>'
     +'<textarea id="kfMsgT" style="min-height:110px;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:16px;line-height:1.4"></textarea>'
-    +'<div style="display:flex;gap:8px"><button id="kfMsgOk" style="flex:1;border:none;border-radius:12px;padding:13px;background:var(--sage);color:#fff;font-weight:800;font-family:inherit;font-size:15px;cursor:pointer">'+ncEsc(o.ok||'Save')+'</button>'
-    +'<button id="kfMsgNo" style="border:1px solid var(--border);border-radius:12px;padding:13px 16px;background:none;color:var(--text);font-family:inherit;font-size:15px;cursor:pointer">Cancel</button></div>',
+    +'<div style="display:flex;gap:8px"><button id="kfMsgNo" style="border:1px solid var(--border);border-radius:12px;padding:13px 16px;background:none;color:var(--text);font-family:inherit;font-size:15px;cursor:pointer">Cancel</button>'
+    +'<button id="kfMsgOk" style="flex:1;border:none;border-radius:12px;padding:13px;background:var(--sage);color:#fff;font-weight:800;font-family:inherit;font-size:15px;cursor:pointer">'+ncEsc(o.ok||'Save')+'</button></div>',
     function(ov,close){ var ta=ov.querySelector('#kfMsgT'); ta.value=o.text||''; ov.querySelector('#kfMsgOk').onclick=function(){ var v=ta.value.trim(); if(o.need&&!v){ ta.focus(); return; } close(); res(v); };
       ov.querySelector('#kfMsgNo').onclick=function(){ close(); res(null); }; ov.addEventListener('click',function(e){ if(e.target===ov) res(null); }); }); }); }
 // one value typed in (a number, a name...); returns the text or null
 function kfAsk(title,sub,val,opt){ opt=opt||{}; return new Promise(function(res){
   kfSheet('<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:21px">'+ncEsc(title)+'</div>'+(sub?'<div style="font-size:13px;color:var(--muted)">'+ncEsc(sub)+'</div>':'')
     +'<input id="kfAskI" '+(opt.num?'inputmode="decimal"':'')+' style="padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:17px">'
-    +'<div style="display:flex;gap:8px"><button id="kfAskOk" style="flex:1;border:none;border-radius:12px;padding:13px;background:var(--sage);color:#fff;font-weight:800;font-family:inherit;font-size:15px;cursor:pointer">'+ncEsc(opt.ok||'Save')+'</button>'
-    +'<button id="kfAskNo" style="border:1px solid var(--border);border-radius:12px;padding:13px 16px;background:none;color:var(--text);font-family:inherit;font-size:15px;cursor:pointer">Cancel</button></div>',
+    +'<div style="display:flex;gap:8px"><button id="kfAskNo" style="border:1px solid var(--border);border-radius:12px;padding:13px 16px;background:none;color:var(--text);font-family:inherit;font-size:15px;cursor:pointer">Cancel</button>'
+    +'<button id="kfAskOk" style="flex:1;border:none;border-radius:12px;padding:13px;background:var(--sage);color:#fff;font-weight:800;font-family:inherit;font-size:15px;cursor:pointer">'+ncEsc(opt.ok||'Save')+'</button></div>',
     function(ov,close){ var i=ov.querySelector('#kfAskI'); i.value=val==null?'':String(val); setTimeout(function(){ i.focus(); try{ i.select(); }catch(e){} },60);
       i.onkeydown=function(e){ if(e.key==='Enter') ov.querySelector('#kfAskOk').click(); };
       ov.querySelector('#kfAskOk').onclick=function(){ close(); res(i.value); }; ov.querySelector('#kfAskNo').onclick=function(){ close(); res(null); };
@@ -7729,7 +7729,7 @@ async function ncBillRender(cid){
       +'<div id="ncNewCons_'+cid+'" style="display:none;margin-top:8px"><div style="font-size:13px;margin-bottom:6px">Date: '+dateBtn(ncToday(),'id="ncCDay_'+cid+'"','<span id="ncCDayTxt_'+cid+'">'+nice(ncToday())+'</span>')+' <span style="font-size:11px;color:var(--muted)">(tap to change)</span></div>'
       +'<textarea id="ncCNote_'+cid+'" placeholder="What you discussed" style="width:100%;min-height:64px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit"></textarea>'
       +'<div id="ncCFiles_'+cid+'"></div><button class="kf-act" id="ncCAttach_'+cid+'" style="margin-top:6px;padding:6px 12px;font-size:13px">📎 Add photo or video</button>'
-      +'<div style="display:flex;gap:6px;margin-top:6px"><button class="kf-act main" id="ncCAdd_'+cid+'">Save consult</button><button class="kf-act" id="ncCCancel_'+cid+'">Cancel</button></div></div></div></div>';
+      +'<div style="display:flex;gap:6px;margin-top:6px"><button class="kf-act" id="ncCCancel_'+cid+'">Cancel</button><button class="kf-act main" id="ncCAdd_'+cid+'" style="margin-left:auto">Save consult</button></div></div></div></div>';
     html+=line+'<div style="display:flex;gap:10px">'+node(I.paid?'#8FD1A2':'#E39A6E',true)+'<div style="font-size:14px"><b>Renews</b> '+dateBtn(I.renew,'data-bdate="renew"')+' <span style="font-size:12px;color:'+(I.paid?'var(--sage)':'var(--terra)')+'">'+(I.paid?'paid':'unpaid')+'</span></div></div>';
     html+='<div style="font-size:12px;color:var(--muted);margin-top:10px">Consults repeat weekly from the last one. Tap any date to change it.</div>';
   }
@@ -7799,7 +7799,7 @@ async function ncBillRender(cid){
     box.innerHTML='<div style="font-size:14px;margin-bottom:6px"><b>Consult</b> '+dateBtn(day,'data-ed="day"','<span data-ed="daytxt">'+nice(day)+'</span>')+' <span style="font-size:11px;color:var(--muted)">tap the date to change it</span></div>'
       +'<textarea data-ed="notes" style="width:100%;min-height:56px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit">'+ncEsc(c.notes||'')+'</textarea>'
       +'<div data-ed="files"></div><button class="kf-act" data-ed="attach" style="padding:6px 12px;font-size:13px;margin-top:4px">📎 Add photo or video</button>'
-      +'<div style="display:flex;gap:6px;margin:6px 0"><button class="kf-act main" data-ed="save">Save</button><button class="kf-act" data-ed="cancel">Cancel</button><button class="kf-act" data-ed="del" style="margin-left:auto;border-color:var(--terra);color:var(--terra)">Delete</button></div>';
+      +'<div style="display:flex;gap:6px;margin:6px 0"><button class="kf-act" data-ed="del" style="border-color:var(--terra);color:var(--terra)">Delete</button><button class="kf-act" data-ed="cancel" style="margin-left:auto">Cancel</button><button class="kf-act main" data-ed="save">Save</button></div>';
     var efiles=(Array.isArray(c.files)?c.files:[]).slice(), CMe=window.KFitConsultMedia;
     var IDSe={meals:cid,chat:'kfit__'+cid.slice(6)};
     function drawE(){ var bx=row.querySelector('[data-ed="files"]'); if(!bx||!CMe) return; bx.innerHTML=CMe.html(efiles,{removable:true,keepable:true}); CMe.hydrate(getSB(),bx,'Consult');
@@ -8269,8 +8269,7 @@ function kfEditBox(o){
   ov.innerHTML='<div style="background:var(--surf,#1b1b1b);color:var(--text);border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));width:100%;max-width:560px;display:flex;flex-direction:column;gap:10px">'
     +'<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:21px">'+ncEsc(o.title||'Edit')+'</div>'+(o.sub?'<div style="font-size:12px;color:var(--muted)">'+ncEsc(o.sub)+'</div>':'')
     +'<textarea id="kfEditText" style="min-height:140px;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--surf2);color:var(--text);font-family:inherit;font-size:16px;line-height:1.5"></textarea>'
-    +'<div style="display:flex;gap:8px"><button id="kfEditSave" style="flex:1;border:none;border-radius:12px;padding:12px;background:var(--sage);color:#fff;font-weight:800;font-family:inherit;font-size:15px">Save</button><button id="kfEditCancel" style="flex:1;border:1px solid var(--border);border-radius:12px;padding:12px;background:none;color:var(--text);font-weight:700;font-family:inherit;font-size:15px">Cancel</button>'
-    +(o.onDelete?'<button id="kfEditDel" style="border:1px solid var(--terra);border-radius:12px;padding:12px 14px;background:none;color:var(--terra);font-weight:700;font-family:inherit;font-size:15px">Delete</button>':'')+'</div>'
+    +'<div style="display:flex;gap:8px">'+(o.onDelete?'<button id="kfEditDel" style="border:1px solid var(--terra);border-radius:12px;padding:12px 14px;background:none;color:var(--terra);font-weight:700;font-family:inherit;font-size:15px">Delete</button>':'')+'<button id="kfEditCancel" style="flex:1;border:1px solid var(--border);border-radius:12px;padding:12px;background:none;color:var(--text);font-weight:700;font-family:inherit;font-size:15px">Cancel</button><button id="kfEditSave" style="flex:1;border:none;border-radius:12px;padding:12px;background:var(--sage);color:#fff;font-weight:800;font-family:inherit;font-size:15px">Save</button>'+'</div>'
     +'<div style="font-size:11px;color:var(--muted)">They see "edited" on the note.</div></div>';
   document.body.appendChild(ov);
   var ta=ov.querySelector('#kfEditText'); ta.value=o.text||''; setTimeout(function(){ ta.focus(); ta.setSelectionRange(ta.value.length,ta.value.length); },50);
@@ -8405,6 +8404,8 @@ function kfNavBack(){ try{ history.back(); }catch(e){} }
 function kfNavBackTo(name){ var k=0; for(var i=kfNav.length-1;i>=0;i--){ k++; if(kfNav[i].name===name&&!kfNav[i].dead){ try{ history.go(-k); }catch(e){} return true; } } return false; }
 function kfNavClearAll(){ kfNav.forEach(function(x){ x.dead=true; }); }
 window.addEventListener('popstate',function(e){
+  // the photo viewer closing (its ✕ or the phone's Back) is its own step: don't leave the page too
+  if(document.getElementById('kfViewer')||(window.__kfViewerPop&&Date.now()-window.__kfViewerPop<1500)){ window.__kfViewerPop=0; return; }
   var d=(e.state&&e.state.kfNav)||0, acted=false;
   while(kfNav.length>d){ var t=kfNav.pop(); if(!t.dead){ acted=true; try{ t.onBack(); }catch(err){ console.warn('back',err); } } }
   // only used steps went: keep going back to the next real one

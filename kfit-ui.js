@@ -55,7 +55,7 @@
     if(o.el.parentNode) o.el.parentNode.removeChild(o.el);
     document.documentElement.style.overflow=o.prevOverflow;
     try{ window.scrollTo(o.sx,o.sy); }catch(e){}
-    if(!fromPop){ try{ if(history.state&&history.state.kfViewer) history.back(); }catch(e){} }
+    if(!fromPop){ try{ if(history.state&&history.state.kfViewer){ global.__kfViewerPop=Date.now(); history.back(); } }catch(e){} }
   }
   function viewer(urls,index,caption){
     urls=(urls||[]).filter(Boolean); if(!urls.length||typeof document==='undefined') return;
@@ -98,8 +98,7 @@
     ov.innerHTML='<div style="background:#1B1C17;color:#F2EFE8;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));width:100%;max-width:560px;display:flex;flex-direction:column;gap:10px">'
       +'<div style="font-size:19px;font-weight:700">'+esc(o.title||'')+'</div>'+(o.sub?'<div style="font-size:13px;color:#9C978A;line-height:1.4">'+esc(o.sub)+'</div>':'')
       +(o.multi?'<textarea id="kfuiA" style="'+fld+';min-height:110px;line-height:1.4"></textarea>':'<input id="kfuiA" '+(o.num?'inputmode="decimal"':'')+' style="'+fld+'">')
-      +'<div style="display:flex;gap:8px"><button id="kfuiOk" style="flex:1;border:none;border-radius:12px;padding:13px;background:#5E7A5A;color:#fff;font-weight:800;font-family:inherit;font-size:15px">'+esc(o.ok||'Save')+'</button>'
-      +'<button id="kfuiNo" style="border:1px solid #3A3B33;border-radius:12px;padding:13px 16px;background:none;color:#F2EFE8;font-family:inherit;font-size:15px">Cancel</button></div></div>';
+      +'<div style="display:flex;gap:8px"><button id="kfuiNo" style="border:1px solid #3A3B33;border-radius:12px;padding:13px 16px;background:none;color:#F2EFE8;font-family:inherit;font-size:15px">Cancel</button><button id="kfuiOk" style="flex:1;border:none;border-radius:12px;padding:13px;background:#5E7A5A;color:#fff;font-weight:800;font-family:inherit;font-size:15px">'+esc(o.ok||'Save')+'</button></div></div>';
     document.body.appendChild(ov); var i=ov.querySelector('#kfuiA'); i.value=o.value==null?'':String(o.value); setTimeout(function(){ i.focus(); },60);
     function done(v){ ov.remove(); res(v); }
     if(!o.multi) i.onkeydown=function(e){ if(e.key==='Enter') done(i.value); };
