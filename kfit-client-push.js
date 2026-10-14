@@ -69,5 +69,24 @@
     try{ if(/[?&]open=/.test(location.search)){ var u=location.pathname+location.search; setTimeout(function(){ fn(u); try{ history.replaceState(null,'',location.pathname); }catch(e){} },1200); } }catch(e){}
     try{ navigator.serviceWorker&&navigator.serviceWorker.addEventListener('message',function(ev){ if(ev.data&&ev.data.type==='kfit-open') fn(ev.data.url); }); }catch(e){}
   }
-  global.KFitClientPush={card:card,onOpen:onOpen,turnOn:turnOn,turnOff:turnOff};
+  // Asked once, at a good moment (right after the first meal or workout is saved), instead of a card on the home page.
+  async function askOnce(opts){
+    try{ if(localStorage.getItem('kfit_push_asked')) return; }catch(e){ return; }
+    if(!supported()||Notification.permission!=='default') return;
+    if(iPhone()&&!standalone()) return;
+    if(await current()) return;
+    try{ localStorage.setItem('kfit_push_asked','1'); }catch(e){}
+    var nut=opts.app!=='fitness';
+    var ov=document.createElement('div'); ov.style.cssText='position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center';
+    ov.innerHTML='<div style="background:#1B1C17;color:#F2EFE8;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));width:100%;max-width:560px;display:flex;flex-direction:column;gap:10px;font-family:inherit">'
+      +'<div style="font-size:20px;font-weight:700">🔔 Get reminders on your phone?</div>'
+      +'<div style="font-size:15px;line-height:1.45;color:#C9C4B8">'+(nut?'A short morning note, a reminder after dinner if a meal isn\'t logged, and a buzz when your coach replies. Never more than two reminders a day.':'A buzz when your coach replies, sends a workout or decides on a change you asked for.')+'</div>'
+      +'<div style="display:flex;gap:8px"><button data-k="no" style="border:1px solid #3A3B33;border-radius:12px;padding:13px 16px;background:none;color:#F2EFE8;font-family:inherit;font-size:15px">Not now</button>'
+      +'<button data-k="yes" style="flex:1;border:none;border-radius:12px;padding:13px;background:#5E7A5A;color:#fff;font-weight:800;font-family:inherit;font-size:15px">Turn on</button></div>'
+      +'<div style="font-size:12px;color:#9C978A">'+(nut?'You can change this any time in My progress → Your details.':'You can change this any time from ⋯ at the top.')+'</div></div>';
+    document.body.appendChild(ov);
+    ov.querySelector('[data-k="no"]').onclick=function(){ ov.remove(); };
+    ov.querySelector('[data-k="yes"]').onclick=async function(){ ov.remove(); await turnOn(opts.sb,opts.mobile,opts.app||'nutrition'); };
+  }
+  global.KFitClientPush={card:card,onOpen:onOpen,turnOn:turnOn,turnOff:turnOff,askOnce:askOnce,isOn:async function(){ return !!(await current())&&Notification.permission==='granted'; }};
 })(window);

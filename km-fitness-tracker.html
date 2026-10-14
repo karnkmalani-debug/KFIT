@@ -72,6 +72,11 @@ html,body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-seri
 /* header fits a 360-390px phone without spilling sideways */
 .header{padding-left:12px;padding-right:12px;gap:6px}
 .header .date-chip{font-size:12px;padding:4px 7px}
+#logoutBtn,#kfPrintBtn{display:none!important}
+#kfMoreBtn{background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 9px;color:var(--muted);font-size:15px;font-weight:800;cursor:pointer;line-height:1}
+#kfMoreMenu{position:fixed;right:12px;top:calc(56px + env(safe-area-inset-top,0px));z-index:400;background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:6px;display:flex;flex-direction:column;min-width:200px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#kfMoreMenu button{background:none;border:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;text-align:left;padding:11px 12px;border-radius:8px;cursor:pointer}
+#kfMoreMenu button:active{background:var(--surf2)}
 .header>div:last-child{gap:4px!important}
 #homeBtn,#logoutBtn,#kfPrintBtn{padding:5px 7px!important}
 .header .hdr-lbl{display:none;}
@@ -743,9 +748,10 @@ function kfAskWho(done){
     // which coach this person is with now (their chat starts fresh with a new coach)
     try{ if(!window.kfCoachId) getSB().rpc('kfit_my_coaching',{p_mobile:m}).then(function(r){ if(r&&r.data&&r.data.status==='ok') window.kfCoachId=r.data.coach||null; },function(){}); }catch(e){}
     try{ KFitSteps.mount(document.getElementById('kfStepsBox'),{sb:getSB(),mobile:m,collapsed:true}); }catch(e){}
+    try{ kfTidyLog(); }catch(e){}
     // her details from the nutrition app too (age, sex, height, latest weigh-in), so she enters them once
     try{ getSB().rpc('kfit_my_body',{p_mobile:m}).then(function(r){ if(r&&r.data&&r.data.status==='ok'){ window.kfBody=r.data; try{ localStorage.setItem('kmfit_body',JSON.stringify(r.data)); }catch(e){} if(typeof estimateSessionCalories==='function') try{ estimateSessionCalories(); }catch(e){} } },function(){}); }catch(e){}
-    try{ if(window.KFitClientPush) KFitClientPush.card(document.getElementById('kfPushBox'),{sb:getSB(),mobile:m,app:'fitness',compact:true,line:true}); }catch(e){}
+
     try{ if(window.KFitClientPush&&!go._push){ go._push=1; KFitClientPush.onOpen(function(u){ if(/open=chat/.test(u)&&typeof goTab==='function') goTab(6); }); } }catch(e){}
   }
   setTimeout(go,2500);
@@ -2600,6 +2606,7 @@ document.getElementById('setupScreen').style.display='none';
 document.getElementById('mainApp').style.display='block';
 document.querySelector('.rest-bar').classList.add('visible');
 updateDateChip(); buildBpGrid(); setTodayDate(); updateTimeChip();
+try{ kfHeaderMore(); kfTidyLog(); }catch(e){}
 
 // Logging out doesn't mean anything useful in coach preview -- Merge's own
 // close button is what actually exits this view -- and tapping it risked
@@ -5054,7 +5061,31 @@ histEl.innerHTML=
 +'</div>';
 }
 
+// The log page: exercises come first; steps and "Train smart" sit under Save Session.
+function kfTidyLog(){
+var save=document.getElementById('saveSessionBtn'); if(!save) return; var row=save.parentElement; if(!row||row._kfTidy) return; row._kfTidy=1;
+var after=row, phil=document.getElementById('philoBodyFit'), card=phil&&phil.closest('.card');
+['kfStepsBox','kfPushBox'].forEach(function(id){ var e=document.getElementById(id); if(e){ e.style.marginTop='14px'; after.insertAdjacentElement('afterend',e); after=e; } });
+if(card){ card.style.marginTop='14px'; after.insertAdjacentElement('afterend',card); }
+}
+// ⋯ in the header: print, notifications, log out
+function kfHeaderMore(){
+if(document.getElementById('kfMoreBtn')) return; var home=document.getElementById('homeBtn'); if(!home) return;
+var b=document.createElement('button'); b.id='kfMoreBtn'; b.type='button'; b.setAttribute('aria-label','More'); b.textContent='⋯';
+home.insertAdjacentElement('afterend',b);
+b.onclick=async function(e){ e.stopPropagation(); var m=document.getElementById('kfMoreMenu'); if(m){ m.remove(); return; }
+  m=document.createElement('div'); m.id='kfMoreMenu';
+  var on=false; try{ on=window.KFitClientPush&&KFitClientPush.isOn?await KFitClientPush.isOn():false; }catch(e2){}
+  m.innerHTML='<button type="button" data-k="print">🖨 Print this screen</button>'+(window.__KFIT_COACH_PREVIEW__?'':'<button type="button" data-k="push">🔔 Notifications'+(on?' · on ✓':'')+'</button><button type="button" data-k="out" style="color:var(--terra)">Log out</button>');
+  document.body.appendChild(m);
+  m.querySelectorAll('button').forEach(function(x){ x.onclick=async function(){ m.remove(); var k=x.dataset.k;
+    if(k==='print'){ var p=document.getElementById('kfPrintBtn'); if(p) p.click(); else window.print(); }
+    else if(k==='push'){ if(on){ if(confirm('Turn off notifications on this phone?')) await KFitClientPush.turnOff(getSB()); } else if(window.KFitClientPush) await KFitClientPush.turnOn(getSB(),localStorage.getItem('kmfit_mobile')||'','fitness'); }
+    else if(k==='out') logout(); }; });
+  setTimeout(function(){ document.addEventListener('click',function h(ev){ if(!m.contains(ev.target)){ m.remove(); document.removeEventListener('click',h); } }); },0); };
+}
 function showSaveConfirmation(estCal){
+try{ if(!window.__KFIT_COACH_PREVIEW__&&window.KFitClientPush&&KFitClientPush.askOnce) setTimeout(function(){ KFitClientPush.askOnce({sb:getSB(),mobile:localStorage.getItem('kmfit_mobile')||'',app:'fitness'}); },1800); }catch(e){}
 var overlay=document.getElementById('saveConfirmOverlay');
 var card=document.getElementById('saveConfirmCard');
 if(!overlay||!card) return;
@@ -8010,7 +8041,12 @@ ansEl.style.display='block';
 document.getElementById('faqChevron'+i).innerHTML='&#9650;';
 }
 
+function kfHideEmptyStats(){
+try{ document.querySelectorAll('.rst-row').forEach(function(r){ var v=r.querySelector('.rst-val'); var e=v&&/^\s*(--|–|-)?\s*$/.test(v.textContent); r.style.display=e?'none':''; });
+  document.querySelectorAll('.rst-row').forEach(function(r){ var c=r.closest('.card'); if(!c) return; var any=[].some.call(c.querySelectorAll('.rst-row'),function(x){return x.style.display!=='none';}); c.style.display=any?'':'none'; }); }catch(e){}
+}
 function renderStats(){
+setTimeout(kfHideEmptyStats,0);
 const target=+localStorage.getItem('kmfit_target')||4;
 const now=new Date();
 const dow=now.getDay()===0?6:now.getDay()-1;
@@ -8844,6 +8880,7 @@ const HELP_TEXT=[
 '<b>11. You can\'t lose your work</b><br>Everything you type is saved as a draft automatically, even if you close the app halfway through a workout and come back later. It only becomes a real, permanent entry in your History once you tap "Save Session" at the bottom. This also covers editing a past session from History mid-workout: your in-progress session is safely tucked away while you edit, and comes right back once you\'re done.<br><br>'+
 '<b>11b. Training with a coach?</b><br>If your coach has marked you as their client, just tap Save -- no questions. Your coach marks in Merge any session you did on your own, so it isn\'t billed. Forgot to log one? Add it for any date and it saves straight away. Editing or deleting a saved session still sends a request to your coach -- you\'ll see a ⏳ tag until they approve or decline.<br><br>'+
 '<b>12. Logging a workout from a past day</b><br>Forgot to log yesterday? Tap the date at the very top of the screen (next to the KFit logo) -- it opens your phone\'s own calendar so you can pick any earlier date and log for that day instead of today. If that day already has a workout logged, you\'ll get asked whether to edit it or add another one -- useful if you train twice in a day.<br><br>'+
+'<b>12b. The ⋯ button at the top</b><br>Tap ⋯ next to 🏠 to print this screen, turn phone notifications on or off, or log out. Your steps and the Train Smart guide sit under Save Session, so your exercises come first. In Stats, rows with nothing to show yet stay hidden.<br><br>'+
 '<b>13. Exercise isn\'t in the list?</b><br>Scroll to the bottom of the exercise list and tap "Suggest a new exercise to your coach." It gets sent to your coach, who can add it permanently so it shows up for everyone next time.'},
 {title:'History',body:
 '<b>What this page is</b><br>Every workout you\'ve saved, newest first.<br><br>'+
