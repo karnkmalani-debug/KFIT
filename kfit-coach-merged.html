@@ -68,6 +68,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .form-group{margin-bottom:14px;}
 .form-label{font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
 .form-inp{width:100%;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:11px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;-webkit-appearance:none;}
+.kf-sets{width:auto!important;min-width:86px;height:34px;box-sizing:border-box;border:1.5px solid #C9A24A!important;border-radius:17px!important;background:transparent!important;color:#C9A24A!important;font-size:14px!important;font-weight:800;padding:0 10px!important}
 .reorder-stack{display:flex;flex-direction:column;gap:1px;flex-shrink:0;border:1.5px solid var(--muted2);border-radius:8px;overflow:hidden;}
 .hist-filter-pill{padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;display:inline-block;}
 .reorder-stack button{width:32px;height:21px;min-width:32px;font-size:14px;font-weight:700;border-radius:0;border:none;border-bottom:1px solid var(--muted2);background:var(--surf3);color:var(--muted2);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
@@ -4913,7 +4914,7 @@ function renderAsSupersets(){
               <button class="move-btn-down" onclick="moveAsSupersetEx('${ss.id}','${e.id}',1,this)" ${i===ss.exercises.length-1?'disabled':''} title="Move down">⇧</button>
             </div>
             ${exSelectHtml(e.id,e.ex,`updateAsSupersetEx('${ss.id}','${e.id}','ex',this.value)`)}
-            <select class="form-inp" onchange="updateAsSupersetExSets('${ss.id}','${e.id}',this.value)" style="font-size:14px;width:64px;">
+            <select class="form-inp kf-sets" onchange="updateAsSupersetExSets('${ss.id}','${e.id}',this.value)">
               ${Array.from({length:25},(_,i)=>i+1).map(n=>`<option value="${n}"${n===e.sets?' selected':''}>${n} set${n>1?'s':''}</option>`).join('')}
             </select>
             <button onclick="removeAsSupersetEx('${ss.id}','${e.id}')" style="background:none;border:none;color:var(--muted2);font-size:18px;cursor:pointer;">✕</button>
@@ -4974,7 +4975,7 @@ function renderAsExercises(){
           <button class="move-btn-down" onclick="moveAsExercise('${b.id}',1,this)" ${bi===asExercises.length-1?'disabled':''} title="Move down">⇧</button>
         </div>
         ${b.collapsed?`<div style="flex:1;font-size:15px;font-weight:600;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${b.ex||'-- Exercise --'} · ${b.sets} set${b.sets>1?'s':''}</div>`:exSelectHtml(b.id,b.ex,`updateAsExercise('${b.id}','ex',this.value)`)}
-        ${b.collapsed?'':`<select class="form-inp" onchange="updateAsExSets('${b.id}',this.value)" style="font-size:14px;width:64px;">
+        ${b.collapsed?'':`<select class="form-inp kf-sets" onchange="updateAsExSets('${b.id}',this.value)">
           ${Array.from({length:25},(_,i)=>i+1).map(n=>`<option value="${n}"${n===b.sets?' selected':''}>${n} set${n>1?'s':''}</option>`).join('')}
         </select>`}
         <button class="collapse-btn" onclick="toggleAsExCollapse('${b.id}')" title="${b.collapsed?'Expand':'Collapse'}">${b.collapsed?'⌄':'⌃'}</button>
