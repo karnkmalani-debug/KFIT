@@ -7435,7 +7435,10 @@ var NC_WORKER='https://kfit-gemini.karnkmalani.workers.dev';
 var ncState={};
 // water in ml -> "750 ml" or "1.5 L"
 function kfWater(ml){ ml=Math.round(ml); if(ml<1000) return ml+' ml'; return String(Math.round(ml/10)/100).replace(/\.?0+$/,'')+' L'; }
-function kfAmPm(t){ var p=String(t||'').split(':'); if(p.length<2) return t; var h=+p[0], m=p[1].slice(0,2); return ((h%12)||12)+':'+m+(h<12?' am':' pm'); }
+function kf24(t){ var x=kfAmPm(t), mt=String(x||'').match(/^(\d{1,2}):(\d{2}) (am|pm)$/); if(!mt) return String(t||''); var h=+mt[1]%12+(mt[3]==='pm'?12:0); return (h<10?'0':'')+h+':'+mt[2]; }
+// "21:32", "9:32 PM" and "09:32 pm" all become "9:32 pm" (the fitness app saves 12-hour times)
+function kfAmPm(t){ var s=String(t||'').trim(), mt=s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([ap])?\.?\s*m?\.?$/i); if(!mt) return t;
+  var h=+mt[1], m=mt[2], ap=(mt[3]||'').toLowerCase(); if(ap==='p'&&h<12) h+=12; if(ap==='a'&&h===12) h=0; return ((h%12)||12)+':'+m+(h<12?' am':' pm'); }
 function ncDayLabel(d){var p=d.split('-');return new Date(+p[0],+p[1]-1,+p[2]).toDateString().slice(0,10);}
 function ncSlotFor(h){return h<10?'Breakfast':h<12?'Morning snack':h<15?'Lunch':h<18?'Evening snack':h<22?'Dinner':'Late snack';}
 async function ncLoadWeek(cid){
@@ -8656,7 +8659,7 @@ async function kfFitDaysRender(c,el){
     entries.push({rec:r,date:r.session_date,time:r.session_time||'',label:(r.activity&&r.activity.trim())||(r.body_parts&&r.body_parts.trim())||r.workout_type||'',paid:kfBilled(r)?!!r.paid:null,row:hit?hit.x:null,ri:hit?hit.i:-1});
   });
   rows.forEach(function(x,i){ if(!used[i]) entries.push({date:x.session_date,time:x.time_of_day||'',label:'',paid:null,row:x,ri:i}); });
-  entries.sort(function(a,b){ return (b.date+b.time).localeCompare(a.date+a.time); });
+  entries.sort(function(a,b){ return (b.date+kf24(b.time)).localeCompare(a.date+kf24(a.time)); });
   if(!entries.length){ el.innerHTML='<div class="kf-row" style="cursor:default;justify-content:center;color:var(--muted)">No workouts logged yet.</div>'; return; }
   // ---- the pieces each session needs, worked out once ----
   function info(en){
@@ -8675,7 +8678,7 @@ async function kfFitDaysRender(c,el){
     var kind=nStr?'strength':nC?'cardio':nF?'functional':(en.row?'strength':'class');
     return {b:b,ex:ex,pr:pr,bp:bp,title:title,emoji:tEmoji,sub:sub,dur:dur,kind:kind,itemLine:itemLine,billed:en.rec?kfBilled(en.rec):null};
   }
-  function time12(t){ t=String(t||'').slice(0,5); if(!/^\d{1,2}:\d{2}$/.test(t)) return t; var h=+t.split(':')[0], m=t.split(':')[1]; return (h%12||12)+':'+m+(h<12?' am':' pm'); }
+  function time12(t){ return kfAmPm(t); }
   function niceDay(d){ var x=new Date(d+'T12:00:00'); return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][x.getDay()]+' '+x.getDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][x.getMonth()]; }
   var H=window.kfFitHist=window.kfFitHist||{};
   if(H.who!==m){ H.who=m; H.wk=null; H.sel=null; H.menu=false; }
