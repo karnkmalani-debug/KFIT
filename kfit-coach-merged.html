@@ -7954,6 +7954,9 @@ async function ncDaysRender(cid){
           +'</div>'
           +(r.items&&r.items.length?'<div style="display:flex;flex-direction:column;gap:2px;margin:4px 0">'+r.items.map(function(it){return '<div class="nc-food">'+(it.drink?kfDrinkEmoji(it.name,it.drink)+' ':'')+ncEsc(it.name)+' · <span class="nc-time">'+ncEsc((it.amount===0.5?'½':it.amount===0.25?'¼':it.amount===0.75?'¾':it.amount===1.5?'1½':it.amount===2.5?'2½':it.amount)+(it.unit?' '+it.unit:''))+'</span>'+(it.kcal?' <span style="color:var(--muted)">~'+it.kcal+'</span>':'')+'</div>';}).join('')+'</div>'
              :(r.text&&r.text.length>38?'<div class="nc-food">'+ncEsc(kfReiconText(r.text))+'</div>':''))
+          +(function(){ var its=(r.items||[]).filter(function(it){return it.pg!=null||it.cg!=null||it.fg!=null;}); if(!its.length) return '';
+              var P=0,C=0,F=0,B=0; its.forEach(function(it){P+=+it.pg||0;C+=+it.cg||0;F+=+it.fg||0;B+=+it.fib||0;});
+              return '<div style="font-size:12px;margin:2px 0 4px"><span style="color:var(--muted)">Net:</span> <b style="color:#8FD1A2">'+Math.round(P)+' g protein</b> · <b style="color:#C9A24A">'+Math.max(0,Math.round(C-B))+' g net carbs</b> · <b style="color:#E39A6E">'+Math.round(F)+' g fats</b> · <b style="color:#8FB3D9">'+Math.round(B)+' g fibre</b></div>'; })()
           +(r.edited||r.noPhoto?'<div style="font-size:11px;color:var(--muted)">'+[r.edited?'adjusted the AI\'s amounts':'',r.noPhoto?'no photo · from their words':''].filter(Boolean).join(' · ')+'</div>':'')
           +((r.photos||[]).length?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+r.photos.map(function(pth){return '<img data-ncph="'+ncEsc(pth)+'" alt="Meal photo" style="width:64px;height:64px;border-radius:8px;object-fit:cover;background:#333;cursor:pointer">';}).join('')+'</div>':'')
           +(r.meal_id?thread(th,'m|'+r.meal_id+'|'+d,'Note on this meal…'):thread([], 's|'+r._i+'|'+d,'Note on this meal…'))+'</div></div>';

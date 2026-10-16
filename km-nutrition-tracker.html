@@ -1703,14 +1703,25 @@ async function retryEstimate(mealId,quiet){
 // slow and doesn't improve the estimate). The file box is set up fresh every
 // time, so a cancelled camera never sticks.
 var AI_PHOTOS=10;
+// A full-screen "please wait" so the screen never looks stuck
+function waitOv(msg){
+  var o=document.getElementById('kfWait'); if(!msg){ if(o) o.remove(); return; }
+  if(!o){ o=document.createElement('div'); o.id='kfWait'; o.setAttribute('role','status');
+    o.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(12,13,10,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--ink);font-size:17px;font-weight:700;text-align:center;padding:24px';
+    o.innerHTML='<span style="width:38px;height:38px;border-radius:50%;border:4px solid var(--line2);border-top-color:var(--leaf);animation:kfspin .9s linear infinite"></span><span class="kfwt"></span><style>@keyframes kfspin{to{transform:rotate(360deg)}}</style>';
+    document.body.appendChild(o); }
+  o.querySelector('.kfwt').textContent=msg;
+}
 function pickPhotos(then,fromGallery){
   var inp=$('#photoInput'); inp.value='';
   if(fromGallery){ inp.removeAttribute('capture'); inp.setAttribute('multiple',''); } else { inp.setAttribute('capture','environment'); inp.removeAttribute('multiple'); }
   inp.onchange=async function(){
     var fs=Array.prototype.slice.call(inp.files||[]); inp.removeAttribute('capture'); inp.removeAttribute('multiple'); inp.value='';
     if(!fs.length) return;
+    waitOv(fs.length>1?'Getting your '+fs.length+' photos ready…':'Getting your photo ready…');
     var out=[];
-    for(var i=0;i<fs.length;i++){ if(fs[i].size>G_MAX){ toast('One photo was too large, skipped'); continue; } try{ out.push(await shrink(fs[i],1024,0.72)); }catch(e){ toast('Could not read one photo'); } }
+    try{ for(var i=0;i<fs.length;i++){ if(fs[i].size>G_MAX){ toast('One photo was too large, skipped'); continue; } try{ out.push(await shrink(fs[i],1024,0.72)); }catch(e){ toast('Could not read one photo'); } } }
+    finally{ waitOv(false); }
     if(out.length) then(out);
   };
   inp.click();
@@ -1747,14 +1758,16 @@ function showK(){ return !(S.program&&S.program.settings&&S.program.settings.sho
 function itemScale(it,amt){
   var b=it.base||{amount:it.amount||1,kcal:it.kcal,protein:it.protein,veg:it.veg,carbs:it.carbs,fats:it.fats}, f=(b.amount>0?amt/b.amount:1);
   function r(x){return Math.round((Number(x)||0)*f*4)/4;}
-  return Object.assign({},it,{amount:amt,kcal:Math.round((Number(b.kcal)||0)*f/5)*5,protein:r(b.protein),veg:r(b.veg),carbs:r(b.carbs),fats:r(b.fats),base:b});
+  var o=Object.assign({},it,{amount:amt,kcal:Math.round((Number(b.kcal)||0)*f/5)*5,protein:r(b.protein),veg:r(b.veg),carbs:r(b.carbs),fats:r(b.fats),base:b});
+  ['pg','cg','fg','fib'].forEach(function(k){ if(b[k]!=null) o[k]=Math.round((Number(b[k])||0)*f); });
+  return o;
 }
 function amtTxt(a){return a===0.25?'¼':a===0.5?'½':a===0.75?'¾':a===1.5?'1½':a===2.5?'2½':String(a);}
 async function aiItems(blob,text){
   var blobs=Array.isArray(blob)?blob.filter(Boolean).slice(0,AI_PHOTOS):(blob?[blob]:[]); blob=blobs.length?blobs[0]:null;
   var prompt='You are a nutrition coach. List each separate food or drink '+(blobs.length>1?'in these '+blobs.length+' photos of one meal (a food that shows in more than one photo counts once)':blob?'in this meal photo':'in this meal')+(text?(blob?' (the person adds: "':' : "')+String(text).replace(/"/g,"'").slice(0,400)+'"'+(blob?')':''):'')+'. '
     +'For each item give: name (short, plain English), amount (a number) and unit in everyday household measures (cup, bowl, piece, slice, roti, glass, tbsp, tsp, plate; for drinks also ml, can, bottle, pint, peg, shot, or a cafe cup size like tall, grande, venti, small, regular, large), '
-    +'its calories for that amount, and its hand portions: protein palms, vegetable fists, carb cupped hands, fat thumbs (0, 0.25, 0.5, 1...). '
+    +'its calories for that amount, its hand portions: protein palms, vegetable fists, carb cupped hands, fat thumbs (0, 0.25, 0.5, 1...), and the grams of nutrient in it for that amount: pg = protein grams, cg = total carbohydrate grams, fg = fat grams, fib = fibre grams (nutrient grams, not food weight: 100 g cooked chicken breast is about 30 g protein). '
     +'Drinks: give "drink" as one of zero (water, soda water, black coffee, plain tea, diet or zero-sugar soft drinks), light (coconut water, chaas, jaljeera, unsweetened nimbu pani), home (homemade chai or coffee with milk), cafe (coffee-shop drinks), dairy (milk, lassi, milkshakes, protein shakes), sugary (soft drinks, juices, energy drinks, sharbat, sweetened drinks), alcohol (beer, wine, spirits, cocktails, breezers); for food use null. '
     +'For drinks give sugar in grams. Give hand portions of 0 for all drinks except dairy drinks (their protein as palms, about 25 g of protein = 1 palm). '
     +'Alcohol calories include the alcohol itself (about 7 kcal per gram) plus any sugar; list a mixer (cola, soda, tonic, juice) as its own item. A peg is 30 ml (small) or 60 ml (large). '
@@ -1762,7 +1775,7 @@ async function aiItems(blob,text){
     +(blob?'Judge the amounts from the photo. ':'If no amount is said, assume a typical home portion. ')
     +'Also one short, kind, practical tip (max 25 words) based on: protein first, a fist of vegetables, carbs last; if there is alcohol, suggest water between drinks and protein with them; if there is a sugary drink, suggest one simple swap (nimbu pani without sugar, chaas, sparkling water). Never shame. '
     +(kLang()!=='en'?'Write the tip in '+KFitI18n.aiName()+'. ':'')
-    +'Reply ONLY with JSON: {"items":[{"name":"","amount":1,"unit":"","kcal":0,"protein":0,"veg":0,"carbs":0,"fats":0,"drink":null,"sugar":0}],"tip":""}';
+    +'Reply ONLY with JSON: {"items":[{"name":"","amount":1,"unit":"","kcal":0,"protein":0,"veg":0,"carbs":0,"fats":0,"pg":0,"cg":0,"fg":0,"fib":0,"drink":null,"sugar":0}],"tip":""}';
   var parts=[{text:prompt}]; for(var bi=0;bi<blobs.length;bi++) parts.push({inline_data:{mime_type:'image/jpeg',data:await b64(blobs[bi])}});
   var r=await fetch(GEMINI_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:parts}],generationConfig:{temperature:0.2,maxOutputTokens:2048,responseMimeType:'application/json',thinkingConfig:{thinkingBudget:0}}})});
   var j=await r.json(); var t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&(j.candidates[0].content.parts||[]).map(function(q){return q.text||'';}).join('');
@@ -1771,8 +1784,9 @@ async function aiItems(blob,text){
   var items=(o.items||[]).filter(function(x){return x&&x.name;}).slice(0,15).map(function(x){
     var big=/\b(ml|g|gm|grams?|millilit)/i.test(String(x.unit||''));
     var it={name:String(x.name).slice(0,60),amount:n(x.amount,big?3000:50)||1,unit:String(x.unit||'').slice(0,20),kcal:Math.round(n(x.kcal,3000)),protein:n(x.protein,10),veg:n(x.veg,10),carbs:n(x.carbs,10),fats:n(x.fats,10)};
+    if(x.pg!=null||x.cg!=null||x.fg!=null){ it.pg=Math.round(n(x.pg,300)); it.cg=Math.round(n(x.cg,500)); it.fg=Math.round(n(x.fg,300)); it.fib=Math.round(n(x.fib,100)); }
     if(x.drink&&DRINK_EMOJI[x.drink]){ it.drink=x.drink; if(x.sugar!=null&&isFinite(+x.sugar)) it.sugar=Math.round(n(x.sugar,500)); if(x.drink!=='dairy'){ it.protein=0; it.veg=0; it.carbs=0; it.fats=0; } }
-    it.base={amount:it.amount,kcal:it.kcal,protein:it.protein,veg:it.veg,carbs:it.carbs,fats:it.fats}; return it;});
+    it.base={amount:it.amount,kcal:it.kcal,protein:it.protein,veg:it.veg,carbs:it.carbs,fats:it.fats,pg:it.pg,cg:it.cg,fg:it.fg,fib:it.fib}; return it;});
   return {items:items,tip:String(o.tip||'').slice(0,200)};
 }
 // Type a drink from a chain or brand: matches appear; pick one and its size, and
@@ -1885,6 +1899,12 @@ function drinksLine(items){ var dr=(items||[]).filter(isDrink); if(!dr.length) r
 function itemsFeedback(items,tip){
   var f={protein:0,veg:0,carbs:0,fats:0,kcal:0,tip:tip||''};
   (items||[]).forEach(function(it){ var onPlate=!isDrink(it)||it.drink==='dairy'; if(onPlate) ['protein','veg','carbs','fats'].forEach(function(k){f[k]+=Number(it[k])||0;}); f.kcal+=Number(it.kcal)||0;});
+  var g={p:0,c:0,f:0,fib:0};
+  (items||[]).forEach(function(it){ var dr=isDrink(it)&&it.drink!=='dairy';
+    if(it.pg!=null||it.cg!=null||it.fg!=null){ g.p+=Number(it.pg)||0; g.c+=Number(it.cg)||0; g.f+=Number(it.fg)||0; g.fib+=Number(it.fib)||0; }
+    else if(!dr){ g.p+=(Number(it.protein)||0)*PALM_G; g.c+=(Number(it.carbs)||0)*25; g.f+=(Number(it.fats)||0)*8; g.fib+=(Number(it.veg)||0)*2+(Number(it.carbs)||0)*1.5; }
+    else if(it.sugar) g.c+=Number(it.sugar)||0; });
+  f.g={p:Math.round(g.p),net:Math.max(0,Math.round(g.c-g.fib)),f:Math.round(g.f),fib:Math.round(g.fib)};
   ['protein','veg','carbs','fats'].forEach(function(k){f[k]=Math.round(f[k]*2)/2;}); f.kcal=f.kcal?Math.round(f.kcal/10)*10:null;
   return f;
 }
@@ -1897,12 +1917,17 @@ function handGuide(f,slot){
   var base=men?2:1; if(snack) base=base/2;
   var T={protein:base,veg:base,carbs:base+(gain?(snack?0.5:1):0),fats:base};
   var L=[['protein','✋','Protein','palm','add egg, dal or paneer'],['veg','✊','Veg','fist','add a salad or sabzi'],['carbs','🤲','Carbs','cupped hand','less roti or rice'],['fats','👍','Fats','thumb','less oil or ghee']];
-  function n(x){ return x===0.5?'½':x===0.25?'¼':x===1.5?'1½':String(x); }
+  function n(x){ x=Math.round((Number(x)||0)*4)/4; var w=Math.floor(x), fr=x-w, f=fr===0.25?'¼':fr===0.5?'½':fr===0.75?'¾':''; return (w||!f?String(w):'')+f; }
   var rows=L.map(function(r){ var have=Number(f[r[0]])||0, want=T[r[0]], low=have<want*0.75, high=have>want*1.6;
     var say=gain&&low&&r[0]==='carbs'?'<span style="color:var(--gold)">add roti, rice or poha</span>':low&&(r[0]==='protein'||r[0]==='veg')?'<span style="color:var(--gold)">'+r[4]+'</span>':high&&(r[0]==='carbs'||r[0]==='fats')?'<span style="color:var(--gold)">'+r[4]+'</span>':'<span style="color:var(--leaf)">good</span>';
     return '<div class="row" style="gap:8px;font-size:14px;align-items:baseline"><span style="width:84px;flex-shrink:0">'+r[1]+' '+r[2]+'</span><span class="f-time" style="flex-shrink:0">'+n(have)+' of '+n(want)+'</span><span style="flex:1;text-align:right">'+say+'</span></div>'; }).join('');
-  var PT=proteinTarget(), pg=Math.round((Number(f.protein)||0)*PALM_G/5)*5, per=PT?Math.round(PT.lo/(snack?6:3)/5)*5:0;
-  var ptx=PT?'<div style="font-size:14px;line-height:1.4">🥚 About <b>'+pg+' g protein</b> here. Aim for ~'+per+' g '+(snack?'in a snack':'at a main meal')+' to reach '+PT.lo+'–'+PT.hi+' g a day.'+(pg<per*0.75?' <span style="color:var(--gold)">Add a palm of eggs, paneer, dal, chicken or curd.</span>':'')+'</div>':'';
+  var G=f.g||null, PT=proteinTarget(), pg=G?G.p:Math.round((Number(f.protein)||0)*PALM_G/5)*5, per=PT?Math.round(PT.lo/(snack?6:3)/5)*5:0;
+  function chip(l,v,col){ return '<div style="flex:1;min-width:0;background:rgba(0,0,0,.25);border-radius:10px;padding:8px 4px;text-align:center"><div style="font-size:18px;font-weight:800;color:'+col+'">'+v+' g</div><div style="font-size:10.5px;font-weight:800;letter-spacing:.05em;color:var(--muted)">'+l+'</div></div>'; }
+  var net=G?'<div class="steplbl" style="color:var(--leaf);font-size:11px;margin-top:6px">NET IN THIS MEAL · WHAT YOUR BODY GETS</div><div style="display:flex;gap:6px">'
+    +chip('PROTEIN',G.p,'var(--leaf)')+chip('NET CARBS',G.net,'var(--gold)')+chip('FATS',G.f,'var(--terra)')+chip('FIBRE',G.fib,'#8FB3D9')+'</div>'
+    +'<div class="meta" style="font-weight:400;font-size:12px">Grams of the nutrient itself, not the food (100 g chicken ≈ 30 g protein). Net carbs = carbs minus fibre.</div>':'';
+  var ptx=PT?'<div style="font-size:14px;line-height:1.4">🥚 Aim for ~'+per+' g protein '+(snack?'in a snack':'at a main meal')+' to reach '+PT.lo+'–'+PT.hi+' g a day.'+(pg<per*0.75?' <span style="color:var(--gold)">Add a palm of eggs, paneer, dal, chicken or curd.</span>':pg>=per?' <span style="color:var(--leaf)">This one gets you there 💪</span>':'')+'</div>':'';
+  ptx=net+ptx;
   return '<div class="card" style="border:1px solid #3D6B4F;gap:6px"><div class="steplbl" style="color:var(--leaf)">YOUR PLATE, BY YOUR HANDS</div>'+rows+ptx
     +'<div class="meta" style="font-weight:400">Use your own hand: palm for protein, fist for veg, cupped hand for carbs, thumb for fats.</div></div>';
 }
@@ -1953,7 +1978,7 @@ function openMealForm(d,forSlot,editId){
     return;
   }
   // ---- busy ----
-  if(M.busy){ show('<div class="screen full">'+top+'<h1>Log a meal</h1><div class="card" style="border:1px solid var(--line);align-items:center;gap:10px;padding:30px 16px"><span style="font-size:34px">🍽️</span><div class="f-meal" style="font-size:18px">Looking at your plate…</div><div class="meta" style="font-weight:400">A few seconds</div></div></div>'); return; }
+  if(M.busy){ show('<div class="screen full">'+top+'<h1>Log a meal</h1><div class="card" style="border:1px solid var(--line);align-items:center;gap:10px;padding:30px 16px"><span style="font-size:34px">🍽️</span><div class="f-meal" style="font-size:18px">Looking at your plate…</div><div class="meta" style="font-weight:400">Please wait, a few seconds</div></div></div>'); try{ window.scrollTo(0,0); }catch(e){} return; }
   // ---- stage: no photo, type it ----
   if(M.stage==='text'){
     var added=M.items.filter(isDrink);
@@ -2028,10 +2053,10 @@ function openMealForm(d,forSlot,editId){
     try{ var r=await aiItems(null,amtTxt(it.amount)+' '+(it.unit||'')+' '+v.trim());
       // "pasta with chicken (100 g)" can come back as two foods: keep it as the one line she typed, with everything added up
       if(r.items.length){ var ni=Object.assign({},r.items[0]);
-        if(r.items.length>1){ ['kcal','protein','veg','carbs','fats'].forEach(function(k){ ni[k]=r.items.reduce(function(a,x){return a+(Number(x[k])||0);},0); }); ni.amount=it.amount; ni.unit=it.unit; delete ni.drink; delete ni.sugar; }
-        ni.name=v.trim().slice(0,60); ni.base={amount:ni.amount,kcal:ni.kcal,protein:ni.protein,veg:ni.veg,carbs:ni.carbs,fats:ni.fats}; M.items[i]=ni; if(r.tip) M.tip=r.tip; }
-      else M.items[i]=Object.assign({},it,{name:v.trim().slice(0,60)}); }
-    catch(e){ M.items[i]=Object.assign({},it,{name:v.trim().slice(0,60)}); }
+        if(r.items.length>1){ ['kcal','protein','veg','carbs','fats','pg','cg','fg','fib'].forEach(function(k){ ni[k]=r.items.reduce(function(a,x){return a+(Number(x[k])||0);},0); }); ni.amount=it.amount; ni.unit=it.unit; delete ni.drink; delete ni.sugar; }
+        ni.name=v.trim().slice(0,100); ni.base={amount:ni.amount,kcal:ni.kcal,protein:ni.protein,veg:ni.veg,carbs:ni.carbs,fats:ni.fats,pg:ni.pg,cg:ni.cg,fg:ni.fg,fib:ni.fib}; M.items[i]=ni; if(r.tip) M.tip=r.tip; }
+      else M.items[i]=Object.assign({},it,{name:v.trim().slice(0,100)}); }
+    catch(e){ M.items[i]=Object.assign({},it,{name:v.trim().slice(0,100)}); }
     M.edited=true; M.busy=false; openMealForm(d,forSlot,editId);
   };});
   $('#mfMissing').onclick=async function(){ keep(); var v=await KFitUI.ask({title:'What else did you have?',sub:'For example: 1 glass buttermilk',ok:'Add'}); if(!v||!v.trim()) return; analyse(null,v.trim(),true); };
@@ -2152,7 +2177,7 @@ var HINTS={
   welcome:'Pick a plan to get one small habit at a time, with a two-minute lesson a day. Or skip it and just log your meals. Nothing here is a test.',
   home:'Log a meal: take a photo, upload from your gallery, type it or say it. Under it is your habit: each dot is a day, green when you did it. Tap Done, Partly or Not yet, or let your meals fill it in. A missed day is just one dot; don\'t miss twice. When a habit is done it joins your shelf and the next one starts. My habits has your path and lessons. My progress holds your weight, your goal and your details. The house button takes you back to all the KFit apps.',
   today:'Today\'s lesson. Read it or tap Listen, try the one small thing, and at night tap how it went. Your logged meals help fill in the answer. Below it, Keep them going shows your earlier habits from the last seven days. When a habit\'s days are up, you move on if you did it most days. If not, you get seven more days so it can stick.',
-  log:'Your day. Your meals are at the top: tap one to see what\'s in it, or tap a plus button to log the next one. Below them are calories so far and water. Tap a tile for details, and the cross to close it. Under the tiles, tips for the rest of today: protein, calories and water. At the top, a message from your coach, or a short note on how your habit is going. Swipe left or right to change the day.',
+  log:'Your day. Your meals are at the top: tap one to see what\'s in it, with net grams of protein, net carbs (carbs minus fibre), fats and fibre, or tap a plus button to log the next one. Below them are calories so far and water. Tap a tile for details, and the cross to close it. Under the tiles, tips for the rest of today: protein, calories and water. At the top, a message from your coach, or a short note on how your habit is going. Swipe left or right to change the day.',
   progress:'Weigh in once a week: same scale, in the morning, before breakfast. Watch the line over a few weeks, not single days. Your goal and your details are here too, with how your daily calories and protein are worked out. Track water or not, water reminders, and your phone reminders: morning and evening, or morning only. Log out is at the bottom of Your details.',
   journey:'Your plan, one habit at a time, about two weeks each. Tap any habit you\'ve finished to read its lessons again.',
   chat:'Message your coach here. Their replies show up in this same place.',
