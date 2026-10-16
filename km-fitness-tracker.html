@@ -1304,7 +1304,7 @@ btn.textContent='Could not copy -- select the address bar manually';
       <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
         <div style="font-size:14px;font-weight:600;color:var(--muted);margin-bottom:8px;">Or ask about a specific exercise:</div>
         <div style="display:flex;gap:8px;">
-          <input type="text" id="askInput" placeholder="e.g. how many times have I done deadlifts?" oninput="if(!this.value.trim())document.getElementById('askAnswer').innerHTML=''" onkeydown="if(event.key==='Enter')askWorkoutQuestion()" style="flex:1;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
+          <textarea rows="2" id="askInput" placeholder="e.g. how many times have I done deadlifts?" oninput="if(!this.value.trim())document.getElementById('askAnswer').innerHTML=''" onkeydown="if(event.key==='Enter')askWorkoutQuestion()" style="flex:1;padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;"></textarea>
           <button onclick="askWorkoutQuestion()" style="padding:10px 16px;background:var(--sage);border:none;border-radius:8px;color:#0c0c0a;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Ask</button>
         </div>
         <div id="askAnswer"></div>
@@ -1544,7 +1544,7 @@ btn.textContent='Could not copy -- select the address bar manually';
     <input type="file" id="fbAttachInput" accept="image/*,video/*" style="display:none;" onchange="onFbFileSelected()">
     <div style="display:flex;gap:8px;flex-shrink:0;">
       <button onclick="triggerFbAttach()" title="Attach a photo or video" style="padding:10px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:16px;cursor:pointer;">&#128206;</button>
-      <input type="text" id="fbThreadReplyInput" placeholder="Type a message..." style="flex:1;padding:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;">
+      <textarea rows="2" id="fbThreadReplyInput" placeholder="Type a message..." style="flex:1;padding:10px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;"></textarea>
       <button onclick="sendClientReply()" style="padding:10px 16px;background:var(--sage);border:none;border-radius:8px;color:#0c0c0a;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;">Send</button>
     </div>
   </div>

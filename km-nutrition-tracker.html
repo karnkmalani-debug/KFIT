@@ -694,7 +694,7 @@ function threadHtml(day,mealId){
       return '<div style="align-self:'+(me?'flex-end':'flex-start')+';max-width:88%;background:'+(me?'#23382B':'#2A2618')+';border:1px solid '+(me?'#3D6B4F':'#6B5A2A')+';color:'+(me?'#CFEBD8':'#E7CF8C')+';border-radius:'+(me?'12px 12px 4px 12px':'12px 12px 12px 4px')+';padding:7px 10px;font-size:14px;line-height:1.45;overflow-wrap:anywhere;min-width:0">'
         +(me?'':'<b>Coach:</b> ')+txt(c.body)+'<div style="font-size:11px;opacity:.75;margin-top:2px">'+esc(whenShort(c.created_at))+(c.edited_at?' · edited':'')+(me?(c.read_by_coach_at?' <span style="color:#5BB8F5;letter-spacing:-2px" title="Read">✓✓</span>':' <span style="letter-spacing:-2px" title="Sent">✓</span>'):'')
         +(me?' · <a href="#" data-editc="'+c.id+'" style="color:inherit">edit</a>':'')+'</div></div>';}).join('')
-    +(hasCoach()?'':'<div style="display:none">')+'<div class="row" style="gap:6px"><input data-reply="'+esc(key)+'" placeholder="'+(list.length?'Reply…':'Ask your coach about this meal…')+'" style="flex:1;min-height:40px;border-radius:10px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);padding:0 10px;font-size:14px">'
+    +(hasCoach()?'':'<div style="display:none">')+'<div class="row" style="gap:6px"><textarea rows="2" data-reply="'+esc(key)+'" placeholder="'+(list.length?'Reply…':'Ask your coach about this meal…')+'" style="flex:1;min-height:40px;border-radius:10px;border:1px solid var(--line2);background:var(--sand);color:var(--ink);padding:0 10px;font-size:14px"></textarea>'
     +'<button data-send="'+esc(key)+'" style="min-height:40px;border-radius:10px;border:none;background:var(--green);color:#fff;font-weight:700;padding:0 12px">Send</button></div>'+(hasCoach()?'':'</div>')+'</div>';
 }
 function bindThreads(after){
@@ -2681,8 +2681,8 @@ function openWeekly(){
     +'<details class="card"'+(more?' open':'')+'><summary style="cursor:pointer;font-weight:700">Cravings, stress, a win… <span class="meta" style="font-weight:400">(optional)</span></summary><div style="display:flex;flex-direction:column;gap:12px;margin-top:10px">'
     +'<div class="field"><label>Late-night cravings?</label>'+faces('cravings',[['most','Most nights'],['few','A few'],['none','None']])+'</div>'
     +'<div class="field"><label>Stress overall?</label>'+faces('stress',[[1,'😣'],[2,'😐'],[3,'😌']])+'</div>'
-    +'<div class="field"><label for="wkWin">One win this week</label><input id="wkWin" value="'+esc(W.win||'')+'" placeholder="For example: no snacking after dinner"></div>'
-    +'<div class="field"><label for="wkStruggle">One struggle</label><input id="wkStruggle" value="'+esc(W.struggle||'')+'" placeholder="For example: weekend lunches"></div></div></details>'
+    +'<div class="field"><label for="wkWin">One win this week</label><textarea rows="2" id="wkWin" placeholder="For example: no snacking after dinner">'+esc(W.win||'')+'</textarea></div>'
+    +'<div class="field"><label for="wkStruggle">One struggle</label><textarea rows="2" id="wkStruggle" placeholder="For example: weekend lunches">'+esc(W.struggle||'')+'</textarea></div></div></details>'
     +'<button class="btn" id="wkSave">Save</button></div>');
   function keep(){ N.weight=$('#wkWeight').value; N.waist=$('#wkWaist').value; W.win=$('#wkWin').value; W.struggle=$('#wkStruggle').value; }
   function bump(d){ var v=parseFloat(String($('#wkWeight').value).replace(',','.')); if(!isFinite(v)) v=last||60; $('#wkWeight').value=(Math.round((v+d)*10)/10).toFixed(1); }
