@@ -4697,8 +4697,11 @@ if(q.length<2){ res.style.display='none'; res.innerHTML=''; return; }
 var hits=[];
 Object.keys(EX_LIB).forEach(function(bp){ (EX_LIB[bp]||[]).forEach(function(n){ if(n.toLowerCase().indexOf(q)>-1&&!hits.some(function(h){return h.n===n;})) hits.push({n:n,bp:bp}); }); });
 // best matches first: name starts with it, then a word starts with it
-hits.forEach(function(h){ var l=h.n.toLowerCase(); h.r=l.indexOf(q)===0?0:((' '+l).indexOf(' '+q)>-1?1:2); });
-hits.sort(function(a,b){ return a.r-b.r||a.n.length-b.n.length; });
+var ssb=sel.closest('.superset-block'), bpRow=ssb&&ssb.querySelector('[id^="ssBpRow_"]');
+var mine=bpRow?[].map.call(bpRow.querySelectorAll('.ss-bp-btn.ss-bp-active'),function(b){return b.dataset.bp;}):[];
+hits.forEach(function(h){ var l=h.n.toLowerCase(); h.r=l.indexOf(q)===0?0:((' '+l).indexOf(' '+q)>-1?1:2);
+  var inMine=mine.some(function(bp){ return (EX_LIB[bp]||[]).indexOf(h.n)>-1; }); if(inMine) h.bp=mine.filter(function(bp){ return (EX_LIB[bp]||[]).indexOf(h.n)>-1; })[0]; h.m=inMine?0:1; });
+hits.sort(function(a,b){ return a.m-b.m||a.r-b.r||a.n.length-b.n.length; });
 hits=hits.slice(0,8);
 res.innerHTML=hits.length?hits.map(function(h){ return '<div class="ss-hit" data-n="'+h.n.replace(/"/g,'&quot;')+'" style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:14px;color:var(--text);cursor:pointer;">'+h.n+' <span style="font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;margin-left:4px;background:var(--surf3);color:'+(h.bp==='Functional'?'var(--sage)':(h.bp==='Cardio'?'#4aa3c7':'var(--gold)'))+';">'+h.bp+'</span></div>'; }).join(''):'<div style="padding:8px 10px;font-size:13px;color:var(--muted);">No match</div>';
 res.style.display='block';
@@ -4787,7 +4790,7 @@ function kfSSBp(ss){ const row=ss.querySelector('[id^="ssBpRow_"]'); if(!row) re
     tg.onclick=function(){ ss._kfBpOpen=!ss._kfBpOpen; kfSSBp(ss); }; row.parentNode.insertBefore(tg,row); }
   const show=!all||ss._kfBpOpen, txt=show?(all?'Body parts ▴':''):'Body parts ▾';
   if(row.style.display!==(show?'':'none')) row.style.display=show?'':'none';
-  if(tg.textContent!==txt) tg.textContent=txt; tg.style.display=all?'':'none'; }
+  if(tg.textContent!==txt) tg.textContent=txt; tg.style.display=(all&&ss.dataset.done!=='1')?'':'none'; }
 (function(){ let t=null; function run(){ t=null; document.querySelectorAll('#exBody .superset-ex-block').forEach(kfSSCompact); document.querySelectorAll('#exBody>.ex-block').forEach(function(b){ if(b.querySelector('.reps-input')){ b.classList.add('kf-cmp'); kfRowsCompact(b); } else { b.classList.remove('kf-cmp'); kfHistUnderName(b); } }); document.querySelectorAll('#exBody .superset-block').forEach(kfSSBp); }
   try{ new MutationObserver(function(){ if(!t) t=setTimeout(run,60); }).observe(document.documentElement,{childList:true,subtree:true}); }catch(e){} })();
 function onSupersetExChange(sel){
@@ -4902,15 +4905,7 @@ if(!summary){summary=document.createElement('div');summary.className='superset-c
 summary.textContent=names.length?names.join(' + '):'No exercises added';
 exBody.style.display='none';
 
-const nextNum=ssNum+1;
-const existingNext=block.nextElementSibling;
-
-if(!existingNext||!existingNext.classList.contains('ss-next-btn-wrap')){
-const nextWrap=document.createElement('div');
-nextWrap.className='ss-next-btn-wrap';
-nextWrap.innerHTML=`<div class="add-row" style="color:var(--sage);border-color:var(--sage);margin-top:6px;" onclick="this.closest('.ss-next-btn-wrap').remove();addSupersetBlock()">+ Superset ${nextNum}</div>`;
-block.insertAdjacentElement('afterend',nextWrap);
-}
+// no extra "+ Superset N" button after each one: "+ Superset / Circuit" at the bottom adds the next
 // only when the person taps Done -- not when a saved session is reopened
 if(!quiet) toast(`${_ssWord(block?block.querySelectorAll('.superset-ex-block').length:2)} ${ssNum} done`);
 }
