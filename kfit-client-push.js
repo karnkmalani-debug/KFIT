@@ -14,12 +14,28 @@
     if(iPhone()) return 'Notifications are turned off for KFit on this iPhone.\n\nTo turn them on:\n1. Open the iPhone Settings app\n2. Tap Notifications\n3. Find '+nm+' in the list (the name under your KFit icon) and tap it\n4. Switch on Allow Notifications\n\nThen come back and tap Turn on again.';
     return 'Notifications are blocked for KFit on this phone.\n\nTo turn them on:\n1. Press and hold the '+nm+' icon on your home screen\n2. Tap App info (or the ⓘ)\n3. Tap Notifications and switch them on\n\nIn Chrome instead: tap the ⋮ menu, Settings, Site settings, Notifications, and allow kfit.pages.dev.\n\nThen come back and tap Turn on again.';
   }
+  // The sender's public key. Tries the app's own connection, then a plain request
+  // (an expired sign-in can make the first one fail), then the copy from last time.
+  async function publicKey(sb){
+    var key=null;
+    for(var t=0;t<2&&!key;t++){
+      try{ var k=await sb.functions.invoke('kfit-push',{body:{action:'public_key'}}); if(k&&k.data&&k.data.publicKey) key=k.data.publicKey; }catch(e){}
+      if(!key&&sb.supabaseUrl&&sb.supabaseKey){
+        try{ var r=await fetch(sb.supabaseUrl.replace(/\/$/,'')+'/functions/v1/kfit-push',{method:'POST',headers:{'Content-Type':'application/json',apikey:sb.supabaseKey,Authorization:'Bearer '+sb.supabaseKey},body:JSON.stringify({action:'public_key'})});
+          if(r.ok){ var j=await r.json(); if(j&&j.publicKey) key=j.publicKey; } }catch(e){}
+      }
+      if(!key&&t===0) await new Promise(function(res){ setTimeout(res,1500); });
+    }
+    try{ if(key) localStorage.setItem('kfit_push_pub',key); else key=localStorage.getItem('kfit_push_pub'); }catch(e){}
+    return key;
+  }
   async function turnOn(sb,mobile,app){
     if(!supported()){ alert(iPhone()&&!standalone()?'On iPhone, notifications work when KFit is opened from its home-screen icon.\n\nIn Safari: tap Share, then Add to Home Screen. Open KFit from that icon and turn notifications on there.':'This phone can\'t show notifications from here.'); return false; }
     var perm=await Notification.requestPermission();
     if(perm!=='granted'){ alert(blockedHelp(app)); return false; }
-    var k=await sb.functions.invoke('kfit-push',{body:{action:'public_key'}});
-    if(k.error||!k.data||!k.data.publicKey){ alert('Notifications aren\'t ready yet. Please try again later.'); return false; }
+    var key=await publicKey(sb);
+    if(!key){ alert('Couldn\'t switch on notifications just now. The phone said yes, but KFit couldn\'t reach its notification service.\n\nCheck your internet, then tap Turn on again. If it keeps happening, tell your coach.'); return false; }
+    var k={data:{publicKey:key}};
     var reg=await navigator.serviceWorker.ready, sub=await reg.pushManager.getSubscription();
     if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64(k.data.publicKey)});
     var j=sub.toJSON();
