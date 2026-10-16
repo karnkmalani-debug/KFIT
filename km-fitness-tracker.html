@@ -135,27 +135,42 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .superset-ex-block .kf-sel{flex:1 1 0;order:0}
 .superset-ex-block .action-group .collapse-btn,.superset-ex-block .action-group .del-btn{display:none!important}
 .superset-ex-block:not(.kf-srch) .ss-search-wrap{display:none}
-.superset-ex-block:not(.kf-hist) .ex-last-hist{display:none}
-.superset-ex-block .set-header{display:none}
+.superset-ex-block .set-header,.ex-block.kf-cmp .set-header{display:none}
 .kf-ib{width:32px;height:32px;flex-shrink:0;border:1px solid var(--border);border-radius:8px;background:none;color:var(--muted);font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
 .kf-ssmenu{display:flex;gap:6px;flex-wrap:wrap;padding:0 8px 6px}
 .kf-ssmenu button{border:1px solid var(--border);background:var(--surf3);color:var(--text);border-radius:8px;padding:7px 10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
 .kf-ssmenu button.kf-del{color:var(--terra);border-color:var(--terra)}
-.superset-ex-block .set-row.kf-c{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
-.superset-ex-block .set-row.kf-c .set-num{width:22px;flex-shrink:0}
-.superset-ex-block .set-row.kf-c .reps-input,.superset-ex-block .set-row.kf-c .weight-input{width:58px;flex:0 0 58px;height:36px}
-.superset-ex-block .set-row.kf-c .kf-last{flex:1;min-width:0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.superset-ex-block .set-row.kf-c .pr-badge-slot{width:16px}
-.superset-ex-block .set-row.kf-c:not(.kf-open) .rir-toggle:not(.active),.superset-ex-block .set-row.kf-c:not(.kf-open) .assist-toggle:not(.active),.superset-ex-block .set-row.kf-c:not(.kf-open) .mm-toggle:not(.active),.superset-ex-block .set-row.kf-c:not(.kf-open) .lp-toggle:not(.active){display:none}
-.superset-ex-block .set-row.kf-c>*{order:1}
-.superset-ex-block .set-row.kf-c .kf-br{flex-basis:100%;height:0;order:2;display:none}
-.superset-ex-block .set-row.kf-c.kf-open .kf-br{display:block}
-.superset-ex-block .set-row.kf-c .rir-toggle,.superset-ex-block .set-row.kf-c .assist-toggle,.superset-ex-block .set-row.kf-c .mm-toggle,.superset-ex-block .set-row.kf-c .lp-toggle{order:3;width:40px}
-.superset-ex-block .set-row.kf-c .rir-toggle{margin-left:27px}
-.superset-ex-block .set-row.kf-c:not(.kf-open) .rir-toggle{margin-left:0}
+/* every set: reps, kg and a ＋ that opens RIR/H/RP/LP and "+ Drop set" */
+.set-row.kf-c{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.set-row.kf-c .set-num{width:24px;flex-shrink:0}
+.set-row.kf-c .reps-input,.set-row.kf-c .weight-input{width:auto;flex:1 1 0;min-width:0;height:40px}
+.set-row.kf-c .pr-badge-slot{width:16px}
+.set-row.kf-c .kf-more{width:34px;height:34px;border-radius:17px;color:var(--gold);font-size:16px}
+.set-row.kf-c:not(.kf-open) .rir-toggle:not(.active),.set-row.kf-c:not(.kf-open) .assist-toggle:not(.active),.set-row.kf-c:not(.kf-open) .mm-toggle:not(.active),.set-row.kf-c:not(.kf-open) .lp-toggle:not(.active){display:none}
+.set-row.kf-c>*{order:1}
+.set-row.kf-c .kf-br{flex-basis:100%;height:0;order:2;display:none}
+.set-row.kf-c.kf-open .kf-br{display:block}
+.set-row.kf-c .rir-toggle,.set-row.kf-c .assist-toggle,.set-row.kf-c .mm-toggle,.set-row.kf-c .lp-toggle{order:3;width:44px}
+.set-row.kf-c .rir-toggle{margin-left:30px}
+.set-row.kf-c:not(.kf-open) .rir-toggle{margin-left:0}
+.add-drop-link.kf-hide{display:none}
+/* last session: one line with the date; the sets open on tap */
+.kf-hs{background:rgba(212,168,67,.1);border:1px solid rgba(212,168,67,.25);border-radius:8px;margin:6px 8px 0;overflow:hidden}
+.kf-hs-top{display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;user-select:none}
+.kf-hs-lab{font-size:12px;font-weight:800;color:var(--gold);letter-spacing:.06em;text-transform:uppercase}
+.kf-hs-date{font-size:16px;font-weight:800;color:var(--text)}
+.kf-hs-ago{font-size:13px;color:var(--muted)}
+.kf-hs-chev{margin-left:auto;color:var(--muted);font-size:14px}
+.kf-hs-body{display:none;padding:0 10px 10px}
+.kf-hs.kf-on .kf-hs-body{display:block}
+/* the bottom of an open exercise: superset on the left, Done on the right */
+.kf-exfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 8px 10px}
+.kf-exfoot .kf-ss-link{margin:0}
+.kf-done{white-space:nowrap;flex-shrink:0;border:1.5px solid var(--gold);color:var(--gold);background:none;border-radius:16px;padding:6px 14px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:800;cursor:pointer;margin-left:auto}
+.ex-block[data-collapsed="1"]>.kf-exfoot{display:none}
+.ex-collapsed-summary{cursor:pointer}
 .superset-ex-block .kf-bp{display:none}
 
-.superset-ex-block .add-drop-link.kf-hide{display:none}
 .ex-top-row>.action-group{margin-left:auto;}
 .kf-sel-lab{background:var(--surf3);border:1px solid var(--border);border-radius:6px;padding:8px 28px 8px 8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:17px;line-height:1.3;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:none;min-height:40px;display:flex;align-items:center;position:relative;}
 .kf-sel-lab::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;}
@@ -694,14 +709,18 @@ details:not(.nc-wk)[open]>summary::after{content:" ▴"}
   // plain exercises (Strength)
   function scan(){
     document.querySelectorAll('#exBody>.ex-block').forEach(function(bl){
-      var sel=bl.querySelector('.ex-select'), has=!!(sel&&sel.value), l=bl.querySelector(':scope>.kf-ss-link');
+      var sel=bl.querySelector('.ex-select'), has=!!(sel&&sel.value), ft=bl.querySelector(':scope>.kf-exfoot'), l=ft&&ft.querySelector('.kf-ss-link');
+      if(!ft){ ft=document.createElement('div'); ft.className='kf-exfoot';
+        var dn=document.createElement('button'); dn.type='button'; dn.className='kf-done'; dn.textContent='Done ✓';
+        dn.onclick=function(e){ e.stopPropagation(); var c=bl.querySelector('.collapse-btn'); if(c&&bl.dataset.collapsed!=='1') toggleExBlock(c); var r=bl.getBoundingClientRect(); if(r.top<0) bl.scrollIntoView({block:'start',behavior:'smooth'}); };
+        ft.appendChild(dn); }
       if(!l){ l=link(function(y){
           var s2=bl.querySelector('.ex-select'), name=s2&&s2.value; if(!name) return;
           var sets=+((bl.querySelector('.sets-select')||{}).value)||3, vals=[].map.call(bl.querySelectorAll('.set-row'),function(r){ return {reps:((r.querySelector('.reps-input')||{}).value||'').trim(),weight:((r.querySelector('.weight-input')||{}).value||'').trim()}; });
           var nx=bl.nextSibling; bl.remove(); makeSS(name,sets,vals,null,y); var ss2=document.querySelectorAll('#exBody>.superset-block'); ss2=ss2[ss2.length-1]; if(nx&&nx.parentNode&&ss2&&ss2!==nx){ nx.parentNode.insertBefore(ss2,nx); try{ renumberSupersets(); }catch(e){} var b2=ss2.querySelectorAll('.superset-ex-block')[1]; if(b2) flash(b2,y); } });
-        bl.appendChild(l); }
-      else if(l!==bl.lastElementChild) bl.appendChild(l);
-      l.style.display=has?'':'none';
+        ft.insertBefore(l,ft.firstChild); }
+      if(ft!==bl.lastElementChild) bl.appendChild(ft);
+      ft.style.display=has?'':'none';
     });
   }
   // cardio activities and functional movements
@@ -2939,36 +2958,58 @@ return true;
 }
 
 function autoFillExercisesForBodyPart(bp){
+const body=document.getElementById('exBody'); const before=new Set(body?[...body.children]:[]);
+_autoFillBP(bp);
+if(!body) return;
+const fresh=[...body.children].filter(function(el){ return !before.has(el)&&(el.classList.contains('ex-block')||el.classList.contains('superset-block')); });
+fresh.forEach(function(el,i){ if(i===0) return; kfFold(el); });
+}
+function kfFold(el){
+if(el.classList.contains('superset-block')){ el.querySelectorAll('.superset-ex-block').forEach(function(b){ const c=b.querySelector('.collapse-btn'); if(c&&b.dataset.collapsed!=='1') toggleExBlock(c); }); return; }
+const c=el.querySelector('.collapse-btn'); if(c&&el.dataset.collapsed!=='1') toggleExBlock(c);
+}
+function _autoFillBP(bp){
 
 if(currentAssignedDate) return;
 const dateStr=document.getElementById('sessDate')?document.getElementById('sessDate').value:localDateStr();
 
-const last=[...sessions].sort((a,b)=>new Date(b.date)-new Date(a.date))
+// The most recent session with this body part, as plain exercises or inside a superset.
+// Load everything from that one session: its exercises first, then its supersets.
+const lastReg=[...sessions].sort((a,b)=>new Date(b.date)-new Date(a.date))
 .find(s=>s.bodyParts&&s.bodyParts.includes(bp)&&s.exercises&&s.exercises.length);
-
 const ssMatch=findMostRecentSupersetForBP(bp);
-const lastDate=last?new Date(last.date):null;
+const regDate=lastReg?new Date(lastReg.date):null;
 const ssDate=ssMatch?new Date(ssMatch.session.date):null;
+const ssNewer=ssMatch&&(!lastReg||ssDate>regDate);
+const sameDay=ssMatch&&lastReg&&(ssMatch.session===lastReg||String(ssMatch.session.date).slice(0,10)===String(lastReg.date).slice(0,10));
+const last=ssNewer?(ssMatch.session.exercises&&ssMatch.session.exercises.length?ssMatch.session:null):lastReg;
+const ssSess=ssNewer?ssMatch.session:(sameDay?ssMatch.session:null);
+const bpNames=new Set(EX_LIB[bp]||[]);
+let ssAdded=0, ssAlready=0;
+const loadSupersets=function(){
+if(!ssSess) return;
+(ssSess.supersets||[]).forEach(function(ss){
+const hit=(ss.exercises||[]).some(e=>bpNames.has(e.ex)&&((e.setData||[]).some(r=>r.reps||r.weight)||(e.type==='cardio'&&(e.duration||e.distance))));
+if(!hit) return;
+if(reconstructSuperset(ssSess,ss)) ssAdded++; else ssAlready++;
+});
+};
 
-if(ssMatch&&(!lastDate||ssDate>=lastDate)){
-const added=reconstructSuperset(ssMatch.session,ssMatch.superset);
-const daysAgo=Math.round((new Date(dateStr)-new Date(ssMatch.session.date))/86400000);
-if(added){
-showBpNotif(bp,'💪','Loaded the superset <b style="color:var(--gold);">'+bp+'</b> was paired with '+(daysAgo>0?'<b style="color:var(--gold);">'+daysAgo+' day'+(daysAgo===1?'':'s')+' ago</b>':'last time'));
-} else {
-showBpNotif(bp,'✓','<b style="color:var(--gold);">'+bp+'</b> is already loaded as part of a superset');
-}
+if(!last&&!ssSess){
+showBpNotif(bp,'🔍','No previous <b style="color:var(--gold);">'+bp+'</b> session found');
 return;
 }
-
 if(!last){
-showBpNotif(bp,'🔍','No previous <b style="color:var(--gold);">'+bp+'</b> session found');
+loadSupersets();
+const dA=Math.round((new Date(dateStr)-new Date(ssSess.date))/86400000);
+if(ssAdded) showBpNotif(bp,'💪','Loaded the <b style="color:var(--gold);">'+bp+'</b> superset'+(ssAdded>1?'s':'')+' from '+(dA>0?'<b style="color:var(--gold);">'+dA+' day'+(dA===1?'':'s')+' ago</b>':'last time'));
+else showBpNotif(bp,'✓','<b style="color:var(--gold);">'+bp+'</b> is already loaded as part of a superset');
 return;
 }
 
 const validNames=new Set(getExList());
 const relevant=last.exercises.filter(e=>validNames.has(e.ex));
-if(!relevant.length){
+if(!relevant.length&&!ssSess){
 showBpNotif(bp,'🔍','Found a previous <b style="color:var(--gold);">'+bp+'</b> session, but none of its exercises matched your current library');
 return;
 }
@@ -3004,13 +3045,14 @@ generateSetRows(block.querySelector('.set-rows'),e.sets||3);
 onExChange(block.querySelector('.ex-select'));
 });
 
-if(added===0){
+loadSupersets();
+if(added===0&&ssAdded===0){
 showBpNotif(bp,'✓','<b style="color:var(--gold);">'+bp+'</b> exercises already added');
 return;
 }
 const daysAgo=Math.round((new Date(dateStr)-new Date(last.date))/86400000);
 if(last.notes) showBpNoteRef(bp,last.notes,daysAgo);
-showBpNotif(bp,'💪','Loaded <b style="color:var(--gold);">'+bp+'</b> \u2014 '+added+' exercise'+(added!==1?'s':'')+' from '+(daysAgo>0?'<b style="color:var(--gold);">'+daysAgo+' day'+(daysAgo===1?'':'s')+' ago</b>':'last time'));
+showBpNotif(bp,'💪','Loaded <b style="color:var(--gold);">'+bp+'</b> \u2014 '+added+' exercise'+(added!==1?'s':'')+(ssAdded?' + '+ssAdded+' superset'+(ssAdded>1?'s':''):'')+' from '+(daysAgo>0?'<b style="color:var(--gold);">'+daysAgo+' day'+(daysAgo===1?'':'s')+' ago</b>':'last time'));
 }
 
 let currentAssignedDate=null;
@@ -3797,6 +3839,7 @@ if(reorderStack) reorderStack.insertAdjacentElement('afterend',summaryEl);
 else if(topRow) topRow.insertBefore(summaryEl,topRow.firstChild);
 }
 summaryEl.textContent=summary;
+summaryEl.onclick=function(){ if(block.dataset.collapsed==='1') toggleExBlock(btn); };
 btn.textContent='⌄';
 btn.title='Expand';
 }
@@ -4669,6 +4712,15 @@ block.querySelectorAll('.ss-ex-select').forEach(function(sel){populateSupersetEx
 });
 }
 
+// Last session: one line with the date; tap it for the sets
+function kfHistStrip(sess,inner){
+const d=new Date(sess.date+'T12:00:00'), M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const ref=new Date(((document.getElementById('sessDate')||{}).value||localDateStr())+'T12:00:00');
+const n=Math.round((ref-d)/86400000), ago=n<=0?'today':n===1?'yesterday':n<7?n+' days ago':n<14?'last week':Math.round(n/7)+' weeks ago';
+return '<div class="kf-hs"><div class="kf-hs-top" onclick="this.parentNode.classList.toggle(\'kf-on\');this.querySelector(\'.kf-hs-chev\').textContent=this.parentNode.classList.contains(\'kf-on\')?\'⌃\':\'⌄\';">'
++'<span class="kf-hs-lab">Last session</span><span class="kf-hs-date">'+d.getDate()+' '+M[d.getMonth()]+'</span><span class="kf-hs-ago">· '+ago+'</span><span class="kf-hs-chev">⌄</span></div>'
++'<div class="kf-hs-body"><div style="display:flex;flex-direction:column;gap:5px;">'+inner+'</div></div></div>';
+}
 // Compact superset exercises (runs again whenever rows are rebuilt)
 function kfSSCompact(block){
 if(!block||!block.classList||!block.classList.contains('superset-ex-block')) return;
@@ -4681,22 +4733,22 @@ if(!block._kfHead){ block._kfHead=1;
   const mb=document.createElement('button'); mb.type='button'; mb.className='kf-ib'; mb.textContent='⋯'; mb.title='More';
   mb.onclick=function(){ let m=block.querySelector('.kf-ssmenu'); if(m){ m.remove(); return; }
     m=document.createElement('div'); m.className='kf-ssmenu';
-    const hasHist=!!(block.querySelector('.ex-last-hist')&&block.querySelector('.ex-last-hist').innerHTML);
-    m.innerHTML=(hasHist?'<button type="button" data-k="hist">'+(block.classList.contains('kf-hist')?'Hide last session':'📜 Last session')+'</button>':'')+'<button type="button" data-k="fold">Fold</button><button type="button" data-k="del" class="kf-del">Remove</button>';
+    m.innerHTML='<button type="button" data-k="fold">Fold</button><button type="button" data-k="del" class="kf-del">Remove</button>';
     top.insertAdjacentElement('afterend',m);
     m.querySelectorAll('button').forEach(function(b){ b.onclick=function(){ const k=b.dataset.k; m.remove();
-      if(k==='hist') block.classList.toggle('kf-hist');
-      else if(k==='fold'){ const c=top.querySelector('.collapse-btn'); if(c) c.click(); }
+      if(k==='fold'){ const c=top.querySelector('.collapse-btn'); if(c) c.click(); }
       else if(k==='del'){ const d=top.querySelector('.del-btn'); if(d) d.click(); } }; }); };
   if(act) act.appendChild(mb); else top.appendChild(mb);
 }
-const L=block._kfLast||[], unit=(typeof weightUnit!=='undefined'&&weightUnit)||'kg';
-let i=0;
+kfRowsCompact(block);
+}
+function kfRowsCompact(block){
+const unit=(typeof weightUnit!=='undefined'&&weightUnit)||'kg', L=block._kfLast||[]; let i=0;
 block.querySelectorAll('.set-rows > .set-row').forEach(function(row){
   if(row.classList.contains('drop-row')||row.classList.contains('functional-row')||!row.querySelector('.reps-input')) return;
   const l=L[i++]||null;
   if(!row.classList.contains('kf-c')){ row.classList.add('kf-c');
-    const last=document.createElement('span'); last.className='kf-last'; row.appendChild(last);
+    if(l&&((l.rir!=null&&l.rir!=='')||l.assistedReps>0||l.lengthenedPartialReps>0||l.rpReps>0||l.myoRepMatch)) row.classList.add('kf-open');
     const br=document.createElement('i'); br.className='kf-br'; row.appendChild(br);
     const mo=document.createElement('button'); mo.type='button'; mo.className='kf-ib kf-more'; mo.title='RIR, H, RP, LP and drop set';
     mo.onclick=function(){ row.classList.toggle('kf-open'); kfSSRow(row); };
@@ -4704,8 +4756,7 @@ block.querySelectorAll('.set-rows > .set-row').forEach(function(row){
     if(row.querySelector('.rir-toggle.active,.assist-toggle.active,.mm-toggle.active,.lp-toggle.active')) row.classList.add('kf-open');
   }
   const r=row.querySelector('.reps-input'), w=row.querySelector('.weight-input');
-  r.placeholder=l&&l.reps?String(l.reps):'reps'; w.placeholder=l&&l.weight?String(l.weight):unit;
-  const lt=l?'last '+(l.reps||'–')+'×'+(l.weight||'–'):'', le=row.querySelector('.kf-last'); if(le.textContent!==lt) le.textContent=lt;
+  if(r.placeholder!=='reps') r.placeholder='reps'; if(w.placeholder!==unit) w.placeholder=unit;
   kfSSRow(row);
 });
 }
@@ -4725,7 +4776,7 @@ function kfSSBp(ss){ const row=ss.querySelector('[id^="ssBpRow_"]'); if(!row) re
   const show=!all||ss._kfBpOpen, txt=show?(all?'Body parts ▴':''):'Body parts ▾';
   if(row.style.display!==(show?'':'none')) row.style.display=show?'':'none';
   if(tg.textContent!==txt) tg.textContent=txt; tg.style.display=all?'':'none'; }
-(function(){ let t=null; function run(){ t=null; document.querySelectorAll('#exBody .superset-ex-block').forEach(kfSSCompact); document.querySelectorAll('#exBody .superset-block').forEach(kfSSBp); }
+(function(){ let t=null; function run(){ t=null; document.querySelectorAll('#exBody .superset-ex-block').forEach(kfSSCompact); document.querySelectorAll('#exBody>.ex-block').forEach(function(b){ if(b.querySelector('.reps-input')){ b.classList.add('kf-cmp'); kfRowsCompact(b); } else b.classList.remove('kf-cmp'); }); document.querySelectorAll('#exBody .superset-block').forEach(kfSSBp); }
   try{ new MutationObserver(function(){ if(!t) t=setTimeout(run,60); }).observe(document.documentElement,{childList:true,subtree:true}); }catch(e){} })();
 function onSupersetExChange(sel){
 const block=sel.closest('.superset-ex-block');
@@ -4788,16 +4839,7 @@ return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;ba
 if(!innerHtml) innerHtml='<div style="font-size:17px;color:var(--muted);padding:4px 0;">No set data recorded</div>';
 }
 
-histEl.innerHTML=
-'<div style="background:rgba(212,168,67,.1);border:1px solid rgba(212,168,67,.25);border-radius:8px;margin-top:6px;overflow:hidden;">'
-+'<div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\';this.querySelector(\'.hchev\').textContent=this.nextElementSibling.style.display===\'none\'?\'v\':\'^\';" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;user-select:none;">'
-+'<div style="font-size:17px;font-weight:700;color:var(--gold);letter-spacing:.06em;text-transform:uppercase;">&#9888; Last Session</div>'
-+'<div style="display:flex;align-items:center;gap:8px;">'
-+'<div style="font-size:17px;color:var(--muted);">'+dateStr+'</div>'
-+'<div class="hchev" style="font-size:17px;color:var(--muted);">^</div>'
-+'</div></div>'
-+'<div style="padding:0 12px 10px;"><div style="display:flex;flex-direction:column;gap:5px;">'+innerHtml+'</div></div>'
-+'</div>';
+histEl.innerHTML=kfHistStrip(lastSess,innerHtml);
 }
 
 function updateSupersetSetRows(sel){
@@ -4998,6 +5040,7 @@ return;
 const sortedSessions=[...sessions].sort((a,b)=>new Date(b.date)-new Date(a.date));
 const lastSess=sortedSessions.find(s=>findExInSession(s,exName));
 const lastEx=lastSess?findExInSession(lastSess,exName):null;
+block._kfLast=(lastEx&&lastEx.type!=='cardio')?(lastEx.setData||[]).filter(r=>!r.dropset&&(r.reps||r.weight)):null;
 
 if(!isC&&lastEx&&lastEx.type!=='cardio'&&(lastEx.setData||[]).length){
 const mainCount=lastEx.setData.filter(sd=>!sd.dropset).length||lastEx.setData.length;
@@ -5049,16 +5092,7 @@ return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;ba
 if(!innerHtml) innerHtml='<div style="font-size:17px;color:var(--muted);padding:4px 0;">No set data recorded</div>';
 }
 
-histEl.innerHTML=
-'<div style="background:rgba(212,168,67,.1);border:1px solid rgba(212,168,67,.25);border-radius:8px;margin-top:6px;overflow:hidden;">'
-+'<div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\';this.querySelector(\'.hchev\').textContent=this.nextElementSibling.style.display===\'none\'?\'v\':\'^\';" style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;cursor:pointer;user-select:none;">'
-+'<div style="font-size:17px;font-weight:700;color:var(--gold);letter-spacing:.06em;text-transform:uppercase;">&#9888; Last Session</div>'
-+'<div style="display:flex;align-items:center;gap:8px;">'
-+'<div style="font-size:17px;color:var(--muted);">'+dateStr+'</div>'
-+'<div class="hchev" style="font-size:17px;color:var(--muted);">^</div>'
-+'</div></div>'
-+'<div style="padding:0 12px 10px;"><div style="display:flex;flex-direction:column;gap:5px;">'+innerHtml+'</div></div>'
-+'</div>';
+histEl.innerHTML=kfHistStrip(lastSess,innerHtml);
 }
 
 // The log page: exercises come first; steps and "Train smart" sit under Save Session.
@@ -8860,7 +8894,7 @@ const HELP_TEXT=[
 '<b>1. Tap the body part you\'re training</b><br>See buttons like Back, Chest, Legs, Cardio? Tap the one(s) you\'re training today. You can tap more than one (e.g. Chest + Shoulders). The right exercises show up below by themselves -- you never have to search for them.<br><br>'+
 '<b>1b. Or just search for any exercise directly</b><br>There\'s a search box above your exercise list -- type any exercise\'s name, from any body part, whether or not you\'ve tapped that body part above. It\'s forgiving about word order, so "flat bench press barbell" still finds "Barbell Bench Press (Flat)." Tap a suggestion and it gets added, its body part gets ticked on automatically, and your history for it shows up right away.<br><br>'+
 '<b>1c. Save and reuse your own routines</b><br>Built a combination of exercises you want to repeat -- a specific push day, a week\'s plan, anything? In the Select Body Part card, open <b>My Routines</b> and tap <b>Add exercises</b> to search and build a list right there (no need to log real sets first), then tap <b>Set a Routine</b> to name and save it, however many you like. If you\'d rather build it the long way, add exercises normally on this page first, then tap Set a Routine -- it saves whatever\'s currently on the page instead. Next time, tap "Load" from the dropdown and it rebuilds that exact exercise list instantly -- a fresh, blank set of exercises ready to log new numbers against, with your history for each one still showing. Loading a routine only clears whatever\'s currently unsaved on the page; it never touches anything you\'ve already saved. Routines with a "(Coach)" tag were sent to you by your coach -- you can load, rename, or delete them just like your own. Right below My Routines, open <b>KFit Standard Routine</b> for Karan\'s own core program (Chest+Core, Back, Legs, Arms & Shoulders) -- no building required, just tap Load or preview it first with the small ⓘ button. Inside the Functional/Isometric card, open <b>KFit Suggested Routines</b> for four ready-made circuits (20/30/45/60 min) built around proper movement-pattern rotation. And if you log a combination of exercises that isn\'t already one of your saved routines, a small <b>⭐ Save as routine</b> link shows for a few seconds after you tap Save Session -- tap it to name it, or just ignore it.<br><br>'+
-'<b>2. For each exercise, fill in your sets</b><br>Every exercise shows boxes for Reps and Weight, one row per set. Just type the numbers in as you finish each set. Did an extra set that isn\'t shown? Tap "+ Add Set" to add another row.<br><br>'+
+'<b>2. For each exercise, fill in your sets</b><br>When you tap a body part, the first exercise opens and the rest stay folded in one line each. Tap a folded one to open it, and tap <b>Done ✓</b> at its bottom to fold it again. Every exercise shows boxes for Reps and Weight, one row per set. Just type the numbers in as you finish each set. Want to see what you did last time? Tap the gold <b>Last session</b> line with the date, and the sets open underneath. The <b>＋</b> at the end of a set opens RIR, H, RP, LP and \"+ Drop set\" for that set. Did an extra set that isn\'t shown? Tap "+ Add Set" to add another row.<br><br>'+
 '<b>3. The H button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "H" (for Help). Tap it once for every rep in that set where someone helped you finish (a spot) -- it\'ll show a number like "H 2". Tapped it by mistake, or want to lower the count? Press and hold the button to subtract one. Didn\'t need help at all? Just leave it alone.<br><br>'+
 '<b>3b. The LP button (lengthened partials)</b><br>Works exactly the same way as H, right next to it. Tap "LP" once for every rep in that set done as a lengthened partial -- a shorter rep performed in the stretched position of the movement (e.g. the bottom half of a leg extension or bicep curl), a technique some research suggests builds muscle as well as full-range reps for certain exercises. Same as H: tap to add one, press and hold to subtract one. Like H and drop sets, LP reps are excluded from your Personal Records, since a partial-range rep isn\'t really the same lift as a full-range one.<br><br>'+
 '<b>3c. The RP button (rest-pause)</b><br>Did you pause briefly mid-set and squeeze out more reps? Tap RP once for each of those extra reps (hold to take one off). They count towards the set\'s volume, but -- like H and LP -- rest-pause sets don\'t count towards personal records.<br><br>'+
@@ -8870,7 +8904,7 @@ const HELP_TEXT=[
 '<b>Not sure what a button means?</b> Tap the small <b>i</b> above the four buttons on any exercise for a one-line reminder.<br><br>'+
 '<b>4. Drop sets</b><br>Right after a set, you\'ll see a small "+ Drop set" link. Tap it if you dropped the weight and kept going with no rest (a classic drop set) -- it adds a new row marked "D" underneath that set.<br><br>'+
 '<b>5. How to actually do each rep</b><br>This matters as much as the numbers you log: lower the weight slowly (2-4 seconds), pause for a second at the bottom, then lift back up fast and with intent. Always use the full range of motion -- never half-reps. If you can\'t do this with control, the weight is too heavy; use less weight, not less range.<br><br>'+
-'<b>6. Doing two exercises back-to-back with no rest? Make it a superset</b><br>Under any exercise, tap <b>⇄ Superset with another exercise</b>. That exercise becomes a superset right where it is, keeping any sets you\'ve typed, and a second slot opens below it. Pick the second exercise from any body part (tap the body-part buttons in the superset), a functional movement or cardio. Add a third and it becomes a circuit. Cardio activities and functional movements have the same link. You can still start an empty one with "+ Superset / Circuit". Use the two arrows on the left of each exercise inside the superset to change their order. Inside a superset everything is compact: last time\'s reps and weight show in grey in the boxes (and as "last 10×60"), tap ＋ on a set for RIR, H, RP, LP or a drop set, 🔍 to search, and ⋯ for last session, fold or remove. The body-part buttons fold away once every exercise is chosen.<br><br>'+
+'<b>6. Doing two exercises back-to-back with no rest? Make it a superset</b><br>At the bottom of any open exercise, tap <b>⇄ Superset with another exercise</b>. That exercise becomes a superset right where it is, keeping any sets you\'ve typed, and a second slot opens below it. Pick the second exercise from any body part (tap the body-part buttons in the superset), a functional movement or cardio. Add a third and it becomes a circuit. Cardio activities and functional movements have the same link. You can still start an empty one with "+ Superset / Circuit". Use the two arrows on the left of each exercise inside the superset to change their order. Inside a superset everything is compact: last time\'s reps and weight show in grey in the boxes (and as "last 10×60"), tap ＋ on a set for RIR, H, RP, LP or a drop set, 🔍 to search, and ⋯ for last session, fold or remove. The body-part buttons fold away once every exercise is chosen.<br><br>'+
 '<b>7. Just doing cardio?</b><br>Tap the Cardio body part instead. You\'ll log duration and how hard it felt, not sets and reps.<br><br>'+
 '<b>7b. Planks, wall sits, or other holds? Use Functional</b><br>Tap <b>Functional</b> above your exercises, then tap a movement (Plank, Wall Sit, Dead Hang, Jumping Jacks, and more) and log how long you held or did it. Putting weight on your back for a loaded plank or carry? There\'s an optional weight field for exactly that. Don\'t see the movement you want? Type it into "Add movement". To do it back-to-back with other exercises, tap ⇄ Superset under it.<br><br>'+
 '<b>7c. Estimated calories burned</b><br>Each saved session shows roughly how many calories it burned in History -- based on your session time, your logged rest between sets, and (for cardio/functional work) the specific activity. This needs your age, sex, height and weight filled in on the Body tab.<br><br>'+
