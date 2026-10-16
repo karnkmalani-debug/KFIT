@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="KFit Nutrition">
-<title>KFit Nutrition</title>
+<title>KFit Nutrition Habits</title>
 <link rel="manifest" href="/manifest-nutrition.json">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -148,6 +148,7 @@ h2{margin:0;font-family:var(--serif);font-weight:500;font-size:22px;line-height:
 .addgrid button{border:1px dashed var(--line2);background:none;border-radius:12px;min-height:44px;color:var(--leaf);font-weight:700;font-size:14px}
 .hbtn{border:1px solid var(--line2);background:none;border-radius:10px;min-height:40px;color:var(--ink);font-weight:700;font-size:14px}
 .hbtn.on{background:var(--green);border-color:var(--green);color:#fff}
+.hbtn2{min-height:36px;font-size:13px}.hbtn2.on{background:none;border:1.5px solid var(--leaf);color:var(--leaf)}
 .hdot{width:14px;height:14px;border-radius:7px;display:inline-block;border:1px solid var(--line2);background:transparent}
 .hdot.d{background:var(--leaf);border-color:var(--leaf)}.hdot.p{background:#4E7A5C;border-color:#4E7A5C}.hdot.n{background:#3A2A1E;border-color:#3A2A1E}.hdot.t{border:2px solid var(--gold)}
 .f-time{font-family:"DM Mono",ui-monospace,Menlo,monospace;color:var(--gold);font-size:13px;letter-spacing:.02em}
@@ -422,9 +423,15 @@ function movedCard(){
       +'<div class="row" style="gap:8px"><button class="btn" id="mvOk" data-k="autoStayed" style="flex:1;min-height:44px">Sounds good</button><button class="btn link" id="mvGo" style="flex:1;min-height:44px;border:1px solid var(--line2);border-radius:12px">Move on anyway</button></div></div>'; }
   var a=st.autoMoved; if(!a||daysBetween(a.on,today())>3||a.seen) return '';
   var h=habitOf(stepId()); if(!h) return '';
-  return '<div class="card" id="mvCard" style="border:1px solid #6B5A2A;gap:8px"><div style="font-size:18px">🎉 On to '+(h.n?'Habit '+h.n+': ':'')+esc(h.title)+'</div>'
-    +'<div class="meta" style="font-weight:400;font-size:14px">You finished '+a.len+' days of '+esc(a.fromTitle)+(a.strong?' ('+a.strong+' strong day'+(a.strong===1?'':'s')+')':'')+'. Keep it going; it\'s part of your plate now.</div>'
-    +'<div class="row" style="gap:8px"><button class="btn" id="mvOk" data-k="autoMoved" style="flex:1;min-height:44px">Got it</button><button class="btn link" id="mvStay" style="flex:1;min-height:44px;border:1px solid var(--line2);border-radius:12px">Stay 7 more days</button></div></div>';
+  // graduation: the habit she just finished joins her shelf, the next one starts
+  var shelf=earlierHabits().map(function(e){return '<span style="font-size:13px;font-weight:700;border-radius:12px;padding:5px 10px;background:#23382B;color:var(--leaf)">✓ '+esc(e.title)+'</span>';}).join('');
+  return '<div class="card" id="mvCard" style="border:1px solid #6B5A2A;gap:8px;text-align:center;align-items:center"><div style="font-size:44px;line-height:1">🎉</div>'
+    +'<div class="steplbl" style="color:var(--gold);font-size:11px">HABIT DONE</div>'
+    +'<div style="font-size:22px;font-weight:700">'+esc(a.fromTitle)+' is yours now</div>'
+    +'<div class="meta" style="font-weight:400;font-size:14px;line-height:1.45">'+(a.strong?'You did it on '+a.strong+' of '+a.len+' days. ':'')+'Keep doing it; it\'s part of your plate now.</div>'
+    +(shelf?'<div class="row" style="gap:6px;flex-wrap:wrap;justify-content:center">'+shelf+'</div>':'')
+    +'<div style="font-size:14px">Next up: <b>'+esc(h.title)+'</b></div>'
+    +'<button class="btn" id="mvOk" data-k="autoMoved" style="width:100%;min-height:46px">Start my next habit</button><button class="btn link" id="mvStay" style="min-height:36px">Stay 7 more days instead</button></div>';
 }
 function bindMoved(){
   var ok=$('#mvOk'), st=$('#mvStay'), gO=$('#mvGo'), p=S.program; if(!ok||!p) return;
@@ -433,6 +440,34 @@ function bindMoved(){
     p.settings=Object.assign({},p.settings); delete p.settings.autoMoved; p.history=(p.history||[]).concat([{type:'stay',step:a.from,template:p.template_id,on:today(),after:'auto'}]); p.updated_ms=now();
     write('nutrition_program',programRow()); render(); toast('Another week it is. Nice choice.'); };
   if(gO) gO.onclick=function(){ p.settings=Object.assign({},p.settings); p.settings.autoStayed=Object.assign({},p.settings.autoStayed,{seen:true}); decide('moveOn'); };
+}
+// The habit on the home page, under Log a meal: 14 dots, how it's going, today's tap.
+// No streak that drops to zero: a missed day stays one brown dot.
+function homeHabitCard(){
+  if(!hasPlan()) return ''; var id=stepId(), h=habitOf(id); if(!h||id==='start') return '';
+  var t=tpl(), total=t?t.path.filter(function(x){return x!=='start';}).length:0, n=(S.program.step_index||0)+1;
+  var cs=stepCheckins(), di=dayIndex(), len=cs.length, c=S.checkins[today()]||{};
+  var dots=cs.map(function(x,i){ var col=x==='done'?'background:var(--leaf)':x==='partly'?'background:#3D5A45':x==='not'?'background:#5A4636':i===di?'border:2px solid var(--gold)':x==='future'?'background:#24241F':'background:#33332C';
+    if(i===di&&x!=='future'&&x) col+=';box-shadow:0 0 0 2px var(--gold)'; return '<i style="flex:1;height:9px;border-radius:5px;'+col+'"></i>'; }).join('');
+  var past=cs.slice(0,di+1).filter(function(x){return x&&x!=='future';}), dn=past.filter(function(x){return x==='done';}).length, pt=past.filter(function(x){return x==='partly';}).length;
+  var how=past.length?'Done <b style="color:var(--leaf)">'+dn+' of '+(di+1)+' days</b>'+(pt?' · '+pt+' partly':''):'Tap below or log meals';
+  var E=earlierHabits();
+  return '<div class="card" id="hmHabit" style="border:1px solid var(--line2);gap:8px;padding:14px 16px">'
+    +'<button id="hmHabitOpen" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:3px">'
+    +'<span class="steplbl" style="color:var(--gold);font-size:11px">🌱 '+(id==='reset'?'7-DAY RESET':'YOUR HABIT'+(total?' · '+n+' OF '+total:''))+'</span>'
+    +'<span style="font-size:20px;font-weight:700">'+esc(id==='reset'?'7-day Reset':h.title)+' <span style="color:var(--muted);font-size:15px">›</span></span>'
+    +(h.short?'<span class="meta" style="font-weight:400;font-size:14px">'+esc(h.short)+'</span>':'')+'</button>'
+    +'<div style="display:flex;gap:4px;margin-top:4px">'+dots+'</div>'
+    +'<div class="row" style="justify-content:space-between;font-size:13px;color:var(--muted)"><span>Day '+(di+1)+' of '+len+'</span><span>'+how+'</span></div>'
+    +'<div style="border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px"><div style="font-size:15px">'+esc(checkinText()||'How did today go?')+'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">'
+    +[['done','Done'],['partly','Partly'],['not','Not yet']].map(function(o){return '<button class="hbtn hbtn2'+(c.answer===o[0]?' on':'')+'" data-hhab="'+o[0]+'">'+o[1]+'</button>';}).join('')+'</div></div>'
+    +(E.length?'<div class="meta" style="font-weight:400;font-size:12px">Habits that are yours now</div><div class="row" style="gap:6px;flex-wrap:wrap">'+E.map(function(e){return '<span style="font-size:12px;font-weight:700;border-radius:12px;padding:4px 9px;background:#23382B;color:var(--leaf)">✓ '+esc(e.title)+'</span>';}).join('')+'</div>':'')
+    +'</div>';
+}
+function bindHomeHabit(){
+  var o=$('#hmHabitOpen'); if(o) o.onclick=function(){go('plan');};
+  document.querySelectorAll('[data-hhab]').forEach(function(b){ b.onclick=function(){ var was=(S.checkins[today()]||{}).answer; setCheckin(b.dataset.hhab); if(b.dataset.hhab==='done'&&was!=='done') toast('Nice work ✓ Habit done for today'); }; });
 }
 // Your habits: the one you're on, and the earlier ones (still checked from your meals).
 function earlierHabits(){
@@ -470,7 +505,9 @@ function nudgeCard(){
   else if(hasPlan()&&window.KFitHabit){ var id=stepId(), h=habitOf(id); if(!h||id==='start') return '';
     var cs=stepCheckins().filter(function(x){return x!=='future';}), dn=cs.filter(function(x){return x==='done';}).length, pt=cs.filter(function(x){return x==='partly';}).length, n=cs.length, sc=n?(dn+pt*0.5)/n:0, len=stepLen(id), di=dayIndex();
     var hold=S.program.settings&&S.program.settings.coachHold;
-    if(!hold&&di===len-1&&n>=2){ ic='🏁'; tx='Last day of '+h.title+'. '+(sc>=0.65?'You\'ve done it most days, so tomorrow something new starts.':'If it needs more time, you\'ll get 7 more days. No rush.'); }
+    var yA=di>=1?effAnswer(addDays(T,-1)):'', y2=di>=2?effAnswer(addDays(T,-2)):'', tA=effAnswer(T);
+    if(yA==='not'&&y2!=='not'&&tA!=='done'){ ic='🌱'; tx='Missed '+h.title+' yesterday? That\'s fine: one day doesn\'t undo a habit. Just don\'t miss twice. Try it at your next meal.'; }
+    else if(!hold&&di===len-1&&n>=2){ ic='🏁'; tx='Last day of '+h.title+'. '+(sc>=0.65?'You\'ve done it most days, so tomorrow something new starts.':'If it needs more time, you\'ll get 7 more days. No rush.'); }
     else if(n>=3&&sc<0.45){ var ds=[]; for(var k=0;k<=di;k++) ds.push(mealsOn(addDays(S.program.step_started_on||T,k)).map(function(m){return m.body||{};}));
       ic='🌱'; tx=h.title+': '+dn+' of '+n+' days so far. '+(KFitHabit.tip(id,ds,habitCtx())||'Try it at your next meal.'); col='#6B5A2A'; }
     else if(n>=2&&sc>=0.65){ ic='💪'; tx=h.title+': '+dn+(pt?' (+'+pt+' partly)':'')+' of '+n+' days. You\'re nailing it. Keep going.'; }
@@ -722,7 +759,7 @@ function renderSignIn(msg){
   S.view=function(){renderSignIn(msg);};
   show('<div class="screen full">'
     +'<div style="height:12px"></div>'+langChips()
-    +'<h1>Welcome to KFit Nutrition.</h1>'
+    +'<h1>Welcome to KFit Nutrition Habits.</h1>'
     +'<div class="body"><p>A calm, simple coach for everyday eating. One small habit at a time, a two-minute lesson a day, and meals logged with a photo. No strict diets.</p>'
     +'<p style="margin:0">New here or coming back, just enter your name and mobile number.</p></div>'
     +'<div class="field"><label for="siName">Your name</label><input id="siName" autocomplete="name" value="'+esc(localStorage.getItem(LS.name)||'')+'"></div>'
@@ -862,21 +899,22 @@ function renderHome(){
   var planSub=hasPlan()?(function(){var t=tpl(),hb=habitOf(stepId());return (stepId()==='reset'?'7-day Reset':'Habit '+(S.program.step_index+1)+' of '+t.path.filter(function(x){return x!=='start';}).length+' · '+(hb?hb.title:''))+' · day '+(dayIndex()+1);})():'Optional · choose a plan to start';
   var unread=(S.notes||[]).filter(function(n){return !n.read_at;}).length+unreadCoach().length, anyNotes=(S.notes||[]).length+(S.comments||[]).filter(function(c){return c.author==='coach';}).length;
   var html='<div class="screen">'
-    +'<div class="hrow" style="align-items:center"><div class="brand"><span class="k">K</span><span class="f">F</span><span class="i">it</span><small>NUTRITION</small></div>'
+    +'<div class="hrow" style="align-items:center"><div class="brand"><span class="k">K</span><span class="f">F</span><span class="i">it</span><small>NUTRITION HABITS</small></div>'
     +'<div class="row" style="gap:8px"><a id="hmHome" href="./" aria-label="KFit home: all apps" style="display:flex;align-items:center;justify-content:center;width:40px;min-height:40px;border:1px solid var(--line2);border-radius:20px;text-decoration:none;font-size:18px">🏠</a><button class="langbtn" id="hmLang" aria-label="Language">🌐</button><button class="helpbtn" aria-label="What is this page?">?</button></div></div>'
     +'<div id="hmLangBox" style="display:none">'+langChips()+'</div>'
     +'<h1 style="font-size:34px">'+partOfDay()+(name?',<br><i style="color:var(--gold)">'+esc(name)+'</i>':'.')+'</h1><div class="goldline"></div>'
     +hint('home')
     +'<button class="tile main" id="hmLog"><div class="ic" style="background:#23382B;color:var(--leaf)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></div><div style="flex:1"><h2>Log a meal</h2><div class="meta" style="font-weight:400">'+(todays.length?todays.length+' logged today':'Your day, meal by meal')+'</div>'+kcalBar(today())+'</div></button>'
-    +'<button class="tile" id="hmPlan"><div class="ic" style="background:#3A2A1E;color:var(--terra)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M6 20c0-5 12-3 12-9S9 6 9 3"/><circle cx="9" cy="3" r="1"/><circle cx="6" cy="20" r="1"/></svg></div><div><h2>My plan</h2><div class="meta" style="font-weight:400">'+esc(planSub)+'</div></div></button>';
+    +(function(){ var mv=movedCard(); return mv||homeHabitCard(); })()
+    +'<button class="tile" id="hmPlan"><div class="ic" style="background:#3A2A1E;color:var(--terra)"><svg class="icon" viewBox="0 0 24 24" style="width:28px;height:28px"><path d="M6 20c0-5 12-3 12-9S9 6 9 3"/><circle cx="9" cy="3" r="1"/><circle cx="6" cy="20" r="1"/></svg></div><div><h2>My habits</h2><div class="meta" style="font-weight:400">'+esc(hasPlan()?'Your path · lessons · past habits':planSub)+'</div></div></button>';
   if(anyNotes&&hasCoach()) html+='<button class="tile" id="hmCoach" style="border-color:#6B5A2A;padding:13px 16px"><div style="font-size:15px">'+(unread?'<b style="color:var(--gold)">'+unread+' new note'+(unread===1?'':'s')+' from your coach</b>':'<b style="color:var(--gold)">From your coach</b>')+' <span style="color:var(--muted)">· tap to read</span></div></button>';
   html+=progressTile();
-  html+=movedCard()+'<div id="pushCard"></div><div class="links">'
+  html+='<div id="pushCard"></div><div class="links">'
     +'<button data-go="guide">📖 Food guide</button>'+(S.legacyDays&&S.legacyDays.length?'<button data-go="earlier">Older logs</button>':'')
     +(hasCoach()?'<button data-go="chat">'+(S.unread?'💬 Chat ('+S.unread+' new)':'💬 Chat')+'</button>':'')+'</div>'+(hasCoach()?'':wantCoachCard())+'</div>';
   show(html);
   var hj=$('#hmJoin'); if(hj) hj.onclick=openCoachLink;
-  bindMoved(); bindProgressTile();
+  bindMoved(); bindProgressTile(); bindHomeHabit();
   $('#hmLog').onclick=function(){go('log');};
   $('#hmPlan').onclick=function(){go('plan');};
   var hc=$('#hmCoach'); if(hc) hc.onclick=function(){go('coach');};
@@ -1987,7 +2025,12 @@ function openMealForm(d,forSlot,editId){
   document.querySelectorAll('[data-ren]').forEach(function(b){b.onclick=async function(){
     keep(); var i=+b.dataset.ren, it=M.items[i], v=await KFitUI.ask({title:'What is it really?',value:it.name,ok:'Change'}); if(!v||!v.trim()||v.trim()===it.name) return;
     M.busy=true; openMealForm(d,forSlot,editId);
-    try{ var r=await aiItems(null,amtTxt(it.amount)+' '+(it.unit||'')+' '+v.trim()); if(r.items[0]){ var ni=r.items[0]; ni.name=v.trim().slice(0,60); M.items[i]=ni; } else M.items[i]=Object.assign({},it,{name:v.trim().slice(0,60)}); }
+    try{ var r=await aiItems(null,amtTxt(it.amount)+' '+(it.unit||'')+' '+v.trim());
+      // "pasta with chicken (100 g)" can come back as two foods: keep it as the one line she typed, with everything added up
+      if(r.items.length){ var ni=Object.assign({},r.items[0]);
+        if(r.items.length>1){ ['kcal','protein','veg','carbs','fats'].forEach(function(k){ ni[k]=r.items.reduce(function(a,x){return a+(Number(x[k])||0);},0); }); ni.amount=it.amount; ni.unit=it.unit; delete ni.drink; delete ni.sugar; }
+        ni.name=v.trim().slice(0,60); ni.base={amount:ni.amount,kcal:ni.kcal,protein:ni.protein,veg:ni.veg,carbs:ni.carbs,fats:ni.fats}; M.items[i]=ni; if(r.tip) M.tip=r.tip; }
+      else M.items[i]=Object.assign({},it,{name:v.trim().slice(0,60)}); }
     catch(e){ M.items[i]=Object.assign({},it,{name:v.trim().slice(0,60)}); }
     M.edited=true; M.busy=false; openMealForm(d,forSlot,editId);
   };});
@@ -2107,7 +2150,7 @@ function openGuide(first){
 // under the ? button (with the full tour one tap further).
 var HINTS={
   welcome:'Pick a plan to get one small habit at a time, with a two-minute lesson a day. Or skip it and just log your meals. Nothing here is a test.',
-  home:'Log a meal: take a photo, upload from your gallery, type it or say it. My plan is your habit, with a two-minute lesson a day. My progress holds your weight, your goal and your details. The house button takes you back to all the KFit apps.',
+  home:'Log a meal: take a photo, upload from your gallery, type it or say it. Under it is your habit: each dot is a day, green when you did it. Tap Done, Partly or Not yet, or let your meals fill it in. A missed day is just one dot; don\'t miss twice. When a habit is done it joins your shelf and the next one starts. My habits has your path and lessons. My progress holds your weight, your goal and your details. The house button takes you back to all the KFit apps.',
   today:'Today\'s lesson. Read it or tap Listen, try the one small thing, and at night tap how it went. Your logged meals help fill in the answer. Below it, Keep them going shows your earlier habits from the last seven days. When a habit\'s days are up, you move on if you did it most days. If not, you get seven more days so it can stick.',
   log:'Your day. Your meals are at the top: tap one to see what\'s in it, or tap a plus button to log the next one. Below them are calories so far and water. Tap a tile for details, and the cross to close it. Under the tiles, tips for the rest of today: protein, calories and water. At the top, a message from your coach, or a short note on how your habit is going. Swipe left or right to change the day.',
   progress:'Weigh in once a week: same scale, in the morning, before breakfast. Watch the line over a few weeks, not single days. Your goal and your details are here too, with how your daily calories and protein are worked out. Track water or not, water reminders, and your phone reminders: morning and evening, or morning only. Log out is at the bottom of Your details.',
