@@ -4194,6 +4194,7 @@ function lastPerfHtml(exName){
     return '<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(0,0,0,.25);border-radius:6px;'+(r.dropset?'margin-left:16px;border-left:2px solid var(--terra);':'')+'">'
     +'<span style="font-family:\'DM Mono\',monospace;font-size:13px;color:'+(r.dropset?'var(--terra)':'var(--muted)')+';width:36px;flex-shrink:0;text-transform:uppercase;">'+label+'</span>'
     +(r.reps?'<span style="font-size:13px;font-weight:700;color:var(--text);flex:1;">'+r.reps+' reps'+(r.assistedReps>0?' <span style="color:var(--terra);font-size:11px;font-weight:700;">(H '+r.assistedReps+')</span>':'')+((r.myoRepMatch||r.rpReps>0)?' <span style="color:#9a6ad4;font-size:11px;font-weight:700;">(RP'+(r.rpReps>0?' +'+r.rpReps:'')+')</span>':'')+((r.rir!=null&&r.rir!=='')?' <span style="color:#4aa3c7;font-size:11px;font-weight:700;">(RIR '+r.rir+')</span>':'')+(r.lengthenedPartialReps>0?' <span style="color:var(--gold);font-size:11px;font-weight:700;">(LP '+r.lengthenedPartialReps+')</span>':'')+'</span>':'<span style="flex:1;"></span>')
+    +(r.restAfter>0?'<span style="font-size:11px;color:var(--muted);white-space:nowrap;">rest '+Math.floor(r.restAfter/60)+':'+String(Math.round(r.restAfter)%60).padStart(2,'0')+'</span>':'')
     +(r.weight?'<span style="font-family:\'DM Mono\',monospace;font-size:13px;font-weight:600;color:var(--gold);">'+r.weight+unit+'</span>':'')
     +'</div>';
   }).join('');

@@ -153,7 +153,10 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .set-row.kf-c .rir-toggle,.set-row.kf-c .assist-toggle,.set-row.kf-c .mm-toggle,.set-row.kf-c .lp-toggle{order:3;width:44px}
 .set-row.kf-c .rir-toggle{margin-left:30px}
 .set-row.kf-c:not(.kf-open) .rir-toggle{margin-left:0}
-.add-drop-link.kf-hide{display:none}
+.add-drop-link.kf-hide,.drop-row.kf-hide{display:none}
+.kf-hs-body span{font-size:15px!important}
+.kf-hs-body div>span:first-child{font-size:13px!important;width:46px!important;white-space:nowrap}
+.kf-hs-body span[style*="rest"],.kf-hs-body span:not(:first-child)[style*="12px"]{font-size:12px!important}
 /* last session: one line with the date; the sets open on tap */
 .kf-hs{background:rgba(212,168,67,.1);border:1px solid rgba(212,168,67,.25);border-radius:8px;margin:6px 8px 0;overflow:hidden}
 .kf-hs-top{display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer;user-select:none}
@@ -162,6 +165,10 @@ input[type="date"].field-input::-webkit-calendar-picker-indicator{filter:invert(
 .kf-hs-ago{font-size:13px;color:var(--muted)}
 .kf-hs-chev{margin-left:auto;color:var(--muted);font-size:14px}
 .kf-hs-body{display:none;padding:0 10px 10px}
+.ex-top-row>.ex-last-hist{flex-basis:100%;order:-1;min-width:0}
+.superset-ex-block .ex-top-row>.ex-last-hist{order:5}
+.ex-top-row>.ex-last-hist .kf-hs{margin:0}
+.ex-top-row>.ex-last-hist:empty{display:none}
 .kf-hs.kf-on .kf-hs-body{display:block}
 /* the bottom of an open exercise: superset on the left, Done on the right */
 .kf-exfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 8px 10px}
@@ -4742,13 +4749,17 @@ if(!block._kfHead){ block._kfHead=1;
 }
 kfRowsCompact(block);
 }
+function kfHistUnderName(block){
+const top=block.querySelector('.ex-top-row'), h=block.querySelector('.ex-last-hist'); if(!top||!h) return;
+const k=top.querySelector(':scope>.kf-sel')||top.querySelector('.ex-select,.ss-ex-select'); if(!k) return;
+if(h.parentNode!==top||h.previousElementSibling!==k) k.insertAdjacentElement('afterend',h);
+}
 function kfRowsCompact(block){
-const unit=(typeof weightUnit!=='undefined'&&weightUnit)||'kg', L=block._kfLast||[]; let i=0;
+kfHistUnderName(block);
+const unit=(typeof weightUnit!=='undefined'&&weightUnit)||'kg';
 block.querySelectorAll('.set-rows > .set-row').forEach(function(row){
   if(row.classList.contains('drop-row')||row.classList.contains('functional-row')||!row.querySelector('.reps-input')) return;
-  const l=L[i++]||null;
   if(!row.classList.contains('kf-c')){ row.classList.add('kf-c');
-    if(l&&((l.rir!=null&&l.rir!=='')||l.assistedReps>0||l.lengthenedPartialReps>0||l.rpReps>0||l.myoRepMatch)) row.classList.add('kf-open');
     const br=document.createElement('i'); br.className='kf-br'; row.appendChild(br);
     const mo=document.createElement('button'); mo.type='button'; mo.className='kf-ib kf-more'; mo.title='RIR, H, RP, LP and drop set';
     mo.onclick=function(){ row.classList.toggle('kf-open'); kfSSRow(row); };
@@ -4763,7 +4774,8 @@ block.querySelectorAll('.set-rows > .set-row').forEach(function(row){
 function kfSSRow(row){
   const mo=row.querySelector('.kf-more'), mt=row.classList.contains('kf-open')?'－':'＋'; if(mo&&mo.textContent!==mt) mo.textContent=mt;
   // its "+ Drop set" link (after any drop rows) shows only while the set is open
-  let n=row.nextElementSibling; while(n&&n.classList.contains('drop-row')) n=n.nextElementSibling;
+  const op=row.classList.contains('kf-open');
+  let n=row.nextElementSibling; while(n&&n.classList.contains('drop-row')){ const typed=[].some.call(n.querySelectorAll('input'),function(x){return x.value;}); n.classList.toggle('kf-hide',!op&&!typed); n=n.nextElementSibling; }
   if(n&&n.classList.contains('add-drop-link')) n.classList.toggle('kf-hide',!row.classList.contains('kf-open'));
 }
 // rows get rebuilt (sets count, loading a routine, editing): keep them compact
@@ -4776,7 +4788,7 @@ function kfSSBp(ss){ const row=ss.querySelector('[id^="ssBpRow_"]'); if(!row) re
   const show=!all||ss._kfBpOpen, txt=show?(all?'Body parts ▴':''):'Body parts ▾';
   if(row.style.display!==(show?'':'none')) row.style.display=show?'':'none';
   if(tg.textContent!==txt) tg.textContent=txt; tg.style.display=all?'':'none'; }
-(function(){ let t=null; function run(){ t=null; document.querySelectorAll('#exBody .superset-ex-block').forEach(kfSSCompact); document.querySelectorAll('#exBody>.ex-block').forEach(function(b){ if(b.querySelector('.reps-input')){ b.classList.add('kf-cmp'); kfRowsCompact(b); } else b.classList.remove('kf-cmp'); }); document.querySelectorAll('#exBody .superset-block').forEach(kfSSBp); }
+(function(){ let t=null; function run(){ t=null; document.querySelectorAll('#exBody .superset-ex-block').forEach(kfSSCompact); document.querySelectorAll('#exBody>.ex-block').forEach(function(b){ if(b.querySelector('.reps-input')){ b.classList.add('kf-cmp'); kfRowsCompact(b); } else { b.classList.remove('kf-cmp'); kfHistUnderName(b); } }); document.querySelectorAll('#exBody .superset-block').forEach(kfSSBp); }
   try{ new MutationObserver(function(){ if(!t) t=setTimeout(run,60); }).observe(document.documentElement,{childList:true,subtree:true}); }catch(e){} })();
 function onSupersetExChange(sel){
 const block=sel.closest('.superset-ex-block');
@@ -8894,7 +8906,7 @@ const HELP_TEXT=[
 '<b>1. Tap the body part you\'re training</b><br>See buttons like Back, Chest, Legs, Cardio? Tap the one(s) you\'re training today. You can tap more than one (e.g. Chest + Shoulders). The right exercises show up below by themselves -- you never have to search for them.<br><br>'+
 '<b>1b. Or just search for any exercise directly</b><br>There\'s a search box above your exercise list -- type any exercise\'s name, from any body part, whether or not you\'ve tapped that body part above. It\'s forgiving about word order, so "flat bench press barbell" still finds "Barbell Bench Press (Flat)." Tap a suggestion and it gets added, its body part gets ticked on automatically, and your history for it shows up right away.<br><br>'+
 '<b>1c. Save and reuse your own routines</b><br>Built a combination of exercises you want to repeat -- a specific push day, a week\'s plan, anything? In the Select Body Part card, open <b>My Routines</b> and tap <b>Add exercises</b> to search and build a list right there (no need to log real sets first), then tap <b>Set a Routine</b> to name and save it, however many you like. If you\'d rather build it the long way, add exercises normally on this page first, then tap Set a Routine -- it saves whatever\'s currently on the page instead. Next time, tap "Load" from the dropdown and it rebuilds that exact exercise list instantly -- a fresh, blank set of exercises ready to log new numbers against, with your history for each one still showing. Loading a routine only clears whatever\'s currently unsaved on the page; it never touches anything you\'ve already saved. Routines with a "(Coach)" tag were sent to you by your coach -- you can load, rename, or delete them just like your own. Right below My Routines, open <b>KFit Standard Routine</b> for Karan\'s own core program (Chest+Core, Back, Legs, Arms & Shoulders) -- no building required, just tap Load or preview it first with the small ⓘ button. Inside the Functional/Isometric card, open <b>KFit Suggested Routines</b> for four ready-made circuits (20/30/45/60 min) built around proper movement-pattern rotation. And if you log a combination of exercises that isn\'t already one of your saved routines, a small <b>⭐ Save as routine</b> link shows for a few seconds after you tap Save Session -- tap it to name it, or just ignore it.<br><br>'+
-'<b>2. For each exercise, fill in your sets</b><br>When you tap a body part, the first exercise opens and the rest stay folded in one line each. Tap a folded one to open it, and tap <b>Done ✓</b> at its bottom to fold it again. Every exercise shows boxes for Reps and Weight, one row per set. Just type the numbers in as you finish each set. Want to see what you did last time? Tap the gold <b>Last session</b> line with the date, and the sets open underneath. The <b>＋</b> at the end of a set opens RIR, H, RP, LP and \"+ Drop set\" for that set. Did an extra set that isn\'t shown? Tap "+ Add Set" to add another row.<br><br>'+
+'<b>2. For each exercise, fill in your sets</b><br>When you tap a body part, the first exercise opens and the rest stay folded in one line each. Tap a folded one to open it, and tap <b>Done ✓</b> at its bottom to fold it again. Every exercise shows boxes for Reps and Weight, one row per set. Just type the numbers in as you finish each set. Want to see what you did last time? Tap the gold <b>Last session</b> line with the date, right under the exercise name, and last time\'s sets open with their rest, RIR, H, LP and drop sets. The <b>＋</b> at the end of a set opens RIR, H, RP, LP and \"+ Drop set\" for that set. Did an extra set that isn\'t shown? Tap "+ Add Set" to add another row.<br><br>'+
 '<b>3. The H button (needed a spot/help finishing reps)</b><br>Next to each set is a small button that says "H" (for Help). Tap it once for every rep in that set where someone helped you finish (a spot) -- it\'ll show a number like "H 2". Tapped it by mistake, or want to lower the count? Press and hold the button to subtract one. Didn\'t need help at all? Just leave it alone.<br><br>'+
 '<b>3b. The LP button (lengthened partials)</b><br>Works exactly the same way as H, right next to it. Tap "LP" once for every rep in that set done as a lengthened partial -- a shorter rep performed in the stretched position of the movement (e.g. the bottom half of a leg extension or bicep curl), a technique some research suggests builds muscle as well as full-range reps for certain exercises. Same as H: tap to add one, press and hold to subtract one. Like H and drop sets, LP reps are excluded from your Personal Records, since a partial-range rep isn\'t really the same lift as a full-range one.<br><br>'+
 '<b>3c. The RP button (rest-pause)</b><br>Did you pause briefly mid-set and squeeze out more reps? Tap RP once for each of those extra reps (hold to take one off). They count towards the set\'s volume, but -- like H and LP -- rest-pause sets don\'t count towards personal records.<br><br>'+
