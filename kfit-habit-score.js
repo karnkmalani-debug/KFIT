@@ -72,14 +72,14 @@
     var w;
     if(id==='protein-first'||id==='weekends'||id==='out-and-about'){ w=worst(function(m){return m.h.protein<0.5;},['Breakfast','Lunch','Dinner']);
       return w?w.slot+' is where protein slips most. Try eggs, curd, paneer, dal or sprouts there.':'Protein is showing up at your meals. Keep it first on the plate.'; }
-    if(id==='fibre-second'){ w=worst(function(m){return m.h.veg<1;},['Lunch','Dinner']); return w?'Your '+w.slot.toLowerCase()+' is often light on veg. Add a fist of salad or sabzi first.':'A fist of veg at lunch and dinner: you\'re doing it.'; }
+    if(id==='fibre-second'){ w=worst(function(m){return m.h.veg<1;},['Lunch','Dinner']); return w?'Your '+w.slot.toLowerCase()+' is often light on veg. Add a fist of salad or cooked vegetables first.':'A fist of veg at lunch and dinner: you\'re doing it.'; }
     if(id==='plate-by-hand'||id==='own-it'){ w=worst(function(m){return m.h.carbs>2;},['Breakfast','Lunch','Dinner']); if(w) return 'Carbs run big at '+w.slot.toLowerCase()+'. Try one cupped hand and add veg.';
       w=worst(function(m){return m.h.veg<0.5;},['Breakfast','Lunch','Dinner']); return w?'Add a fist of veg at '+w.slot.toLowerCase()+' to complete the plate.':'Your plates are well built. Keep using your hand as the guide.'; }
     if(id==='eating-order'){ w=worst(function(m){return !(m.h.protein>=0.5&&m.h.veg>=0.5);},['Lunch','Dinner']); return w?'Have protein and veg on your '+w.slot.toLowerCase()+' plate so you can eat them first, carbs last.':'Protein and veg are on your plate. Eat them first, carbs last.'; }
     if(id==='snack-upgrade'){ var sn=all.filter(function(m){return /snack/i.test(m.slot)&&m.h&&m.h.protein<0.5;}).length; return sn?'Swap one snack for curd, roasted chana, nuts or a boiled egg.':'Your snacks are protein-led. Nice.'; }
     if(id==='early-dinner'){ var t=all.filter(function(m){return m.slot==='Dinner'&&/^\d{1,2}:\d{2}/.test(m.time);}).map(function(m){var p=m.time.split(':');return (+p[0])*60+(+p[1]);}); if(!t.length) return 'Log dinner with its time and you\'ll see how early you\'re finishing.';
       var avg=Math.round(t.reduce(function(a,b){return a+b;},0)/t.length); var hh=Math.floor(avg/60), mm=avg%60; return 'Dinner averages '+(hh>12?hh-12:hh)+':'+(mm<10?'0':'')+mm+(hh>=12?' pm':' am')+'. Aim to finish 2 to 3 hours before bed.'; }
-    if(id==='sip-smarter'){ var swn=0; (days||[]).forEach(function(ms){ (ms||[]).forEach(function(b){ swn+=sweetCount(b||{}); }); }); return swn?'Sweet drinks or alcohol showed up '+swn+' time'+(swn===1?'':'s')+'. Try water, chaas, nimbu pani without sugar or sparkling water instead.':'No sweet drinks logged. Lovely.'; }
+    if(id==='sip-smarter'){ var swn=0; (days||[]).forEach(function(ms){ (ms||[]).forEach(function(b){ swn+=sweetCount(b||{}); }); }); return swn?'Sweet drinks or alcohol showed up '+swn+' time'+(swn===1?'':'s')+'. Try water, buttermilk, lemon water without sugar or sparkling water instead.':'No sweet drinks logged. Lovely.'; }
     if(id==='more-same-less') return 'Eat slowly and stop at satisfied, not stuffed. Your daily total tells the story.';
     return '';
   }

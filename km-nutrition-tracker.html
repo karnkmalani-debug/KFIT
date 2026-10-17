@@ -557,7 +557,7 @@ function tipsCard(d,inline){
     else tips.push(['🥚','Protein: about '+g+' g of '+PT.lo+'–'+PT.hi+' g so far. On track.']); }
   var tg=goalKcal(targets()), kd=dayKcal(d);
   if(showK()&&tg&&kd.n){
-    if(kd.sum>tg*1.05) tips.push(['🔥','You\'ve had your calories for today. Hungry later? Veg, curd, chaas or soup. One day doesn\'t matter; the week does.']);
+    if(kd.sum>tg*1.05) tips.push(['🔥','You\'ve had your calories for today. Hungry later? Vegetables, curd, buttermilk or soup. One day doesn\'t matter; the week does.']);
     else if(h>=19&&kd.sum<tg*0.6) tips.push(['🔥','About '+fmt(Math.round((tg-kd.sum)/10)*10)+' calories left today. Don\'t skip dinner: make it protein and veg.']); }
   if(waterReminders()){ var wml=waterMl(d), wg=waterGoalMl();
     if(wml<wg*frac*0.75) tips.push(['💧',fmtWater(wml)+' of '+fmtWater(wg)+' so far. Have 2 glasses in the next hour.']); }
@@ -1087,7 +1087,7 @@ async function weekAI(w){
     el.innerHTML='<div class="card" style="border:1px solid var(--line);align-items:center"><div class="meta" style="font-weight:400">Reading your week…</div></div>';
     try{
       var prompt='You are a warm, practical nutrition coach writing to someone in India who uses a food-habit app on their own. Here is their week: numbers from their meals and habit days, and everything they wrote (meal notes, reflections, how they felt). '
-        +'Read the notes carefully and use them. Do the maths where it helps. Talk to them as "you". Plain, simple English; measures in English (bowl, cup, glass, spoon; never katori or other Hindi words); everyday dish names like dal, roti, paneer, poha are fine. '
+        +'Read the notes carefully and use them. Do the maths where it helps. Talk to them as "you". Plain, simple English; measures in English (bowl, cup, glass, spoon; never katori or other Hindi words). Write only in plain English: vegetables or cooked vegetables (not sabzi), buttermilk (not chaas), lemon water (not nimbu pani), sweets (not mithai), bowl/cup/glass/spoon (not katori, vati, chamach). Dish names with no English word (dal, roti, paneer, poha) are fine. '
         +'Be specific, kind and never preachy. Never invent anything not in the data; if the week is thin, say so gently. '
         +'Reply ONLY with JSON: {"one_line":"...","went_well":[{"i":"emoji","t":"..."}],"try_this_week":["...","..."]} with 2-3 went_well items and exactly 2 try_this_week tips, each under 22 words.\n'
         +'DATA: '+JSON.stringify(stats)+'\nTHEIR NOTES:\n'+(notes.join('\n')||'(none)');
@@ -1838,7 +1838,7 @@ async function aiItems(blob,text){
     +'Alcohol calories include the alcohol itself (about 7 kcal per gram) plus any sugar; list a mixer (cola, soda, tonic, juice) as its own item. A peg is 30 ml (small) or 60 ml (large). '
     +'If a cafe chain or brand is named (for example Starbucks, Cafe Coffee Day, Third Wave, Chaayos, McCafe, Coca-Cola, Thums Up, Frooti, Amul, Kingfisher), use that brand\'s own published nutrition for that size if you know it. '
     +(blob?'Judge the amounts from the photo. ':'If no amount is said, assume a typical home portion. ')
-    +'Also one short, kind, practical tip (max 25 words) based on: protein first, a fist of vegetables, carbs last; if there is alcohol, suggest water between drinks and protein with them; if there is a sugary drink, suggest one simple swap (nimbu pani without sugar, chaas, sparkling water). Never shame. '
+    +'Also one short, kind, practical tip (max 25 words) based on: protein first, a fist of vegetables, carbs last; if there is alcohol, suggest water between drinks and protein with them; if there is a sugary drink, suggest one simple swap (lemon water without sugar, buttermilk, sparkling water). Write only in plain English: vegetables or cooked vegetables (not sabzi), buttermilk (not chaas), lemon water (not nimbu pani), sweets (not mithai), bowl/cup/glass/spoon (not katori, vati, chamach). Never shame. '
     +(kLang()!=='en'?'Write the tip in '+KFitI18n.aiName()+'. ':'')
     +'Reply ONLY with JSON: {"items":[{"name":"","amount":1,"unit":"","kcal":0,"protein":0,"veg":0,"carbs":0,"fats":0,"pg":0,"cg":0,"fg":0,"fib":0,"drink":null,"sugar":0}],"tip":""}';
   var parts=[{text:prompt}]; for(var bi=0;bi<blobs.length;bi++) parts.push({inline_data:{mime_type:'image/jpeg',data:await b64(blobs[bi])}});
@@ -1893,7 +1893,7 @@ function sayMeal(onText,onFallback){
   var rec; try{ rec=new SR(); }catch(e){ onFallback(); return; }
   rec.lang=kLang()==='hi'?'hi-IN':'en-IN'; rec.interimResults=true; rec.continuous=false; rec.maxAlternatives=1;
   var ov=document.createElement('div'); ov.id='sayOv'; ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(10,10,8,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center';
-  ov.innerHTML='<div style="font-size:64px">🎤</div><div class="f-meal" style="font-size:24px">Listening…</div><div id="sayTxt" class="meta" style="font-weight:400;font-size:17px;min-height:48px;max-width:320px">Say what you ate, like "two rotis, dal and a glass of chaas"</div><button class="btn" id="sayDone" style="min-width:200px">Done</button><button class="btn link" id="sayCancel">Cancel</button>';
+  ov.innerHTML='<div style="font-size:64px">🎤</div><div class="f-meal" style="font-size:24px">Listening…</div><div id="sayTxt" class="meta" style="font-weight:400;font-size:17px;min-height:48px;max-width:320px">Say what you ate, like "two rotis, dal and a glass of buttermilk"</div><button class="btn" id="sayDone" style="min-width:200px">Done</button><button class="btn link" id="sayCancel">Cancel</button>';
   document.body.appendChild(ov);
   var text='', ended=false, cancelled=false;
   function finish(){ if(ended) return; ended=true; try{ rec.stop(); }catch(e){} ov.remove(); if(cancelled) return; if(text.trim()) onText(text.trim()); else onFallback(); }
@@ -1981,7 +1981,7 @@ function handGuide(f,slot,ctx){
   var gain=goalOf()==='gain';
   var base=men?2:1; if(snack) base=base/2;
   var T={protein:base,veg:base,carbs:base+(gain?(snack?0.5:1):0),fats:base};
-  var L=[['protein','✋','Protein','palm','add egg, dal or paneer'],['veg','✊','Veg','fist','add a salad or sabzi'],['carbs','🤲','Carbs','cupped hand','less roti or rice'],['fats','👍','Fats','thumb','less oil or ghee']];
+  var L=[['protein','✋','Protein','palm','add egg, dal or paneer'],['veg','✊','Veg','fist','add a salad or cooked vegetables'],['carbs','🤲','Carbs','cupped hand','less roti or rice'],['fats','👍','Fats','thumb','less oil or ghee']];
   function n(x){ x=Math.round((Number(x)||0)*4)/4; var w=Math.floor(x), fr=x-w, f=fr===0.25?'¼':fr===0.5?'½':fr===0.75?'¾':''; return (w||!f?String(w):'')+f; }
   var rows=L.map(function(r){ var have=Number(f[r[0]])||0, want=T[r[0]], low=have<want*0.75, high=have>want*1.6;
     var say=gain&&low&&r[0]==='carbs'?'<span style="color:var(--gold)">add roti, rice or poha</span>':low&&(r[0]==='protein'||r[0]==='veg')?'<span style="color:var(--gold)">'+r[4]+'</span>':high&&(r[0]==='carbs'||r[0]==='fats')?'<span style="color:var(--gold)">'+r[4]+'</span>':'<span style="color:var(--leaf)">good</span>';

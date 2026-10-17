@@ -5801,9 +5801,9 @@ function getLoggedDays(client){
 window.FOOD_OPTIONS = window.FOOD_OPTIONS || {
   breakfast:['Eggs','Oats','Poha','Idli','Dosa','Paratha','Upma','Fruit','Curd','Protein Shake','Milk','Toast','Nuts','Coffee','Green Tea'],
   msnack:['Nuts','Fruit','Curd','Protein Shake','Roasted Chana','Green Tea','Sprouts','Dates','Coffee'],
-  lunch:['Dal','Sabzi','Roti','Rice','Chicken','Fish','Salad','Paneer','Curd','Protein Shake','Nuts','Coffee'],
+  lunch:['Dal','Cooked veg','Roti','Rice','Chicken','Fish','Salad','Paneer','Curd','Protein Shake','Nuts','Coffee'],
   esnack:['Tea','Nuts','Fruit','Protein Shake','Samosa','Sandwich','Sprouts','Green Tea'],
-  dinner:['Dal','Sabzi','Roti','Rice','Chicken','Fish','Salad','Soup','Paneer','Khichdi','Green Tea','Nuts','Protein Shake']
+  dinner:['Dal','Cooked veg','Roti','Rice','Chicken','Fish','Salad','Soup','Paneer','Khichdi','Green Tea','Nuts','Protein Shake']
 };
 window.HABITS = window.HABITS || [
   {id:'sunset',text:'Had dinner close to sunset / early evening'},
@@ -7800,7 +7800,7 @@ function ncSumRules(S){
 async function ncSumAI(S,name){
   var prompt='You help a nutrition coach in India prepare for a consult with his client '+(name||'')+'. Below are numbers worked out from her app since the last consult, and every note (consult notes, her notes, coach notes, meal notes, chat). '
     +'Study them carefully, do the maths where useful (averages, trends, per-meal protein, how often), and compare with her targets. Notes may include habits that are not food (for example climbing stairs, walking, sleep, water): include them when the notes give evidence. '
-    +'Write for the coach in plain English, short and specific, with numbers. Use Indian everyday foods in advice, but write every measure and description in English (bowl, cup, glass, spoon, plate; never katori, vati, chamach or other Hindi words). Dish names everyone uses in English (dal, roti, paneer, sabzi, poha) are fine. Never invent facts that are not in the data; if data is thin, say so. '
+    +'Write for the coach in plain English, short and specific, with numbers. Use Indian everyday foods in advice, but write every measure and description in English (bowl, cup, glass, spoon, plate; never katori, vati, chamach or other Hindi words). Write only in plain English: vegetables or cooked vegetables (not sabzi), buttermilk (not chaas), lemon water (not nimbu pani), sweets (not mithai), bowl/cup/glass/spoon (not katori, vati, chamach). Dish names with no English word (dal, roti, paneer, poha) are fine. Never invent facts that are not in the data; if data is thin, say so. '
     +'Reply ONLY with JSON: {"went_well":[{"i":"emoji","t":"..."}],"needs_work":[{"i":"emoji","t":"..."}],"talk_about":["..."],"one_line":"..."} with 2-4 items each for went_well and needs_work, 3 items for talk_about (concrete advice he can relay), and one_line = a one-sentence overall picture. Each item under 25 words.\n'
     +'DATA: '+JSON.stringify(S.stats)+'\nNOTES:\n'+S.notes.join('\n');
   var r=await fetch(NC_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:2048,responseMimeType:'application/json',thinkingConfig:{thinkingBudget:0}}})});
