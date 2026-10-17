@@ -1105,6 +1105,12 @@ async function logOut(){
   renderSignIn();
 }
 function renderWelcome(){ return renderHome(); }
+// Net grams of one saved meal, and of the day up to (and including) a meal
+function mealNet(b){ b=b||{}; var f=(Array.isArray(b.items)&&b.items.length)?itemsFeedback(b.items,''):aggFeedback(b); if(!f) return null;
+  if(f.g) return f.g; if(f.protein==null) return null;
+  var c=(+f.carbs||0)*25, fib=(+f.veg||0)*2+(+f.carbs||0)*1.5; return {p:Math.round((+f.protein||0)*25),net:Math.max(0,Math.round(c-fib)),f:Math.round((+f.fats||0)*8),fib:Math.round(fib)}; }
+function addNet(a,b){ return {p:(a.p||0)+(b.p||0),net:(a.net||0)+(b.net||0),f:(a.f||0)+(b.f||0),fib:(a.fib||0)+(b.fib||0)}; }
+function netTxt(g,short){ return short?g.p+' g P · '+g.net+' g NC · '+g.f+' g F · '+g.fib+' g fib':g.p+' g protein · '+g.net+' g net carbs · '+g.f+' g fats · '+g.fib+' g fibre'; }
 function mealsOn(d){return Object.keys(S.meals).map(function(k){return S.meals[k];}).filter(function(m){return m.day===d&&!m.deleted;}).sort(function(a,b){return mealAt(a)-mealAt(b);});}
 function mealAt(m){var b=m.body||{};return b.eatenAt?new Date(b.eatenAt).getTime():(b.at||0);}
 function mealTime(m){var t=mealAt(m);if(!t)return '';var d=new Date(t);return d.toLocaleTimeString(kLoc(), {hour:'numeric',minute:'2-digit'}).toLowerCase();}
@@ -1570,6 +1576,10 @@ function renderLog(){
         +(b.noPhoto?'<div class="meta" style="font-weight:400">No photo · logged from words</div>':'')
         +(b.fromEarlierApp?'<div class="meta" style="font-weight:400">From the earlier app (no time recorded)</div>':'')
         +(f&&f.protein!=null?'<div class="meta" style="font-weight:400">Hands: protein '+esc(f.protein)+' · veg '+esc(f.veg)+' · carbs '+esc(f.carbs)+' · fats '+esc(f.fats)+' · estimate</div>':'')
+        +(function(){ var g=mealNet(b); if(!g) return ''; var run={p:0,net:0,f:0,fib:0}, L=mealsOn(d), last=L.length&&L[L.length-1].meal_id===m.meal_id;
+            for(var i=0;i<L.length;i++){ var x=mealNet(L[i].body); if(x) run=addNet(run,x); if(L[i].meal_id===m.meal_id) break; }
+            return '<div style="font-size:14px"><span class="meta" style="font-weight:400">This meal:</span> <b>'+esc(netTxt(g))+'</b></div>'
+              +(L.length>1?'<div style="font-size:14px;border-top:1px dashed var(--line2);padding-top:4px"><span style="color:'+(last?'var(--gold);font-weight:800':'var(--muted)')+'">'+(last?'Today so far':'So far today')+':</span> '+esc(netTxt(run))+'</div>':''); })()
         +(f&&f.tip?'<div style="font-size:14px;color:var(--soft)">'+esc(f.tip)+'</div>':'')
         +'<div class="row" style="gap:14px;flex-wrap:wrap"><button class="btn link" data-addphoto="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px">+ Add photo</button><button class="btn link" data-edit="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px">Edit</button><button class="btn link" data-del="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px;color:var(--muted)">Remove</button><button class="btn link" data-fold="1" style="min-height:32px;font-size:13px;color:var(--muted);margin-left:auto">Close ▴</button></div>'
         +threadHtml(d,m.meal_id);
@@ -1910,7 +1920,7 @@ function itemsFeedback(items,tip){
 }
 // After the photo: how this plate compares with her own hands (palms, fists,
 // cupped hands, thumbs), sized for her plan. Men's portions are about double.
-function handGuide(f,slot){
+function handGuide(f,slot,ctx){
   if(!f||!((f.protein||0)+(f.veg||0)+(f.carbs||0)+(f.fats||0))) return '';
   var p=profile()||{}, men=String(p.sex||'').toLowerCase().indexOf('m')===0, snack=/snack/i.test(slot||'');
   var gain=goalOf()==='gain';
@@ -1926,6 +1936,8 @@ function handGuide(f,slot){
   var net=G?'<div class="steplbl" style="color:var(--leaf);font-size:11px;margin-top:6px">NET IN THIS MEAL · WHAT YOUR BODY GETS</div><div style="display:flex;gap:6px">'
     +chip('PROTEIN',G.p,'var(--leaf)')+chip('NET CARBS',G.net,'var(--gold)')+chip('FATS',G.f,'var(--terra)')+chip('FIBRE',G.fib,'#8FB3D9')+'</div>'
     +'<div class="meta" style="font-weight:400;font-size:12px">Grams of the nutrient itself, not the food (100 g chicken ≈ 30 g protein). Net carbs = carbs minus fibre.</div>':'';
+  if(G&&ctx&&ctx.d){ var so={p:0,net:0,f:0,fib:0}, others=0; mealsOn(ctx.d).forEach(function(mm){ if(ctx.ex&&mm.meal_id===ctx.ex) return; var x=mealNet(mm.body); if(x){ so=addNet(so,x); others++; } });
+    if(others){ so=addNet(so,G); net+='<div class="steplbl" style="color:var(--gold);font-size:11px;margin-top:6px">TODAY SO FAR, WITH THIS MEAL</div><div style="font-size:14px">'+esc(netTxt(so))+(PT?' <span class="meta" style="font-weight:400">· aim '+PT.lo+'–'+PT.hi+' g protein</span>':'')+'</div>'; } }
   var ptx=PT?'<div style="font-size:14px;line-height:1.4">🥚 Aim for ~'+per+' g protein '+(snack?'in a snack':'at a main meal')+' to reach '+PT.lo+'–'+PT.hi+' g a day.'+(pg<per*0.75?' <span style="color:var(--gold)">Add a palm of eggs, paneer, dal, chicken or curd.</span>':pg>=per?' <span style="color:var(--leaf)">This one gets you there 💪</span>':'')+'</div>':'';
   ptx=net+ptx;
   return '<div class="card" style="border:1px solid #3D6B4F;gap:6px"><div class="steplbl" style="color:var(--leaf)">YOUR PLATE, BY YOUR HANDS</div>'+rows+ptx
@@ -2016,7 +2028,7 @@ function openMealForm(d,forSlot,editId){
       +'<button class="round" data-up="'+i+'" aria-label="More" style="width:34px;height:34px">+</button>'
       +'<button data-rm="'+i+'" aria-label="Remove" style="background:none;border:none;color:var(--muted);font-size:18px;padding:0 4px">✕</button></div>';}).join('')
     +(drinksLine(M.items)?'<div class="meta" style="font-weight:600;color:var(--soft)">'+esc(drinksLine(M.items))+'</div>':'')
-    +handGuide(fb,slot)
+    +handGuide(fb,slot,{d:M.day||d,ex:editId})
     +'<div class="row" style="gap:14px;flex-wrap:wrap"><button class="btn link" id="mfMissing" style="min-height:36px">+ Something\'s missing</button><button class="btn link" id="mfMorePhoto" style="min-height:36px">+ Take another photo</button><button class="btn link" id="mfMoreGal" style="min-height:36px">+ Add from gallery</button></div>'
     +'<div class="card" style="border:1px solid var(--line);flex-direction:row;justify-content:space-between;align-items:center">'
     +(kOn?'<span class="meta" style="font-weight:400">Total, estimate</span><span class="f-meal" style="font-size:24px;color:var(--gold)">~'+fmt(fb.kcal||0)+' calories</span>'
@@ -2177,7 +2189,7 @@ var HINTS={
   welcome:'Pick a plan to get one small habit at a time, with a two-minute lesson a day. Or skip it and just log your meals. Nothing here is a test.',
   home:'Log a meal: take a photo, upload from your gallery, type it or say it. Under it is your habit: each dot is a day, green when you did it. Tap Done, Partly or Not yet, or let your meals fill it in. A missed day is just one dot; don\'t miss twice. When a habit is done it joins your shelf and the next one starts. My habits has your path and lessons. My progress holds your weight, your goal and your details. The house button takes you back to all the KFit apps.',
   today:'Today\'s lesson. Read it or tap Listen, try the one small thing, and at night tap how it went. Your logged meals help fill in the answer. Below it, Keep them going shows your earlier habits from the last seven days. When a habit\'s days are up, you move on if you did it most days. If not, you get seven more days so it can stick.',
-  log:'Your day. Your meals are at the top: tap one to see what\'s in it, with net grams of protein, net carbs (carbs minus fibre), fats and fibre, or tap a plus button to log the next one. Below them are calories so far and water. Tap a tile for details, and the cross to close it. Under the tiles, tips for the rest of today: protein, calories and water. At the top, a message from your coach, or a short note on how your habit is going. Swipe left or right to change the day.',
+  log:'Your day. Your meals are at the top: tap one to see what\'s in it, with net grams of protein, net carbs (carbs minus fibre), fats and fibre, and your total so far today, or tap a plus button to log the next one. Below them are calories so far and water. Tap a tile for details, and the cross to close it. Under the tiles, tips for the rest of today: protein, calories and water. At the top, a message from your coach, or a short note on how your habit is going. Swipe left or right to change the day.',
   progress:'Weigh in once a week: same scale, in the morning, before breakfast. Watch the line over a few weeks, not single days. Your goal and your details are here too, with how your daily calories and protein are worked out. Track water or not, water reminders, and your phone reminders: morning and evening, or morning only. Log out is at the bottom of Your details.',
   journey:'Your plan, one habit at a time, about two weeks each. Tap any habit you\'ve finished to read its lessons again.',
   chat:'Message your coach here. Their replies show up in this same place.',

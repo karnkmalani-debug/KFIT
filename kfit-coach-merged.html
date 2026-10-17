@@ -265,7 +265,7 @@ details:not(.nc-wk)[open]>summary::after{content:" ▴"}
   </div>
 
   <!-- ══════════════ SIMPLE MERGE: Today + More ══════════════ -->
-  <div id="kfTodaySection" style="display:none;"><div class="content" id="kfTodayBody"></div></div>
+  <div id="kfTodaySection" style="display:none;"><div class="content" id="kfPushWarn" style="padding-bottom:0"></div><div class="content" id="kfTodayBody"></div></div>
   <div id="kfMoreSection" style="display:none;"><div class="content" id="kfMoreBody"></div></div>
 
   <!-- ══════════════ ADMIN SECTION (owner only) ══════════════ -->
@@ -7439,6 +7439,22 @@ function kf24(t){ var x=kfAmPm(t), mt=String(x||'').match(/^(\d{1,2}):(\d{2}) (a
 // "21:32", "9:32 PM" and "09:32 pm" all become "9:32 pm" (the fitness app saves 12-hour times)
 function kfAmPm(t){ var s=String(t||'').trim(), mt=s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([ap])?\.?\s*m?\.?$/i); if(!mt) return t;
   var h=+mt[1], m=mt[2], ap=(mt[3]||'').toLowerCase(); if(ap==='p'&&h<12) h+=12; if(ap==='a'&&h===12) h=0; return ((h%12)||12)+':'+m+(h<12?' am':' pm'); }
+// Net grams of a meal: protein, net carbs (carbs minus fibre), fats, fibre.
+// From the AI's grams when the meal has them, else estimated from hand portions.
+function ncNet(r){
+  if(!r) return null; if(r.fb&&r.fb.g) return {p:+r.fb.g.p||0,net:+r.fb.g.net||0,f:+r.fb.g.f||0,fib:+r.fb.g.fib||0};
+  var g={p:0,c:0,f:0,fib:0}, any=false;
+  (Array.isArray(r.items)?r.items:[]).forEach(function(it){ if(!it) return; var dr=it.drink&&it.drink!=='dairy';
+    if(it.pg!=null||it.cg!=null||it.fg!=null){ g.p+=+it.pg||0; g.c+=+it.cg||0; g.f+=+it.fg||0; g.fib+=+it.fib||0; any=true; }
+    else if(!dr&&it.protein!=null){ g.p+=(+it.protein||0)*25; g.c+=(+it.carbs||0)*25; g.f+=(+it.fats||0)*8; g.fib+=(+it.veg||0)*2+(+it.carbs||0)*1.5; any=true; }
+    else if(it.sugar){ g.c+=+it.sugar||0; any=true; } });
+  if(!any&&r.fb&&r.fb.protein!=null){ var f=r.fb; g.p=(+f.protein||0)*25; g.c=(+f.carbs||0)*25; g.f=(+f.fats||0)*8; g.fib=(+f.veg||0)*2+(+f.carbs||0)*1.5; any=true; }
+  return any?{p:Math.round(g.p),net:Math.max(0,Math.round(g.c-g.fib)),f:Math.round(g.f),fib:Math.round(g.fib)}:null;
+}
+var ncSoFar={}, ncLastKey=null;
+function ncNetLine(n,short){ if(!n) return ''; return short
+  ?'<b style="color:#8FD1A2">'+n.p+' g P</b> · <b style="color:#C9A24A">'+n.net+' g NC</b> · <b style="color:#E39A6E">'+n.f+' g F</b> · <b style="color:#8FB3D9">'+n.fib+' g fib</b>'
+  :'<b style="color:#8FD1A2">'+n.p+' g protein</b> · <b style="color:#C9A24A">'+n.net+' g net carbs</b> · <b style="color:#E39A6E">'+n.f+' g fats</b> · <b style="color:#8FB3D9">'+n.fib+' g fibre</b>'; }
 function ncDayLabel(d){var p=d.split('-');return new Date(+p[0],+p[1]-1,+p[2]).toDateString().slice(0,10);}
 function ncSlotFor(h){return h<10?'Breakfast':h<12?'Morning snack':h<15?'Lunch':h<18?'Evening snack':h<22?'Dinner':'Late snack';}
 async function ncLoadWeek(cid){
@@ -7450,7 +7466,7 @@ async function ncLoadWeek(cid){
     var kc=(Array.isArray(b.items)&&b.items.length&&b.feedback&&b.feedback.kcal)||itemsK||ps.reduce(function(a,q){return a+((q.feedback&&Number(q.feedback.kcal))||0);},0)||(b.feedback&&b.feedback.kcal)||null;
     // what they ate, in words: their own text, else the foods the app found
     var foodTxt=b.text||(Array.isArray(b.items)?b.items.map(function(it){return it&&it.name;}).filter(Boolean).join(', '):'');
-    rows.push({day:x.day,meal_id:x.meal_id,time:b.time||(b.eatenAt?new Date(b.eatenAt).toTimeString().slice(0,5):''),slot:b.slot||'',text:foodTxt||'',note:'',src:'app',ts:x.created_at?new Date(x.created_at).getTime():(b.at||0),kcal:kc,photos:ps.map(function(q){return q.path;}),fromPlan:!!b.planKey,items:Array.isArray(b.items)?b.items:null,edited:!!b.edited,noPhoto:!!b.noPhoto,earlier:!!b.fromEarlierApp,feel:b.feel||null,cravings:b.cravings||null});});
+    rows.push({day:x.day,meal_id:x.meal_id,time:b.time||(b.eatenAt?new Date(b.eatenAt).toTimeString().slice(0,5):''),slot:b.slot||'',text:foodTxt||'',note:'',src:'app',ts:x.created_at?new Date(x.created_at).getTime():(b.at||0),kcal:kc,photos:ps.map(function(q){return q.path;}),fromPlan:!!b.planKey,items:Array.isArray(b.items)?b.items:null,fb:b.feedback||(function(){ var f=null; ps.forEach(function(q){ var g=q.feedback; if(!g) return; f=f||{protein:0,veg:0,carbs:0,fats:0}; ['protein','veg','carbs','fats'].forEach(function(k){f[k]+=Number(g[k])||0;}); }); return f; })(),edited:!!b.edited,noPhoto:!!b.noPhoto,earlier:!!b.fromEarlierApp,feel:b.feel||null,cravings:b.cravings||null});});
   var haveSlot={}; rows.forEach(function(r){haveSlot[r.day+'|'+r.slot]=1;});
   // earlier-app log (days only, no times were recorded then)
   var td=await getSB().from('tracker_data').select('data').eq('client_id',cid).eq('tracker','nutrition');
@@ -7694,6 +7710,131 @@ async function ncBillInfo(cid){
   }
   return info;
 }
+
+// ---------- Consult summary: one folded tab on Account when a consult is near ----------
+// Works out her numbers since the last consult (meals, net grams, habit days, weight,
+// late eating, weekends), reads the notes (consults, her notes, your notes, chat, meal
+// notes) and asks the AI to write: went well · needs work · talk about.
+var NC_SUM={};
+function ncSumTab(cid,I){
+  if(!I||!I.start||!I.nextC) return ''; var T=ncToday();
+  if(I.nextC>ncAddDays(T,3)) return '';
+  var from=(I.lastC&&I.lastC.consult_day)||I.start;
+  return '<div style="margin-top:8px"><button onclick="ncSumToggle(\''+cid+'\')" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 12px;border-radius:12px;border:1.5px solid #C9A24A;background:rgba(201,162,74,.08);color:#E8D49A;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;text-align:left">'
+    +'<span>📋 Consult summary <span style="font-weight:600;color:var(--muted);font-size:12px">since '+ncEsc(ncNice(from))+'</span></span><span id="ncSumCh_'+cid+'">'+(NC_SUM[cid]&&NC_SUM[cid].open?'⌃':'⌄')+'</span></button>'
+    +'<div id="ncSum_'+cid+'" data-from="'+from+'" data-next="'+I.nextC+'" style="display:'+(NC_SUM[cid]&&NC_SUM[cid].open?'block':'none')+';margin-top:8px">'+(NC_SUM[cid]&&NC_SUM[cid].html||'')+'</div></div>';
+}
+function ncSumToggle(cid){
+  var box=document.getElementById('ncSum_'+cid); if(!box) return; var st=NC_SUM[cid]=NC_SUM[cid]||{};
+  st.open=box.style.display==='none'; box.style.display=st.open?'block':'none';
+  var ch=document.getElementById('ncSumCh_'+cid); if(ch) ch.textContent=st.open?'⌃':'⌄';
+  if(st.open&&!st.html) ncSumBuild(cid,false);
+}
+async function ncSumData(cid,from){
+  var sb=getSB(), T=ncToday(), m=cid.slice(6), out={from:from,to:T};
+  var q=await Promise.all([
+    sb.from('nutrition_meals').select('day,deleted,body').eq('client_id',cid).gte('day',from).lte('day',T),
+    sb.from('nutrition_program').select('*').eq('client_id',cid),
+    sb.from('nutrition_checkins').select('day,answer,reflection').eq('client_id',cid).gte('day',ncAddDays(from,-21)).lte('day',T),
+    sb.from('nutrition_consults').select('consult_day,notes,client_notes').eq('client_id',cid).order('consult_day',{ascending:false}).limit(4),
+    sb.from('nutrition_coach_notes').select('*').eq('client_id',cid).order('created_at',{ascending:false}).limit(10),
+    sb.from('nutrition_meal_comments').select('author,body,day,deleted').eq('client_id',cid).gte('day',from).limit(80),
+    sb.from('nutrition_consult_prep').select('notes').eq('client_id',cid)
+  ]);
+  var meals=((q[0].data)||[]).filter(function(x){return !x.deleted;}).map(function(x){ var b=x.body||{}; return {day:x.day,slot:b.slot||'',time:b.time||'',text:b.text||(Array.isArray(b.items)?b.items.map(function(i){return i&&i.name;}).filter(Boolean).join(', '):''),items:Array.isArray(b.items)?b.items:null,fb:b.feedback||null,kcal:(b.feedback&&b.feedback.kcal)||(Array.isArray(b.items)?b.items.reduce(function(a,i){return a+(+i.kcal||0);},0):0),photo:!!((b.photos&&b.photos.length)||b.photo),feel:b.feel||null,cravings:b.cravings||null}; });
+  var p=(q[1].data||[])[0]||null, st=(p&&p.settings)||{}, prof=st.profile||null;
+  var cks=q[2].data||[], marks=st.habitMarks||{};
+  // weight: last before the window vs latest in it
+  var ws=cks.filter(function(c){return c.reflection&&c.reflection.measure&&+c.reflection.measure.weight;}).map(function(c){return {d:c.day,w:+c.reflection.measure.weight};}).sort(function(a,b){return a.d<b.d?-1:1;});
+  var wBefore=ws.filter(function(x){return x.d<=from;}).pop()||ws.filter(function(x){return x.d>from;})[0]||null, wNow=ws.length?ws[ws.length-1]:null;
+  if(!wBefore&&prof&&prof.weight) wBefore={d:from,w:+prof.weight};
+  var days=Math.max(1,Math.round((new Date(T)-new Date(from))/864e5)+1), byDay={};
+  meals.forEach(function(r){ (byDay[r.day]=byDay[r.day]||[]).push(r); });
+  var logged=Object.keys(byDay).sort(), per=logged.map(function(d){ var L=byDay[d], g={p:0,net:0,f:0,fib:0,k:0};
+    L.forEach(function(r){ var n=ncNet(r); if(n){ g.p+=n.p; g.net+=n.net; g.f+=n.f; g.fib+=n.fib; } g.k+=+r.kcal||0; }); g.n=L.length; g.d=d; return g; });
+  function avg(k,list){ list=list||per; return list.length?Math.round(list.reduce(function(a,x){return a+x[k];},0)/list.length):0; }
+  var full=per.filter(function(x){return x.n>=3;}); // fair days for daily averages
+  var slots={}; meals.forEach(function(r){ var n=ncNet(r), s=r.slot||'Meal'; var o=slots[s]=slots[s]||{n:0,p:0}; o.n++; if(n) o.p+=n.p; });
+  Object.keys(slots).forEach(function(s){ slots[s].avgP=Math.round(slots[s].p/slots[s].n); delete slots[s].p; });
+  var late=meals.filter(function(r){ return /late/i.test(r.slot)||(r.time&&r.time>='22:00'); });
+  var SW=/sweet|mithai|biscuit|cookie|cake|chocolate|ice ?cream|gulab|ladoo|laddu|halwa|jalebi|barfi|dessert|kheer|pastry|candy|sugar/i;
+  var sweets=meals.filter(function(r){ return SW.test(r.text||''); });
+  var wkend=logged.filter(function(d){ var w=new Date(d+'T12:00:00').getDay(); return w===0||w===6; });
+  var allWkend=0; for(var i=0;i<days;i++){ var dd=ncAddDays(from,i), w2=new Date(dd+'T12:00:00').getDay(); if(w2===0||w2===6) allWkend++; }
+  var habit=null; if(p&&p.template_id&&NC_T[p.template_id]){ var t=NC_T[p.template_id], hid=t.path[p.step_index||0], h=NC_H[hid]; habit={title:h?h.title:hid,short:h&&h.short,index:(p.step_index||0)+1,of:t.path.filter(function(x){return x!=='start';}).length}; }
+  var ans={done:0,partly:0,not:0}; cks.forEach(function(c){ if(c.day<from) return; var a=marks[c.day]||c.answer; if(ans[a]!=null) ans[a]++; }); Object.keys(marks).forEach(function(d){ if(d>=from&&!cks.some(function(c){return c.day===d;})&&ans[marks[d]]!=null) ans[marks[d]]++; });
+  var water=cks.filter(function(c){return c.day>=from&&c.reflection&&+c.reflection.waterMl;}).map(function(c){return +c.reflection.waterMl;});
+  var weekly=cks.filter(function(c){return c.day>=from&&c.reflection&&c.reflection.weekly;}).map(function(c){return c.reflection.weekly;});
+  var tg=prof?ncTargets(prof,wNow&&wNow.w):null, kt=ncGoalKcal(tg,st.goal), pt=ncProtein(p,wNow&&wNow.w);
+  out.stats={days:days,daysLogged:logged.length,meals:meals.length,photoShare:meals.length?Math.round(100*meals.filter(function(r){return r.photo;}).length/meals.length):0,
+    fullDays:full.length,avgProtein:avg('p',full.length?full:per),avgNetCarbs:avg('net',full.length?full:per),avgFats:avg('f',full.length?full:per),avgFibre:avg('fib',full.length?full:per),avgKcal:avg('k',full.length?full:per),
+    kcalTarget:kt||null,proteinTarget:pt?pt.lo+'–'+pt.hi+' g':null,proteinLow:pt?pt.lo:null,goal:st.goal||null,slots:slots,
+    lateMeals:late.length,lateFoods:late.slice(-8).map(function(r){return r.text;}),sweetMeals:sweets.length,sweetFoods:sweets.slice(-6).map(function(r){return r.text;}),
+    weekendDaysLogged:wkend.length,weekendDays:allWkend,habit:habit,habitAnswers:ans,
+    weightFrom:wBefore,weightNow:wNow,waterAvgMl:water.length?Math.round(water.reduce(function(a,b){return a+b;},0)/water.length):null,
+    feel:meals.filter(function(r){return r.feel;}).map(function(r){return r.feel;}),cravings:meals.filter(function(r){return r.cravings;}).map(function(r){return r.cravings;}),
+    perDay:per.map(function(x){return x.d.slice(5)+': '+x.n+' meals, '+x.p+'g P, '+x.net+'g NC, '+x.f+'g F, '+x.k+' kcal';})};
+  var notes=[];
+  (q[3].data||[]).forEach(function(c){ if(c.notes) notes.push('Consult '+c.consult_day+' (coach): '+c.notes); if(c.client_notes) notes.push('Consult '+c.consult_day+' (client): '+c.client_notes); });
+  ((q[6].data||[])[0]||{}).notes&&notes.push('Client note for this consult: '+q[6].data[0].notes);
+  (q[4].data||[]).forEach(function(n){ var t=n.message||n.text||n.body||(Array.isArray(n.items)?n.items.map(function(i){return typeof i==='string'?i:(i&&(i.text||i.title))||'';}).join('; '):''); if(t) notes.push('Coach note '+String(n.created_at||'').slice(0,10)+': '+t); });
+  weekly.forEach(function(w){ if(w.win) notes.push('Her weekly win: '+w.win); if(w.struggle) notes.push('Her weekly struggle: '+w.struggle); });
+  (q[5].data||[]).filter(function(c){return !c.deleted&&c.body;}).slice(-30).forEach(function(c){ notes.push('Meal note '+c.day+' ('+c.author+'): '+c.body); });
+  try{ if(window.KFitChat){ var th=await KFitChat.fetchThread(sb,'kfit__'+m,60,window.currentCoachId); (th.data||[]).filter(function(x){return x.body&&x.kind!=='image'&&x.kind!=='video'&&String(x.created_at||'').slice(0,10)>=ncAddDays(from,-14);}).slice(-40).forEach(function(x){ notes.push('Chat '+String(x.created_at).slice(0,10)+' ('+(x.sender||'')+'): '+String(x.body).slice(0,300)); }); } }catch(e){}
+  out.notes=notes.slice(0,90);
+  return out;
+}
+function ncSumRules(S){
+  var s=S.stats, good=[], bad=[], talk=[];
+  if(s.habit&&(s.habitAnswers.done+s.habitAnswers.partly)) { var tot=s.habitAnswers.done+s.habitAnswers.partly+s.habitAnswers.not; (s.habitAnswers.done/tot>=0.6?good:bad).push(['🌱',s.habit.title+': done on '+s.habitAnswers.done+' of '+tot+' days marked.']); }
+  if(s.weightFrom&&s.weightNow&&s.weightNow.d>s.weightFrom.d){ var dw=Math.round((s.weightNow.w-s.weightFrom.w)*10)/10; (dw<=0===(s.goal!=='gain')?good:bad).push(['⚖️',(dw<0?'Down ':'Up ')+Math.abs(dw)+' kg ('+s.weightFrom.w+' → '+s.weightNow.w+').']); }
+  if(s.daysLogged/s.days>=0.7) good.push(['📷','Logged '+s.daysLogged+' of '+s.days+' days.']); else bad.push(['📅','Logged only '+s.daysLogged+' of '+s.days+' days.']);
+  if(s.proteinLow){ if(s.avgProtein<s.proteinLow*0.85){ bad.push(['🥚','Protein about '+s.avgProtein+' g a day, under her '+s.proteinTarget+'.']); talk.push(['1','Add a palm of protein (eggs, paneer, dal, curd, chicken) to the lowest meal.']); } else good.push(['🥚','Protein about '+s.avgProtein+' g a day, near her '+s.proteinTarget+'.']); }
+  if(s.lateMeals>=3){ bad.push(['🌙','Ate late (after 10 pm or a late snack) '+s.lateMeals+' times.']); talk.push(['2','A planned evening snack and an earlier dinner.']); }
+  if(s.weekendDays&&s.weekendDaysLogged<s.weekendDays/2){ bad.push(['📅','Weekends thin: '+s.weekendDaysLogged+' of '+s.weekendDays+' weekend days logged.']); talk.push(['3','One quick photo per meal on weekends.']); }
+  return {good:good,bad:bad,talk:talk};
+}
+async function ncSumAI(S,name){
+  var prompt='You help a nutrition coach in India prepare for a consult with his client '+(name||'')+'. Below are numbers worked out from her app since the last consult, and every note (consult notes, her notes, coach notes, meal notes, chat). '
+    +'Study them carefully, do the maths where useful (averages, trends, per-meal protein, how often), and compare with her targets. Notes may include habits that are not food (for example climbing stairs, walking, sleep, water): include them when the notes give evidence. '
+    +'Write for the coach, short and specific, with numbers. Use Indian everyday foods in advice. Never invent facts that are not in the data; if data is thin, say so. '
+    +'Reply ONLY with JSON: {"went_well":[{"i":"emoji","t":"..."}],"needs_work":[{"i":"emoji","t":"..."}],"talk_about":["..."],"one_line":"..."} with 2-4 items each for went_well and needs_work, 3 items for talk_about (concrete advice he can relay), and one_line = a one-sentence overall picture. Each item under 25 words.\n'
+    +'DATA: '+JSON.stringify(S.stats)+'\nNOTES:\n'+S.notes.join('\n');
+  var r=await fetch(NC_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:2048,responseMimeType:'application/json',thinkingConfig:{thinkingBudget:0}}})});
+  var j=await r.json(), t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&(j.candidates[0].content.parts||[]).map(function(q){return q.text||'';}).join('');
+  var o=JSON.parse(String(t||'').replace(/```json|```/g,'').trim());
+  if(!o||!Array.isArray(o.went_well)) throw new Error('bad');
+  return o;
+}
+async function ncSumBuild(cid,force){
+  var box=document.getElementById('ncSum_'+cid); if(!box) return; var st=NC_SUM[cid]=NC_SUM[cid]||{};
+  var from=box.dataset.from, nx=box.dataset.next, key='kfcsum_'+cid+'_'+from+'_'+nx;
+  box.innerHTML='<div style="font-size:13px;color:var(--muted);padding:8px 2px">Studying her meals and notes since '+ncEsc(ncNice(from))+'…</div>';
+  try{
+    var S=await ncSumData(cid,from), s=S.stats, sig=JSON.stringify([s.meals,s.daysLogged,s.habitAnswers,s.weightNow,S.notes.length]);
+    var cached=null; try{ cached=JSON.parse(localStorage.getItem(key)||'null'); }catch(e){}
+    var ai=null, name=(function(){ try{ var c=buildUnifiedRoster().filter(function(x){return String(x.mobile||'').replace(/\D/g,'')===cid.slice(6);})[0]; return c&&c.name; }catch(e){ return ''; } })();
+    if(!force&&cached&&cached.sig===sig) ai=cached.ai;
+    if(!ai){ try{ ai=await ncSumAI(S,name); try{ localStorage.setItem(key,JSON.stringify({sig:sig,ai:ai})); }catch(e){} }catch(e){ ai=null; } }
+    var R=ncSumRules(S), tile=function(v,l,col){ return '<div style="flex:1;min-width:0;background:rgba(0,0,0,.3);border-radius:10px;padding:8px 4px;text-align:center"><b style="display:block;font-size:16px;'+(col?'color:'+col:'')+'">'+v+'</b><span style="font-size:10px;font-weight:800;color:var(--muted)">'+l+'</span></div>'; };
+    var tot=s.habitAnswers.done+s.habitAnswers.partly+s.habitAnswers.not, dw=s.weightFrom&&s.weightNow&&s.weightNow.d>s.weightFrom.d?Math.round((s.weightNow.w-s.weightFrom.w)*10)/10:null;
+    var h='<div style="display:flex;gap:6px">'+tile(s.daysLogged+'/'+s.days,'DAYS LOGGED')+tile(tot?Math.round(100*(s.habitAnswers.done+s.habitAnswers.partly*0.5)/tot)+'%':'–','HABIT',tot&&(s.habitAnswers.done/tot>=0.6)?'#8FD1A2':'')
+      +tile(dw==null?'–':(dw>0?'+':'')+dw+' kg','WEIGHT')+tile(s.avgProtein+' g','PROTEIN',s.proteinLow&&s.avgProtein<s.proteinLow*0.85?'#E39A6E':'#8FD1A2')+'</div>'
+      +'<div style="font-size:12px;color:var(--muted);margin-top:6px">Average day: '+s.avgProtein+' g protein · '+s.avgNetCarbs+' g net carbs · '+s.avgFats+' g fats · '+s.avgFibre+' g fibre'+(s.avgKcal?' · ~'+s.avgKcal.toLocaleString('en-IN')+(s.kcalTarget?' of '+s.kcalTarget.toLocaleString('en-IN'):'')+' cal':'')+(s.habit?' · Habit '+s.habit.index+' of '+s.habit.of+': '+ncEsc(s.habit.title):'')+'</div>';
+    function sec(title,col,list){ if(!list.length) return ''; return '<div style="font-size:11px;font-weight:800;letter-spacing:.08em;color:'+col+';margin:12px 0 4px">'+title+'</div>'+list.map(function(x){ return '<div style="display:flex;gap:8px;font-size:14px;line-height:1.45;margin:3px 0"><span>'+ncEsc(x[0])+'</span><span>'+ncEsc(x[1])+'</span></div>'; }).join(''); }
+    if(ai){
+      if(ai.one_line) h+='<div style="font-size:14px;margin-top:10px;font-style:italic">'+ncEsc(ai.one_line)+'</div>';
+      h+=sec('✓ WENT WELL','#8FD1A2',ai.went_well.map(function(x){return [x.i||'✓',x.t||''];}))
+        +sec('✗ NEEDS WORK','#E39A6E',(ai.needs_work||[]).map(function(x){return [x.i||'•',x.t||''];}))
+        +sec('→ TALK ABOUT','#C9A24A',(ai.talk_about||[]).map(function(x,i){return [(i+1)+'.',typeof x==='string'?x:(x&&x.t)||''];}));
+    } else {
+      h+=sec('✓ WENT WELL','#8FD1A2',R.good)+sec('✗ NEEDS WORK','#E39A6E',R.bad)+sec('→ TALK ABOUT','#C9A24A',R.talk.map(function(x,i){return [(i+1)+'.',x[1]];}))
+        +'<div style="font-size:12px;color:var(--terra);margin-top:6px">The written advice couldn\'t load just now (connection). These lines come from the numbers only.</div>';
+    }
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><span style="font-size:11px;color:var(--muted)">From '+s.meals+' meals, '+tot+' habit day'+(tot===1?'':'s')+', '+S.notes.length+' note'+(S.notes.length===1?'':'s')+'</span><button onclick="ncSumBuild(\''+cid+'\',true)" class="kf-act" style="padding:5px 10px;font-size:12px">↻ Refresh</button></div>';
+    st.html=h; box.innerHTML=h;
+  }catch(e){ box.innerHTML='<div style="font-size:13px;color:var(--terra)">Couldn\'t build the summary: '+ncEsc(String(e&&e.message||e))+'</div>'; }
+}
 async function ncSaveBill(cid,info,patch){
   if(patch&&patch.paid_months){ var was=((info.bill&&info.bill.paid_months)||[]).length; kfLog('💳',patch.paid_months.length>was?'Marked paid':'Marked unpaid',cid); }
   else if(patch&&patch.start_date) kfLog('📅','Changed the start date',cid);
@@ -7729,7 +7870,7 @@ async function ncBillRender(cid){
         +(c.client_notes?'<div style="background:#23382B;border:1px solid #3D6B4F;color:#CFEBD8;border-radius:8px;padding:5px 8px;margin-top:4px;font-size:13px"><b>Client\'s notes:</b> '+ncEsc(c.client_notes)+'</div>':'')
         +(window.KFitConsultMedia&&Array.isArray(c.files)&&c.files.length?'<div data-ccf="'+c.id+'"></div>':'')+'</div></div>';
     });
-    html+=line+'<div style="display:flex;gap:10px">'+node('#C9A24A',true)+'<div style="flex:1"><div style="font-size:14px"><b>Next consult</b> '+dateBtn(I.nextC,'data-bdate="next"')+'</div>'
+    html+=line+'<div style="display:flex;gap:10px">'+node('#C9A24A',true)+'<div style="flex:1"><div style="font-size:14px"><b>Next consult</b> '+dateBtn(I.nextC,'data-bdate="next"')+'</div>'+ncSumTab(cid,I)
       +(I.prep&&I.prep.notes?'<div style="background:#23382B;border:1px solid #3D6B4F;color:#CFEBD8;border-radius:8px;padding:5px 8px;margin-top:4px;font-size:13px"><b>Client\'s note for it:</b> '+ncEsc(I.prep.notes)+'</div>':'')
       +(I.prep&&Array.isArray(I.prep.files)&&I.prep.files.length&&window.KFitConsultMedia?'<div style="font-size:12px;color:var(--muted);margin-top:4px">They added for it:</div>'+KFitConsultMedia.html(I.prep.files,{}):'')
       +'<div style="font-size:11px;color:var(--muted);margin-top:4px">Photos and videos stay 30 days. ☆ Keep saves one for good (it shows in their progress photos).</div>'
@@ -7936,6 +8077,9 @@ async function ncDaysRender(cid){
   var inner='<div style="border-top:1px solid var(--border);padding-top:10px;margin-top:2px"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b style="font-size:15px">'+ncEsc(ncNice(d))+'</b>'
     +'<span style="font-size:14px">'+(dk?'<b style="color:'+(target&&dk>target?'#E39A6E':'#C9A24A')+'">'+(Math.round(dk/10)*10).toLocaleString('en-IN')+'</b> <span style="color:var(--muted);font-size:12px">'+(target?'of '+target.toLocaleString('en-IN')+' cal':'cal')+'</span>':'<span style="color:var(--muted);font-size:12px">'+(meals.length?meals.length+' meal'+(meals.length===1?'':'s'):'nothing logged')+'</span>')+'</span></div>'
     +(extras?'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+extras+'</div>':'')
+    +(function(){ var run={p:0,net:0,f:0,fib:0,k:0}, any=false; ncSoFar={}; ncLastKey=null;
+        meals.forEach(function(r){ var n=ncNet(r), key=r.meal_id||('s'+r._i); if(n){ any=true; run.p+=n.p; run.net+=n.net; run.f+=n.f; run.fib+=n.fib; } run.k+=Number(r.kcal)||0; ncSoFar[key]=any?{p:run.p,net:run.net,f:run.f,fib:run.fib,k:run.k}:null; ncLastKey=key; });
+        return any?'<div style="font-size:12px;margin-top:3px"><span style="color:var(--muted)">Day:</span> '+ncNetLine(run)+'</div>':''; })()
     +'<div data-ncdb="'+d+'">';
   var hasNew=false;
       meals.forEach(function(r){
@@ -7948,6 +8092,9 @@ async function ncDaysRender(cid){
           +((r.photos||[]).length?'<img data-ncph="'+ncEsc(r.photos[0])+'" alt="" style="width:48px;height:48px;border-radius:10px;object-fit:cover;background:#333;flex-shrink:0">':'<span style="width:48px;height:48px;border-radius:10px;background:#2A2B24;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🍽️</span>')
           +'<div style="flex:1;min-width:0"><div><b style="font-size:15px">'+ncEsc(r.slot||'Meal')+'</b>'+(r.time?' <span style="color:var(--muted);font-size:12px">'+ncEsc(kfAmPm(r.time))+'</span>':'')+(isNew?'<span class="nc-new">NEW</span>':'')+(th.length?' <span style="color:var(--muted);font-size:12px">💬 '+th.length+'</span>':'')+'</div>'
           +'<div class="nc-food" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+ncEsc(kfReiconText(r.text)||'Photo')+'</div>'
+          +(function(){ var n=ncNet(r), key=r.meal_id||('s'+r._i), sf=ncSoFar[key], last=key===ncLastKey&&meals.length>1; if(!n) return '';
+              return '<div style="font-size:12px;margin-top:2px"><span style="color:var(--muted)">This meal:</span> '+ncNetLine(n,true)+'</div>'
+                +(meals.length>1&&sf?'<div style="font-size:12px;margin-top:2px;padding-top:2px;border-top:1px dashed var(--border)"><span style="color:'+(last?'#C9A24A;font-weight:800':'var(--muted)')+'">'+(last?'Day so far':'So far today')+':</span> '+ncNetLine(sf,true)+(sf.k?' · <span style="color:var(--muted)">'+(Math.round(sf.k/10)*10).toLocaleString('en-IN')+' cal</span>':'')+'</div>':''); })()
           +(r.feel?'<div style="font-size:12px;color:var(--muted)">Felt today: '+['','😕 low','😐 okay','🙂 good'][r.feel]+'</div>':'')
           +(r.cravings?'<div style="font-size:12px;color:var(--muted)">Cravings last night: '+({none:'😌 none',little:'😐 a little',gave:'😣 gave in'}[r.cravings]||'')+'</div>':'')+'</div>'
           +(r.kcal?'<span style="color:var(--muted);font-size:13px;white-space:nowrap">'+r.kcal+' cal</span>':'')+'</div>'
@@ -7957,9 +8104,6 @@ async function ncDaysRender(cid){
           +'</div>'
           +(r.items&&r.items.length?'<div style="display:flex;flex-direction:column;gap:2px;margin:4px 0">'+r.items.map(function(it){return '<div class="nc-food">'+(it.drink?kfDrinkEmoji(it.name,it.drink)+' ':'')+ncEsc(it.name)+' · <span class="nc-time">'+ncEsc((it.amount===0.5?'½':it.amount===0.25?'¼':it.amount===0.75?'¾':it.amount===1.5?'1½':it.amount===2.5?'2½':it.amount)+(it.unit?' '+it.unit:''))+'</span>'+(it.kcal?' <span style="color:var(--muted)">~'+it.kcal+'</span>':'')+'</div>';}).join('')+'</div>'
              :(r.text&&r.text.length>38?'<div class="nc-food">'+ncEsc(kfReiconText(r.text))+'</div>':''))
-          +(function(){ var its=(r.items||[]).filter(function(it){return it.pg!=null||it.cg!=null||it.fg!=null;}); if(!its.length) return '';
-              var P=0,C=0,F=0,B=0; its.forEach(function(it){P+=+it.pg||0;C+=+it.cg||0;F+=+it.fg||0;B+=+it.fib||0;});
-              return '<div style="font-size:12px;margin:2px 0 4px"><span style="color:var(--muted)">Net:</span> <b style="color:#8FD1A2">'+Math.round(P)+' g protein</b> · <b style="color:#C9A24A">'+Math.max(0,Math.round(C-B))+' g net carbs</b> · <b style="color:#E39A6E">'+Math.round(F)+' g fats</b> · <b style="color:#8FB3D9">'+Math.round(B)+' g fibre</b></div>'; })()
           +(r.edited||r.noPhoto?'<div style="font-size:11px;color:var(--muted)">'+[r.edited?'adjusted the AI\'s amounts':'',r.noPhoto?'no photo · from their words':''].filter(Boolean).join(' · ')+'</div>':'')
           +((r.photos||[]).length?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+r.photos.map(function(pth){return '<img data-ncph="'+ncEsc(pth)+'" alt="Meal photo" style="width:64px;height:64px;border-radius:8px;object-fit:cover;background:#333;cursor:pointer">';}).join('')+'</div>':'')
           +(r.meal_id?thread(th,'m|'+r.meal_id+'|'+d,'Note on this meal…'):thread([], 's|'+r._i+'|'+d,'Note on this meal…'))+'</div></div>';
@@ -8863,7 +9007,23 @@ function kfHM(ts){ return new Date(ts).toLocaleTimeString([], {hour:'2-digit',mi
 var kfDay=null, kfTodaySeq=0;
 function kfTodaySet(d){ var t=ncToday(); kfDay=(d&&d<t)?d:null; kfTodayRender(); window.scrollTo(0,0); }
 var kfLinks=[];
+// A card on Today when this phone won't get notifications (new phone, re-added icon, turned off)
+async function kfPushWarn(){
+  var el=document.getElementById('kfPushWarn'); if(!el) return; var off=false;
+  try{ if(!('Notification' in window)||!('serviceWorker' in navigator)||!('PushManager' in window)) off=true;
+    else if(Notification.permission!=='granted') off=true;
+    else { var reg=await navigator.serviceWorker.ready, sub=await reg.pushManager.getSubscription(); if(!sub) off=true;
+      else { var q=await getSB().from('coach_push_subscriptions').select('endpoint').eq('endpoint',sub.endpoint).limit(1); if(!q.error&&!(q.data||[]).length) off=true; } } }catch(e){}
+  try{ if(off&&sessionStorage.getItem('kfPushWarnX')) off=false; }catch(e){}
+  if(!off){ el.innerHTML=''; return; }
+  el.innerHTML='<div class="card" style="border:1px solid #6B5A2A;gap:6px;margin-bottom:0"><div style="display:flex;justify-content:space-between;gap:8px"><b style="font-size:16px">🔕 Notifications are off on this phone</b><button id="kfPwX" aria-label="Hide for now" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button></div>'
+    +'<div style="font-size:13px;color:var(--muted)">You won\'t hear about meals, replies, workouts or approvals until you turn them on here.</div>'
+    +'<button class="kf-act main" id="kfPwOn" style="align-self:flex-start">Turn on</button></div>';
+  document.getElementById('kfPwOn').onclick=async function(){ this.disabled=true; var ok=false; try{ ok=await kfitPushOn(); }catch(e){} if(ok){ try{ await getSB().functions.invoke('kfit-push',{body:{action:'test'}}); }catch(e){} } kfPushWarn(); };
+  document.getElementById('kfPwX').onclick=function(){ try{ sessionStorage.setItem('kfPushWarnX','1'); }catch(e){} el.innerHTML=''; };
+}
 async function kfTodayRender(){
+  try{ kfPushWarn(); }catch(e){}
   var el=document.getElementById('kfTodayBody'); if(!el) return;
   var todayD=ncToday(), day=kfDay&&kfDay<todayD?kfDay:todayD, isToday=day===todayD, seq=++kfTodaySeq;
   if(!el.innerHTML) el.innerHTML='<div class="kf-h1">Today</div><div class="kf-sub">Checking…</div>';
@@ -8986,6 +9146,7 @@ var KF_HELP=[
   ['🍽️','Days','Tap a client, then Days: their weight card, the "This week" card, then the week as a chart: one bar of calories per day against their goal, a green dot under each day they did their habit, and gold day letters when something new came in. ‹ › moves a week; tap a day for its meals, steps, water and habit. Tap the 🌱 habit line under the chart (it shows 🟢 on track, 🟡 needs a nudge, 🔴 not logging or ⚪ early days) to see each day this week, or open the habit. Tap a meal to see amounts, and tap a photo to see it full size: swipe for the next, ✕ brings you back to the meal. Tap a day\'s heading to fold it away, and again to open it. Write a note under any meal or day: the box grows for more lines, Enter starts a new line and Send sends; unsent words are kept. ✓ means sent, blue ✓✓ means they read it. Links show as short tappable chips. ⋯ at the top has Estimate missing calories, Import screenshots and the earlier app\'s tools.'],
   ['🏋️','Fitness clients','Days shows each workout as a card: body parts, exercises, duration, steps and personal records 🏆. Tap a card for every set. Clients say whether each session was with you or on their own; only sessions with you count as unpaid. Got it wrong? Tap "Mark on their own" or "Mark with you" on the card. Plan has just the workout tools: Assign, Log and Edit.'],
   ['🗓️','Plan','Nutrition: their habit card comes first (see Habits below), then Their numbers and Send a meal plan, each folded. Fitness: Assign a workout and Log a session; edit a past session from Days. Name history, remove and delete data are under Account, in Client settings.'],
+  ['🥗','Net grams','On a nutrition client\'s Days, each meal shows its protein, net carbs (carbs minus fibre), fats and fibre, and the total so far that day. The latest meal\'s line is gold: the day so far. The day\'s full total sits under the date.'],
   ['🏋️','Workouts','On a fitness client\'s Days: the week across the top, with a dot on each workout day (orange = unpaid). Under the week it says how many are unpaid this week, with all unpaid in brackets when there are older ones too. The 💳 pill at the bottom opens the unpaid sessions: tick the ones that were paid and tap Mark paid. ‹ › moves a week. Tap a day for its sessions, and a session for the full workout: sets, PRs, cardio and functional, their note, ✎ Edit and with you or on their own. ⋯ prints the week, the month or everything.'],
   ['↩️','Back','The phone\'s Back (or swipe back) steps back one screen: a workout to the list, a client to where you came from (Today or Clients, same spot), and closes chat, the tracker and pop-ups.'],
   ['⚖️','Weight and goals','Clients weigh in once a week from My progress in their app. Their page shows their weight and change since they started (header and "This week"), a small graph, and their goal: Lose, Maintain or Gain, plus a goal weight. They set it themselves; once you tap a goal or ✎ the goal weight, yours counts and it\'s locked for them ("Let them choose" unlocks it). Gain is about 10% over maintenance. Weigh-ins also show in Today.'],
@@ -8995,6 +9156,7 @@ var KF_HELP=[
   ['⚡','Quick replies','Under each meal, tap a ready-made note (like "Great protein! 💪") to send it in one tap. Tap ✎ edit to change your list.'],
   ['💚','How they\'re feeling','Clients can tap one face when they log dinner ("How do you feel today?") and say at breakfast if they had late-night cravings. The weekly check-in, the day before the consult, adds fullness, cravings, stress, waist, weight, one win and one struggle. You see it all at the top of Days and under Next consult, plus how dinner time lines up with cravings.'],
   ['✨','Week summary','Every Sunday each nutrition client gets a summary of their week. It appears at the top of Days; add a line and they see it on their card.'],
+  ['📋','Consult summary','When a nutrition consult is 3 days away or less, Account shows a folded gold tab: Consult summary. Open it for her numbers since the last consult (days logged, habit, weight, protein a day) and a short write-up: what went well, what needs work, and three things to talk about. It reads her meals, check-ins, weigh-ins and every note (consults, chat, meal notes), so habits like climbing stairs count too. ↻ Refresh updates it.'],
   ['💳','Account','Fitness: sessions this month, which are unpaid, and Mark all paid. Nutrition: their month as one timeline: started, each consult (with your notes and hers), next consult, and renewal. Tap "+ Log a consult" after you talk, and 📎 to add photos or a short video. They stay 30 days; tap ☆ Keep to save one for good (privately). Either of you can keep a photo, and kept photos show in their app under My progress. They can add their own before a consult; tap any date to change it; tap Mark paid when she pays. Her settings (show calories, step goal) and your private notes are here too.'],
   ['🔔','Notifications','Turn on phone notifications in More → Notifications (open Merge from its home-screen icon on iPhone). You\'ll get a buzz when a tagged client logs, replies or checks in, plus a morning summary at 8 am. Quiet 10 pm to 7 am. Clients can turn on their own reminders too.'],
   ['☰','More','Requests, feedback, notifications, exercises, your account and invite links, trash, print, help and log out.']
