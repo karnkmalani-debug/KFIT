@@ -9052,14 +9052,15 @@ async function kfTodayRender(){
       rost.forEach(function(c){ var m=String(c.mobile).replace(/\D/g,''); if(!seen[m]||yes[m]) return; var k='kfit_nudged_'+m+'_'+todayD; try{ if(localStorage.getItem(k)) return; }catch(e){}
         needs.push({m:m,ic:'🍽️',title:(c.name||nm(m))+' logged nothing yesterday',line:'logged nothing yesterday',sub:'send a friendly message',act:'Message',ts:Date.now()-3,fn:function(){ try{ localStorage.setItem(k,'1'); }catch(e){} openCoachChat(c.mobile,c.name||''); }}); }); }catch(e){}
     try{ var roster=buildUnifiedRoster().filter(function(c){return c.isTagged&&c.nut&&c.mobile;});
-      for(var i=0;i<roster.length&&i<40;i++){
+      // one client's problem never hides the others (each is checked on its own)
+      for(var i=0;i<roster.length&&i<80;i++){ try{
         var c=roster[i], cid='knut__'+String(c.mobile).replace(/\D/g,''), I=await ncBillInfo(cid);
         if(!I.start) continue;
         if(I.nextC&&I.nextC<=ncAddDays(todayD,3)) kfConsDue.push({c:c,cid:cid,I:I});
         if(I.nextC&&I.nextC<=todayD) (function(c,cid,I){ needs.push({m:String(c.mobile).replace(/\D/g,''),ic:'🗓️',line:'consult '+(I.nextC===todayD?'today':'due'),title:'Consult '+(I.nextC===todayD?'today':'due')+': '+(c.name||''),sub:(I.weekly?'check-in done ✓':'')+(I.prep?(I.weekly?' · ':'')+'note: "'+String(I.prep.notes).slice(0,40)+'"':'')||'weekly consult',act:'Log it',ts:Date.now()-1,fn:function(){ window.kfOpenConsult=cid; kfOpenClientByMobile(String(c.mobile).replace(/\D/g,''),'account','nut'); }}); })(c,cid,I);
         var daysLeft=Math.round((new Date(I.renew)-new Date(todayD))/864e5);
         if(!I.paid&&daysLeft<=3) (function(c,cid,I,daysLeft){ needs.push({m:String(c.mobile).replace(/\D/g,''),ic:'💳',line:(daysLeft<0?'renewal overdue':daysLeft===0?'renews today':'renews in '+daysLeft+' day'+(daysLeft===1?'':'s'))+' · unpaid',title:(c.name||'')+(daysLeft<0?' renewal overdue':daysLeft===0?' renews today':' renews in '+daysLeft+' day'+(daysLeft===1?'':'s')),sub:'unpaid',act:'Mark paid',ts:Date.now()-2,fn:async function(){ var pm=((I.bill&&I.bill.paid_months)||[]).slice(); if(pm.indexOf(I.cur)<0) pm.push(I.cur); var ok=await ncSaveBill(cid,I,{paid_months:pm}); if(ok) kfTodayRender(); }}); })(c,cid,I,daysLeft);
-      }
+      }catch(e){ console.warn('today consult',e); } }
     }catch(e){}
     // today's sessions that are with you and not paid yet
     try{ buildUnifiedRoster().filter(function(c){return c.isTagged&&c.fit;}).forEach(function(c){ var m=String(c.mobile||'').replace(/\D/g,'');

@@ -1060,7 +1060,49 @@ function weekCardHtml(w,full){
 async function renderWeek(){
   S.tab='week';
   var w=S.week||await loadWeek(); if(S.tab!=='week') return;
-  show('<div class="screen">'+head('Your week')+(w?weekCardHtml(w,true):'<div class="card"><div class="body">Your first weekly summary arrives on Sunday.</div></div>')+'</div>');
+  show('<div class="screen">'+head('Your week')+(w?weekCardHtml(w,true):'<div class="card"><div class="body">Your first weekly summary arrives on Sunday.</div></div>')+(w&&!hasCoach()?'<div id="wkAI"></div>':'')+'</div>');
+  if(w&&!hasCoach()) weekAI(w);
+}
+// For people using the app on their own (no coach): a short written look at the week,
+// from their meals, habit days, weigh-ins and everything they wrote (meal notes, reflections).
+async function weekAI(w){
+  var el=$('#wkAI'); if(!el) return;
+  var d=w.data||{}, ws=d.week_start||w.week_start, we=d.week_end||addDays(w.week_start,6), days=[], T=today();
+  for(var x=ws;x<=we&&x<=T;x=addDays(x,1)) days.push(x);
+  var per=days.map(function(dd){ var L=mealsOn(dd), g={p:0,net:0,f:0,fib:0}, k=0; L.forEach(function(m){ var n=mealNet(m.body); if(n) g=addNet(g,n); var fb=aggFeedback(m.body||{}); k+=(fb&&+fb.kcal)||0; });
+    return {d:dd,n:L.length,p:g.p,net:g.net,f:g.f,fib:g.fib,kcal:k,foods:L.map(function(m){ var b=m.body||{}; return (b.slot||'')+' '+(b.time||'')+': '+(b.text||itemsText(b.items||[])); }),habit:hasPlan()?effAnswer(dd):''}; });
+  var logged=per.filter(function(x){return x.n;}), full=logged.filter(function(x){return x.n>=2;})||logged;
+  function avg(k){ var L=full.length?full:logged; return L.length?Math.round(L.reduce(function(a,x){return a+x[k];},0)/L.length):0; }
+  var PT=proteinTarget(), tg=goalKcal(targets()), h=hasPlan()?habitOf(stepId()):null, M=measures().filter(function(x){return x.day>=addDays(ws,-10)&&x.day<=we&&x.m.weight;}).sort(function(a,b){return a.day<b.day?-1:1;});
+  var notes=[];
+  (S.comments||[]).forEach(function(c){ if(c.author==='client'&&c.day>=ws&&c.day<=we&&c.body) notes.push('Their meal note '+c.day+': '+c.body); });
+  days.forEach(function(dd){ var c=S.checkins[dd], r=c&&c.reflection; if(!r) return; Object.keys(r).forEach(function(k){ if(k==='measure'||k==='waterMl') return; var v=r[k]; if(v==null||v==='') return; notes.push('Their '+k+' '+dd+': '+(typeof v==='string'?v:JSON.stringify(v)).slice(0,300)); }); });
+  days.forEach(function(dd){ mealsOn(dd).forEach(function(m){ var b=m.body||{}; if(b.feel) notes.push('Felt '+['','low','okay','good'][b.feel]+' on '+dd); if(b.cravings) notes.push('Cravings the night before '+dd+': '+b.cravings); }); });
+  var stats={days:days.length,daysLogged:logged.length,meals:logged.reduce(function(a,x){return a+x.n;},0),avgProtein:avg('p'),avgNetCarbs:avg('net'),avgFats:avg('f'),avgFibre:avg('fib'),avgKcal:showK()?avg('kcal'):null,kcalTarget:showK()?tg:null,
+    proteinTarget:PT?PT.lo+'–'+PT.hi+' g':null,habit:h?(stepId()==='reset'?'7-day Reset':h.title):null,habitDays:per.filter(function(x){return x.habit==='done';}).length,habitPartly:per.filter(function(x){return x.habit==='partly';}).length,
+    weight:M.length>=2?{from:M[0].m.weight,to:M[M.length-1].m.weight}:null,days_detail:per};
+  var sig=JSON.stringify([stats.meals,stats.habitDays,notes.length,stats.weight]), key='kfwkai_'+S.clientId+'_'+ws, o=null;
+  try{ var c0=JSON.parse(localStorage.getItem(key)||'null'); if(c0&&c0.sig===sig) o=c0.o; }catch(e){}
+  if(!o){
+    el.innerHTML='<div class="card" style="border:1px solid var(--line);align-items:center"><div class="meta" style="font-weight:400">Reading your week…</div></div>';
+    try{
+      var prompt='You are a warm, practical nutrition coach writing to someone in India who uses a food-habit app on their own. Here is their week: numbers from their meals and habit days, and everything they wrote (meal notes, reflections, how they felt). '
+        +'Read the notes carefully and use them. Do the maths where it helps. Talk to them as "you". Plain, simple English; measures in English (bowl, cup, glass, spoon; never katori or other Hindi words); everyday dish names like dal, roti, paneer, poha are fine. '
+        +'Be specific, kind and never preachy. Never invent anything not in the data; if the week is thin, say so gently. '
+        +'Reply ONLY with JSON: {"one_line":"...","went_well":[{"i":"emoji","t":"..."}],"try_this_week":["...","..."]} with 2-3 went_well items and exactly 2 try_this_week tips, each under 22 words.\n'
+        +'DATA: '+JSON.stringify(stats)+'\nTHEIR NOTES:\n'+(notes.join('\n')||'(none)');
+      var r=await fetch(GEMINI_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:1500,responseMimeType:'application/json',thinkingConfig:{thinkingBudget:0}}})});
+      var j=await r.json(), t=j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&(j.candidates[0].content.parts||[]).map(function(q){return q.text||'';}).join('');
+      o=JSON.parse(String(t||'').replace(/```json|```/g,'').trim()); if(!o||!Array.isArray(o.went_well)) throw new Error('bad');
+      try{ localStorage.setItem(key,JSON.stringify({sig:sig,o:o})); }catch(e){}
+    }catch(e){ el=$('#wkAI'); if(el) el.innerHTML=''; return; }
+  }
+  el=$('#wkAI'); if(!el) return;
+  el.innerHTML='<div class="card" style="border:1px solid var(--line);gap:6px">'
+    +(o.one_line?'<div style="font-size:16px;font-style:italic">'+esc(o.one_line)+'</div>':'')
+    +'<div class="steplbl" style="color:var(--leaf);margin-top:4px">✓ WHAT WENT WELL</div>'+(o.went_well||[]).map(function(x){ return '<div class="row" style="gap:8px;align-items:flex-start;font-size:15px;line-height:1.45"><span>'+esc(x.i||'✓')+'</span><span>'+esc(x.t||'')+'</span></div>'; }).join('')
+    +'<div class="steplbl" style="color:var(--gold);margin-top:6px">→ TRY THIS WEEK</div>'+(o.try_this_week||[]).map(function(x,i){ return '<div class="row" style="gap:8px;align-items:flex-start;font-size:15px;line-height:1.45"><span>'+(i+1)+'.</span><span>'+esc(typeof x==='string'?x:(x&&x.t)||'')+'</span></div>'; }).join('')
+    +'<div class="meta" style="font-weight:400;font-size:12px">Made from your own meals, habit days and notes this week.</div></div>';
 }
 function renderFoodGuide(){
   S.tab='guide';
@@ -2202,7 +2244,7 @@ var HINTS={
   coach:'Notes and meal plans from your coach.',
   food:'What counts as protein, vegetables, carbs and fat, with everyday examples. Tap Listen to hear it.',
   consults:'Your consults with your coach. Write what you want to bring up, and add photos or a short video. Photos stay 30 days, unless you or your coach tap the star to keep them. Kept photos show in My progress, so you can see how far you\'ve come.',
-  week:'A short summary of your week. A new one arrives every Sunday.',
+  week:'A short summary of your week. A new one arrives every Sunday. If you use the app on your own, it also says what went well and two things to try this week, from your meals, habit days and anything you wrote.',
   earlier:'Meals you logged in the app you used before.'
 };
 var HELP_TITLE={welcome:'Choosing a plan',home:'Home',today:'Your day',log:'Today',progress:'My progress',journey:'Your journey',chat:'Chat',coach:'From your coach',food:'What\'s in my food?',consults:'Your consults',week:'Your week',earlier:'Your earlier log',lesson:'Lesson',reflect:'Looking back'};
