@@ -7451,7 +7451,10 @@ function ncNet(r){
   if(!any&&r.fb&&r.fb.protein!=null){ var f=r.fb; g.p=(+f.protein||0)*25; g.c=(+f.carbs||0)*25; g.f=(+f.fats||0)*8; g.fib=(+f.veg||0)*2+(+f.carbs||0)*1.5; any=true; }
   return any?{p:Math.round(g.p),net:Math.max(0,Math.round(g.c-g.fib)),f:Math.round(g.f),fib:Math.round(g.fib)}:null;
 }
-var ncSoFar={}, ncLastKey=null;
+var ncSoFar={}, ncLastKey=null, ncDayRun=null;
+// four boxes: protein, net carbs, fats, fibre (same look as the client's meal box)
+function ncNetChips(n,big){ if(!n) return ''; function c(v,l,col){ return '<div style="flex:1;min-width:0;background:rgba(0,0,0,.35);border-radius:9px;padding:'+(big?'9px':'6px')+' 2px;text-align:center"><b style="display:block;font-size:'+(big?19:15)+'px;color:'+col+'">'+v+' g</b><span style="font-size:9px;font-weight:800;letter-spacing:.04em;color:var(--muted)">'+l+'</span></div>'; }
+  return '<div style="display:flex;gap:5px;margin-top:5px">'+c(n.p,'PROTEIN','#8FD1A2')+c(n.net,'NET CARBS','#C9A24A')+c(n.f,'FATS','#E39A6E')+c(n.fib,'FIBRE','#8FB3D9')+'</div>'; }
 function ncNetLine(n,short){ if(!n) return ''; return short
   ?'<b style="color:#8FD1A2">'+n.p+' g P</b> · <b style="color:#C9A24A">'+n.net+' g NC</b> · <b style="color:#E39A6E">'+n.f+' g F</b> · <b style="color:#8FB3D9">'+n.fib+' g fib</b>'
   :'<b style="color:#8FD1A2">'+n.p+' g protein</b> · <b style="color:#C9A24A">'+n.net+' g net carbs</b> · <b style="color:#E39A6E">'+n.f+' g fats</b> · <b style="color:#8FB3D9">'+n.fib+' g fibre</b>'; }
@@ -7716,19 +7719,19 @@ async function ncBillInfo(cid){
 // late eating, weekends), reads the notes (consults, her notes, your notes, chat, meal
 // notes) and asks the AI to write: went well · needs work · talk about.
 var NC_SUM={};
-function ncSumTab(cid,I){
+function ncSumTab(cid,I,pfx){ pfx=pfx||''; var K=pfx+cid;
   if(!I||!I.start||!I.nextC) return ''; var T=ncToday();
   if(I.nextC>ncAddDays(T,3)) return '';
   var from=(I.lastC&&I.lastC.consult_day)||I.start;
-  return '<div style="margin-top:8px"><button onclick="ncSumToggle(\''+cid+'\')" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 12px;border-radius:12px;border:1.5px solid #C9A24A;background:rgba(201,162,74,.08);color:#E8D49A;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;text-align:left">'
-    +'<span>📋 Consult summary <span style="font-weight:600;color:var(--muted);font-size:12px">since '+ncEsc(ncNice(from))+'</span></span><span id="ncSumCh_'+cid+'">'+(NC_SUM[cid]&&NC_SUM[cid].open?'⌃':'⌄')+'</span></button>'
-    +'<div id="ncSum_'+cid+'" data-from="'+from+'" data-next="'+I.nextC+'" style="display:'+(NC_SUM[cid]&&NC_SUM[cid].open?'block':'none')+';margin-top:8px">'+(NC_SUM[cid]&&NC_SUM[cid].html||'')+'</div></div>';
+  return '<div style="margin-top:8px"><button onclick="ncSumToggle(\''+cid+'\',\''+pfx+'\')" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 12px;border-radius:12px;border:1.5px solid #C9A24A;background:rgba(201,162,74,.08);color:#E8D49A;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;text-align:left">'
+    +'<span>📋 Consult summary <span style="font-weight:600;color:var(--muted);font-size:12px">since '+ncEsc(ncNice(from))+'</span></span><span id="ncSumCh_'+K+'">'+(NC_SUM[K]&&NC_SUM[K].open?'⌃':'⌄')+'</span></button>'
+    +'<div id="ncSum_'+K+'" data-from="'+from+'" data-next="'+I.nextC+'" style="display:'+(NC_SUM[K]&&NC_SUM[K].open?'block':'none')+';margin-top:8px">'+(NC_SUM[K]&&NC_SUM[K].html||'')+'</div></div>';
 }
-function ncSumToggle(cid){
-  var box=document.getElementById('ncSum_'+cid); if(!box) return; var st=NC_SUM[cid]=NC_SUM[cid]||{};
+function ncSumToggle(cid,pfx){ pfx=pfx||''; var K=pfx+cid;
+  var box=document.getElementById('ncSum_'+K); if(!box) return; var st=NC_SUM[K]=NC_SUM[K]||{};
   st.open=box.style.display==='none'; box.style.display=st.open?'block':'none';
-  var ch=document.getElementById('ncSumCh_'+cid); if(ch) ch.textContent=st.open?'⌃':'⌄';
-  if(st.open&&!st.html) ncSumBuild(cid,false);
+  var ch=document.getElementById('ncSumCh_'+K); if(ch) ch.textContent=st.open?'⌃':'⌄';
+  if(st.open&&!st.html) ncSumBuild(cid,false,pfx);
 }
 async function ncSumData(cid,from){
   var sb=getSB(), T=ncToday(), m=cid.slice(6), out={from:from,to:T};
@@ -7797,7 +7800,7 @@ function ncSumRules(S){
 async function ncSumAI(S,name){
   var prompt='You help a nutrition coach in India prepare for a consult with his client '+(name||'')+'. Below are numbers worked out from her app since the last consult, and every note (consult notes, her notes, coach notes, meal notes, chat). '
     +'Study them carefully, do the maths where useful (averages, trends, per-meal protein, how often), and compare with her targets. Notes may include habits that are not food (for example climbing stairs, walking, sleep, water): include them when the notes give evidence. '
-    +'Write for the coach, short and specific, with numbers. Use Indian everyday foods in advice. Never invent facts that are not in the data; if data is thin, say so. '
+    +'Write for the coach in plain English, short and specific, with numbers. Use Indian everyday foods in advice, but write every measure and description in English (bowl, cup, glass, spoon, plate; never katori, vati, chamach or other Hindi words). Dish names everyone uses in English (dal, roti, paneer, sabzi, poha) are fine. Never invent facts that are not in the data; if data is thin, say so. '
     +'Reply ONLY with JSON: {"went_well":[{"i":"emoji","t":"..."}],"needs_work":[{"i":"emoji","t":"..."}],"talk_about":["..."],"one_line":"..."} with 2-4 items each for went_well and needs_work, 3 items for talk_about (concrete advice he can relay), and one_line = a one-sentence overall picture. Each item under 25 words.\n'
     +'DATA: '+JSON.stringify(S.stats)+'\nNOTES:\n'+S.notes.join('\n');
   var r=await fetch(NC_WORKER,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3,maxOutputTokens:2048,responseMimeType:'application/json',thinkingConfig:{thinkingBudget:0}}})});
@@ -7806,8 +7809,8 @@ async function ncSumAI(S,name){
   if(!o||!Array.isArray(o.went_well)) throw new Error('bad');
   return o;
 }
-async function ncSumBuild(cid,force){
-  var box=document.getElementById('ncSum_'+cid); if(!box) return; var st=NC_SUM[cid]=NC_SUM[cid]||{};
+async function ncSumBuild(cid,force,pfx){ pfx=pfx||''; var K=pfx+cid;
+  var box=document.getElementById('ncSum_'+K); if(!box) return; var st=NC_SUM[K]=NC_SUM[K]||{};
   var from=box.dataset.from, nx=box.dataset.next, key='kfcsum_'+cid+'_'+from+'_'+nx;
   box.innerHTML='<div style="font-size:13px;color:var(--muted);padding:8px 2px">Studying her meals and notes since '+ncEsc(ncNice(from))+'…</div>';
   try{
@@ -7831,7 +7834,7 @@ async function ncSumBuild(cid,force){
       h+=sec('✓ WENT WELL','#8FD1A2',R.good)+sec('✗ NEEDS WORK','#E39A6E',R.bad)+sec('→ TALK ABOUT','#C9A24A',R.talk.map(function(x,i){return [(i+1)+'.',x[1]];}))
         +'<div style="font-size:12px;color:var(--terra);margin-top:6px">The written advice couldn\'t load just now (connection). These lines come from the numbers only.</div>';
     }
-    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><span style="font-size:11px;color:var(--muted)">From '+s.meals+' meals, '+tot+' habit day'+(tot===1?'':'s')+', '+S.notes.length+' note'+(S.notes.length===1?'':'s')+'</span><button onclick="ncSumBuild(\''+cid+'\',true)" class="kf-act" style="padding:5px 10px;font-size:12px">↻ Refresh</button></div>';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><span style="font-size:11px;color:var(--muted)">From '+s.meals+' meals, '+tot+' habit day'+(tot===1?'':'s')+', '+S.notes.length+' note'+(S.notes.length===1?'':'s')+'</span><button onclick="ncSumBuild(\''+cid+'\',true,\''+pfx+'\')" class="kf-act" style="padding:5px 10px;font-size:12px">↻ Refresh</button></div>';
     st.html=h; box.innerHTML=h;
   }catch(e){ box.innerHTML='<div style="font-size:13px;color:var(--terra)">Couldn\'t build the summary: '+ncEsc(String(e&&e.message||e))+'</div>'; }
 }
@@ -8079,7 +8082,7 @@ async function ncDaysRender(cid){
     +(extras?'<div style="font-size:12px;color:var(--muted);margin-top:2px">'+extras+'</div>':'')
     +(function(){ var run={p:0,net:0,f:0,fib:0,k:0}, any=false; ncSoFar={}; ncLastKey=null;
         meals.forEach(function(r){ var n=ncNet(r), key=r.meal_id||('s'+r._i); if(n){ any=true; run.p+=n.p; run.net+=n.net; run.f+=n.f; run.fib+=n.fib; } run.k+=Number(r.kcal)||0; ncSoFar[key]=any?{p:run.p,net:run.net,f:run.f,fib:run.fib,k:run.k}:null; ncLastKey=key; });
-        return any?'<div style="font-size:12px;margin-top:3px"><span style="color:var(--muted)">Day:</span> '+ncNetLine(run)+'</div>':''; })()
+        ncDayRun=any?run:null; return ''; })()
     +'<div data-ncdb="'+d+'">';
   var hasNew=false;
       meals.forEach(function(r){
@@ -8092,12 +8095,10 @@ async function ncDaysRender(cid){
           +((r.photos||[]).length?'<img data-ncph="'+ncEsc(r.photos[0])+'" alt="" style="width:48px;height:48px;border-radius:10px;object-fit:cover;background:#333;flex-shrink:0">':'<span style="width:48px;height:48px;border-radius:10px;background:#2A2B24;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🍽️</span>')
           +'<div style="flex:1;min-width:0"><div><b style="font-size:15px">'+ncEsc(r.slot||'Meal')+'</b>'+(r.time?' <span style="color:var(--muted);font-size:12px">'+ncEsc(kfAmPm(r.time))+'</span>':'')+(isNew?'<span class="nc-new">NEW</span>':'')+(th.length?' <span style="color:var(--muted);font-size:12px">💬 '+th.length+'</span>':'')+'</div>'
           +'<div class="nc-food" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+ncEsc(kfReiconText(r.text)||'Photo')+'</div>'
-          +(function(){ var n=ncNet(r), key=r.meal_id||('s'+r._i), sf=ncSoFar[key], last=key===ncLastKey&&meals.length>1; if(!n) return '';
-              return '<div style="font-size:12px;margin-top:2px"><span style="color:var(--muted)">This meal:</span> '+ncNetLine(n,true)+'</div>'
-                +(meals.length>1&&sf?'<div style="font-size:12px;margin-top:2px;padding-top:2px;border-top:1px dashed var(--border)"><span style="color:'+(last?'#C9A24A;font-weight:800':'var(--muted)')+'">'+(last?'Day so far':'So far today')+':</span> '+ncNetLine(sf,true)+(sf.k?' · <span style="color:var(--muted)">'+(Math.round(sf.k/10)*10).toLocaleString('en-IN')+' cal</span>':'')+'</div>':''); })()
           +(r.feel?'<div style="font-size:12px;color:var(--muted)">Felt today: '+['','😕 low','😐 okay','🙂 good'][r.feel]+'</div>':'')
           +(r.cravings?'<div style="font-size:12px;color:var(--muted)">Cravings last night: '+({none:'😌 none',little:'😐 a little',gave:'😣 gave in'}[r.cravings]||'')+'</div>':'')+'</div>'
           +(r.kcal?'<span style="color:var(--muted);font-size:13px;white-space:nowrap">'+r.kcal+' cal</span>':'')+'</div>'
+          +(function(){ var n=ncNet(r); if(!n) return ''; return '<div style="font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--muted);margin-top:6px">THIS MEAL</div>'+ncNetChips(n); })()
           +(isOpen?'<div style="margin-top:6px">':'<div style="display:none">')
           +'<div>'
           +(r.fromPlan?' <span style="color:var(--muted);font-size:11px">(from your plan)</span>':'')+(r.src==='screenshot'?' <span style="color:var(--muted);font-size:11px">(screenshot)</span>':'')+(r.src==='earlier'||r.earlier?' <span style="color:var(--muted);font-size:11px">(earlier app)</span>':'')
@@ -8108,6 +8109,10 @@ async function ncDaysRender(cid){
           +((r.photos||[]).length?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+r.photos.map(function(pth){return '<img data-ncph="'+ncEsc(pth)+'" alt="Meal photo" style="width:64px;height:64px;border-radius:8px;object-fit:cover;background:#333;cursor:pointer">';}).join('')+'</div>':'')
           +(r.meal_id?thread(th,'m|'+r.meal_id+'|'+d,'Note on this meal…'):thread([], 's|'+r._i+'|'+d,'Note on this meal…'))+'</div></div>';
       });
+      if(ncDayRun) inner+='<div style="border:1.5px solid #C9A24A;background:rgba(201,162,74,.07);border-radius:12px;padding:10px;margin:6px 0">'
+        +'<div style="display:flex;justify-content:space-between;align-items:baseline"><b style="color:#E8D49A">'+(d===ncToday()?'Day so far':'Day total')+'</b><span style="font-size:13px">'+(ncDayRun.k?'<b style="color:#C9A24A">'+(Math.round(ncDayRun.k/10)*10).toLocaleString('en-IN')+'</b>'+(target?' <span style="color:var(--muted)">of '+target.toLocaleString('en-IN')+' cal</span>':' <span style="color:var(--muted)">cal</span>'):'')+'</span></div>'
+        +ncNetChips(ncDayRun,true)
+        +(function(){ var pt=ncProtein(prog); return pt?'<div style="font-size:11.5px;color:var(--muted);margin-top:6px">Aim '+pt.lo+'–'+pt.hi+' g protein a day</div>':''; })()+'</div>';
       var dayTh=byDay[d]||[], dKey='d||'+d, hasDraft=false; try{ hasDraft=!!localStorage.getItem('kf_draft_'+cid+'_'+dKey); }catch(e){}
       var dOpen=dayTh.length||hasDraft||(focus&&focus.day===d&&!focus.meal_id);
       inner+='<div style="margin:2px 0 8px">'+(dOpen?thread(dayTh,dKey,'Note on '+ncDayLabel(d)+'…'):'<button class="nc-addnote" data-addnote="'+d+'" style="background:none;border:none;color:#8FD1A2;font-family:inherit;font-size:13px;font-weight:700;padding:6px 2px;cursor:pointer">+ Note on this day</button><div data-notebox="'+d+'" style="display:none">'+thread([],dKey,'Note on '+ncDayLabel(d)+'…')+'</div>')+'</div></div>';
@@ -9022,6 +9027,7 @@ async function kfPushWarn(){
   document.getElementById('kfPwOn').onclick=async function(){ this.disabled=true; var ok=false; try{ ok=await kfitPushOn(); }catch(e){} if(ok){ try{ await getSB().functions.invoke('kfit-push',{body:{action:'test'}}); }catch(e){} } kfPushWarn(); };
   document.getElementById('kfPwX').onclick=function(){ try{ sessionStorage.setItem('kfPushWarnX','1'); }catch(e){} el.innerHTML=''; };
 }
+var kfConsDue=[];
 async function kfTodayRender(){
   try{ kfPushWarn(); }catch(e){}
   var el=document.getElementById('kfTodayBody'); if(!el) return;
@@ -9029,7 +9035,7 @@ async function kfTodayRender(){
   if(!el.innerHTML) el.innerHTML='<div class="kf-h1">Today</div><div class="kf-sub">Checking…</div>';
   var sb=getSB(); await kfTagged();
   var T=kfNamesCache, tagged=T.tagged; function nm(m){return T.names[m]||('+'+m);}
-  var act=await kfActivity(day,day), needs=[];
+  var act=await kfActivity(day,day), needs=[]; if(isToday) kfConsDue=[];
   if(isToday){
     try{ var rc=await sb.from('nutrition_meal_comments').select('client_id,meal_id,day,body,author,created_at,read_by_coach_at,deleted').eq('author','client').is('read_by_coach_at',null).gte('created_at',ncAddDays(todayD,-30)+'T00:00:00').limit(300);
       (rc.data||[]).forEach(function(x){ var m=String(x.client_id).slice(6); if(x.deleted||!tagged[m]) return;
@@ -9047,6 +9053,7 @@ async function kfTodayRender(){
       for(var i=0;i<roster.length&&i<40;i++){
         var c=roster[i], cid='knut__'+String(c.mobile).replace(/\D/g,''), I=await ncBillInfo(cid);
         if(!I.start) continue;
+        if(I.nextC&&I.nextC<=ncAddDays(todayD,3)) kfConsDue.push({c:c,cid:cid,I:I});
         if(I.nextC&&I.nextC<=todayD) (function(c,cid,I){ needs.push({m:String(c.mobile).replace(/\D/g,''),ic:'🗓️',line:'consult '+(I.nextC===todayD?'today':'due'),title:'Consult '+(I.nextC===todayD?'today':'due')+': '+(c.name||''),sub:(I.weekly?'check-in done ✓':'')+(I.prep?(I.weekly?' · ':'')+'note: "'+String(I.prep.notes).slice(0,40)+'"':'')||'weekly consult',act:'Log it',ts:Date.now()-1,fn:function(){ window.kfOpenConsult=cid; kfOpenClientByMobile(String(c.mobile).replace(/\D/g,''),'account','nut'); }}); })(c,cid,I);
         var daysLeft=Math.round((new Date(I.renew)-new Date(todayD))/864e5);
         if(!I.paid&&daysLeft<=3) (function(c,cid,I,daysLeft){ needs.push({m:String(c.mobile).replace(/\D/g,''),ic:'💳',line:(daysLeft<0?'renewal overdue':daysLeft===0?'renews today':'renews in '+daysLeft+' day'+(daysLeft===1?'':'s'))+' · unpaid',title:(c.name||'')+(daysLeft<0?' renewal overdue':daysLeft===0?' renews today':' renews in '+daysLeft+' day'+(daysLeft===1?'':'s')),sub:'unpaid',act:'Mark paid',ts:Date.now()-2,fn:async function(){ var pm=((I.bill&&I.bill.paid_months)||[]).slice(); if(pm.indexOf(I.cur)<0) pm.push(I.cur); var ok=await ncSaveBill(cid,I,{paid_months:pm}); if(ok) kfTodayRender(); }}); })(c,cid,I,daysLeft);
@@ -9108,6 +9115,8 @@ async function kfTodayRender(){
   if(!nRows&&!(quietP.length&&isToday)) html+='<div class="kf-caught"><div style="font-size:30px">🎉</div><div class="kf-h1" style="font-size:20px;color:#E7CF8C;margin:2px 0">'+(isToday?'All caught up':'Nothing came in that day')+'</div></div>';
   else if(isToday&&!needs.length&&!kfLinks.length) html+='<div style="font-size:13px;color:#8FD1A2;margin:10px 2px">🎉 Nothing needs you right now.</div>';
   if(did.length) html+='<button class="kf-tmore" id="kfDidToggle" style="margin-top:14px">✍️ You did '+did.length+' thing'+(did.length===1?'':'s')+(isToday?' today':'')+' ▾</button><div id="kfDidList" style="display:none">'+did.map(function(x){return kfLine(kfHM(x.ts),x.i,x.t,x.open);}).join('')+'</div>';
+  if(isToday&&kfConsDue.length) html+='<div style="margin-top:16px"><div style="font-size:12px;font-weight:800;letter-spacing:.08em;color:#C9A24A;margin:0 2px 4px">📋 CONSULTS COMING UP</div>'
+    +kfConsDue.map(function(x){ return '<div class="card" style="margin-bottom:8px;gap:2px"><div style="display:flex;justify-content:space-between;gap:8px"><b style="font-size:15px">'+ncEsc(x.c.name||'')+'</b><span style="font-size:13px;color:'+(x.I.nextC<=todayD?'#E39A6E':'var(--muted)')+'">'+(x.I.nextC<todayD?'overdue':x.I.nextC===todayD?'today':ncNice(x.I.nextC))+'</span></div>'+ncSumTab(x.cid,x.I,'t_')+'</div>'; }).join('')+'</div>';
   el.innerHTML=html;
   el.querySelectorAll('[data-lk]').forEach(function(b){ b.onclick=async function(){ var it=kfLinks[+b.dataset.lk]; if(!it) return; var ok=b.dataset.ok==='1';
     if(!ok&&!confirm('Decline '+it.clientName+'\'s phone?')) return; b.disabled=true;
@@ -9146,7 +9155,7 @@ var KF_HELP=[
   ['🍽️','Days','Tap a client, then Days: their weight card, the "This week" card, then the week as a chart: one bar of calories per day against their goal, a green dot under each day they did their habit, and gold day letters when something new came in. ‹ › moves a week; tap a day for its meals, steps, water and habit. Tap the 🌱 habit line under the chart (it shows 🟢 on track, 🟡 needs a nudge, 🔴 not logging or ⚪ early days) to see each day this week, or open the habit. Tap a meal to see amounts, and tap a photo to see it full size: swipe for the next, ✕ brings you back to the meal. Tap a day\'s heading to fold it away, and again to open it. Write a note under any meal or day: the box grows for more lines, Enter starts a new line and Send sends; unsent words are kept. ✓ means sent, blue ✓✓ means they read it. Links show as short tappable chips. ⋯ at the top has Estimate missing calories, Import screenshots and the earlier app\'s tools.'],
   ['🏋️','Fitness clients','Days shows each workout as a card: body parts, exercises, duration, steps and personal records 🏆. Tap a card for every set. Clients say whether each session was with you or on their own; only sessions with you count as unpaid. Got it wrong? Tap "Mark on their own" or "Mark with you" on the card. Plan has just the workout tools: Assign, Log and Edit.'],
   ['🗓️','Plan','Nutrition: their habit card comes first (see Habits below), then Their numbers and Send a meal plan, each folded. Fitness: Assign a workout and Log a session; edit a past session from Days. Name history, remove and delete data are under Account, in Client settings.'],
-  ['🥗','Net grams','On a nutrition client\'s Days, each meal shows its protein, net carbs (carbs minus fibre), fats and fibre, and the total so far that day. The latest meal\'s line is gold: the day so far. The day\'s full total sits under the date.'],
+  ['🥗','Net grams','On a nutrition client\'s Days, each meal shows four boxes: protein, net carbs (carbs minus fibre), fats and fibre. Under the last meal, a gold Day so far box adds them up with the day\'s calories and her protein aim; it moves down as new meals come in. When a consult is 3 days away or less, Today also lists it under Consults coming up, with the folded summary.'],
   ['🏋️','Workouts','On a fitness client\'s Days: the week across the top, with a dot on each workout day (orange = unpaid). Under the week it says how many are unpaid this week, with all unpaid in brackets when there are older ones too. The 💳 pill at the bottom opens the unpaid sessions: tick the ones that were paid and tap Mark paid. ‹ › moves a week. Tap a day for its sessions, and a session for the full workout: sets, PRs, cardio and functional, their note, ✎ Edit and with you or on their own. ⋯ prints the week, the month or everything.'],
   ['↩️','Back','The phone\'s Back (or swipe back) steps back one screen: a workout to the list, a client to where you came from (Today or Clients, same spot), and closes chat, the tracker and pop-ups.'],
   ['⚖️','Weight and goals','Clients weigh in once a week from My progress in their app. Their page shows their weight and change since they started (header and "This week"), a small graph, and their goal: Lose, Maintain or Gain, plus a goal weight. They set it themselves; once you tap a goal or ✎ the goal weight, yours counts and it\'s locked for them ("Let them choose" unlocks it). Gain is about 10% over maintenance. Weigh-ins also show in Today.'],

@@ -1110,6 +1110,8 @@ function mealNet(b){ b=b||{}; var f=(Array.isArray(b.items)&&b.items.length)?ite
   if(f.g) return f.g; if(f.protein==null) return null;
   var c=(+f.carbs||0)*25, fib=(+f.veg||0)*2+(+f.carbs||0)*1.5; return {p:Math.round((+f.protein||0)*25),net:Math.max(0,Math.round(c-fib)),f:Math.round((+f.fats||0)*8),fib:Math.round(fib)}; }
 function addNet(a,b){ return {p:(a.p||0)+(b.p||0),net:(a.net||0)+(b.net||0),f:(a.f||0)+(b.f||0),fib:(a.fib||0)+(b.fib||0)}; }
+function netChips(g,big){ function c(v,l,col){ return '<div style="flex:1;min-width:0;background:rgba(0,0,0,.25);border-radius:10px;padding:'+(big?'9px':'7px')+' 2px;text-align:center"><div style="font-size:'+(big?19:16)+'px;font-weight:800;color:'+col+'">'+v+' g</div><div style="font-size:9.5px;font-weight:800;letter-spacing:.04em;color:var(--muted)">'+l+'</div></div>'; }
+  return '<div style="display:flex;gap:6px">'+c(g.p,'PROTEIN','var(--leaf)')+c(g.net,'NET CARBS','var(--gold)')+c(g.f,'FATS','var(--terra)')+c(g.fib,'FIBRE','#8FB3D9')+'</div>'; }
 function netTxt(g,short){ return short?g.p+' g P · '+g.net+' g NC · '+g.f+' g F · '+g.fib+' g fib':g.p+' g protein · '+g.net+' g net carbs · '+g.f+' g fats · '+g.fib+' g fibre'; }
 function mealsOn(d){return Object.keys(S.meals).map(function(k){return S.meals[k];}).filter(function(m){return m.day===d&&!m.deleted;}).sort(function(a,b){return mealAt(a)-mealAt(b);});}
 function mealAt(m){var b=m.body||{};return b.eatenAt?new Date(b.eatenAt).getTime():(b.at||0);}
@@ -1576,10 +1578,7 @@ function renderLog(){
         +(b.noPhoto?'<div class="meta" style="font-weight:400">No photo · logged from words</div>':'')
         +(b.fromEarlierApp?'<div class="meta" style="font-weight:400">From the earlier app (no time recorded)</div>':'')
         +(f&&f.protein!=null?'<div class="meta" style="font-weight:400">Hands: protein '+esc(f.protein)+' · veg '+esc(f.veg)+' · carbs '+esc(f.carbs)+' · fats '+esc(f.fats)+' · estimate</div>':'')
-        +(function(){ var g=mealNet(b); if(!g) return ''; var run={p:0,net:0,f:0,fib:0}, L=mealsOn(d), last=L.length&&L[L.length-1].meal_id===m.meal_id;
-            for(var i=0;i<L.length;i++){ var x=mealNet(L[i].body); if(x) run=addNet(run,x); if(L[i].meal_id===m.meal_id) break; }
-            return '<div style="font-size:14px"><span class="meta" style="font-weight:400">This meal:</span> <b>'+esc(netTxt(g))+'</b></div>'
-              +(L.length>1?'<div style="font-size:14px;border-top:1px dashed var(--line2);padding-top:4px"><span style="color:'+(last?'var(--gold);font-weight:800':'var(--muted)')+'">'+(last?'Today so far':'So far today')+':</span> '+esc(netTxt(run))+'</div>':''); })()
+        +(function(){ var g=mealNet(b); if(!g) return ''; return '<div class="steplbl" style="font-size:10.5px;color:var(--muted)">THIS MEAL</div>'+netChips(g); })()
         +(f&&f.tip?'<div style="font-size:14px;color:var(--soft)">'+esc(f.tip)+'</div>':'')
         +'<div class="row" style="gap:14px;flex-wrap:wrap"><button class="btn link" data-addphoto="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px">+ Add photo</button><button class="btn link" data-edit="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px">Edit</button><button class="btn link" data-del="'+esc(m.meal_id)+'" style="min-height:32px;font-size:13px;color:var(--muted)">Remove</button><button class="btn link" data-fold="1" style="min-height:32px;font-size:13px;color:var(--muted);margin-left:auto">Close ▴</button></div>'
         +threadHtml(d,m.meal_id);
@@ -1589,6 +1588,11 @@ function renderLog(){
   var bySlot={}; list.forEach(function(m){var sl=(m.body||{}).slot||'Late snack'; (bySlot[sl]=bySlot[sl]||[]).push(m);});
   var cards='';
   list.forEach(function(m){ cards+=card(m); });
+  (function(){ var run={p:0,net:0,f:0,fib:0}, any=false, k=0; list.forEach(function(m){ var x=mealNet(m.body); if(x){ run=addNet(run,x); any=true; } var fb=aggFeedback(m.body||{}); k+=(fb&&+fb.kcal)||0; });
+    if(!any) return; var PT=proteinTarget(), tg=goalKcal(targets());
+    cards+='<div class="card" style="border:1.5px solid var(--gold);background:rgba(201,162,74,.07);gap:8px;margin:2px 0 10px"><div class="row" style="justify-content:space-between;align-items:baseline"><b style="color:var(--gold)">'+(isToday?'Day so far':'Day total')+'</b>'
+      +(showK()&&k?'<span style="font-size:14px"><b style="color:var(--gold)">'+fmt(Math.round(k/10)*10)+'</b>'+(tg?' <span class="meta" style="font-weight:400">of '+fmt(tg)+' cal</span>':' cal')+'</span>':'')+'</div>'
+      +netChips(run,true)+(PT?'<div class="meta" style="font-weight:400;font-size:12px">Aim '+PT.lo+'–'+PT.hi+' g protein a day</div>':'')+'</div>'; })();
   planned.filter(function(it){return !ticked[it.key];}).forEach(function(it){
     cards+='<div class="mcard slot" style="border-style:dashed;'+slotStyle(it.slot||'Late snack')+'"><div class="sum"><span class="mthumb" style="background:none;border:1px dashed var(--line2)">🗓️</span><div style="flex:1;min-width:0"><div><span class="f-time">'+esc(it.time||'')+'</span> <span class="f-meal" style="font-size:16px">'+esc(it.slot||'Meal')+'</span> <span class="meta">· from your coach</span></div><div class="f-food">'+esc(it.text||'')+'</div>'+(it.note?'<span class="cnote">'+esc(it.note)+'</span>':'')+'</div>'
       +'<button data-tick="'+esc(it.key)+'" aria-label="I ate this" style="width:34px;height:34px;border-radius:9px;border:1.5px solid var(--line2);background:none;flex-shrink:0"></button></div></div>';
@@ -1937,7 +1941,7 @@ function handGuide(f,slot,ctx){
     +chip('PROTEIN',G.p,'var(--leaf)')+chip('NET CARBS',G.net,'var(--gold)')+chip('FATS',G.f,'var(--terra)')+chip('FIBRE',G.fib,'#8FB3D9')+'</div>'
     +'<div class="meta" style="font-weight:400;font-size:12px">Grams of the nutrient itself, not the food (100 g chicken ≈ 30 g protein). Net carbs = carbs minus fibre.</div>':'';
   if(G&&ctx&&ctx.d){ var so={p:0,net:0,f:0,fib:0}, others=0; mealsOn(ctx.d).forEach(function(mm){ if(ctx.ex&&mm.meal_id===ctx.ex) return; var x=mealNet(mm.body); if(x){ so=addNet(so,x); others++; } });
-    if(others){ so=addNet(so,G); net+='<div class="steplbl" style="color:var(--gold);font-size:11px;margin-top:6px">TODAY SO FAR, WITH THIS MEAL</div><div style="font-size:14px">'+esc(netTxt(so))+(PT?' <span class="meta" style="font-weight:400">· aim '+PT.lo+'–'+PT.hi+' g protein</span>':'')+'</div>'; } }
+    if(others){ so=addNet(so,G); net+='<div class="steplbl" style="color:var(--gold);font-size:11px;margin-top:6px">TODAY SO FAR, WITH THIS MEAL</div>'+netChips(so)+(PT?'<div class="meta" style="font-weight:400;font-size:12px">Aim '+PT.lo+'–'+PT.hi+' g protein a day</div>':''); } }
   var ptx=PT?'<div style="font-size:14px;line-height:1.4">🥚 Aim for ~'+per+' g protein '+(snack?'in a snack':'at a main meal')+' to reach '+PT.lo+'–'+PT.hi+' g a day.'+(pg<per*0.75?' <span style="color:var(--gold)">Add a palm of eggs, paneer, dal, chicken or curd.</span>':pg>=per?' <span style="color:var(--leaf)">This one gets you there 💪</span>':'')+'</div>':'';
   ptx=net+ptx;
   return '<div class="card" style="border:1px solid #3D6B4F;gap:6px"><div class="steplbl" style="color:var(--leaf)">YOUR PLATE, BY YOUR HANDS</div>'+rows+ptx
