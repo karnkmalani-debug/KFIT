@@ -1760,32 +1760,40 @@ async function retryEstimate(mealId,quiet){
 // time, so a cancelled camera never sticks.
 var AI_PHOTOS=10;
 // A full-screen "please wait" so the screen never looks stuck
-function waitOv(msg){
+function waitOv(msg,onCancel){
   var o=document.getElementById('kfWait'); if(!msg){ if(o) o.remove(); return; }
   if(!o){ o=document.createElement('div'); o.id='kfWait'; o.setAttribute('role','status');
     o.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(12,13,10,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--ink);font-size:17px;font-weight:700;text-align:center;padding:24px';
     o.innerHTML='<span style="width:38px;height:38px;border-radius:50%;border:4px solid var(--line2);border-top-color:var(--leaf);animation:kfspin .9s linear infinite"></span><span class="kfwt"></span><style>@keyframes kfspin{to{transform:rotate(360deg)}}</style>';
     document.body.appendChild(o); }
   o.querySelector('.kfwt').textContent=msg;
+  var cx=o.querySelector('.kfwx'); if(cx) cx.remove();
+  if(onCancel){ cx=document.createElement('button'); cx.className='kfwx'; cx.textContent='Cancel'; cx.style.cssText='margin-top:8px;background:none;border:1px solid var(--line2);border-radius:12px;color:var(--soft);font-size:14px;padding:8px 18px'; cx.onclick=function(){ waitOv(false); onCancel(); }; o.appendChild(cx); }
 }
 function pickPhotos(then,fromGallery){
   var inp=$('#photoInput'); inp.value='';
   if(fromGallery){ inp.removeAttribute('capture'); inp.setAttribute('multiple',''); } else { inp.setAttribute('capture','environment'); inp.removeAttribute('multiple'); }
+  var done=false, fb=null;
+  function stop(){ if(done) return; done=true; window.removeEventListener('focus',onFocus); if(fb) clearTimeout(fb); }
+  function onFocus(){ if(fb) clearTimeout(fb); fb=setTimeout(function(){ if(!done&&!(inp.files&&inp.files.length)){ stop(); waitOv(false); } },20000); }
+  inp.oncancel=function(){ stop(); waitOv(false); };
+  window.addEventListener('focus',onFocus);
   inp.onchange=async function(){
-    var fs=Array.prototype.slice.call(inp.files||[]); inp.removeAttribute('capture'); inp.removeAttribute('multiple'); inp.value='';
-    if(!fs.length) return;
+    var fs=Array.prototype.slice.call(inp.files||[]); inp.removeAttribute('capture'); inp.removeAttribute('multiple'); inp.value=''; stop();
+    if(!fs.length){ waitOv(false); return; }
     waitOv(fs.length>1?'Getting your '+fs.length+' photos ready…':'Getting your photo ready…');
     var out=[];
     try{ for(var i=0;i<fs.length;i++){ if(fs[i].size>G_MAX){ toast('One photo was too large, skipped'); continue; } try{ out.push(await shrink(fs[i],1024,0.72)); }catch(e){ toast('Could not read one photo'); } } }
-    finally{ waitOv(false); }
-    if(out.length) then(out);
+    finally{ if(!out.length) waitOv(false); }
+    if(out.length){ waitOv('Reading your plate… a few seconds'); then(out); }
   };
+  setTimeout(function(){ if(!done) waitOv('Waiting for your photo…',function(){ stop(); }); },400);
   inp.click();
 }
 function addPhotoToMeal(mealId){
   var m=S.meals[mealId]; if(!m) return;
   pickPhotos(async function(phs){
-    toast(phs.length>1?'Adding '+phs.length+' photos…':'Adding your photo…');
+    waitOv(phs.length>1?'Adding '+phs.length+' photos…':'Adding your photo…');
     try{
       var b=m.body||{}, ps=mealPhotos(b), added=[];
       for(var i=0;i<phs.length;i++){ var path=S.clientId+'/'+mealId+'-'+uid()+'.jpg';
@@ -1799,6 +1807,7 @@ function addPhotoToMeal(mealId){
       b.photos=ps; delete b.photo; b.noPhoto=false; m.body=b; m.updated_ms=now();
       S.meals[mealId]=m; await write('nutrition_meals',mealRow(m)); if(S.tab==='log'&&!S.view) renderLog();
     }catch(e){ toast('Could not add that photo'); }
+    finally{ waitOv(false); }
   },true);
 }
 var photoUrls={};
@@ -2011,11 +2020,11 @@ function openMealForm(d,forSlot,editId){
   function pickPhoto(then,fromGallery){ pickPhotos(function(phs){ then(phs); },fromGallery); }
   // blob: one photo or a list of photos of the same meal (read together, so nothing is counted twice)
   async function analyse(blob,text,append){
-    M.busy=true; openMealForm(d,forSlot,editId);
+    M.busy=true; openMealForm(d,forSlot,editId); waitOv('Reading your plate… a few seconds');
     try{ var r=await aiItems(blob,text); if(!r.items.length) throw new Error('nothing');
       M.items=append?M.items.concat(r.items):r.items; if(r.tip) M.tip=r.tip; if(append) M.edited=true; M.stage='review'; }
     catch(e){ toast('Couldn\'t read the food. Type it below and try again.'); if(!append){ M.stage='text'; } }
-    M.busy=false; openMealForm(d,forSlot,editId);
+    M.busy=false; waitOv(false); openMealForm(d,forSlot,editId);
   }
   // ---- stage 1: the camera ----
   if(M.stage==='photo'){
