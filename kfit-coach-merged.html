@@ -7453,8 +7453,8 @@ function ncNet(r){
 }
 var ncSoFar={}, ncLastKey=null, ncDayRun=null;
 // four boxes: protein, net carbs, fats, fibre (same look as the client's meal box)
-function ncNetChips(n,big){ if(!n) return ''; function c(v,l,col){ return '<div style="flex:1;min-width:0;background:rgba(0,0,0,.35);border-radius:9px;padding:'+(big?'9px':'6px')+' 2px;text-align:center"><b style="display:block;font-size:'+(big?19:15)+'px;color:'+col+'">'+v+' g</b><span style="font-size:9px;font-weight:800;letter-spacing:.04em;color:var(--muted)">'+l+'</span></div>'; }
-  return '<div style="display:flex;gap:5px;margin-top:5px">'+c(n.p,'PROTEIN','#8FD1A2')+c(n.net,'NET CARBS','#C9A24A')+c(n.f,'FATS','#E39A6E')+c(n.fib,'FIBRE','#8FB3D9')+'</div>'; }
+function ncNetChips(n,big){ if(!n) return ''; function c(v,l,col){ return '<div style="flex:1;min-width:0;background:rgba(0,0,0,.35);border-radius:8px;padding:'+(big?'4px':'2px')+' 2px;text-align:center;line-height:1.1"><b style="display:block;font-size:'+(big?14:12)+'px;color:'+col+'">'+v+' g</b><span style="font-size:8px;font-weight:800;letter-spacing:.03em;color:var(--muted)">'+l+'</span></div>'; }
+  return '<div style="display:flex;gap:4px;margin-top:4px">'+c(n.p,'PROTEIN','#8FD1A2')+c(n.net,'NET CARBS','#C9A24A')+c(n.f,'FATS','#E39A6E')+c(n.fib,'FIBRE','#8FB3D9')+'</div>'; }
 function ncNetLine(n,short){ if(!n) return ''; return short
   ?'<b style="color:#8FD1A2">'+n.p+' g P</b> · <b style="color:#C9A24A">'+n.net+' g NC</b> · <b style="color:#E39A6E">'+n.f+' g F</b> · <b style="color:#8FB3D9">'+n.fib+' g fib</b>'
   :'<b style="color:#8FD1A2">'+n.p+' g protein</b> · <b style="color:#C9A24A">'+n.net+' g net carbs</b> · <b style="color:#E39A6E">'+n.f+' g fats</b> · <b style="color:#8FB3D9">'+n.fib+' g fibre</b>'; }
@@ -8083,6 +8083,10 @@ async function ncDaysRender(cid){
     +(function(){ var run={p:0,net:0,f:0,fib:0,k:0}, any=false; ncSoFar={}; ncLastKey=null;
         meals.forEach(function(r){ var n=ncNet(r), key=r.meal_id||('s'+r._i); if(n){ any=true; run.p+=n.p; run.net+=n.net; run.f+=n.f; run.fib+=n.fib; } run.k+=Number(r.kcal)||0; ncSoFar[key]=any?{p:run.p,net:run.net,f:run.f,fib:run.fib,k:run.k}:null; ncLastKey=key; });
         ncDayRun=any?run:null; return ''; })()
+    +(ncDayRun?'<div style="border:1.5px solid #C9A24A;background:rgba(201,162,74,.07);border-radius:12px;padding:8px 10px;margin:6px 0">'
+        +'<div style="display:flex;justify-content:space-between;align-items:baseline"><b style="color:#E8D49A">'+(d===ncToday()?'Day so far':'Day total')+'</b><span style="font-size:13px">'+(ncDayRun.k?'<b style="color:#C9A24A">'+(Math.round(ncDayRun.k/10)*10).toLocaleString('en-IN')+'</b>'+(target?' <span style="color:var(--muted)">of '+target.toLocaleString('en-IN')+' cal</span>':' <span style="color:var(--muted)">cal</span>'):'')+'</span></div>'
+        +ncNetChips(ncDayRun,true)
+        +(function(){ var pt=ncProtein(prog); return pt?'<div style="font-size:11.5px;color:var(--muted);margin-top:6px">Aim '+pt.lo+'–'+pt.hi+' g protein a day</div>':''; })()+'</div>':'')
     +'<div data-ncdb="'+d+'">';
   var hasNew=false;
       meals.forEach(function(r){
@@ -8098,8 +8102,9 @@ async function ncDaysRender(cid){
           +(r.feel?'<div style="font-size:12px;color:var(--muted)">Felt today: '+['','😕 low','😐 okay','🙂 good'][r.feel]+'</div>':'')
           +(r.cravings?'<div style="font-size:12px;color:var(--muted)">Cravings last night: '+({none:'😌 none',little:'😐 a little',gave:'😣 gave in'}[r.cravings]||'')+'</div>':'')+'</div>'
           +(r.kcal?'<span style="color:var(--muted);font-size:13px;white-space:nowrap">'+r.kcal+' cal</span>':'')+'</div>'
-          +(function(){ var n=ncNet(r); if(!n) return ''; return '<div style="font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--muted);margin-top:6px">THIS MEAL</div>'+ncNetChips(n); })()
           +(isOpen?'<div style="margin-top:6px">':'<div style="display:none">')
+          +(function(){ var n=ncNet(r); if(!n) return ''; return '<div style="font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--muted);margin-top:2px">THIS MEAL</div>'+ncNetChips(n); })()
+
           +'<div>'
           +(r.fromPlan?' <span style="color:var(--muted);font-size:11px">(from your plan)</span>':'')+(r.src==='screenshot'?' <span style="color:var(--muted);font-size:11px">(screenshot)</span>':'')+(r.src==='earlier'||r.earlier?' <span style="color:var(--muted);font-size:11px">(earlier app)</span>':'')
           +'</div>'
@@ -8109,10 +8114,7 @@ async function ncDaysRender(cid){
           +((r.photos||[]).length?'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'+r.photos.map(function(pth){return '<img data-ncph="'+ncEsc(pth)+'" alt="Meal photo" style="width:64px;height:64px;border-radius:8px;object-fit:cover;background:#333;cursor:pointer">';}).join('')+'</div>':'')
           +(r.meal_id?thread(th,'m|'+r.meal_id+'|'+d,'Note on this meal…'):thread([], 's|'+r._i+'|'+d,'Note on this meal…'))+'</div></div>';
       });
-      if(ncDayRun) inner+='<div style="border:1.5px solid #C9A24A;background:rgba(201,162,74,.07);border-radius:12px;padding:10px;margin:6px 0">'
-        +'<div style="display:flex;justify-content:space-between;align-items:baseline"><b style="color:#E8D49A">'+(d===ncToday()?'Day so far':'Day total')+'</b><span style="font-size:13px">'+(ncDayRun.k?'<b style="color:#C9A24A">'+(Math.round(ncDayRun.k/10)*10).toLocaleString('en-IN')+'</b>'+(target?' <span style="color:var(--muted)">of '+target.toLocaleString('en-IN')+' cal</span>':' <span style="color:var(--muted)">cal</span>'):'')+'</span></div>'
-        +ncNetChips(ncDayRun,true)
-        +(function(){ var pt=ncProtein(prog); return pt?'<div style="font-size:11.5px;color:var(--muted);margin-top:6px">Aim '+pt.lo+'–'+pt.hi+' g protein a day</div>':''; })()+'</div>';
+
       var dayTh=byDay[d]||[], dKey='d||'+d, hasDraft=false; try{ hasDraft=!!localStorage.getItem('kf_draft_'+cid+'_'+dKey); }catch(e){}
       var dOpen=dayTh.length||hasDraft||(focus&&focus.day===d&&!focus.meal_id);
       inner+='<div style="margin:2px 0 8px">'+(dOpen?thread(dayTh,dKey,'Note on '+ncDayLabel(d)+'…'):'<button class="nc-addnote" data-addnote="'+d+'" style="background:none;border:none;color:#8FD1A2;font-family:inherit;font-size:13px;font-weight:700;padding:6px 2px;cursor:pointer">+ Note on this day</button><div data-notebox="'+d+'" style="display:none">'+thread([],dKey,'Note on '+ncDayLabel(d)+'…')+'</div>')+'</div></div>';
@@ -9155,7 +9157,7 @@ var KF_HELP=[
   ['🍽️','Days','Tap a client, then Days: their weight card, the "This week" card, then the week as a chart: one bar of calories per day against their goal, a green dot under each day they did their habit, and gold day letters when something new came in. ‹ › moves a week; tap a day for its meals, steps, water and habit. Tap the 🌱 habit line under the chart (it shows 🟢 on track, 🟡 needs a nudge, 🔴 not logging or ⚪ early days) to see each day this week, or open the habit. Tap a meal to see amounts, and tap a photo to see it full size: swipe for the next, ✕ brings you back to the meal. Tap a day\'s heading to fold it away, and again to open it. Write a note under any meal or day: the box grows for more lines, Enter starts a new line and Send sends; unsent words are kept. ✓ means sent, blue ✓✓ means they read it. Links show as short tappable chips. ⋯ at the top has Estimate missing calories, Import screenshots and the earlier app\'s tools.'],
   ['🏋️','Fitness clients','Days shows each workout as a card: body parts, exercises, duration, steps and personal records 🏆. Tap a card for every set. Clients say whether each session was with you or on their own; only sessions with you count as unpaid. Got it wrong? Tap "Mark on their own" or "Mark with you" on the card. Plan has just the workout tools: Assign, Log and Edit.'],
   ['🗓️','Plan','Nutrition: their habit card comes first (see Habits below), then Their numbers and Send a meal plan, each folded. Fitness: Assign a workout and Log a session; edit a past session from Days. Name history, remove and delete data are under Account, in Client settings.'],
-  ['🥗','Net grams','On a nutrition client\'s Days, each meal shows four boxes: protein, net carbs (carbs minus fibre), fats and fibre. Under the last meal, a gold Day so far box adds them up with the day\'s calories and her protein aim; it moves down as new meals come in. When a consult is 3 days away or less, Today also lists it under Consults coming up, with the folded summary.'],
+  ['🥗','Net grams','On a nutrition client\'s Days, each meal shows four boxes: protein, net carbs (carbs minus fibre), fats and fibre. Each meal\'s four boxes show when you tap it open. Under the date, a gold Day so far box adds up the day: protein, net carbs, fats, fibre, calories and her protein aim. When a consult is 3 days away or less, Today also lists it under Consults coming up, with the folded summary.'],
   ['🏋️','Workouts','On a fitness client\'s Days: the week across the top, with a dot on each workout day (orange = unpaid). Under the week it says how many are unpaid this week, with all unpaid in brackets when there are older ones too. The 💳 pill at the bottom opens the unpaid sessions: tick the ones that were paid and tap Mark paid. ‹ › moves a week. Tap a day for its sessions, and a session for the full workout: sets, PRs, cardio and functional, their note, ✎ Edit and with you or on their own. ⋯ prints the week, the month or everything.'],
   ['↩️','Back','The phone\'s Back (or swipe back) steps back one screen: a workout to the list, a client to where you came from (Today or Clients, same spot), and closes chat, the tracker and pop-ups.'],
   ['⚖️','Weight and goals','Clients weigh in once a week from My progress in their app. Their page shows their weight and change since they started (header and "This week"), a small graph, and their goal: Lose, Maintain or Gain, plus a goal weight. They set it themselves; once you tap a goal or ✎ the goal weight, yours counts and it\'s locked for them ("Let them choose" unlocks it). Gain is about 10% over maintenance. Weigh-ins also show in Today.'],

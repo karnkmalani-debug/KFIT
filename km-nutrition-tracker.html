@@ -1110,8 +1110,8 @@ function mealNet(b){ b=b||{}; var f=(Array.isArray(b.items)&&b.items.length)?ite
   if(f.g) return f.g; if(f.protein==null) return null;
   var c=(+f.carbs||0)*25, fib=(+f.veg||0)*2+(+f.carbs||0)*1.5; return {p:Math.round((+f.protein||0)*25),net:Math.max(0,Math.round(c-fib)),f:Math.round((+f.fats||0)*8),fib:Math.round(fib)}; }
 function addNet(a,b){ return {p:(a.p||0)+(b.p||0),net:(a.net||0)+(b.net||0),f:(a.f||0)+(b.f||0),fib:(a.fib||0)+(b.fib||0)}; }
-function netChips(g,big){ function c(v,l,col){ return '<div style="flex:1;min-width:0;background:rgba(0,0,0,.25);border-radius:10px;padding:'+(big?'9px':'7px')+' 2px;text-align:center"><div style="font-size:'+(big?19:16)+'px;font-weight:800;color:'+col+'">'+v+' g</div><div style="font-size:9.5px;font-weight:800;letter-spacing:.04em;color:var(--muted)">'+l+'</div></div>'; }
-  return '<div style="display:flex;gap:6px">'+c(g.p,'PROTEIN','var(--leaf)')+c(g.net,'NET CARBS','var(--gold)')+c(g.f,'FATS','var(--terra)')+c(g.fib,'FIBRE','#8FB3D9')+'</div>'; }
+function netChips(g,big){ function c(v,l,col){ return '<div style="flex:1;min-width:0;background:rgba(0,0,0,.25);border-radius:8px;padding:'+(big?'4px':'3px')+' 2px;text-align:center;line-height:1.1"><div style="font-size:'+(big?14:13)+'px;font-weight:800;color:'+col+'">'+v+' g</div><div style="font-size:8.5px;font-weight:800;letter-spacing:.03em;color:var(--muted)">'+l+'</div></div>'; }
+  return '<div style="display:flex;gap:5px">'+c(g.p,'PROTEIN','var(--leaf)')+c(g.net,'NET CARBS','var(--gold)')+c(g.f,'FATS','var(--terra)')+c(g.fib,'FIBRE','#8FB3D9')+'</div>'; }
 function netTxt(g,short){ return short?g.p+' g P · '+g.net+' g NC · '+g.f+' g F · '+g.fib+' g fib':g.p+' g protein · '+g.net+' g net carbs · '+g.f+' g fats · '+g.fib+' g fibre'; }
 function mealsOn(d){return Object.keys(S.meals).map(function(k){return S.meals[k];}).filter(function(m){return m.day===d&&!m.deleted;}).sort(function(a,b){return mealAt(a)-mealAt(b);});}
 function mealAt(m){var b=m.body||{};return b.eatenAt?new Date(b.eatenAt).getTime():(b.at||0);}
@@ -1590,9 +1590,9 @@ function renderLog(){
   list.forEach(function(m){ cards+=card(m); });
   (function(){ var run={p:0,net:0,f:0,fib:0}, any=false, k=0; list.forEach(function(m){ var x=mealNet(m.body); if(x){ run=addNet(run,x); any=true; } var fb=aggFeedback(m.body||{}); k+=(fb&&+fb.kcal)||0; });
     if(!any) return; var PT=proteinTarget(), tg=goalKcal(targets());
-    cards+='<div class="card" style="border:1.5px solid var(--gold);background:rgba(201,162,74,.07);gap:8px;margin:2px 0 10px"><div class="row" style="justify-content:space-between;align-items:baseline"><b style="color:var(--gold)">'+(isToday?'Day so far':'Day total')+'</b>'
+    cards='<div class="card" style="border:1.5px solid var(--gold);background:rgba(201,162,74,.07);gap:6px;margin:2px 0 10px;padding:10px 12px"><div class="row" style="justify-content:space-between;align-items:baseline"><b style="color:var(--gold)">'+(isToday?'Day so far':'Day total')+'</b>'
       +(showK()&&k?'<span style="font-size:14px"><b style="color:var(--gold)">'+fmt(Math.round(k/10)*10)+'</b>'+(tg?' <span class="meta" style="font-weight:400">of '+fmt(tg)+' cal</span>':' cal')+'</span>':'')+'</div>'
-      +netChips(run,true)+(PT?'<div class="meta" style="font-weight:400;font-size:12px">Aim '+PT.lo+'–'+PT.hi+' g protein a day</div>':'')+'</div>'; })();
+      +netChips(run,true)+(PT?'<div class="meta" style="font-weight:400;font-size:12px">Aim '+PT.lo+'–'+PT.hi+' g protein a day</div>':'')+'</div>'+cards; })();
   planned.filter(function(it){return !ticked[it.key];}).forEach(function(it){
     cards+='<div class="mcard slot" style="border-style:dashed;'+slotStyle(it.slot||'Late snack')+'"><div class="sum"><span class="mthumb" style="background:none;border:1px dashed var(--line2)">🗓️</span><div style="flex:1;min-width:0"><div><span class="f-time">'+esc(it.time||'')+'</span> <span class="f-meal" style="font-size:16px">'+esc(it.slot||'Meal')+'</span> <span class="meta">· from your coach</span></div><div class="f-food">'+esc(it.text||'')+'</div>'+(it.note?'<span class="cnote">'+esc(it.note)+'</span>':'')+'</div>'
       +'<button data-tick="'+esc(it.key)+'" aria-label="I ate this" style="width:34px;height:34px;border-radius:9px;border:1.5px solid var(--line2);background:none;flex-shrink:0"></button></div></div>';
